@@ -26,6 +26,26 @@
     return "";
   }
 
+  function scanSyncState(r) {
+    if (D.isMock) return "mock";
+    const entities = [r, r && getA(r.code), S.sess].filter(Boolean);
+    if (entities.some((x) => x.__unsynced)) return "failed";
+    if (entities.some((x) => x.__pending)) return "pending";
+    return "saved";
+  }
+  function scanSyncCopy(state) {
+    return state === "failed" ? "辨識到，但未同步。尚未存妥，請點未同步提示重試。" : state === "pending" ? "辨識到，正在同步。請等同步完成。" : state === "mock" ? "辨識到（隔離測試，不寫正式資料）" : "已同步保存這筆掃描與設備資料。";
+  }
+  function refreshScanSync() {
+    document.querySelectorAll("[data-scan-sync]").forEach((el) => {
+      const r = curRecs().find((x) => x.code === el.getAttribute("data-scan-sync"));
+      if (!r) return;
+      const state = scanSyncState(r);
+      el.textContent = scanSyncCopy(state);
+      const card = el.closest(".toast");
+      if (card) { card.classList.toggle("syncfailed", state === "failed"); card.classList.toggle("syncpending", state === "pending"); }
+    });
+  }
   function session() {
     for (const key of ["zhuge_ai_os_google_auth_session_v1", "zhuge_ai_os_session_v1"]) {
       try {
@@ -42,7 +62,7 @@
     place: "", gps: null, gpsErr: "", site: "", zone: "", zoneOpen: false,
     open: "", filter: "all", metric: "total", dsite: "", dst: "", pfilter: "",
     asite: "", editCode: "", editDraft: null, savedAt: "", newZone: {}, newSite: {}, siteErr: "", sess: null, manualCode: "", camOn: false, camErr: "", camLast: "", camLastAt: 0,
-    mapSite: "", mapZone: "", mapImg: "", mapEdit: false, retTab: "", scanProject: "", scanProjectInput: "", afOrigin: "", afBrand: "", afType: "", ageBasis: "purchase", ageFilter: "", ibOpen: "", ibConfirm: "", ibDraft: null, recvBatch: "", recvCode: "", recvLast: null
+    mapSite: "", mapZone: "", mapImg: "", mapEdit: false, retTab: "", scanDepartment: "", scanSetupErr: "", scanProject: "", scanProjectInput: "", afOrigin: "", afBrand: "", afType: "", ageBasis: "purchase", ageFilter: "", ibOpen: "", ibConfirm: "", ibDraft: null, recvBatch: "", recvCode: "", recvLast: null
   };
 
   /* ---- 資料導出 ---- */
@@ -96,7 +116,7 @@
     if (!items.length && !undecided && !recv.length) return '<div class="acard ok"><b>目前沒有需要立即處理的項目。</b><span class="small">待修、維修中、保固到期和未決定的盤點差異會列在這裡。</span></div>';
     const shown = items.slice(0, 6);
     let rows = shown.map((x) =>
-      '<div class="arow2"><span class="dot ' + x.tone + '"></span><span class="aname"><b>' + esc(x.a.name) + "</b> " + esc(x.a.code.slice(-6)) +
+      '<div class="arow2"><span class="dot ' + x.tone + '"></span><span class="aname"><b>' + esc(x.a.name) + "</b> " + esc(x.a.code) +
       '<br><span class="small">' + esc(x.a.site) + " " + esc(x.a.zone) + " · 保管人 " + esc(x.a.owner) + " · " + esc(x.why) + '</span></span>' +
       '<button class="pill sm" data-a="ajump" data-v="' + esc(x.a.code) + '">處理</button></div>').join("");
     recv.forEach((x) => { rows += '<div class="arow2"><span class="dot mid"></span><span class="aname"><b>進貨「' + esc(x.b.vendor || x.b.model || "未填廠商") + "」</b>" +
@@ -125,6 +145,17 @@
   }
   const distinctBrands = () => [...new Set(assets().map(brandOf))];
 
+  function legacyDetails(code) {
+    if (typeof store.legacyRows !== "function") return "";
+    const rows = store.legacyRows().filter((r) => r.code === code);
+    if (!rows.length) return '<div class="small">舊帳：查無此完整編號；不猜名稱、型號或序號。</div>';
+    if (rows.length !== 1) return '<div class="warn">舊帳同完整編號有 ' + rows.length + ' 筆，請至舊帳比對確認，未自動選取。</div>';
+    const r = rows[0], current = getA(code);
+    const conflicts = current ? ["name", "model", "serial", "purchase"].filter((k) => current[k] && r[k] && String(current[k]).trim() !== String(r[k]).trim()) : [];
+    const warning = conflicts.length ? '<div class="warn">新舊資料不同（' + esc(conflicts.join("、")) + '），保留新帳待查。</div>' : "";
+    return warning + '<div class="small legacydetail">舊帳參考（尚未確認為現況）：' + esc(r.name || "名稱未填") + " · 型號 " + esc(r.model || "未填") + " · S/N " + esc(r.serial || "舊帳未填") + '<br>出處 ' + esc(r.provenance || r.siteLead || "") + " · " + esc(r.recordKey || "") + " · 原區域 " + esc(r.zone || "未填") + " · 原位置 " + esc(r.place || "未填") + "。不自動改使用部門、專案或保管人。</div>";
+  }
+
   /* ---- 掃描 ---- */
   function scan(code) {
     code = String(code || "").trim();
@@ -134,12 +165,14 @@
     const rawProject = String(S.sess.project || "").trim();
     const sessProj = ["", "全部", "全部專案", "未指定", "未指定（待確認）", "未指定(待確認)"].includes(rawProject) ? "" : rawProject;
     const pm = !!(a && sessProj && a.project && a.project !== D.UNASSIGNED && a.project !== sessProj); // 未指定不算衝突：依 14:30 定案歸入本次專案
-    store.addRecord(S.sess, { code, status, zone: S.zone, at: new Date().toISOString(), projMismatch: pm, sessProject: sessProj });
+    store.addRecord(S.sess, { code, status, zone: S.zone, department: S.sess.department || "", at: new Date().toISOString(), projMismatch: pm, sessProject: sessProj });
     /* 12:07 商業規則：現場掃到的設備寫進新帳（使用中）；既有待修/維修/報廢不回沖，記例外提示 */
     if (typeof store.observeAsset === "function") {
       const obs = store.observeAsset(S.sess, code, S.zone);
-      if (obs && (obs.exception || obs.assignedProject)) {
+      if (obs && (obs.exception || obs.assignedProject || obs.departmentMismatch || obs.metadataIssue)) {
         const rec = [...curRecs()].reverse().find((r) => r.code === code);
+        if (rec && obs.metadataIssue) rec.metadataIssue = obs.metadataIssue;
+        if (rec && obs.departmentMismatch) rec.departmentMismatch = true;
         if (rec && obs.exception) rec.stateException = obs.reason;
         if (rec && obs.assignedProject) rec.projectAssigned = obs.assignedProject; // 原本未指定專案 → 已歸入本次專案（14:30 定案）
       }
@@ -180,9 +213,13 @@
   }
   function startSession() {
     if (!S.site) return;
+    if (S.scanProjectInput.trim()) S.scanProject = S.scanProjectInput.trim();
+    S.scanDepartment = S.scanDepartment.trim();
+    S.scanSetupErr = "";
     const begin = (fix) => {
       const g = fix || S.gps || { lat: null, lon: null, acc: null };
-      S.sess = store.startSession(S.site, g.lat, g.lon, g.acc != null ? g.acc : null, S.scanProject || "");
+      try { S.sess = store.startSession(S.site, g.lat, g.lon, g.acc != null ? g.acc : null, S.scanProject || "", "", S.scanDepartment); }
+      catch (err) { S.scanSetupErr = err.message; render(); return; }
       S.zone = zonesOf(S.site)[0] || "";
       S.open = ""; S.screen = "scan";
       render();
@@ -229,8 +266,7 @@
     if (!silent) render();
   }
   function camOnCode(val) {
-    if (!val) return;
-    if (!cam.dedup) cam.dedup = ErpScanCore.makeDeduper(3000);
+    if (!cam.dedup) cam.dedup = ErpScanCore.makePresenceDeduper(1500);
     if (cam.dedup.accept(val)) scan(val);
   }
   function camTick() {
@@ -238,7 +274,7 @@
     if (!v || v.readyState < 2 || !S.sess) return;
     if (cam.engine === "barcode") {
       cam.det.detect(v).then((codes) => {
-        if (codes && codes.length) camOnCode(String(codes[0].rawValue || "").trim());
+        camOnCode(codes && codes.length ? String(codes[0].rawValue || "").trim() : "");
       }).catch(() => { /* 單次辨識失敗略過，繼續下一幀 */ });
     } else if (cam.engine === "jsqr") {
       try {
@@ -277,7 +313,7 @@
       cam.stream = stream;
       cam.engine = hasBD ? "barcode" : "jsqr";
       if (hasBD) cam.det = new BarcodeDetector({ formats: ["qr_code", "code_128", "code_39", "ean_13", "ean_8", "data_matrix"] });
-      cam.dedup = ErpScanCore.makeDeduper(3000);
+      cam.dedup = ErpScanCore.makePresenceDeduper(1500);
       S.camOn = true; S.camLast = ""; S.camLastAt = 0;
       render();
       cam.timer = setInterval(camTick, cam.engine === "jsqr" ? 700 : 600);
@@ -365,6 +401,9 @@
         ? '<div class="chips"><span class="small">尚未建立據點。請先到「電腦 · 管理編輯 → 位置表」新增第一個據點，這裡才會出現選項。</span></div>'
         : '<div class="chips">' + siteNames().map((p) => '<button class="pill' + (S.site === p ? " on" : "") + '" data-a="site" data-v="' + esc(p) + '">' + esc(p) + "</button>").join("") + "</div>") +
       (g && S.nearest && S.site && S.site !== S.nearest ? '<div class="warn">你選的據點和定位最近的據點不同，結果會註記。</div>' : "") +
+      (store.departmentReady || D.isMock
+        ? '<div class="lbl" style="margin-top:14px">本次使用部門（與專案、保管人分開）</div><input class="inp" data-f="scanDepartment" placeholder="例如：管理部；不確定可留白" value="' + esc(S.scanDepartment) + '"><div class="small">開始前設定，之後每筆沿用。未填就記未指定；已有其他部門的設備保留原登記並提示差異。</div>'
+        : '<div class="warn">使用部門欄位尚未就緒，目前不會把部門混填到專案或保管人。</div>') +
       '<div class="lbl" style="margin-top:14px">這次主要盤哪個專案？（可先設定，掃描時沿用，不用每筆重選）</div>' +
       '<div class="chips"><button class="pill' + (S.scanProject === "" ? " on" : "") + '" data-a="sproj" data-v="">全部專案</button>' +
       projects().map((p) => '<button class="pill' + (S.scanProject === p ? " on" : "") + '" data-a="sproj" data-v="' + esc(p) + '">' + esc(p.replace("（測試）", "")) + "</button>").join("") + "</div>" +
@@ -374,6 +413,7 @@
       (S.site ? '<div class="match">本次範圍：<b>' + esc(S.site) + "</b>" + (S.scanProject ? " · <b>" + esc(S.scanProject.replace("（測試）", "")) + "</b>" : " · 全部專案") +
         " · 應盤 <b>" + assets().filter((a) => a.site === S.site && (!S.scanProject || (a.project || D.UNASSIGNED) === S.scanProject)).length + "</b> 台</div>" : "") +
       "</div>" +
+      (S.scanSetupErr ? '<div class="warn">' + esc(S.scanSetupErr) + "</div>" : "") +
       '<button class="btn" data-a="start"' + (S.site ? "" : " disabled") + ">開始連續掃描" + (S.site ? " · " + esc(S.site) : "") + (S.scanProject ? " · " + esc(S.scanProject.replace("（測試）", "")) : "") + "</button></div>";
   }
   function phoneScan() {
@@ -386,16 +426,22 @@
     let toast;
     if (lastShown) {
       const r = lastShown, a = getA(r.code), st = dupFlag(r);
-      toast = '<div class="toast t-' + st + '">' + chip(st) +
+      const syncState = scanSyncState(r);
+      toast = '<div class="toast t-' + st + (syncState === "failed" ? " syncfailed" : syncState === "pending" ? " syncpending" : "") + '">' +
+        '<b data-scan-sync="' + esc(r.code) + '">' + esc(scanSyncCopy(syncState)) + '</b><span class="small">位置比對：' + esc(LABEL[st]) + '</span>' +
         '<div class="tname">' + (a ? esc(a.name || a.code) : "清冊中找不到") + "</div>" +
         '<div class="tcode">' + esc(r.code) + "</div>" +
         (a ? '<div class="tloc">設備狀態：<b>' + esc(a.status) + "</b>" + (a.status !== "使用中" && a.status !== "備用" ? "（掃描不會改狀態）" : "") +
-          "<br>歸屬專案：<b>" + esc(a.project || D.UNASSIGNED) + "</b><br>設備序號：" + esc(a.serial || "未登記") +
+          "<br>使用部門：<b>" + esc(a.department || "未指定") + "</b><br>歸屬專案：<b>" + esc(a.project || D.UNASSIGNED) + "</b><br>設備序號：" + esc(a.serial || "未登記") +
           "<br>登記：" + esc(a.site) + " " + esc(a.zone) + "<br>現場：" + esc(S.site) + " " + esc(r.zone) + "</div>" : "") +
+        (a && a.legacyKey ? '<div class="small">名稱／型號等空白欄位已由舊帳補入新帳：' + esc(a.legacyProvenance) + " · " + esc(a.legacyKey) + "。保留來源快照；S/N 未填不猜。</div>" : "") +
+        (lastShown.metadataIssue ? '<div class="warn">' + esc(lastShown.metadataIssue) + "</div>" : "") +
+        legacyDetails(r.code) +
+        (lastShown.departmentMismatch ? '<div class="warn">既有使用部門與本次設定不同，保留原登記；本次觀察另外保存，待管理端確認。</div>' : "") +
         (lastShown.projMismatch && a ? '<div class="warn">歸屬專案是「' + esc((a.project || D.UNASSIGNED).replace("（測試）", "")) + "」，和這次設定的「" + esc((lastShown.sessProject || "").replace("（測試）", "")) + "」不同。已記錄，不會自動改歸屬。</div>" : "") +
         (lastShown.projectAssigned ? '<div class="tloc">原本未指定專案，已歸入「' + esc(String(lastShown.projectAssigned).replace("（測試）", "")) + "」。</div>" : "") +
         (lastShown.stateException ? '<div class="warn">' + esc(lastShown.stateException) + "。需由管理端確認後才會變更，本次掃描已照常保存。</div>" : "") +
-        (r.status === "none" && !lastShown.stateException ? '<div class="tloc">新設備已按「使用中」存入新帳（現場在用＝可用）；盤點後可補登細節。</div>' : "") + "</div>";
+        (r.status === "none" && !lastShown.stateException ? '<div class="tloc">新設備依現場觀察登記「使用中」；是否存妥請以上方同步狀態為準。</div>' : "") + "</div>";
     } else {
       toast = D.isMock ? '<div class="toast idle">還沒掃到東西。輸入登記編號，或點下面的測試按鈕模擬掃描。</div>' : '<div class="toast idle">還沒掃到東西。對準設備標籤掃描，或手動輸入登記編號。</div>';
     }
@@ -409,21 +455,22 @@
       '<span class="bar"><i style="width:' + (scope.length ? Math.round((scopeGot.length / scope.length) * 100) : 0) + '%"></i></span>' +
       '<div class="smeta">應盤 ' + scope.length + " · 已掃 " + scopeGot.length + " · " + (scopeMiss.length ? "<b class=\"pbad\">還差 " + scopeMiss.length + "</b>" : "全部掃完") +
       (outScope ? " · 範圍外 " + outScope + " 筆（都有記錄）" : "") + "</div>" +
-      (scopeMiss.length ? '<div class="smeta">未掃：' + scopeMiss.slice(0, 8).map((a) => esc(a.name) + " " + esc(a.code.slice(-4))).join("、") + (scopeMiss.length > 8 ? " …等 " + scopeMiss.length + " 台" : "") + "</div>" : "") + "</div>";
+      (scopeMiss.length ? '<div class="smeta">未掃：' + scopeMiss.slice(0, 8).map((a) => esc(a.name) + " " + esc(a.code)).join("、") + (scopeMiss.length > 8 ? " …等 " + scopeMiss.length + " 台" : "") + "</div>" : "") + "</div>";
     return '<div class="screen">' +
       '<div class="scanbar"><button class="zonebtn" data-a="zoneopen"><span class="lbl">' + esc(S.site) + " · 目前區域</span><b>" + esc(S.zone) + " ▾</b></button>" +
       '<button class="btn mini" data-a="toresult">結束 (' + recs.length + ")</button></div>" +
+      '<div class="small">本次使用部門：' + esc(S.sess.department || "未指定") + " · 專案：" + esc(S.sess.project || "全部專案") + " · 經手人：" + esc(S.sess.operator || "未記錄") + "（開始前設定，這批沿用）</div>" +
       scopeStrip +
       '<div class="small">起點定位 ' + (S.sess.lat != null ? Number(S.sess.lat).toFixed(3) + ", " + Number(S.sess.lon).toFixed(3) + (S.sess.acc != null ? "（±" + S.sess.acc + " m）" : "") : "無（手動選擇據點）") + " · " + esc(new Date(S.sess.at).toLocaleTimeString("zh-TW", { hour12: false })) + "（固定，換區域不會改）</div>" +
       (S.zoneOpen ? '<div class="zonepick">' + zonesOf(S.site).map((z) => '<button class="pill' + (S.zone === z ? " on" : "") + '" data-a="zone" data-v="' + esc(z) + '">' + esc(z) + "</button>").join("") + "</div>" : "") +
       (S.camOn
-        ? '<div class="view live"><video id="camv" autoplay playsinline muted></video><span class="hint">' + (cam.engine === "jsqr" ? "對準 QR 碼（此瀏覽器僅支援 QR），掃到會自動記一筆（同一張 3 秒內不重複計）" : "對準 QR／條碼，掃到會自動記一筆（同一張 3 秒內不重複計）") + '</span></div><div class="frow"><button class="pill sm" data-a="camstop">關閉相機</button></div>'
-        : '<div class="view" role="img" aria-label="相機取景區"><i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i><div class="qr"></div><span class="hint">可用相機連續掃描，或用下方輸入／測試按鈕</span></div><div class="frow"><button class="pill sm" data-a="camstart">開啟相機掃描</button></div>' + (S.camErr ? '<div class="warn">' + esc(S.camErr) + "</div>" : "")) +
+        ? '<div class="view live"><video id="camv" autoplay playsinline muted></video><span class="hint">' + (cam.engine === "jsqr" ? "對準 QR 碼（此瀏覽器僅支援 QR），掃到會自動記一筆（同一張持續對準只記一次，移開約 1.5 秒後可再掃）" : "對準 QR／條碼，掃到會自動記一筆（同一張持續對準只記一次，移開約 1.5 秒後可再掃）") + '</span></div><div class="frow"><button class="pill sm" data-a="camstop">關閉相機</button></div>'
+        : '<div class="view" role="img" aria-label="相機取景區"><i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i><div class="qr"></div><span class="hint">可用相機連續掃描，或用下方手動輸入</span></div><div class="frow"><button class="pill sm" data-a="camstart">開啟相機掃描</button></div>' + (S.camErr ? '<div class="warn">' + esc(S.camErr) + "</div>" : "")) +
       toast +
-      '<div class="frow"><input class="inp" data-f="manualCode" placeholder="輸入登記編號（如 CSPH107030182）" value="' + esc(S.manualCode) + '"><button class="btn mini" data-a="manual">掃描</button></div>' +
+      '<div class="frow"><input class="inp" data-f="manualCode" placeholder="輸入登記編號（如 CSPH107030182）" value="' + esc(S.manualCode) + '"><button class="btn mini" data-a="manual">手動登記</button></div>' +
       (D.isMock
         ? '<div class="lbl sim">測試用：模擬掃到（虛構設備）</div><div class="chips">' +
-          siteAssets.slice(0, 4).map((a) => '<button class="pill sm" data-a="scan" data-v="' + esc(a.code) + '">' + esc(a.name) + " " + esc(a.code.slice(-4)) + "</button>").join("") +
+          siteAssets.slice(0, 4).map((a) => '<button class="pill sm" data-a="scan" data-v="' + esc(a.code) + '">' + esc(a.name) + " " + esc(a.code) + "</button>").join("") +
           (foreign ? '<button class="pill sm" data-a="scan" data-v="' + esc(foreign.code) + '">其他據點的設備</button>' : "") +
           (otherProj ? '<button class="pill sm" data-a="scan" data-v="' + esc(otherProj.code) + '">其他專案的設備</button>' : "") +
           '<button class="pill sm" data-a="scan" data-v="CSXX999999999">不在清冊內的編號</button>' +
@@ -433,8 +480,8 @@
       [...recs].reverse().map((r) => {
         const a = getA(r.code);
         return '<button class="item" data-a="open" data-v="' + esc(r.code) + '">' + chip(dupFlag(r)) +
-          '<span class="iname">' + esc(a ? a.name : r.code) + '</span><span class="icode">' + esc(r.code.slice(-6)) + "</span>" +
-          (S.open === r.code ? '<span class="idet">' + (a ? esc(a.model) + " · S/N " + esc(a.serial || "未登記") + " · 狀態 " + esc(a.status) + " · 保管人 " + esc(a.owner) + " · 歸屬 " + esc(a.project || D.UNASSIGNED) + " · 購入 " + esc(a.purchase || "未登記") + " · 啟用 " + esc(a.activate || "未登記") + " · 保固 " + esc(a.warranty || "未登記") + " · 登記 " + esc(a.site) + " " + esc(a.zone) : "清冊無此編號") + " · " + esc(new Date(r.at).toLocaleTimeString("zh-TW", { hour12: false })) + (r.n > 1 ? " · 已重複 " + r.n + " 次" : "") + (r.projMismatch ? " · 歸屬專案與本次範圍不同（未改歸屬）" : "") + (r.projectAssigned ? " · 原本未指定專案→已歸入本次專案" : "") + (r.stateException ? " · ⚠ " + esc(r.stateException) : "") + "</span>" : "") + "</button>";
+          '<span class="iname">' + esc(a ? a.name : r.code) + '</span><span class="icode">' + esc(r.code) + "</span>" +
+          (S.open === r.code ? '<span class="idet">' + (a ? esc(a.model) + " · S/N " + esc(a.serial || "未登記") + " · 狀態 " + esc(a.status) + " · 保管人 " + esc(a.owner ? (a.owner === "公用" && a.source === "盤點" ? "公用（舊版預設，未確認）" : a.owner) : "未確認") + " · 使用部門 " + esc(a.department || "未指定") + " · 歸屬 " + esc(a.project || D.UNASSIGNED) + " · 購入 " + esc(a.purchase || "未登記") + " · 啟用 " + esc(a.activate || "未登記") + " · 保固 " + esc(a.warranty || "未登記") + " · 登記 " + esc(a.site) + " " + esc(a.zone) : "清冊無此編號") + " · " + esc(new Date(r.at).toLocaleTimeString("zh-TW", { hour12: false })) + (r.n > 1 ? " · 已重複 " + r.n + " 次" : "") + (r.departmentMismatch ? " · 使用部門不同（保留原登記）" : "") + " · 本次部門 " + esc(r.department || "未指定") + (r.projMismatch ? " · 歸屬專案與本次範圍不同（未改歸屬）" : "") + (r.projectAssigned ? " · 原本未指定專案→已歸入本次專案" : "") + (r.stateException ? " · ⚠ " + esc(r.stateException) : "") + "</span>" : "") + "</button>";
       }).join("") + "</div>";
   }
   function decisionButtons(r) {
@@ -452,7 +499,7 @@
     const siteAssets = assets().filter((a) => a.site === S.site);
     const badStatus = recs.filter((r) => { const a = getA(r.code); return a && (a.status === "維修中" || a.status === "待修" || a.status === "已報廢"); }).length;
     return '<div class="screen"><h3 class="ptitle">' + esc(S.site) + "盤點結果</h3>" +
-      '<p class="psub">起點定位 ' + (S.sess.lat != null ? Number(S.sess.lat).toFixed(3) + ", " + Number(S.sess.lon).toFixed(3) + (S.sess.acc != null ? "（±" + S.sess.acc + " m）" : "") : "無") + " · 共掃 " + recs.length + " 筆" + (D.isMock ? " · 只存在這個瀏覽器，尚未連接試算表" : " · 寫入你的試算表；失敗會標「未同步」，點一下可重試") + "</p>" +
+      '<p class="psub">起點定位 ' + (S.sess.lat != null ? Number(S.sess.lat).toFixed(3) + ", " + Number(S.sess.lon).toFixed(3) + (S.sess.acc != null ? "（±" + S.sess.acc + " m）" : "") : "無") + " · 使用部門 " + esc(S.sess.department || "未指定") + " · 專案 " + esc(S.sess.project || "全部專案") + " · 共掃 " + recs.length + " 筆" + (D.isMock ? " · 只存在這個瀏覽器，尚未連接試算表" : " · 寫入你的試算表；失敗會標「未同步」，點一下可重試") + "</p>" +
       (() => { const sp = S.sess.project || "";
         const sc = siteAssets.filter((a) => !sp || (a.project || D.UNASSIGNED) === sp);
         const got = sc.filter((a) => recs.some((r) => r.code === a.code));
@@ -469,14 +516,14 @@
         const got = should.filter((a) => recs.some((r) => r.code === a.code));
         const miss = should.filter((a) => !got.includes(a));
         return '<div class="zrow"><span>' + esc(z) + "</span><b>" + got.length + " / " + should.length + "</b>" +
-          (miss.length ? '<span class="miss">未掃：' + miss.map((a) => esc(a.name) + " " + esc(a.code.slice(-4))).join("、") + "</span>" : "") + "</div>";
+          (miss.length ? '<span class="miss">未掃：' + miss.map((a) => esc(a.name) + " " + esc(a.code)).join("、") + "</span>" : "") + "</div>";
       }).join("") + "</div>" +
       '<div class="lbl sim">需要你決定（' + todo.length + "）</div>" +
       '<div class="chips"><button class="pill sm' + (S.filter === "all" ? " on" : "") + '" data-a="filter" data-v="all">全部</button><button class="pill sm' + (S.filter === "todo" ? " on" : "") + '" data-a="filter" data-v="todo">只看待處理</button></div>' +
       (shown.length === 0 ? '<div class="toast idle">沒有要處理的項目。</div>"'.replace('"</div>"', '"') : shown.map((r) => {
         const a = getA(r.code);
-        return '<div class="item static">' + chip(r.status) + syncMark(r) + '<span class="iname">' + esc(a ? a.name : r.code) + '</span><span class="icode">' + esc(r.code.slice(-6)) + "</span>" +
-          '<span class="idet">' + (a ? esc(a.status) + " · S/N " + esc(a.serial || "未登記") + " · 歸屬 " + esc(a.project || D.UNASSIGNED) + " · 購入 " + esc(a.purchase || "未登記") + " · 保固 " + esc(a.warranty || "未登記") + " · 登記 " + esc(a.site) + " " + esc(a.zone) + " → 現場 " + esc(S.site) + " " + esc(r.zone) : "清冊查無，需補登") + "</span>" +
+        return '<div class="item static">' + chip(r.status) + syncMark(r) + '<span class="iname">' + esc(a ? a.name : r.code) + '</span><span class="icode">' + esc(r.code) + "</span>" +
+          '<span class="idet">' + (a ? esc(a.status) + " · S/N " + esc(a.serial || "未登記") + " · 使用部門 " + esc(a.department || "未指定") + " · 歸屬 " + esc(a.project || D.UNASSIGNED) + " · 購入 " + esc(a.purchase || "未登記") + " · 保固 " + esc(a.warranty || "未登記") + " · 登記 " + esc(a.site) + " " + esc(a.zone) + " → 現場 " + esc(S.site) + " " + esc(r.zone) : "清冊查無，需補登") + "</span>" +
           decisionButtons(r) + "</div>";
       }).join("")) +
       '<div class="hand">接下來在電腦整理：這批掃描已寫進試算表，「電腦 · 管理編輯」的盤點差異會看到同一份。</div>' +
@@ -501,14 +548,14 @@
       if (dst) list = list.filter((x) => x.a.status === dst);
       drill = '<div class="drill"><div class="lbl">' + { done: "已盤點明細", todo: "未盤到明細", zone: "位置不符明細" }[metric] + "（篩選：" + esc(dst || "全部狀態") + "）</div>" +
         (list.length === 0 ? '<div class="small">沒有符合的設備。</div>' : list.slice(0, 8).map((x) =>
-          '<div class="zrow act"><span><b>' + esc(x.a.name) + "</b> " + esc(x.a.code.slice(-6)) + '<br><span class="small">' + esc(x.a.site) + " " + esc(x.a.zone) + " · " + esc(x.a.status) + " · 歸屬 " + esc(x.a.project || D.UNASSIGNED) + (x.note ? " · " + esc(x.note) : "") + '</span></span><button class="pill sm" data-a="ajump" data-v="' + esc(x.a.code) + '">處理</button><span class="small">' + esc(x.tag) + "</span></div>").join("")) +
+          '<div class="zrow act"><span><b>' + esc(x.a.name) + "</b> " + esc(x.a.code) + '<br><span class="small">' + esc(x.a.site) + " " + esc(x.a.zone) + " · " + esc(x.a.status) + " · 歸屬 " + esc(x.a.project || D.UNASSIGNED) + (x.note ? " · " + esc(x.note) : "") + '</span></span><button class="pill sm" data-a="ajump" data-v="' + esc(x.a.code) + '">處理</button><span class="small">' + esc(x.tag) + "</span></div>").join("")) +
         (list.length > 8 ? '<div class="small">另有 ' + (list.length - 8) + " 筆。</div>" : "") + "</div>";
     }
     let projDrill = "";
     if (pfilter) {
       const list = projAssets(pfilter);
       projDrill = '<div class="drill"><div class="lbl">「' + esc(pfilter) + "」反查到 " + list.length + " 台，分布在 " + esc([...new Set(list.map((a) => a.site))].join("、") || "無") + "；同一專案可跨據點。</div>" +
-        list.map((a) => '<div class="zrow act"><span><b>' + esc(a.name) + "</b> " + esc(a.code.slice(-6)) + '<br><span class="small">' + esc(a.site) + " " + esc(a.zone) + " · " + esc(a.owner) + " · " + esc(a.status) + '</span></span><button class="pill sm" data-a="ajump" data-v="' + esc(a.code) + '">處理</button><span class="small">' + esc((a.project || D.UNASSIGNED).replace("（測試）", "")) + "</span></div>").join("") + "</div>";
+        list.map((a) => '<div class="zrow act"><span><b>' + esc(a.name) + "</b> " + esc(a.code) + '<br><span class="small">' + esc(a.site) + " " + esc(a.zone) + " · " + esc(a.owner ? (a.owner === "公用" && a.source === "盤點" ? "公用（舊版預設，未確認）" : a.owner) : "未確認") + " · " + esc(a.status) + '</span></span><button class="pill sm" data-a="ajump" data-v="' + esc(a.code) + '">處理</button><span class="small">' + esc((a.project || D.UNASSIGNED).replace("（測試）", "")) + "</span></div>").join("") + "</div>";
     }
     const tiles = '<div class="' + (isPhone ? "tiles two" : "dtiles") + '">' +
       '<button class="tile tb' + (metric === "total" ? " sel" : "") + '" data-a="metric" data-v="total"><b>' + sum.t + "</b>設備總數</button>" +
@@ -600,12 +647,13 @@
       list.map((a) => {
         const lr = lastRecordOf(a.code);
         let row = '<button class="atr arow" data-a="edit" data-v="' + esc(a.code) + '"><span class="icode">' + esc(a.code) + "</span>" +
-          "<span>" + esc(a.name) + ' <span class="small">' + esc(a.model) + " · S/N " + esc(a.serial || "未登記") + " · " + esc(brandOf(a)) + " · 產地 " + esc(originOf(a)) + (a.po ? " · PO " + esc(a.po) : "") + "</span>" + (a.__edited ? '<span class="dbadge"> 已修改（此瀏覽器）</span>' : "") + (S.savedAt === a.code ? '<span class="dbadge"> ✓已儲存</span>' : "") + "</span>" +
-          "<span>" + esc((a.project || D.UNASSIGNED).replace("（測試）", "")) + '</span><span class="opt">' + esc(a.owner) + '</span><span class="opt">' + esc(a.zone) + "</span><span>" + esc(a.status) + '</span><span class="small">' + (S.editCode === a.code ? "收合" : "編輯") + "</span></button>";
+          "<span>" + esc(a.name) + ' <span class="small">' + esc(a.model) + " · S/N " + esc(a.serial || "未登記") + " · " + esc(brandOf(a)) + " · 產地 " + esc(originOf(a)) + (a.po ? " · PO " + esc(a.po) : "") + "</span>" + legacyDetails(a.code) + (a.__edited ? '<span class="dbadge"> 已修改（此瀏覽器）</span>' : "") + (S.savedAt === a.code ? '<span class="dbadge"> ✓已儲存</span>' : "") + "</span>" +
+          "<span>" + esc((a.project || D.UNASSIGNED).replace("（測試）", "")) + '</span><span class="opt">' + esc(a.owner ? (a.owner === "公用" && a.source === "盤點" ? "公用（舊版預設，未確認）" : a.owner) : "未確認") + '</span><span class="opt">' + esc(a.zone) + "</span><span>" + esc(a.status) + '</span><span class="small">' + (S.editCode === a.code ? "收合" : "編輯") + "</span></button>";
         if (S.editCode === a.code && S.editDraft) {
           const d = S.editDraft;
-          row += '<div class="drawer">' +
-            '<div class="frow"><span class="lbl">保管人</span><input class="inp" data-f="owner" value="' + esc(d.owner) + '"></div>' +
+          row += '<div class="drawer">' + legacyDetails(a.code) +
+            (store.departmentReady || D.isMock ? '<div class="frow"><span class="lbl">使用部門</span><input class="inp" data-f="department" value="' + esc(d.department || "") + '"></div>' : "") +
+      '<div class="frow"><span class="lbl">保管人</span><input class="inp" data-f="owner" value="' + esc(d.owner) + '"></div>' +
             '<div class="frow"><span class="lbl">區域</span><select class="inp" data-f="zone">' + zones.map((z) => '<option value="' + esc(z) + '"' + (d.zone === z ? " selected" : "") + ">" + esc(z) + "</option>").join("") + "</select></div>" +
             '<div class="frow"><span class="lbl">設備狀態</span><select class="inp" data-f="status">' + D.STATUSES.map((st) => '<option value="' + esc(st) + '"' + (d.status === st ? " selected" : "") + ">" + esc(st) + "</option>").join("") + "</select></div>" +
             '<div class="frow"><span class="lbl">歸屬專案</span><select class="inp" data-f="project">' + projects().map((p) => '<option value="' + esc(p) + '"' + ((d.project || D.UNASSIGNED) === p ? " selected" : "") + ">" + esc(p) + "</option>").join("") + "</select></div>" +
@@ -682,7 +730,7 @@
       canvas +
       (sel ? '<div class="card"><div class="lbl">' + esc(S.mapSite) + " · " + esc(sel) + " 的設備（" + selAssets.length + " 台）</div>" +
         (selAssets.length === 0 ? '<div class="small">這個位置目前沒有登記設備。</div>' :
-          selAssets.map((a) => '<div class="zrow act"><span><b>' + esc(a.name) + "</b> " + esc(a.code.slice(-6)) + '<br><span class="small">S/N ' + esc(a.serial || "未登記") + " · " + esc(a.status) + " · 保管人 " + esc(a.owner) + " · 歸屬 " + esc((a.project || D.UNASSIGNED).replace("（測試）", "")) + '</span></span><button class="pill sm" data-a="ajump" data-v="' + esc(a.code) + '">處理</button></div>').join("")) + "</div>"
+          selAssets.map((a) => '<div class="zrow act"><span><b>' + esc(a.name) + "</b> " + esc(a.code) + '<br><span class="small">S/N ' + esc(a.serial || "未登記") + " · " + esc(a.status) + " · 保管人 " + esc(a.owner ? (a.owner === "公用" && a.source === "盤點" ? "公用（舊版預設，未確認）" : a.owner) : "未確認") + " · 歸屬 " + esc((a.project || D.UNASSIGNED).replace("（測試）", "")) + '</span></span><button class="pill sm" data-a="ajump" data-v="' + esc(a.code) + '">處理</button></div>').join("")) + "</div>"
         : '<div class="small">點圖上任一位置，帶出該位置的設備資料。</div>');
   }
   /* ---- 入庫作業：整批建單（待入庫，不影響庫存）→ 到貨核對（手機）→ 確認入庫（此時才建設備）---- */
@@ -779,8 +827,8 @@
       (recs.length === 0 ? '<div class="toast idle">還沒有掃描紀錄。到「手機 · 現場掃描」掃幾筆，差異會出現在這裡。</div>' :
         recs.map((r) => {
           const a = getA(r.code);
-          return '<div class="item static">' + chip(r.status) + syncMark(r) + '<span class="iname">' + esc(a ? a.name : r.code) + '</span><span class="icode">' + esc(r.code.slice(-6)) + "</span>" +
-            '<span class="idet">' + (a ? esc(a.status) + " · S/N " + esc(a.serial || "未登記") + " · 歸屬 " + esc(a.project || D.UNASSIGNED) + " · 登記 " + esc(a.site) + " " + esc(a.zone) + " → 現場 " + esc(r.sessionSite) + " " + esc(r.zone) : "清冊查無，需補登") + (r.projMismatch ? " · 歸屬專案與該場次範圍不同（未改歸屬）" : "") + " · " + esc(new Date(r.at).toLocaleString("zh-TW", { hour12: false })) + "</span>" +
+          return '<div class="item static">' + chip(r.status) + syncMark(r) + '<span class="iname">' + esc(a ? a.name : r.code) + '</span><span class="icode">' + esc(r.code) + "</span>" +
+            '<span class="idet">' + (a ? esc(a.status) + " · S/N " + esc(a.serial || "未登記") + " · 使用部門 " + esc(a.department || "未指定") + " · 歸屬 " + esc(a.project || D.UNASSIGNED) + " · 登記 " + esc(a.site) + " " + esc(a.zone) + " → 現場 " + esc(r.sessionSite) + " " + esc(r.zone) : "清冊查無，需補登") + (r.departmentMismatch ? " · 使用部門不同（保留原登記）" : "") + " · 本次部門 " + esc(r.department || "未指定") + (r.projMismatch ? " · 歸屬專案與該場次範圍不同（未改歸屬）" : "") + " · " + esc(new Date(r.at).toLocaleString("zh-TW", { hour12: false })) + "</span>" +
             decisionButtons(r) + "</div>";
         }).join("")) +
       '';
@@ -990,7 +1038,7 @@
       S.retTab = S.dtab; S.mode = "pc"; S.dash = false;
       S.dtab = "assets"; S.asite = x.site;
       S.editCode = v;
-      S.editDraft = { owner: x.owner, zone: x.zone, status: x.status, project: x.project || D.UNASSIGNED, serial: x.serial, purchase: x.purchase, activate: x.activate, warranty: x.warranty, brand: x.brand || "", origin: x.origin || "", mfgYear: x.mfgYear || "", type: x.type || "", po: x.po || "" };
+      S.editDraft = { department: x.department || "", owner: x.owner, zone: x.zone, status: x.status, project: x.project || D.UNASSIGNED, serial: x.serial, purchase: x.purchase, activate: x.activate, warranty: x.warranty, brand: x.brand || "", origin: x.origin || "", mfgYear: x.mfgYear || "", type: x.type || "", po: x.po || "" };
     }
     else if (a === "back") { S.dtab = S.retTab || "dash"; S.retTab = ""; S.editCode = ""; S.editDraft = null; }
     else if (a === "godiff") { S.mode = "pc"; S.dash = false; S.dtab = "diff"; }
@@ -1005,7 +1053,7 @@
       else {
         const x = getA(v);
         S.editCode = v;
-        S.editDraft = { owner: x.owner, zone: x.zone, status: x.status, project: x.project || D.UNASSIGNED, serial: x.serial, purchase: x.purchase, activate: x.activate, warranty: x.warranty, brand: x.brand || "", origin: x.origin || "", mfgYear: x.mfgYear || "", type: x.type || "", po: x.po || "" };
+        S.editDraft = { department: x.department || "", owner: x.owner, zone: x.zone, status: x.status, project: x.project || D.UNASSIGNED, serial: x.serial, purchase: x.purchase, activate: x.activate, warranty: x.warranty, brand: x.brand || "", origin: x.origin || "", mfgYear: x.mfgYear || "", type: x.type || "", po: x.po || "" };
       }
     }
     else if (a === "cancel") { S.editCode = ""; S.editDraft = null; }
@@ -1132,6 +1180,7 @@
   document.addEventListener("input", (e) => {
     const f = e.target.getAttribute && e.target.getAttribute("data-f");
     if (!f) return;
+    if (f === "scanDepartment") { S.scanDepartment = e.target.value; return; }
     if (f === "manualCode") { S.manualCode = e.target.value; return; }
     if (f === "scanProjectInput") { S.scanProjectInput = e.target.value; return; }
     if (f.indexOf("ann_") === 0) { S.annDraft = S.annDraft || {}; S.annDraft[f.slice(4)] = e.target.value; return; }
@@ -1171,7 +1220,7 @@
       S.booting = true; S.bootErr = ""; render();
       store.init().then(() => {
         S.booting = false;
-        if (typeof store.onSyncChange === "function") store.onSyncChange(() => refreshSyncBadge());
+        if (typeof store.onSyncChange === "function") store.onSyncChange(() => { refreshSyncBadge(); refreshScanSync(); });
         render();
       }).catch((e) => {
         S.booting = false; S.bootErr = String(e && e.message || e); S.bootAuth = !!(e && e.authRefused);

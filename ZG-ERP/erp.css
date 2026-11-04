@@ -159,3 +159,9 @@ button.arow { font: inherit; text-align: left; background: #fff; border: 0; bord
 .syncbadge.bad { background:#fdecea; color:#b3261e; cursor:pointer; font-weight:600; }
 .syncmark { font-size:11px; color:#b3261e; margin-left:6px; }
 .syncmark.ing { color:#8d6e00; }
+
+/* Full equipment identity must remain readable on narrow screens. */
+.icode, .arow2 .aname { overflow-wrap: anywhere; }
+
+.toast.syncfailed { border-color: var(--ds-red); background: #fff1f0; }
+.toast.syncpending { border-color: var(--ds-ink-2); background: var(--ds-raised); }

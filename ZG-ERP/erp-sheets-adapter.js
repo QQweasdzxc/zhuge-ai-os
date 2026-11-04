@@ -23,9 +23,9 @@
     annotations: "釐清標示"
   };
   const HEADERS = {
-    assets: ["資產編號", "名稱", "型號", "序號", "據點", "區域", "保管人", "專案", "狀態", "品牌", "產地", "類型", "製造年份", "PO編號", "採購日期", "啟用日期", "保固到期", "來源", "建立時間", "建立人", "最後異動時間"],
-    sessions: ["場次鍵", "據點", "區域", "定位方式", "緯度", "經度", "定位精度", "專案範圍", "經手人", "開始時間", "狀態", "結束時間"],
-    records: ["場次鍵", "資產編號", "判定", "現場據點", "現場區域", "時間", "次數", "處置"],
+    assets: ["資產編號", "名稱", "型號", "序號", "據點", "區域", "保管人", "專案", "狀態", "品牌", "產地", "類型", "製造年份", "PO編號", "採購日期", "啟用日期", "保固到期", "來源", "建立時間", "建立人", "最後異動時間", "使用部門", "舊帳記錄鍵", "舊帳出處", "舊帳快照", "資料補入時間"],
+    sessions: ["場次鍵", "據點", "區域", "定位方式", "緯度", "經度", "定位精度", "專案範圍", "經手人", "開始時間", "狀態", "結束時間", "使用部門"],
+    records: ["場次鍵", "資產編號", "判定", "現場據點", "現場區域", "時間", "次數", "處置", "使用部門", "本次專案", "經手人"],
     movements: ["事件鍵", "日期", "事件類型", "資產編號", "來自地點", "至地點", "數量", "經手人", "備註", "出處"],
     batches: ["行別", "批次鍵", "PO", "廠商", "品牌", "型號", "產地", "類型", "製造年份", "備註", "建立時間", "狀態", "序號", "到貨時間", "登記編號"],
     sites: ["據點", "區域", "QR內容", "緯度", "經度"],
@@ -37,31 +37,31 @@
   function assetToRow(a, actor) {
     return [a.code, a.name || "", a.model || "", a.serial || "", a.site || "", a.zone || "", a.owner || "", a.project || "",
       a.status || "未確認", a.brand || "", a.origin || "未確認", a.type || "", a.mfgYear || "", a.po || "",
-      a.purchase || "", a.activate || "", a.warranty || "", a.source || "補登", a.createdAt || "", a.createdBy || actor || "", a.updatedAt || ""];
+      a.purchase || "", a.activate || "", a.warranty || "", a.source || "補登", a.createdAt || "", a.__row ? (a.createdBy || "") : (a.createdBy || actor || ""), a.updatedAt || "", a.department || "", a.legacyKey || "", a.legacyProvenance || "", a.legacySnapshot || "", a.legacyImportedAt || ""];
   }
   function rowToAsset(row, i) {
     return { __row: i + 2, code: String(row[0] || "").trim(), name: row[1] || "", model: row[2] || "", serial: row[3] || "",
       site: row[4] || "", zone: row[5] || "", owner: row[6] || "", project: row[7] || "", status: row[8] || "未確認",
       brand: row[9] || "", origin: row[10] || "未確認", type: row[11] || "", mfgYear: row[12] || "", po: row[13] || "",
       purchase: row[14] || "", activate: row[15] || "", warranty: row[16] || "", source: row[17] || "",
-      createdAt: row[18] || "", createdBy: row[19] || "", updatedAt: row[20] || "" };
+      createdAt: row[18] || "", createdBy: row[19] || "", updatedAt: row[20] || "", department: row[21] || "", legacyKey: row[22] || "", legacyProvenance: row[23] || "", legacySnapshot: row[24] || "", legacyImportedAt: row[25] || "" };
   }
   function sessionToRow(s, actor) {
     return [s.id, s.site || "", s.zone || "", s.fixType || "", s.lat == null ? "" : s.lat, s.lon == null ? "" : s.lon,
-      s.acc == null ? "" : s.acc, s.project || "", actor || "", s.at, s.closed ? "已結束" : "進行中", s.closedAt || ""];
+      s.acc == null ? "" : s.acc, s.project || "", s.__row ? (s.operator || "") : (actor || ""), s.at, s.closed ? "已結束" : "進行中", s.closedAt || "", s.department || ""];
   }
   function rowToSession(row, i) {
     return { __row: i + 2, id: String(row[0] || ""), site: row[1] || "", zone: row[2] || "", fixType: row[3] || "",
       lat: row[4] === "" ? null : Number(row[4]), lon: row[5] === "" ? null : Number(row[5]),
       acc: row[6] === "" ? null : Number(row[6]), project: row[7] || "", operator: row[8] || "",
-      at: row[9] || "", closed: row[10] === "已結束", closedAt: row[11] || "" };
+      at: row[9] || "", closed: row[10] === "已結束", closedAt: row[11] || "", department: row[12] || "" };
   }
   function recordToRow(r, sess) {
-    return [r.sessionId, r.code, r.status || "", (sess && sess.site) || r.site || "", r.zone || "", r.at, r.n || 1, r.decision || ""];
+    return [r.sessionId, r.code, r.status || "", (sess && sess.site) || r.site || "", r.zone || "", r.at, r.n || 1, r.decision || "", r.department || "", r.sessProject || "", r.operator || ""];
   }
   function rowToRecord(row, i) {
     return { __row: i + 2, sessionId: String(row[0] || ""), code: String(row[1] || "").trim(), status: row[2] || "",
-      site: row[3] || "", zone: row[4] || "", at: row[5] || "", n: Number(row[6]) || 1, decision: row[7] || "" };
+      site: row[3] || "", zone: row[4] || "", at: row[5] || "", n: Number(row[6]) || 1, decision: row[7] || "", department: row[8] || "", sessProject: row[9] || "", operator: row[10] || "" };
   }
   function movementToRow(m, actor) {
     return [m.id || "", m.at, MOVEMENT_TYPE[m.type] || m.type, m.code, m.from || "", m.to || "", m.qty == null ? 1 : m.qty, actor || "", m.note || "", m.source || "ERP 前台"];
@@ -90,6 +90,7 @@
       __row: i + 2,
       recordKey: g("記錄鍵"),
       code: g("資產編號"),
+      purchase: g("採購日期"),
       name: g("名稱"), model: g("型號規格", "型號"),
       siteLead: src,
       zone: g("區域", "地點位置", "位置"),
@@ -192,6 +193,7 @@
       if (!res || !res.ok) throw new Error("現存資料庫讀取失敗（" + label + "）");
       const body = await res.json();
       if (!body || !Array.isArray(body.header) || !Array.isArray(body.rows)) throw new Error("bridge 回應格式不符（" + label + "）");
+      if (body.actor) this.actor = String(body.actor);
       return { header: body.header, rows: body.rows };
     }
     async _append(tab, row) {
@@ -220,7 +222,8 @@
     async init() {
       if (this.db) return this.db;
       const [assetRows, sessionRows, recordRows, movementRows, batchRows, siteRows, annotationRows] = await Promise.all(
-        ["assets", "sessions", "records", "movements", "batches", "sites", "annotations"].map((t) => this._read(t)));
+        ["assets", "sessions", "records", "movements", "batches", "sites", "annotations"].map(async (t) => { const body = await this._readFull(t); this._headers = this._headers || {}; this._headers[t] = body.header; return body.rows; }));
+      this.departmentReady = ["assets", "sessions", "records"].every((t) => HEADERS[t].every((h, i) => this._headers[t][i] === h));
       const assets = assetRows.map(rowToAsset).filter((a) => a.code);
       const sites = [];
       this._siteQrRows = [];
@@ -367,10 +370,11 @@
       this._mirror(null, () => this._append("sites", [name, zone, "", lat == null ? "" : lat, lon == null ? "" : lon]));
       return true;
     }
-    startSession(site, lat, lon, acc, project, fixType) {
+    startSession(site, lat, lon, acc, project, fixType, department) {
       const db = this._db();
+      if (department && !this.departmentReady) throw new Error("使用部門欄位尚未就緒，請重新整理或聯絡管理端");
       const sess = { id: "s" + Date.now() + "-" + (++this._seq), site, lat, lon, acc: acc == null ? null : acc, project: project || "",
-        fixType: fixType || "", at: new Date().toISOString(), closed: false, closedAt: "" };
+        operator: this.actor || "", department: String(department || "").trim(), fixType: fixType || "", at: new Date().toISOString(), closed: false, closedAt: "" };
       db.sessions.push(sess);
       sess.__write = this._mirror(sess, async () => {
         const rowNum = await this._append("sessions", sessionToRow(sess, this.actor));
@@ -387,7 +391,7 @@
         prev.__write = this._mirror(prev, () => this._update("records", prev.__row, recordToRow(prev, sess)));
         return prev;
       }
-      const r = Object.assign({ sessionId: sess.id, n: 1, decision: "", at: new Date().toISOString() }, rec);
+      const r = Object.assign({ sessionId: sess.id, department: sess.department || "", sessProject: sess.project || "", operator: this.actor || "", n: 1, decision: "", at: new Date().toISOString() }, rec);
       db.records.push(r);
       r.__write = this._mirror(r, async () => {
         const rowNum = await this._append("records", recordToRow(r, sess));
@@ -488,9 +492,35 @@
     /* 現場觀察（使用者 12:07 商業規則）：現場在用的設備按「使用中」記，不逐台再問；
      * 已有 待修/維修中/已報廢 的，不因再掃到自動改回可用——回 exception 給管理端提示。
      * 備用（入庫新建）不因掃描被猜成使用中；位置以最新現場觀察更新。 */
+    legacyMetadata(code) {
+      const matches = this.legacyRows().filter((r) => r.code === code);
+      if (matches.length !== 1) return { patch: {}, issue: matches.length > 1 ? "舊帳同編號多筆，未自動帶入" : "" };
+      const r = matches[0], a = this._db().assets.find((x) => x.code === code) || {};
+      const patch = {}, conflicts = [];
+      for (const k of ["name", "model", "serial", "purchase"]) {
+        if (!r[k]) continue;
+        if (!String(a[k] || "").trim()) patch[k] = r[k];
+        else if (String(a[k]).trim() !== String(r[k]).trim()) conflicts.push(k);
+      }
+      if (Object.keys(patch).length) Object.assign(patch, {
+        legacyKey: r.recordKey, legacyProvenance: r.provenance,
+        legacySnapshot: JSON.stringify({ code: r.code, recordKey: r.recordKey, name: r.name, model: r.model, serial: r.serial, purchase: r.purchase || "", zone: r.zone, place: r.place, provenance: r.provenance }),
+        legacyImportedAt: new Date().toISOString()
+      });
+      return { patch, issue: conflicts.length ? "舊帳與新帳欄位不同（" + conflicts.join("、") + "），保留新帳待查" : "" };
+    }
+    importLegacyMetadata(code) {
+      if (!this.departmentReady) throw new Error("新帳來源欄位尚未就緒");
+      const a = this._db().assets.find((x) => x.code === code);
+      if (!a) throw new Error("新帳無此完整編號");
+      const result = this.legacyMetadata(code);
+      if (Object.keys(result.patch).length) this.saveAsset(code, result.patch);
+      return { asset: a, issue: result.issue, changed: Object.keys(result.patch).length > 0 };
+    }
     observeAsset(sess, code, zone) {
       const rawProject = String(sess.project || "").trim();
       const currentProject = ["", "全部", "全部專案", "未指定", "未指定（待確認）", "未指定(待確認)"].includes(rawProject) ? "" : rawProject;
+      const department = String(sess.department || "").trim();
       const db = this._db();
       const BLOCK = ["待修", "維修中", "已報廢"];
       const existing = db.assets.find((a) => a.code === code);
@@ -498,20 +528,24 @@
         if (BLOCK.includes(existing.status)) {
           return { exception: true, reason: "既有狀態「" + existing.status + "」，不因掃描自動改回可用", asset: existing };
         }
-        const patch = {};
+        const metadata = this.departmentReady ? this.legacyMetadata(code) : { patch: {}, issue: "" };
+        const patch = Object.assign({}, metadata.patch);
+        const departmentMismatch = !!(department && existing.department && existing.department !== department);
+        if (department && !existing.department) patch.department = department;
         /* 使用者 14:30 定案：掃到原本沒有專案的設備，歸入正在盤的專案；已屬其他專案的保留原歸屬，只提示差異 */
         if (currentProject && ["", "未指定", "未指定（待確認）", "未指定(待確認)"].includes(String(existing.project || "").trim())) patch.project = currentProject;
         if (existing.site !== sess.site || (zone && existing.zone !== zone)) { patch.site = sess.site; patch.zone = zone || existing.zone; }
         if (Object.keys(patch).length) {
           this.saveAsset(existing.code, patch);
-          return { exception: false, moved: !!patch.site, assignedProject: patch.project || "", asset: existing };
+          return { exception: false, moved: !!patch.site, assignedProject: patch.project || "", departmentMismatch, metadataIssue: metadata.issue, asset: existing };
         }
-        return { exception: false, moved: false, asset: existing };
+        return { exception: false, moved: false, departmentMismatch, metadataIssue: metadata.issue, asset: existing };
       }
       const now = new Date().toISOString();
-      const a = { code, name: "", model: "", serial: "", owner: "公用", site: sess.site, zone: zone || "",
-        status: "使用中", project: currentProject, brand: "", origin: "未確認", type: "", mfgYear: "", po: "",
+      const a = { code, name: "", model: "", serial: "", owner: "", site: sess.site, zone: zone || "",
+        status: "使用中", project: currentProject, department, brand: "", origin: "未確認", type: "", mfgYear: "", po: "",
         purchase: "", activate: "", warranty: "", source: "盤點", createdAt: now, createdBy: this.actor, updatedAt: now };
+      if (this.departmentReady) { const metadata = this.legacyMetadata(code); Object.assign(a, metadata.patch); }
       db.assets.push(a);
       a.__write = this._mirror(a, async () => {
         const rowNum = await this._append("assets", assetToRow(a, this.actor));

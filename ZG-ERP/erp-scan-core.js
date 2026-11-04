@@ -19,6 +19,27 @@
       reset() { last = ""; lastAt = 0; }
     };
   }
+  // A held label counts once. Rearm only after continuously seeing no label.
+  function makePresenceDeduper(absenceMs) {
+    let last = "", absentAt = null;
+    return {
+      accept(val, now) {
+        now = now == null ? Date.now() : now;
+        val = String(val || "").trim();
+        if (!val) {
+          if (absentAt == null) absentAt = now;
+          if (now - absentAt >= absenceMs) last = "";
+          return false;
+        }
+        if (absentAt != null && now - absentAt >= absenceMs) last = "";
+        absentAt = null;
+        if (val === last) return false;
+        last = val;
+        return true;
+      },
+      reset() { last = ""; absentAt = null; }
+    };
+  }
   // 用 jsQR 解一幀 RGBA 像素；回傳字串或空字串
   function decodeWithJsQR(jsQR, rgba, width, height) {
     if (!jsQR || !rgba || !width || !height) return "";
@@ -39,5 +60,5 @@
     }
     return { data, width: W, height: W };
   }
-  return { makeDeduper, decodeWithJsQR, matrixToRGBA };
+  return { makeDeduper, makePresenceDeduper, decodeWithJsQR, matrixToRGBA };
 });

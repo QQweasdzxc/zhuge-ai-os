@@ -41,3 +41,17 @@ test("deduper ignores empty and whitespace-only values", () => {
   assert.strictEqual(d.accept("   ", 1000), false);
   assert.strictEqual(d.accept(null, 1000), false);
 });
+
+
+test("camera holds a label once, rearming only after a stable blank interval", () => {
+  const d = Core.makePresenceDeduper(1500);
+  assert.equal(d.accept("CSMN112020004", 1000), true);
+  assert.equal(d.accept("CSMN112020004", 5000), false);
+  assert.equal(d.accept("", 5100), false);
+  assert.equal(d.accept("CSMN112020004", 5500), false); // one missed frame is not removal
+  assert.equal(d.accept("", 6000), false);
+  assert.equal(d.accept("", 7600), false);
+  assert.equal(d.accept("CSMN112020004", 7700), true);
+  assert.equal(d.accept("CSMN112020005", 7800), true);
+  assert.equal(d.accept("CSMN112020005", 18000), false);
+});
