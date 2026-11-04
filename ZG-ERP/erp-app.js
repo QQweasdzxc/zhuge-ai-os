@@ -27,7 +27,13 @@
   }
 
   function session() {
-    try { return JSON.parse(localStorage.getItem("zhuge_ai_os_google_auth_session_v1") || "null"); } catch { return null; }
+    for (const key of ["zhuge_ai_os_google_auth_session_v1", "zhuge_ai_os_session_v1"]) {
+      try {
+        const s = JSON.parse(localStorage.getItem(key) || "null");
+        if (s) return s;
+      } catch { /* 下一個 key */ }
+    }
+    return null;
   }
 
   const S = {
@@ -324,7 +330,7 @@
     if (s && s.access_token) {
       const exp = Number(s.expires_at || (s.session && s.session.expires_at) || 0);
       const expMs = exp ? (exp < 1e12 ? exp * 1000 : exp) : 0; // Supabase 秒級與 auth-service 毫秒級都接受
-      if (expMs && expMs < Date.now()) {
+      if (expMs && expMs < Date.now() && !S.booting) {
         return '<div class="loginbar">諸葛登入狀態：工作階段已過期。<a href="' + LOGIN_URL + '">重新登入諸葛</a>（換發失敗時需要）</div>';
       }
       const who = s.user && (s.user.email || s.user.name) ? esc(s.user.email || s.user.name) : "已登入";
@@ -511,7 +517,7 @@
     return attentionCard() + tiles + drill + siteTable(rows, sorted, isPhone) + stChips + projTable(pfilter) + projDrill;
   }
   function projTable(pfilter) {
-    const head = '<div class="lbl sim">各專案使用概況（按專案反查設備，和實際放置地點、保管人分開；專案名為虛構測試）</div>';
+    const head = '<div class="lbl sim">各專案使用概況（按專案反查設備，和實際放置地點、保管人分開）</div>';
     const rowsHtml = projects().map((p) => {
       const list = projAssets(p);
       const use = list.filter((a) => a.status === "使用中").length;
@@ -624,7 +630,7 @@
     return '<h3 class="ptitle">位置表</h3><p class="psub">維護各據點的區域和據點座標。座標讓手機用定位找最近據點；區域清單就是手機上「目前區域」的選項。位置表直接存進你的試算表。</p>' +
       addForm +
       (sites().length === 0 ? '<div class="zcard"><div class="small">還沒有任何據點。先用上方「新增據點」建立第一個，手機掃描才能開始。</div></div>' : "") +
-      sites().map((s) => '<div class="zcard"><div><b>' + esc(s.name) + '</b> <span class="small">座標 ' + s.lat.toFixed(4) + ", " + s.lon.toFixed(4) + "（測試值）</span></div>" +
+      sites().map((s) => '<div class="zcard"><div><b>' + esc(s.name) + '</b> <span class="small">' + ((s.lat || s.lon) ? "座標 " + Number(s.lat || 0).toFixed(4) + ", " + Number(s.lon || 0).toFixed(4) : "未標座標") + "</span></div>" +
         s.zones.map((z) => '<div class="zrow"><span>' + esc(z) + "</span><b>" + assets().filter((a) => a.site === s.name && a.zone === z).length + " 台</b></div>").join("") +
         '<div class="frow"><input class="inp" data-f="nz_' + esc(s.name) + '" placeholder="新增' + esc(s.name) + '的區域" value="' + esc(S.newZone[s.name] || "") + '"><button class="pill sm" data-a="addzone" data-v="' + esc(s.name) + '">加入</button></div>' +
         '<div class="small">加入後，手機端「目前區域」會出現這個選項。重新命名、停用區域尚未支援。</div></div>').join("");
@@ -788,7 +794,7 @@
       '<button class="dnav' + (tab === "diff" ? " on" : "") + '" data-a="dtab" data-v="diff">盤點差異' + (diffN > 0 ? " (" + diffN + ")" : "") + "</button></nav>" +
       '<div class="dmain"><div class="dhand">' + (recs.length > 0
         ? "手機在 <b>" + esc(S.site) + "</b> 掃了 " + recs.length + " 筆（" + esc(new Date(S.sess.at).toLocaleTimeString("zh-TW", { hour12: false })) + " 起）。差異已帶到「盤點差異」。"
-        : "還沒有手機掃描紀錄。切到上方「手機 · 現場掃描」掃幾筆，這裡會接著顯示（同一瀏覽器）。") + "</div>" + body + "</div></div></div>";
+        : "還沒有手機掃描紀錄。切到上方「手機 · 現場掃描」掃幾筆，寫進試算表後這裡會接著顯示。") + "</div>" + body + "</div></div></div>";
   }
 
   /* ---- 渲染 ---- */
@@ -798,7 +804,9 @@
     refreshSyncBadge.__lastRoot = root;
     let html = zhugeBar() + loginBar() + mockBar() + syncBadge() + modeBar();
     if (S.bootErr) {
-      root.innerHTML = html + '<div class="phone"><div class="card"><h2>連線失敗</h2><p>' + esc(S.bootErr) + '</p><button data-a="bootretry">重試</button></div></div>';
+      root.innerHTML = html + (S.bootAuth
+        ? '<div class="phone"><div class="card"><h2>工作階段已失效</h2><p>登入驗證被現存資料庫拒絕，自動換發也失敗。請 <a href="' + LOGIN_URL + '">重新登入諸葛</a> 後再回來。</p><button data-a="bootretry">重試</button></div></div>'
+        : '<div class="phone"><div class="card"><h2>連線失敗</h2><p>' + esc(S.bootErr) + '</p><button data-a="bootretry">重試</button></div></div>');
       return;
     }
     if (S.booting) {
@@ -997,7 +1005,7 @@
         if (typeof store.onSyncChange === "function") store.onSyncChange(() => refreshSyncBadge());
         render();
       }).catch((e) => {
-        S.booting = false; S.bootErr = String(e && e.message || e);
+        S.booting = false; S.bootErr = String(e && e.message || e); S.bootAuth = !!(e && e.authRefused);
         render();
       });
     } else {
