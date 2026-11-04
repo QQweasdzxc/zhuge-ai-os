@@ -130,6 +130,12 @@
     }
     async _read(tab) {
       const res = await this._fetchAuth(this._url("read", tab), { method: "GET", headers: this._authHeaders() });
+      if (res && res.status === 401) {
+        // 已走過換發仍被拒（或無 token 可換）：這是登入問題，不是資料庫問題，要給可行動的錯誤。
+        const err = new Error("登入驗證被拒（" + TABS[tab] + "）");
+        err.authRefused = true;
+        throw err;
+      }
       if (!res || !res.ok) throw new Error("現存資料庫讀取失敗（" + TABS[tab] + "）");
       const body = await res.json();
       if (!body || !Array.isArray(body.header) || !Array.isArray(body.rows)) throw new Error("bridge 回應格式不符（" + TABS[tab] + "）");
