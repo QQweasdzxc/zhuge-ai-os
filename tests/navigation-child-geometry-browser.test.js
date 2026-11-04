@@ -29,7 +29,7 @@ test('Shared Navigation child metrics match across element types, active states 
         await page.goto(await fixtureURL(fixture));
         const result = await page.evaluate(({ internal }) => {
           const boards = [{ id: 'qa-work', name: '晨光計畫', taskCodePrefix: 'QA', projectAssignment: 'worklog' }, { id: 'qa-invest', name: '遠山研究', taskCodePrefix: 'OTHER', projectAssignment: 'investment' }];
-          document.getElementById('nav').outerHTML = ZhugeSharedNavigation.render({ boardInstances: boards, externalRoot: internal ? '' : '/', activeBoardInstanceId: 'qa-work' });
+          document.getElementById('nav').outerHTML = ZhugeSharedNavigation.render({ boardInstances: boards, externalRoot: internal ? '' : '/', activeBoardInstanceId: 'qa-work', isCreator: true });
           const shell = document.querySelector('main');
           shell.classList.add('sidebar-open');
           const ids = ['tasks-new', 'procurement', 'consumer-board:qa-work', 'consumer-board:qa-invest'];
