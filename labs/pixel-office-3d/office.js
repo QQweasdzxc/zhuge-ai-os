@@ -702,6 +702,7 @@
         if (mx >= h.x0 && mx <= h.x1 && my >= h.y0 && my <= h.y1) { found = h; break; }
       }
       const key = found ? found.key : null;
+      if (click && key === 'erp-wall') { (window.top || window).location.assign('https://qqweasdzxc.github.io/zhuge-ai-os/ZG-ERP/'); return; }
       this.canvas.style.cursor = key ? 'pointer' : 'default';
       if (key !== this.hoverKey || click) {
         this.hoverKey = key;
@@ -852,7 +853,7 @@
             this.onWall('x0', ps.y + 0.45, 1.45, (c) => {
               c.imageSmoothingEnabled = true;
               c.imageSmoothingQuality = 'high';
-              c.drawImage(posterImg, -15, -15.5, 30, 31);
+              c.drawImage(posterImg, -15, -15, 30, 30);
             });
           }
           continue;
@@ -1844,6 +1845,15 @@
         x0: h.x0 * z + this.cam.ox, x1: h.x1 * z + this.cam.ox,
         y0: h.y0 * z + this.cam.oy, y1: h.y1 * z + this.cam.oy,
       }));
+      for (const ps of this.plan.posters || []) {
+        if (!ps.erpPoster) continue;
+        const corners = [this.iso(0, ps.y, .95), this.iso(0, ps.y + .9, .95), this.iso(0, ps.y + .9, 1.95), this.iso(0, ps.y, 1.95)];
+        const xs = corners.map(p => p.x * z + this.cam.ox), ys = corners.map(p => p.y * z + this.cam.oy);
+        const w = Math.max(44, Math.max(...xs) - Math.min(...xs)), h = Math.max(44, Math.max(...ys) - Math.min(...ys));
+        const cx = (Math.max(...xs) + Math.min(...xs)) / 2, cy = (Math.max(...ys) + Math.min(...ys)) / 2;
+        const x0 = Math.max(0, Math.min(cx - w / 2, this.cw - w)), y0 = Math.max(0, Math.min(cy - h / 2, this.ch - h));
+        this.hit.push({ key: 'erp-wall', x0, x1: x0 + w, y0, y1: y0 + h });
+      }
     }
   }
 
