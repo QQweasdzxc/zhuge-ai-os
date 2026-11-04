@@ -185,10 +185,10 @@ test('observeAsset: all/unspecified sentinels never assign a project to existing
   }
 });
 
-test('actual scan function with SheetsStore session: assigned and blocked paths render, one write per scan', async () => {
+test('mock fallback scan function: assigned and blocked paths render; live atomic route covered by scan-intent tests', async () => {
   const fs=require('node:fs'), vm=require('node:vm');
   const app=fs.readFileSync(path.join(ROOT,'ZG-ERP/erp-app.js'),'utf8');
-  const scanSource=app.slice(app.indexOf('  function scan(code) {'), app.indexOf('  function detectGps()'));
+  const scanSource=app.slice(app.indexOf('  async function scan(code,retained) {'), app.indexOf('  function detectGps()'));
   const store=makeStore([assetRow('A','台北','10F','','使用中'), assetRow('B','台北','10F','','待修')]);
   await store.init();
   let appends=0, updates=0, renders=0;
@@ -196,16 +196,16 @@ test('actual scan function with SheetsStore session: assigned and blocked paths 
   store._update=async()=>{updates++;};
   const S={sess:{id:'S1',site:'台北',project:'專案新'},site:'台北',zone:'10F'};
   assert.equal(S.sess.records,undefined,'real Sheets session has no records array');
-  const ctx={S,store,D:{UNASSIGNED:'未指定（待確認）'},getA:code=>store.db.assets.find(a=>a.code===code), curRecs:()=>store.sessionRecords(S.sess),render:()=>{renders++;}};
+  const ctx={S,store,D:{isMock:true,UNASSIGNED:'未指定（待確認）'},getA:code=>store.db.assets.find(a=>a.code===code), curRecs:()=>store.sessionRecords(S.sess),render:()=>{renders++;}};
   vm.createContext(ctx);vm.runInContext(scanSource+'\nthis.run=scan;',ctx);
-  ctx.run('A');
+  await ctx.run('A');
   const assigned=store.sessionRecords(S.sess).find(r=>r.code==='A');
   assert.equal(assigned.projectAssigned,'專案新');
   assert.equal(assigned.projMismatch,false);
   assert.equal(renders,1);
   await Promise.all([assigned.__write, store.db.assets.find(a=>a.code==='A').__write]);
   assert.equal(appends,1);assert.equal(updates,1);
-  ctx.run('B');
+  await ctx.run('B');
   const blocked=store.sessionRecords(S.sess).find(r=>r.code==='B');
   assert.match(blocked.stateException,/待修/);
   await blocked.__write;
