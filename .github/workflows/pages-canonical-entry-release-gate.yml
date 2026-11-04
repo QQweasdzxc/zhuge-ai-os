@@ -12,7 +12,7 @@ permissions:
 jobs:
   source-identity:
     name: Identity, Overlay, and source regression
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
@@ -48,7 +48,7 @@ jobs:
 
   browser:
     name: Desktop and Mobile browser regression
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
@@ -65,7 +65,7 @@ jobs:
   fullsource:
     name: Governed FullSource package (no deploy)
     needs: [source-identity, browser]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
