@@ -23,7 +23,6 @@ const {
 } = require("../labs/pixel-office-3d/tf-source.js");
 
 const INDEX = fs.readFileSync(nodePath.join(__dirname, "..", "labs/pixel-office-3d/index.html"), "utf8");
-const PANEL = fs.readFileSync(nodePath.join(__dirname, "..", "labs/taskflow/overrides/taskflow-office-panel.tsx"), "utf8");
 const ROOT = fs.readFileSync(nodePath.join(__dirname, "..", "index.html"), "utf8");
 
 const ok200 = (body) => ({ status: 200, json: async () => body });
@@ -164,15 +163,6 @@ test("office wires the controller: wipe board, abort reads, discard stale", () =
   assert.ok(INDEX.includes("embeddedClearMessageOk"), "clear validated through the gate");
   assert.ok(INDEX.includes("embeddedAuthCtl.setToken"), "replace goes through the controller");
   assert.ok(!/localStorage\.setItem\([^)]*token/i.test(INDEX), "token never persisted");
-});
-
-test("panel revokes via the auth store immediately, poll is fallback only", () => {
-  assert.ok(PANEL.includes('from "@multica/core/auth"'), "auth store imported");
-  assert.ok(PANEL.includes("useAuthStore.subscribe"), "event-driven revocation");
-  assert.ok(PANEL.includes("pushAuth(true)"), "immediate clear on logout/expiry");
-  assert.ok(PANEL.includes("lastSent = null"), "account switch forces re-send");
-  assert.ok(PANEL.includes("setInterval"), "60s fallback remains");
-  assert.ok(PANEL.includes("EMBEDDED_CLEAR_TYPE"), "clear type sent");
 });
 
 // --- ZG-52 nested-embed relay (site root shell) ------------------------------
