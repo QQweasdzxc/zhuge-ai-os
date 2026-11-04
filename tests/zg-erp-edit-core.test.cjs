@@ -1,0 +1,3 @@
+const t=require('node:test'),a=require('node:assert/strict'),E=require('../ZG-ERP/erp-edit-core');
+t('rebase preserves own changes, takes fresh untouched fields, and never invents fields',()=>{const b={name:'N',owner:'A'},d={name:'New',owner:'A'},f={name:'N',owner:'B',secret:'no'};const m=E.rebase(b,d,f);a.deepEqual(m,{conflicts:[],values:{name:'New',owner:'B'},base:{name:'N',owner:'B'}});a.equal(d.owner,'A')});
+t('overlapping edits require explicit conflict resolution, same target does not conflict',()=>{a.deepEqual(E.rebase({name:'N'},{name:'Mine'},{name:'Other'}).conflicts,['name']);a.deepEqual(E.rebase({name:'N'},{name:'Mine'},{name:'Mine'}).conflicts,[])});
