@@ -11,7 +11,7 @@
   const seatUI = window.ErpSeatUI ? window.ErpSeatUI.create(store, () => render()) : null;
   const LABEL = { ok: "相符", zone: "位置不符", site: "異地設備", none: "查無編號", dup: "重複掃描" };
   const GLYPH = { ok: "✓", zone: "≠", site: "⇄", none: "?", dup: "×2" };
-  const LOGIN_URL = "../modules/worklog/?app=1&workspace=dashboard";
+  const LOGIN_URL = "./";
 
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
   function dist(a, b, c, d) {
@@ -61,7 +61,7 @@
   }
 
   const S = {
-    mode: (new URLSearchParams(location.search).get("mode") === "phone" || window.innerWidth < 700) ? "phone" : "pc",
+    booting: !D.isMock, mode: (new URLSearchParams(location.search).get("mode") === "phone" || window.innerWidth < 700) ? "phone" : "pc",
     dtab: "dash", dash: false, screen: "start",
     place: "", gps: null, gpsErr: "", site: "", zone: "", zoneOpen: false,
     open: "", filter: "all", metric: "total", dsite: "", dst: "", pfilter: "",
@@ -1037,6 +1037,11 @@
     if ((S.mode !== "phone" || S.screen !== "scan" || S.dash) && S.camOn) camStop(true);
     const root = document.getElementById("erp-root");
     refreshSyncBadge.__lastRoot = root;
+    if (window.ErpAuth && window.ErpAuth.state().status !== "ready" && !D.isMock) {
+      const auth=window.ErpAuth.state(),signed=auth.status==="signed-out",denied=auth.status==="denied",checking=auth.status==="checking";
+      root.innerHTML=zhugeBar()+'<div class="phone"><div class="card"><h2>'+ (checking?'正在確認登入…':denied?'此帳號尚未獲准使用 ERP':signed?'登入 ZG-ERP':'登入暫時無法完成')+'</h2><p>'+esc(auth.error||(denied?'已登入 Google，但尚未通過原本的使用核准。設備資料不會載入。':'沿用諸葛原本的 Google 帳號與 UUID。登入後留在 ERP；所有已核准使用者共看完整設備與盤點結果。'))+'</p>'+(!checking?'<button class="pill" data-erp-auth="'+(signed||denied||auth.error.includes('重新使用 Google')?'login':'retry')+'">'+(signed||denied||auth.error.includes('重新使用 Google')?'使用 Google 登入':'重試驗證')+'</button>':'')+'</div></div>';
+      return;
+    }
     let html = zhugeBar() + loginBar() + mockBar() + syncBadge() + modeBar();
     if (S.bootErr) {
       root.innerHTML = html + (S.bootAuth
@@ -1325,5 +1330,7 @@
     const t = e.target.closest && e.target.closest('[data-a="bootretry"]');
     if (t) boot();
   });
-  boot();
+  document.addEventListener('click',async e=>{const t=e.target.closest?.('[data-erp-auth]');if(!t)return;if(t.dataset.erpAuth==='login')await window.ErpAuth.login();else if(await window.ErpAuth.verify())boot();});
+  window.addEventListener('erp-auth-change',()=>render());
+  if(window.ErpAuth&&!D.isMock)window.ErpAuth.ready.then(ok=>{if(ok)boot();else render();});else boot();
 })();
