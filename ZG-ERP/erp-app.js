@@ -160,7 +160,7 @@
   }
 
   function editValues(x) {
-    const d={ name:x.name||"",model:x.model||"",department:x.department||"",owner:x.owner||"",zone:x.zone||"",status:x.status||"",project:x.project||D.UNASSIGNED,serial:x.serial||"",purchase:x.purchase||"",activate:x.activate||"",warranty:x.warranty||"",brand:x.brand||"",origin:x.origin||"",mfgYear:x.mfgYear||"",type:x.type||"",po:x.po||"" };
+    const d={ name:x.name||"",model:x.model||"",department:x.department||"",owner:x.owner||"",zone:x.zone||"",status:x.status||"",project:x.project||"",serial:x.serial||"",purchase:x.purchase||"",activate:x.activate||"",warranty:x.warranty||"",brand:x.brand||"",origin:x.origin||"",mfgYear:x.mfgYear||"",type:x.type||"",po:x.po||"" };
     S.editBase={...d}; S.editLegacy=[];
     const matches=(store.legacyRows?store.legacyRows():[]).filter(r=>r.code===x.code);
     if(matches.length===1)for(const k of ["name","model","serial","purchase"])if(!String(d[k]).trim()&&matches[0][k]){d[k]=matches[0][k];S.editLegacy.push(k);}
