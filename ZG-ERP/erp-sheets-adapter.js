@@ -430,6 +430,16 @@
     /* ---- 進貨批次 ---- */
     listBatches() { return this._db().batches; }
     batch(id) { return this._db().batches.find((b) => b.id === id); }
+    async importIntakeVerified(id, groups) {
+      const res=await this._fetchAuth(this._url("intake-import","batches"),{method:"POST",headers:this._authHeaders({"content-type":"application/json"}),body:JSON.stringify({id,groups})});
+      const body=res?await res.json():null;
+      if(!res||!res.ok||!body?.ok||!Array.isArray(body.rows)||!Array.isArray(body.ids))throw new Error(body?.error?.message||"匯入未確認，請保留畫面重試");
+      const made=[];for(let i=0;i<groups.length;i++){const b=groups[i],bid=id+"-"+i,rows=body.rows.filter(r=>r[1]===bid),head=rows.find(r=>r[0]==="批次");
+        if(!head||head[11]!=="進行中"||["po","vendor","brand","model","origin","type","mfgYear","note"].some((k,i)=>String(head[i+2]??"")!==b[k])||rows.length!==b.serials.length+1||!b.serials.every(serial=>rows.some(r=>r[0]==="明細"&&r[12]===serial&&r[11]==="pending")))throw Error("讀回批次不完整，請保留畫面重試");
+        made.push({...b,id:bid,at:head[10],closed:false,items:b.serials.map(serial=>({serial,state:"pending",receivedAt:"",code:""})),unexpected:[]});
+      }
+      const db=this._db();for(const b of made){const i=db.batches.findIndex(x=>x.id===b.id);if(i<0)db.batches.push(b);else db.batches[i]=b;}return made;
+    }
     addBatch(info) {
       const db = this._db();
       const serials = (info.serials || []).map((s) => String(s).trim()).filter(Boolean);
