@@ -38,7 +38,20 @@ jobs:
       - name: Assemble and verify curated GitHub Pages site
         run: |
           node tools/build-pages-site.js "$RUNNER_TEMP/pages-site"
-          node tests/pages-publish-artifact.test.js "$RUNNER_TEMP/pages-site"
+      - name: Build pinned MIT Habblaud Pixel Office into the ACTUAL Pages artifact
+        run: |
+          git init "$RUNNER_TEMP/zhuge-habblaud"
+          git -C "$RUNNER_TEMP/zhuge-habblaud" remote add origin https://github.com/marmottajr/habblaud.git
+          git -C "$RUNNER_TEMP/zhuge-habblaud" fetch --depth=1 origin faa1a012b5fbf632c66dc6801c5383e53a542406
+          git -C "$RUNNER_TEMP/zhuge-habblaud" checkout --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/zhuge-habblaud" rev-parse HEAD)" = "faa1a012b5fbf632c66dc6801c5383e53a542406"
+          npm ci --prefix "$RUNNER_TEMP/zhuge-habblaud" --ignore-scripts --no-audit --no-fund
+          node integrations/habblaud/build.mjs "$RUNNER_TEMP/zhuge-habblaud" "$RUNNER_TEMP/pages-site"
+          test -s "$RUNNER_TEMP/pages-site/pixel-office/index.html"
+          test -s "$RUNNER_TEMP/pages-site/docs/pixel-office/index.html"
+          test -s "$RUNNER_TEMP/pages-site/pixel-office/LICENSE.txt"
+      - name: Verify complete curated artifact
+        run: node tests/pages-publish-artifact.test.js "$RUNNER_TEMP/pages-site"
       - name: Run root source regression suite
         shell: bash
         run: |
