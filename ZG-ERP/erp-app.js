@@ -360,6 +360,7 @@
     });
   }
   function afterRender() {
+    if(seatUI)seatUI.layout();
     if (S.camOn && cam.stream) {
       const v = document.getElementById("camv");
       if (v && v.srcObject !== cam.stream) { v.srcObject = cam.stream; v.play().catch(() => {}); }
@@ -430,7 +431,7 @@
           (S.nearest ? '<div class="match">最近據點：<b>' + esc(S.nearest) + "</b>（距離約 " + (S.nearestD < 1 ? Math.round(S.nearestD * 1000) + " 公尺" : S.nearestD.toFixed(1) + " 公里") + "）</div>" : "")) +
       '<div class="lbl" style="margin-top:14px">盤點據點（可改）</div>' +
       (siteNames().length === 0
-        ? '<div class="chips"><span class="small">尚未建立據點。請先到「電腦 · 管理編輯 → 位置表」新增第一個據點，這裡才會出現選項。</span></div>'
+        ? '<div class="chips"><span class="small">尚未建立據點。請先到「電腦 · 管理編輯 → 公司據點」新增第一個據點，這裡才會出現選項。</span></div>'
         : '<div class="chips">' + siteNames().map((p) => '<button class="pill' + (S.site === p ? " on" : "") + '" data-a="site" data-v="' + esc(p) + '">' + esc(p) + "</button>").join("") + "</div>") +
       (g && S.nearest && S.site && S.site !== S.nearest ? '<div class="warn">你選的據點和定位最近的據點不同，結果會註記。</div>' : "") +
       (store.departmentReady || D.isMock
@@ -715,7 +716,7 @@
       '<div class="frow"><input class="inp" data-f="ns_lat" placeholder="緯度（選填，如 25.033）" value="' + esc(S.newSite.lat || "") + '"><input class="inp" data-f="ns_lon" placeholder="經度（選填，如 121.565）" value="' + esc(S.newSite.lon || "") + '"></div>' +
       (S.siteErr ? '<div class="warn">' + esc(S.siteErr) + "</div>" : "") +
       '<div class="frow"><button class="pill sm" data-a="addsite">建立據點</button></div></div>';
-    return '<h3 class="ptitle">位置表</h3><p class="psub">維護各據點的區域和據點座標。座標讓手機用定位找最近據點；區域清單就是手機上「目前區域」的選項。位置表直接存進你的試算表。</p>' +
+    return '<h3 class="ptitle">公司據點</h3><p class="psub">維護各據點的區域和據點座標。座標讓手機用定位找最近據點；區域清單就是手機上「目前區域」的選項。據點資料直接存進你的試算表。</p>' +
       addForm +
       (sites().length === 0 ? '<div class="zcard"><div class="small">還沒有任何據點。先用上方「新增據點」建立第一個，手機掃描才能開始。</div></div>' : "") +
       sites().map((s) => '<div class="zcard"><div><b>' + esc(s.name) + '</b> <span class="small">' + ((s.lat || s.lon) ? "座標 " + Number(s.lat || 0).toFixed(4) + ", " + Number(s.lon || 0).toFixed(4) : "未標座標") + "</span></div>" +
@@ -1008,7 +1009,7 @@
       '<button class="dnav' + (tab === "dash" ? " on" : "") + '" data-a="dtab" data-v="dash">總覽儀表板</button>' +
       '<button class="dnav' + (tab === "assets" ? " on" : "") + '" data-a="dtab" data-v="assets">設備資料</button>' +
       '<button class="dnav' + (tab === "inbound" ? " on" : "") + '" data-a="dtab" data-v="inbound">入庫作業' + (openBatches().length ? " (" + openBatches().length + ")" : "") + '</button>' +
-      '<button class="dnav' + (tab === "zones" ? " on" : "") + '" data-a="dtab" data-v="zones">位置表</button>' +
+      '<button class="dnav' + (tab === "zones" ? " on" : "") + '" data-a="dtab" data-v="zones">公司據點</button>' +
       '<button class="dnav' + (tab === "map" ? " on" : "") + '" data-a="dtab" data-v="map">座位圖</button>' +
       '<button class="dnav' + (tab === "diff" ? " on" : "") + '" data-a="dtab" data-v="diff">盤點差異' + (diffN > 0 ? " (" + diffN + ")" : "") + "</button>" +
       '<button class="dnav' + (tab === "legacy" ? " on" : "") + '" data-a="dtab" data-v="legacy">舊帳比對</button></nav>' +

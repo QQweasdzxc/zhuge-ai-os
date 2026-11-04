@@ -190,3 +190,12 @@ button.arow { font: inherit; text-align: left; background: #fff; border: 0; bord
 .seat-anchor {flex-direction:column;}
 
 .seat-inline-name {width:140px;justify-content:flex-start;background:#fffdf4;border:1px solid #d5c88b;font:12px system-ui;z-index:4;padding:0 3px;overflow:hidden;}
+
+/* Whole-map overview is the default; only explicit detail mode scrolls. */
+.seat-map-tools { display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 6px; }
+.seat-map-tools .small { flex-basis:100%; }
+.seat-layout-scroll.seat-fit { width:100%;max-height:none;overflow:hidden; }
+.seat-layout-scroll.seat-zoom { width:100%;max-height:640px;overflow:auto; }
+
+.seat-layout-scroll.seat-fit {position:relative;}
+.seat-fit .seat-layout {position:absolute;left:0;top:0;}
