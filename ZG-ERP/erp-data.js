@@ -169,14 +169,61 @@
    * 啟用條件：bridge 部署完成＋新試算表建立 → DATA_BACKEND 改為 "sheets"。
    * 舊帳（59 整合工作簿）唯讀比對，不是寫入目標。 */
   const BRIDGE_URL = "https://lenpbbhwxyyfwgvjcozf.supabase.co/functions/v1/zg-ledger-bridge";
-  function zhugeSession() {
+  const SUPABASE_URL = "https://lenpbbhwxyyfwgvjcozf.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxlbnBiYmh3eHl5Zndndmpjb3pmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyOTM1ODksImV4cCI6MjA5NTg2OTU4OX0.TAFfLoMC8Tqr4r7nlAtsOke3YcjBIBmr5fN1a6iwSFQ"; // 公開 anon key，與 shared/app-config.js 相同
+  function zhugeSessionEntry() {
     for (const key of ["zhuge_ai_os_google_auth_session_v1", "zhuge_ai_os_session_v1"]) {
       try {
         const sess = JSON.parse(localStorage.getItem(key) || "null");
-        if (sess) return sess;
+        if (sess) return { key, sess };
       } catch { /* 下一個 key */ }
     }
     return null;
+  }
+  function zhugeSession() {
+    const e = zhugeSessionEntry();
+    return e ? e.sess : null;
+  }
+  /* access_token 過期時用 refresh_token 向 Supabase 換新（比照 shared/auth/auth-service.js 契約）。
+     單機單次：並行 init 讀取共用同一個換發 Promise（refresh token 會輪替，不能同時送多筆）。
+     換發失敗（網路暫時故障或 GoTrue 拒絕）回 null，由呼叫端維持 fail-closed；
+     不主動清除 session——跨頁登入狀態由 shared/auth/auth-service.js 統一管理。 */
+  let zhugeRefreshInFlight = null;
+  async function zhugeRefreshToken() {
+    if (zhugeRefreshInFlight) return zhugeRefreshInFlight;
+    zhugeRefreshInFlight = (async () => {
+      const entry = zhugeSessionEntry();
+      const sess = entry && entry.sess;
+      const rt = sess && (sess.refresh_token || (sess.session && sess.session.refresh_token) || (sess.data && sess.data.refresh_token));
+      if (!rt) return null;
+      let res;
+      try {
+        res = await global.fetch(SUPABASE_URL + "/auth/v1/token?grant_type=refresh_token", {
+          method: "POST",
+          headers: { apikey: SUPABASE_ANON_KEY, "content-type": "application/json" },
+          body: JSON.stringify({ refresh_token: rt })
+        });
+      } catch { return null; }
+      if (!res || !res.ok) return null;
+      let data = null;
+      try { data = await res.json(); } catch { data = null; }
+      if (!data || typeof data.access_token !== "string" || !data.access_token) return null;
+      try {
+        sess.access_token = data.access_token;
+        if (typeof data.refresh_token === "string" && data.refresh_token) sess.refresh_token = data.refresh_token;
+        for (const nest of [sess.session, sess.data]) {
+          if (nest && typeof nest === "object" && nest.access_token) {
+            nest.access_token = sess.access_token;
+            if (data.refresh_token) nest.refresh_token = sess.refresh_token;
+          }
+        }
+        sess.expires_in = Number(data.expires_in || 3600);
+        sess.expires_at = Date.now() + sess.expires_in * 1000;
+        localStorage.setItem(entry.key, JSON.stringify(sess));
+      } catch { return null; }
+      return data.access_token;
+    })().finally(() => { zhugeRefreshInFlight = null; });
+    return zhugeRefreshInFlight;
   }
   function zhugeAccessToken() {
     const s = zhugeSession();
@@ -192,13 +239,14 @@
     if (DATA_BACKEND !== "sheets") return new MockStore();
     if (!global.ZgErpSheets) throw new Error("erp-sheets-adapter.js 未載入");
     return new global.ZgErpSheets.SheetsStore({ bridgeUrl: BRIDGE_URL, actor: currentActor(),
-      tokenProvider: zhugeAccessToken });
+      tokenProvider: zhugeAccessToken, tokenRefresher: zhugeRefreshToken });
   }
 
   global.ZgErpData = Object.freeze({
     backend: DATA_BACKEND,
     isMock: DATA_BACKEND === "mock",
     store: buildStore(),
+    refreshToken: zhugeRefreshToken,
     STATUSES, UNASSIGNED
   });
 })(window);
