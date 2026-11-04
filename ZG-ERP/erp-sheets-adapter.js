@@ -449,6 +449,10 @@
         const db=this._db(),asset=rowToAsset(body.asset,body.assetRow-2),record=rowToRecord(body.record,body.recordRow-2),oldAsset=db.assets.find(x=>x.code===intent.code),oldRecord=db.records.find(x=>x.sessionId===intent.sessionId&&x.code===intent.code);
         if(oldAsset)Object.assign(oldAsset,asset);else db.assets.push(asset);this._originalRows=this._originalRows||{};for(const [tab,row,num]of [['assets',body.asset,body.assetRow],['records',body.record,body.recordRow]]){this._originalRows[tab]=this._originalRows[tab]||[];this._originalRows[tab][num-2]=[...row];}
         if(body.exception)record.stateException=body.exception;if(body.metadataIssue)record.metadataIssue=body.metadataIssue;if(body.assignedProject)record.projectAssigned=body.assignedProject;if(body.departmentMismatch)record.departmentMismatch=true;
+        const rawProject=String(record.sessProject||'').trim();
+        const sessionProject=['','全部','全部專案','未指定','未指定（待確認）','未指定(待確認)'].includes(rawProject)?'':rawProject;
+        const assetProject=String(asset.project||'').trim();
+        record.projMismatch=!!(sessionProject&&assetProject&&!['未指定','未指定（待確認）','未指定(待確認)'].includes(assetProject)&&assetProject!==sessionProject);
         if(oldRecord)Object.assign(oldRecord,record);else db.records.push(record);
         if(body.binding&&!this.seatRows.some(r=>r[0]===body.binding[0]))this.seatRows.push(body.binding);
         this._scanIntents.delete(key);return oldRecord||record;
@@ -500,6 +504,17 @@
       }
       const db=this._db();for(const b of made){const i=db.batches.findIndex(x=>x.id===b.id);if(i<0)db.batches.push(b);else db.batches[i]=b;}this._intakeAttempts.delete(id);return made;
     }
+    _batchWrite(batch, entity, writeFn, onFailure) {
+      const prior=batch.__batchChain;
+      const task=this._mirror(entity,async()=>{
+        try {
+          await prior;
+          if(batch.__batchUncertain)throw Error("此批次保存結果待查，後續未送出；不可重送");
+          await writeFn();
+        } catch(error){batch.__batchUncertain=true;if(onFailure)onFailure();throw error;}
+      });
+      batch.__batchChain=task;return task;
+    }
     addBatch(info) {
       const db = this._db();
       const serials = (info.serials || []).map((s) => String(s).trim()).filter(Boolean);
@@ -509,7 +524,7 @@
         origin: info.origin || "未確認", mfgYear: info.mfgYear || "", type: info.type || "", note: info.note || "",
         at: new Date().toISOString(), items, unexpected: [], closed: false };
       db.batches.push(b);
-      b.__write = this._mirror(b, async () => {
+      b.__write = this._batchWrite(b, b, async () => {
         await this._append("batches", ["批次", b.id, b.po, b.vendor, b.brand, b.model, b.origin, b.type, b.mfgYear, b.note, b.at, "進行中", "", "", ""]);
         for (const it of items) {
           await this._append("batches", ["明細", b.id, "", "", "", "", "", "", "", "", "", "pending", it.serial, "", ""]);
@@ -526,7 +541,7 @@
         const ex = db.assets.find((a) => a.serial === s);
         if (ex) return { result: "exists", asset: ex };
         it.state = "received"; it.receivedAt = new Date().toISOString();
-        this._mirror(it, () => this._append("batches", ["明細", b.id, "", "", "", "", "", "", "", "", "", "received", s, it.receivedAt, ""]));
+        this._batchWrite(b, it, () => this._append("batches", ["明細", b.id, "", "", "", "", "", "", "", "", "", "received", s, it.receivedAt, ""]));
         return { result: "ok", item: it };
       }
       if (it) return { result: "dup", item: it };
@@ -551,12 +566,20 @@
           source: "入庫", createdAt: now, createdBy: this.actor, updatedAt: now };
         db.assets.push(a);
         x.state = "inbound"; x.code = code;
-        a.__write = this._mirror(a, async () => {
-          const rowNum = await this._append("assets", assetToRow(a, this.actor));
-          a.__row = rowNum;
-          await this._append("batches", ["明細", b.id, "", "", "", "", "", "", "", "", "", "inbound", x.serial, x.receivedAt, code]);
-        });
-        const mv = this.addMovement(code, "inbound", "進貨入庫（" + (b.vendor || "未填廠商") + "）→ " + dest.site + " " + dest.zone, { to: dest.site + " " + dest.zone });
+        const mv = { id: "m" + Date.now() + "-" + (++this._seq), code, type: "inbound", at: now,
+          note: "進貨入庫（" + (b.vendor || "未填廠商") + "）→ " + dest.site + " " + dest.zone, to: dest.site + " " + dest.zone };
+        db.movements.push(mv);
+        a.__write = this._batchWrite(b, a, async () => {
+          try {
+            await x.__chain;
+            if (b.__inboundUncertain || x.__unsynced) throw new Error("前一筆入庫結果待查，後續未送出；不可重送");
+            const rowNum = await this._append("assets", assetToRow(a, this.actor));
+            a.__row = rowNum;
+            await this._append("batches", ["明細", b.id, "", "", "", "", "", "", "", "", "", "inbound", x.serial, x.receivedAt, code]);
+            mv.__row = await this._append("movements", movementToRow(mv, this.actor));
+          } catch (error) { b.__inboundUncertain = true; mv.__unsynced = true; throw error; }
+        }, () => { mv.__unsynced = true; });
+        mv.__chain = a.__write;
         made.push(a); made.__lastMovement = mv;
       }
       if (b.items.length && b.items.every((x) => x.state === "inbound")) b.closed = true;
