@@ -30,7 +30,7 @@ async function boot(width, { touch = false } = {}) {
   await page.route("**/*", (route) => new URL(route.request().url()).hostname === "127.0.0.1" ? route.continue() : route.abort());
   // Feed one fixture snapshot through the page's own same-origin `events`
   // channel so the scene has people without any external service.
-  const feed = { sessions: [
+  const feed = { now: Date.now(), sessions: [
     { key: "fx-1", agent: "codex", project: "Fixture A", status: "thinking", startedAt: Date.now() - 60000, lastEventAt: Date.now() },
     { key: "fx-2", agent: "gemini", project: "Fixture B", status: "thinking", startedAt: Date.now() - 60000, lastEventAt: Date.now() },
   ] };
@@ -173,7 +173,7 @@ async function boot3D(width, { touch = false } = {}) {
   const context = await browser.newContext({ viewport: { width, height: 900 }, hasTouch: touch });
   const page = await context.newPage();
   await page.route("**/*", (route) => new URL(route.request().url()).hostname === "127.0.0.1" ? route.continue() : route.abort());
-  const feed = { sessions: [
+  const feed = { now: Date.now(), sessions: [
     { key: "fx-1", agent: "codex", project: "Fixture A", status: "thinking", startedAt: Date.now() - 60000, lastEventAt: Date.now() },
     { key: "fx-2", agent: "gemini", project: "Fixture B", status: "thinking", startedAt: Date.now() - 60000, lastEventAt: Date.now() },
   ] };
