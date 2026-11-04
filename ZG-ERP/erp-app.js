@@ -1,4 +1,4 @@
-/* ZG-ERP 庫存／設備管理 — 第一批（測試資料版）。
+/* ZG-ERP 庫存／設備管理 — 正式版（接 zg-ledger-bridge → 現存資料庫試算表）。
  * 資料一律來自 ZgErpData（目前是瀏覽器內的虛構測試資料；正式版改接 Google 試算表，
  * 比照 vendor-sheet-service / gas-vendor-bridge 模式，欄位待使用者提供實際表格後對照）。
  * 本頁不連接、不讀寫任何正式試算表或資料庫。
@@ -18,6 +18,13 @@
   }
   function timeStr(d) { return d.toTimeString().slice(0, 8); }
   function chip(st) { return '<span class="chip chip-' + st + '"><b>' + GLYPH[st] + "</b> " + LABEL[st] + "</span>"; }
+  /* 每筆記錄的寫回狀態：失敗要看得見（未同步），進行中標同步中 */
+  function syncMark(r) {
+    if (D.isMock || !r) return "";
+    if (r.__unsynced) return '<span class="syncmark">未同步</span>';
+    if (r.__pending) return '<span class="syncmark ing">同步中</span>';
+    return "";
+  }
 
   function session() {
     try { return JSON.parse(localStorage.getItem("zhuge_ai_os_google_auth_session_v1") || "null"); } catch { return null; }
@@ -121,6 +128,14 @@
     const sessProj = S.sess.project || "";
     const pm = !!(a && sessProj && (a.project || D.UNASSIGNED) !== sessProj);
     store.addRecord(S.sess, { code, status, zone: S.zone, at: new Date().toISOString(), projMismatch: pm, sessProject: sessProj });
+    /* 12:07 商業規則：現場掃到的設備寫進新帳（使用中）；既有待修/維修/報廢不回沖，記例外提示 */
+    if (typeof store.observeAsset === "function") {
+      const obs = store.observeAsset(S.sess, code, S.zone);
+      if (obs && obs.exception) {
+        const rec = [...S.sess.records].reverse().find((r) => r.code === code);
+        if (rec) rec.stateException = obs.reason;
+      }
+    }
     S.open = code;
     render();
   }
@@ -278,7 +293,31 @@
 
   /* ---- 共用元件 ---- */
   function mockBar() {
+    if (!D.isMock) return "";
     return '<div class="mockbar">這是<b>測試資料</b>畫面：資料為虛構範例，只存在這個瀏覽器，不會寫入你的 Google 試算表或任何正式系統。正式版將直接讀寫你的試算表（欄位對照待你提供實際表格）。</div>';
+  }
+  /* 同步狀態徽章：同步中／未同步（可點重試）。只更新徽章，不整頁重繪，避免打斷掃描。 */
+  function syncBadge() {
+    if (D.isMock || typeof store.syncStatus !== "function") return "";
+    return '<div id="erp-sync-badge" class="syncbadge" style="display:none"></div>';
+  }
+  function refreshSyncBadge() {
+    if (D.isMock || typeof store.syncStatus !== "function") return;
+    const el = document.getElementById("erp-sync-badge");
+    if (!el) return;
+    const st = store.syncStatus();
+    if (st.unsynced > 0) {
+      el.style.display = "";
+      el.className = "syncbadge bad";
+      el.textContent = st.unsynced + " 筆未同步（寫入失敗，資料只在本機）——點此重試";
+    } else if (st.pending > 0) {
+      el.style.display = "";
+      el.className = "syncbadge ing";
+      el.textContent = "同步中…" + st.pending + " 筆";
+    } else {
+      el.style.display = "none";
+      el.textContent = "";
+    }
   }
   function loginBar() {
     const s = session();
@@ -286,7 +325,7 @@
       const who = s.user && (s.user.email || s.user.name) ? esc(s.user.email || s.user.name) : "已登入";
       return '<div class="loginbar">諸葛登入狀態：' + who + "</div>";
     }
-    return '<div class="loginbar">尚未登入諸葛。測試資料可直接操作；正式版需要 <a href="' + LOGIN_URL + '">登入諸葛</a> 才能讀寫你的試算表。</div>';
+    return '<div class="loginbar">尚未登入諸葛。' + (D.isMock ? '測試資料可直接操作；正式版需要 ' : '') + '<a href="' + LOGIN_URL + '">登入諸葛</a> 才能讀寫你的試算表。</div>';
   }
   function zhugeBar() {
     return '<div class="zhugebar"><b>諸葛</b><span>／ ZG-ERP 庫存 · 設備管理</span><a class="pill sm" style="display:inline-flex;align-items:center;text-decoration:none" href="../">返回諸葛</a></div>';
@@ -331,13 +370,14 @@
     if (lastShown) {
       const r = lastShown, a = getA(r.code), st = dupFlag(r);
       toast = '<div class="toast t-' + st + '">' + chip(st) +
-        '<div class="tname">' + (a ? esc(a.name) : "清冊中找不到") + "</div>" +
+        '<div class="tname">' + (a ? esc(a.name || a.code) : "清冊中找不到") + "</div>" +
         '<div class="tcode">' + esc(r.code) + "</div>" +
         (a ? '<div class="tloc">設備狀態：<b>' + esc(a.status) + "</b>" + (a.status !== "使用中" && a.status !== "備用" ? "（掃描不會改狀態）" : "") +
           "<br>歸屬專案：<b>" + esc(a.project || D.UNASSIGNED) + "</b><br>設備序號：" + esc(a.serial || "未登記") +
           "<br>登記：" + esc(a.site) + " " + esc(a.zone) + "<br>現場：" + esc(S.site) + " " + esc(r.zone) + "</div>" : "") +
         (lastShown.projMismatch && a ? '<div class="warn">歸屬專案是「' + esc((a.project || D.UNASSIGNED).replace("（測試）", "")) + "」，和這次設定的「" + esc((lastShown.sessProject || "").replace("（測試）", "")) + "」不同。已記錄，不會自動改歸屬。</div>" : "") +
-        (r.status === "none" ? '<div class="tloc">先記下來，盤點後再補登。</div>' : "") + "</div>";
+        (lastShown.stateException ? '<div class="warn">' + esc(lastShown.stateException) + "。需由管理端確認後才會變更，本次掃描已照常保存。</div>" : "") +
+        (r.status === "none" && !lastShown.stateException ? '<div class="tloc">新設備已按「使用中」存入新帳（現場在用＝可用）；盤點後可補登細節。</div>' : "") + "</div>";
     } else {
       toast = '<div class="toast idle">還沒掃到東西。輸入登記編號，或點下面的測試按鈕模擬掃描。</div>';
     }
@@ -374,7 +414,7 @@
         const a = getA(r.code);
         return '<button class="item" data-a="open" data-v="' + esc(r.code) + '">' + chip(dupFlag(r)) +
           '<span class="iname">' + esc(a ? a.name : r.code) + '</span><span class="icode">' + esc(r.code.slice(-6)) + "</span>" +
-          (S.open === r.code ? '<span class="idet">' + (a ? esc(a.model) + " · S/N " + esc(a.serial || "未登記") + " · 狀態 " + esc(a.status) + " · 保管人 " + esc(a.owner) + " · 歸屬 " + esc(a.project || D.UNASSIGNED) + " · 購入 " + esc(a.purchase || "未登記") + " · 啟用 " + esc(a.activate || "未登記") + " · 保固 " + esc(a.warranty || "未登記") + " · 登記 " + esc(a.site) + " " + esc(a.zone) : "清冊無此編號") + " · " + esc(new Date(r.at).toLocaleTimeString("zh-TW", { hour12: false })) + (r.n > 1 ? " · 已重複 " + r.n + " 次" : "") + (r.projMismatch ? " · 歸屬專案與本次範圍不同（未改歸屬）" : "") + "</span>" : "") + "</button>";
+          (S.open === r.code ? '<span class="idet">' + (a ? esc(a.model) + " · S/N " + esc(a.serial || "未登記") + " · 狀態 " + esc(a.status) + " · 保管人 " + esc(a.owner) + " · 歸屬 " + esc(a.project || D.UNASSIGNED) + " · 購入 " + esc(a.purchase || "未登記") + " · 啟用 " + esc(a.activate || "未登記") + " · 保固 " + esc(a.warranty || "未登記") + " · 登記 " + esc(a.site) + " " + esc(a.zone) : "清冊無此編號") + " · " + esc(new Date(r.at).toLocaleTimeString("zh-TW", { hour12: false })) + (r.n > 1 ? " · 已重複 " + r.n + " 次" : "") + (r.projMismatch ? " · 歸屬專案與本次範圍不同（未改歸屬）" : "") + (r.stateException ? " · ⚠ " + esc(r.stateException) : "") + "</span>" : "") + "</button>";
       }).join("") + "</div>";
   }
   function decisionButtons(r) {
@@ -415,7 +455,7 @@
       '<div class="chips"><button class="pill sm' + (S.filter === "all" ? " on" : "") + '" data-a="filter" data-v="all">全部</button><button class="pill sm' + (S.filter === "todo" ? " on" : "") + '" data-a="filter" data-v="todo">只看待處理</button></div>' +
       (shown.length === 0 ? '<div class="toast idle">沒有要處理的項目。</div>"'.replace('"</div>"', '"') : shown.map((r) => {
         const a = getA(r.code);
-        return '<div class="item static">' + chip(r.status) + '<span class="iname">' + esc(a ? a.name : r.code) + '</span><span class="icode">' + esc(r.code.slice(-6)) + "</span>" +
+        return '<div class="item static">' + chip(r.status) + syncMark(r) + '<span class="iname">' + esc(a ? a.name : r.code) + '</span><span class="icode">' + esc(r.code.slice(-6)) + "</span>" +
           '<span class="idet">' + (a ? esc(a.status) + " · S/N " + esc(a.serial || "未登記") + " · 歸屬 " + esc(a.project || D.UNASSIGNED) + " · 購入 " + esc(a.purchase || "未登記") + " · 保固 " + esc(a.warranty || "未登記") + " · 登記 " + esc(a.site) + " " + esc(a.zone) + " → 現場 " + esc(S.site) + " " + esc(r.zone) : "清冊查無，需補登") + "</span>" +
           decisionButtons(r) + "</div>";
       }).join("")) +
@@ -429,7 +469,7 @@
     const sum = rows.reduce((a, r) => ({ t: a.t + r.t, d: a.d + r.done, z: a.z + r.z }), { t: 0, d: 0, z: 0 });
     const metric = S.metric;
     const sorted = [...rows].sort((a, b) => metric === "todo" ? b.left - a.left : metric === "zone" ? b.z - a.z : metric === "done" ? b.pct - a.pct : b.t - a.t);
-    return '<div class="screen"><h3 class="ptitle">統計儀表板</h3><p class="psub">由本頁測試資料即時計算，不是公司實際資料。</p>' + dashBody(rows, sum, sorted, true) + "</div>";
+    return '<div class="screen"><h3 class="ptitle">統計儀表板</h3><p class="psub">' + (D.isMock ? "由本頁測試資料即時計算，不是公司實際資料。" : "由現存資料庫即時計算。") + '</p>' + dashBody(rows, sum, sorted, true) + "</div>";
   }
   function dashBody(rows, sum, sorted, isPhone) {
     const metric = S.metric, dst = S.dst, pfilter = S.pfilter;
@@ -502,7 +542,7 @@
     const rows = siteRows();
     const sum = rows.reduce((a, r) => ({ t: a.t + r.t, d: a.d + r.done, z: a.z + r.z }), { t: 0, d: 0, z: 0 });
     const sorted = [...rows].sort((a, b) => S.metric === "todo" ? b.left - a.left : S.metric === "zone" ? b.z - a.z : S.metric === "done" ? b.pct - a.pct : b.t - a.t);
-    return '<h3 class="ptitle">總覽儀表板</h3><p class="psub">由本頁測試資料即時計算，不是公司實際資料。</p>' + dashBody(rows, sum, sorted, false);
+    return '<h3 class="ptitle">總覽儀表板</h3><p class="psub">' + (D.isMock ? "由本頁測試資料即時計算，不是公司實際資料。" : "由現存資料庫即時計算。") + '</p>' + dashBody(rows, sum, sorted, false);
   }
   function pcAssets() {
     if (!S.asite) S.asite = siteNames()[0] || "";
@@ -712,7 +752,7 @@
       (recs.length === 0 ? '<div class="toast idle">還沒有掃描紀錄。到「手機 · 現場掃描」掃幾筆，差異會出現在這裡（同一瀏覽器）。</div>' :
         recs.map((r) => {
           const a = getA(r.code);
-          return '<div class="item static">' + chip(r.status) + '<span class="iname">' + esc(a ? a.name : r.code) + '</span><span class="icode">' + esc(r.code.slice(-6)) + "</span>" +
+          return '<div class="item static">' + chip(r.status) + syncMark(r) + '<span class="iname">' + esc(a ? a.name : r.code) + '</span><span class="icode">' + esc(r.code.slice(-6)) + "</span>" +
             '<span class="idet">' + (a ? esc(a.status) + " · S/N " + esc(a.serial || "未登記") + " · 歸屬 " + esc(a.project || D.UNASSIGNED) + " · 登記 " + esc(a.site) + " " + esc(a.zone) + " → 現場 " + esc(r.sessionSite) + " " + esc(r.zone) : "清冊查無，需補登") + (r.projMismatch ? " · 歸屬專案與該場次範圍不同（未改歸屬）" : "") + " · " + esc(new Date(r.at).toLocaleString("zh-TW", { hour12: false })) + "</span>" +
             decisionButtons(r) + "</div>";
         }).join("")) +
@@ -739,7 +779,16 @@
   function render() {
     if ((S.mode !== "phone" || S.screen !== "scan" || S.dash) && S.camOn) camStop(true);
     const root = document.getElementById("erp-root");
-    let html = zhugeBar() + loginBar() + mockBar() + modeBar();
+    refreshSyncBadge.__lastRoot = root;
+    let html = zhugeBar() + loginBar() + mockBar() + syncBadge() + modeBar();
+    if (S.bootErr) {
+      root.innerHTML = html + '<div class="phone"><div class="card"><h2>連線失敗</h2><p>' + esc(S.bootErr) + '</p><button data-a="bootretry">重試</button></div></div>';
+      return;
+    }
+    if (S.booting) {
+      root.innerHTML = html + '<div class="phone"><div class="card"><h2>正在連接現存資料庫…</h2></div></div>';
+      return;
+    }
     if (S.mode === "phone") {
       let body;
       if (S.dash) body = phoneDash();
@@ -907,5 +956,29 @@
     if (e.key === "Enter" && e.target.getAttribute && e.target.getAttribute("data-f") === "manualCode") { scan(S.manualCode); S.manualCode = ""; render(); }
   });
 
-  render();
+  /* 開機：sheets 後端需先載入鏡像（唯一 async 入口），mock 直接渲染 */
+  function boot() {
+    if (!D.isMock && typeof store.init === "function") {
+      S.booting = true; S.bootErr = ""; render();
+      store.init().then(() => {
+        S.booting = false;
+        if (typeof store.onSyncChange === "function") store.onSyncChange(() => refreshSyncBadge());
+        render();
+      }).catch((e) => {
+        S.booting = false; S.bootErr = String(e && e.message || e);
+        render();
+      });
+    } else {
+      render();
+    }
+  }
+  document.addEventListener("click", (e) => {
+    const t = e.target.closest && e.target.closest("#erp-sync-badge");
+    if (t && typeof store.retryUnsynced === "function") { store.retryUnsynced(); }
+  });
+  document.addEventListener("click", (e) => {
+    const t = e.target.closest && e.target.closest('[data-a="bootretry"]');
+    if (t) boot();
+  });
+  boot();
 })();
