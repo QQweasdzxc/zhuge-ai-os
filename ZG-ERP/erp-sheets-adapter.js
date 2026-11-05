@@ -399,7 +399,6 @@
       const b = res ? await res.json() : null;
       if (!res || !res.ok || !b?.ok || !Array.isArray(b.row) || !Number.isInteger(b.rowNum) || b.row[0] !== code) throw new Error(b?.error?.message || "儲存未確認，請保留輸入後重試");
       Object.assign(a, rowToAsset(b.row, b.rowNum - 2));this._originalRows=this._originalRows||{};this._originalRows.assets=this._originalRows.assets||[];this._originalRows.assets[b.rowNum-2]=[...b.row];this._editReservations.delete(code);
-      this.lastSharedReadAt=new Date().toISOString();
       return a;
     }
 
