@@ -194,7 +194,7 @@
   }
   function noteControlledActivity(){S.editTouched=true;if(D.isMock||!S.editCode||S.editLocked)return;store.noteEditActivity(S.editCode).catch(e=>{S.editLocked=true;S.editError=e.message;render();});}
   /* ---- 掃描 ---- */
-  async function scan(code,retained) {
+  async function scan(code,retained,captured) {
     code = String(code || "").trim();
     if (!code || !S.sess) return;
     let seatTarget = null;
@@ -202,9 +202,9 @@
     catch(e) { S.scanSetupErr = e.message; render(); return; }
     S.scanSetupErr = "";
     if(!D.isMock&&typeof store.scanIntentVerified==='function'){
-      if(S.scanBusy){S.scanQueue=S.scanQueue||[];S.scanQueue.push(retained||{sessionId:S.sess.id,code,zone:S.zone,seatTarget});render();return;}
+      if(S.scanBusy){S.scanQueue=S.scanQueue||[];S.scanQueue.push(retained||{sessionId:S.sess.id,code,zone:S.zone,seatTarget,...(captured||{})});render();return;}
       S.scanUncertain=false;
-      S.scanBusy=true;S.scanIntent=retained||{sessionId:S.sess.id,code,zone:S.zone,seatTarget};S.manualCode=code;render();
+      S.scanBusy=true;S.scanIntent=retained||{sessionId:S.sess.id,code,zone:S.zone,seatTarget,...(captured||{})};S.manualCode=code;render();
       try{await S.sess.__write;if(S.sess.__unsynced)throw Error('盤點場次尚未保存，不能追加掃描');await store.scanIntentVerified(S.scanIntent);S.scanIntent=null;if(S.scanHeld)delete S.scanHeld[code];S.manualCode='';S.open=code;}
       catch(e){S.scanSetupErr=e.message;S.scanUncertain=!e.safeToRetry;S.scanHeld=S.scanHeld||{};S.scanHeld[code]={...S.scanIntent,uncertain:S.scanUncertain,error:e.message};}
       finally{S.scanBusy=false;render();const next=S.scanQueue?.shift();if(next)scan(next.code,next);}return;
@@ -313,7 +313,7 @@
   }
 
   /* ---- 相機連續掃描：getUserMedia 取影像；條碼辨識優先 BarcodeDetector，不支援時用內建 jsQR（僅 QR） ---- */
-  const cam = { stream: null, det: null, timer: null, canvas: null, dedup: null, engine: "", detection: null };
+  const cam = { busy:false, format:"", stream: null, det: null, timer: null, canvas: null, dedup: null, engine: "", detection: null };
   function camStop(silent) {
     if (cam.timer) { clearInterval(cam.timer); cam.timer = null; }
     if (cam.stream) { cam.stream.getTracks().forEach((t) => t.stop()); cam.stream = null; }
@@ -331,45 +331,49 @@
       svg.setAttribute("viewBox", "0 0 " + d.width + " " + d.height);
       poly.setAttribute("points", d.points.map((p) => p.x + "," + p.y).join(" "));
     } else poly.removeAttribute("points");
-    if (label) label.textContent = d && d.value ? (visible ? "已辨識 QR／條碼，框線是實際位置；儲存狀態見下方" : "已辨識，但瀏覽器未提供位置，無法畫框；儲存狀態見下方") : "對準標籤，辨識到就會自動記錄";
+    if (label) label.textContent = d && d.value ? (visible ? "已辨識 QR／條碼，框線是實際位置；儲存狀態見下方" : "已辨識，但瀏覽器未提供位置，無法畫框；儲存狀態見下方") : "對準標籤；嗶聲只表示已讀到，保存狀態見下方";
   }
   function camOnDetection(detection) {
     cam.detection = detection;
     drawQrFrame();
-    camOnCode(detection && detection.value || "");
+    camOnCode(detection && detection.value || "", detection && detection.format || cam.format);
   }
-  function camOnCode(val) {
+  function camOnCode(val,format) {
     if (!cam.dedup) cam.dedup = ErpScanCore.makePresenceDeduper(1500);
-    if (cam.dedup.accept(val)) scan(val);
+    if (!cam.dedup.accept(val)) return;
+    window.ErpReadFeedback?.beep();
+    const isQr = /^(qr_code|QRCode)$/i.test(format||'');
+    if(isQr){S.vendorReview=null;scan(val);return;} // Preserve existing deliberate QR flow.
+    const hits=assets().filter(a=>a.code===val||a.serial===val);
+    const unique=[...new Map(hits.map(a=>[a.code,a])).values()];
+    if(unique.length===1){S.vendorReview=null;scan(unique[0].code,null,{scanSource:'vendor',scanRaw:val,scanFormat:format});return;}
+    S.vendorReview={raw:val,format:format||'未知碼別',reason:unique.length?'同一條碼符合多台設備，尚未入帳':'未能唯一對應設備，尚未入帳'};
+    render();
   }
-  function camTick() {
-    const v = document.getElementById("camv");
-    if (!v || v.readyState < 2 || !S.sess) return;
-    if (cam.engine === "barcode") {
-      cam.det.detect(v).then((codes) => {
-        camOnDetection(ErpScanCore.qrDetection(codes && codes[0], v.videoWidth, v.videoHeight));
-      }).catch(() => { cam.detection = null; drawQrFrame(); /* 辨識失敗不沿用舊框，也不虛構已移開 */ });
-    } else if (cam.engine === "jsqr") {
-      try {
-        if (!cam.canvas) cam.canvas = document.createElement("canvas");
-        const w = v.videoWidth, h = v.videoHeight;
-        if (!w || !h) return;
-        cam.canvas.width = w; cam.canvas.height = h;
-        const ctx = cam.canvas.getContext("2d", { willReadFrequently: true });
-        ctx.drawImage(v, 0, 0, w, h);
-        const img = ctx.getImageData(0, 0, w, h);
-        camOnDetection(ErpScanCore.decodeDetectionWithJsQR(window.jsQR, img.data, w, h));
-      } catch (e) { cam.detection = null; drawQrFrame(); /* 單幀失敗清除舊框 */ }
-    }
+  async function camTick() {
+    const v=document.getElementById('camv');
+    if(cam.busy||!v||v.readyState<2||!S.sess)return;
+    cam.busy=true;
+    try {
+      if(!cam.canvas)cam.canvas=document.createElement('canvas');
+      const w=v.videoWidth,h=v.videoHeight;if(!w||!h)return;
+      cam.canvas.width=w;cam.canvas.height=h;
+      const ctx=cam.canvas.getContext('2d',{willReadFrequently:true});ctx.drawImage(v,0,0,w,h);
+      const codes=await window.ZXingWASM.readBarcodes(ctx.getImageData(0,0,w,h),{formats:['QRCode','Code128','Code39','EAN13','EAN8','ITF','DataMatrix','PDF417','Aztec'],tryHarder:true,maxNumberOfSymbols:1});
+      const c=codes.find(x=>x.isValid);cam.format=c?.format||'';
+      camOnDetection(c?{value:c.text,format:c.format,width:w,height:h,points:[c.position.topLeft,c.position.topRight,c.position.bottomRight,c.position.bottomLeft]}:{value:'',width:w,height:h,points:null});
+    }catch(e){cam.detection=null;drawQrFrame();S.camErr='辨識元件暫時失敗，尚未入帳。可重新開相機或使用手動輸入。';}
+    finally{cam.busy=false;}
   }
   function camStart() {
+    window.ErpReadFeedback?.unlock().then(ok=>{S.audioReady=ok;const h=document.getElementById('qrdetected');if(h&&!ok)h.textContent='音效未啟用；請看辨識提示與保存狀態';});
+    window.ZXingWASM?.setZXingModuleOverrides({locateFile:p=>p.endsWith(".wasm")?new URL("vendor/zxing_reader.wasm",location.href).href:p});
     S.camErr = "";
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       S.camErr = "這個瀏覽器沒有相機功能（需要 HTTPS 與支援的瀏覽器），請用輸入或測試按鈕。"; render(); return;
     }
-    const hasBD = "BarcodeDetector" in window;
-    const hasJsQR = !!(window.ErpScanCore && window.jsQR);
-    if (!hasBD && !hasJsQR) {
+    const hasBD = false;
+    if (!window.ZXingWASM) {
       S.camErr = "這個瀏覽器不支援即時條碼辨識，備用辨識元件也未載入，請用輸入或測試按鈕。"; render(); return;
     }
     let settled = false;
@@ -384,12 +388,12 @@
       if (settled) { stream.getTracks().forEach((t) => t.stop()); return; }
       settled = true; clearTimeout(watchdog);
       cam.stream = stream;
-      cam.engine = hasBD ? "barcode" : "jsqr";
+      cam.engine = "zxing";
       if (hasBD) cam.det = new BarcodeDetector({ formats: ["qr_code", "code_128", "code_39", "ean_13", "ean_8", "data_matrix"] });
       cam.dedup = ErpScanCore.makePresenceDeduper(1500);
       S.camOn = true; S.camLast = ""; S.camLastAt = 0;
       render();
-      cam.timer = setInterval(camTick, cam.engine === "jsqr" ? 700 : 600);
+      cam.timer = setInterval(camTick, 700);
     }).catch((err) => {
       if (settled) return;
       settled = true; clearTimeout(watchdog);
@@ -547,7 +551,7 @@
       '<div class="small">起點定位 ' + (S.sess.lat != null ? Number(S.sess.lat).toFixed(3) + ", " + Number(S.sess.lon).toFixed(3) + (S.sess.acc != null ? "（±" + S.sess.acc + " m）" : "") : "無（手動選擇據點）") + " · " + esc(new Date(S.sess.at).toLocaleTimeString("zh-TW", { hour12: false })) + "（固定，換區域不會改）</div>" +
       (S.zoneOpen ? '<div class="zonepick">' + zonesOf(S.site).map((z) => '<button class="pill' + (S.zone === z ? " on" : "") + '" data-a="zone" data-v="' + esc(z) + '">' + esc(z) + "</button>").join("") + "</div>" : "") +
       (S.camOn
-        ? '<div class="view live"><video id="camv" autoplay playsinline muted></video><svg id="qrframe" class="qrframe" preserveAspectRatio="xMidYMid meet" aria-hidden="true" hidden><polygon id="qrpolygon" vector-effect="non-scaling-stroke"></polygon></svg><span id="qrdetected" class="detectedhint" aria-live="polite">對準標籤，辨識到就會自動記錄</span><span class="hint">' + (cam.engine === "jsqr" ? "對準 QR 碼（此瀏覽器僅支援 QR），掃到會自動記一筆（同一張持續對準只記一次，移開約 1.5 秒後可再掃）" : "對準 QR／條碼，掃到會自動記一筆（同一張持續對準只記一次，移開約 1.5 秒後可再掃）") + '</span></div><div class="frow"><button class="pill sm" data-a="camstop">關閉相機</button></div>'
+        ? '<div class="view live"><video id="camv" autoplay playsinline muted></video><svg id="qrframe" class="qrframe" preserveAspectRatio="xMidYMid meet" aria-hidden="true" hidden><polygon id="qrpolygon" vector-effect="non-scaling-stroke"></polygon></svg><span id="qrdetected" class="detectedhint" aria-live="polite">對準標籤；嗶聲只表示已讀到，保存狀態見下方</span><span class="hint">' + (cam.engine === "jsqr" ? "對準 QR 碼（此瀏覽器僅支援 QR），掃到會自動記一筆（同一張持續對準只記一次，移開約 1.5 秒後可再掃）" : "對準 QR／條碼，掃到會自動記一筆（同一張持續對準只記一次，移開約 1.5 秒後可再掃）") + '</span></div><div class="frow"><button class="pill sm" data-a="camstop">關閉相機</button></div>'
         : '<div class="view" role="img" aria-label="相機取景區"><i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i><div class="qr"></div><span class="hint">可用相機連續掃描，或用下方手動輸入</span></div><div class="frow"><button class="pill sm" data-a="camstart">開啟相機掃描</button></div>' + (S.camErr ? '<div class="warn">' + esc(S.camErr) + "</div>" : "")) +
       toast +
       (S.scanBusy?'<div class="warn">正在核對保存：'+esc(S.scanIntent?.code||'')+'，完成前不計入成功。</div>':'')+(S.scanQueue?.length?'<div class="warn">等候保存：'+S.scanQueue.map(x=>esc(x.code)).join('、')+'</div>':'')+
@@ -1083,6 +1087,7 @@
       return;
     }
     let html = zhugeBar() + loginBar() + mockBar() + syncBadge() + modeBar();
+    if(S.vendorReview)html+='<section class="warn" role="status"><b>已讀到 '+esc(S.vendorReview.format)+'</b><p style="overflow-wrap:anywhere">'+esc(S.vendorReview.raw)+'</p><p>'+esc(S.vendorReview.reason)+'。請在設備資料／入庫作業核對，原碼已保留，不會把廠商條碼直接當成登記編號。</p><button class="pill" data-a="vendor-copy">複製原碼</button><span role="status">'+esc(S.vendorCopyStatus||'')+'</span></section>';
     if(!D.isMock)html+='<div class="loginbar"><button class="pill sm" data-a="shared-refresh"'+(S.sharedBusy?' disabled':'')+'>'+(S.sharedBusy?'正在更新共同資料…':'更新共同盤點結果')+'</button> <span>'+esc(S.sharedMessage||(store.lastSharedReadAt?'上次更新 '+new Date(store.lastSharedReadAt).toLocaleTimeString('zh-TW'):'共用同一份設備與盤點紀錄；更新可查看其他人的新結果。'))+'</span></div>';
     if (S.bootErr) {
       root.innerHTML = html + (S.bootAuth
@@ -1121,6 +1126,7 @@
       S.editCode='';S.editDraft=null;S.editConflict=false;
     }
     if(['end','finish','newsession','start','toresult'].includes(a)&&(S.scanBusy||S.scanQueue?.length||Object.keys(S.scanHeld||{}).length)){S.scanSetupErr='尚有未保存或結果待查的掃描，保留場次與輸入；請先核對。';render();return;}
+    if(a==='vendor-copy'){navigator.clipboard.writeText(S.vendorReview?.raw||'').then(()=>{S.vendorCopyStatus='已複製';render();}).catch(()=>{S.vendorCopyStatus='複製未成功，請選取上方原碼';render();});return;}
     if (a === "workspace-overview") { S.mode="pc"; S.dtab="dash"; S.dash=false; S.workspaceMore=false; }
     else if (a === "workspace-scan") { S.mode="phone"; S.dash=false; S.workspaceMore=false; }
     else if (a === "workspace-more") { S.workspaceMore=!S.workspaceMore; }
