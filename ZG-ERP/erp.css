@@ -189,7 +189,8 @@ button.arow { font: inherit; text-align: left; background: #fff; border: 0; bord
 .seat-anchor small {display:block;max-width:100%;font-size:11px;}
 .seat-anchor {flex-direction:column;}
 
-.seat-inline-name {width:140px;justify-content:flex-start;background:#fffdf4;border:1px solid #d5c88b;font:12px system-ui;z-index:4;padding:0 3px;overflow:hidden;}
+.seat-anchor.has-name {flex-direction:row;align-items:center;justify-content:center;gap:3px;overflow:hidden;}
+.seat-anchor.has-name small {font-size:10px;font-weight:400;line-height:1;max-width:72%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline;}
 
 /* Whole-map overview is the default; only explicit detail mode scrolls. */
 .seat-map-tools { display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 6px; }
