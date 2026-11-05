@@ -63,7 +63,7 @@
   }
 
   const S = {
-    booting: !D.isMock, mode: (new URLSearchParams(location.search).get("mode") === "phone" || window.innerWidth < 700) ? "phone" : "pc",
+    booting: !D.isMock, mode: new URLSearchParams(location.search).get("mode") === "phone" ? "phone" : "pc", workspaceMore: false,
     dtab: "dash", dash: false, screen: "start",
     place: "", gps: null, gpsErr: "", site: "", zone: "", zoneOpen: false,
     open: "", filter: "all", metric: "total", dsite: "", dst: "", pfilter: "",
@@ -455,9 +455,8 @@
     return '<div class="zhugebar"><b>諸葛</b><span>／ ZG-ERP 庫存 · 設備管理</span><a class="pill sm" style="display:inline-flex;align-items:center;text-decoration:none" href="../">返回諸葛</a></div>';
   }
   function modeBar() {
-    return '<div class="modebar">' +
-      '<button class="mb' + (S.mode === "pc" ? " on" : "") + '" data-a="mode" data-v="pc">電腦 · 管理編輯</button>' +
-      '<button class="mb' + (S.mode === "phone" ? " on" : "") + '" data-a="mode" data-v="phone">手機 · 現場掃描</button></div>';
+    const more = S.workspaceMore ? '<section class="workspace-more" aria-label="管理功能"><h3>管理功能</h3>'+[['assets','設備資料'],['inbound','入庫作業'],['zones','公司據點'],['map','座位圖'],['diff','盤點差異'],['legacy','舊帳比對']].map(([key,label])=>'<button class="pill" data-a="workspace-manage" data-v="'+key+'">'+label+'</button>').join('')+'<button class="pill" data-a="workspace-more">關閉</button></section>' : '';
+    return '<nav class="workspace-nav" aria-label="工作區"><span class="workspace-title">設備管理工作區</span><button class="mb'+(S.mode==='pc'&&S.dtab==='dash'?' on':'')+'" data-a="workspace-overview">總覽</button><button class="mb'+(S.mode==='phone'?' on':'')+'" data-a="workspace-scan">掃描</button><button class="mb" aria-expanded="'+!!S.workspaceMore+'" data-a="workspace-more">更多管理</button></nav>'+more;
   }
 
   /* ---- 手機端 ---- */
@@ -1115,14 +1114,18 @@
     const t = e.target.closest("[data-a]");
     if (!t) return;
     const a = t.getAttribute("data-a"), v = t.getAttribute("data-v") || "";
-    if(S.editCode&&['mode','tab','dtab','back','godiff','sitelist','gositepc','asite','gosite'].includes(a)){
+    if(S.editCode&&['workspace-overview','workspace-scan','workspace-manage','mode','tab','dtab','back','godiff','sitelist','gositepc','asite','gosite'].includes(a)){
       if(S.editTouched){S.editError='還有未保存的輸入，請先保存或明確取消編輯後再離開。';render();return;}
       if(S.editBusy)return;
       if(!D.isMock)store.releaseAssetEdit(S.editCode).catch(()=>{});
       S.editCode='';S.editDraft=null;S.editConflict=false;
     }
     if(['end','finish','newsession','start','toresult'].includes(a)&&(S.scanBusy||S.scanQueue?.length||Object.keys(S.scanHeld||{}).length)){S.scanSetupErr='尚有未保存或結果待查的掃描，保留場次與輸入；請先核對。';render();return;}
-    if (a === "mode") { S.mode = v; }
+    if (a === "workspace-overview") { S.mode="pc"; S.dtab="dash"; S.dash=false; S.workspaceMore=false; }
+    else if (a === "workspace-scan") { S.mode="phone"; S.dash=false; S.workspaceMore=false; }
+    else if (a === "workspace-more") { S.workspaceMore=!S.workspaceMore; }
+    else if (a === "workspace-manage") { S.mode="pc"; S.dtab=v; S.dash=false; S.workspaceMore=false; }
+    else if (a === "mode") { S.mode = v; }
     else if (a === "tab") { S.dash = v === "dash"; }
     else if (a === "site") { if(seatUI)seatUI.resetSelection();S.site = v; }
     else if (a === "gps") { detectGps(); return; }
