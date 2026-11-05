@@ -1,7 +1,7 @@
 (function(g){'use strict';
 const C=g.ErpSeatCore,esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function create(store,rerender){
- const S={loaded:false,busy:false,error:'',draft:null,selected:1,mapId:'',name:'',notice:'',pending:null,scanSelected:false,zoom:false};
+ const S={loaded:false,busy:false,error:'',draft:null,selected:1,mapId:'',name:'',notice:'',pending:null,scanSelected:false,zoom:false,pickFor:''};
  const model=()=>C.reduce(store.seatRows||[]);
  const mapFor=(site,zone)=>{const maps=model().maps.filter(m=>m.site===site&&(!zone||m.zone===zone));return maps.find(m=>m.id===S.mapId)||maps[maps.length-1]};
  const uid=()=>crypto.randomUUID();
@@ -23,6 +23,7 @@ function create(store,rerender){
  async function bind(code,site,zone,sess,target){const m=model().maps.find(m=>m.id===target?.map)||mapFor(site,zone);if(!m)return;if(!target)throw Error('請先明確選擇目前座位，再掃設備');const seat=target.seat;const prior=model().bindings[code];if(prior&&(prior.version!==m.id||prior.seat!==seat))throw Error('設備已有其他座位登記，保留原座位；請管理端核對後另行處理');const id='binding:'+sess.id+':'+code;await event('binding',m,seat,code,{sessionId:sess.id},id)}
  async function act(action,ctx){S.error='';S.notice='';try{
  if(action==='zoom'){S.zoom=!S.zoom;rerender();return}
+ if(action==='picktoggle'){S.pickFor=S.pickFor===ctx.code?'':(ctx.code||'');rerender();return}
  if(action==='select'){const box=document.querySelector('.seat-layout-scroll'),xy=box&&[box.scrollLeft,box.scrollTop];S.gridOpen=true;S.selected=Number(ctx.number);S.scanSelected=true;S.editing=null;rerender();const next=document.querySelector('.seat-layout-scroll');if(next&&xy){next.scrollLeft=xy[0];next.scrollTop=xy[1]}return}
  if(action==='cancel'){S.draft=null;rerender();return}
  const m=mapFor(ctx.site,ctx.zone);
@@ -38,7 +39,28 @@ function create(store,rerender){
  function target(site,zone,code){if(!S.loaded)throw Error('座位資料尚未讀取完成，請稍候');if(!store.seatReady)throw Error('座位資料未能讀取，請重新整理或確認連線，未寫入掃描');const m=mapFor(site,zone);if(!m)return null;if(!S.scanSelected)throw Error('請先選座位編號，再掃設備');const old=model().bindings[code];if(old&&(old.version!==m.id||old.seat!==S.selected))throw Error('設備已有其他座位登記，保留原座位，請先核對');return {map:m.id,seat:S.selected};}
  function orderedRecords(recs){const md=model();return [...recs].sort((a,b)=>{const x=md.bindings[a.code],y=md.bindings[b.code];return (x?x.seat:Infinity)-(y?y.seat:Infinity)||a.code.localeCompare(b.code)});}
  function recordLabel(code){const e=model().bindings[code];return e?e.seat+'號座位':'未指定座位';}
- function assetEditor(a,selected,busy){const md=model(),old=md.bindings[a.code],m=mapFor(a.site,a.zone);return '<div class="card"><label class="lbl">座位編號（人工指定，不是掃描紀錄）</label><p class="small">目前：'+esc(old?old.seat+'號座位 · '+(old.kind==='placement'?'人工指定':'掃描登記'):'未指定座位')+'</p>'+(old?'<p class="small">已有座位登記，保留原位置；搬動請另行核對，不直接覆蓋。</p>':m?'<select class="inp" data-f="editSeat"><option value="">請明確選擇座位，不從舊帳推測</option>'+C.ordered(m.seats).map(x=>'<option value="'+x.number+'"'+(String(x.number)===String(selected)?' selected':'')+'>'+x.number+'號座位</option>').join('')+'</select><button class="pill" data-a="asset-seat-save"'+(busy?' disabled':'')+'>確認並保存這台設備的座位</button><p class="small">單獨保存座位，不會保存上方其他編輯、不增加已掃設備或已核對座位數；不改保管人。若更改區域，請先保存設備資料。</p>':'<p class="small">此據點／區域沒有已保存座位圖，不能猜座位。</p>')+'</div>';}
+ function pickPanel(m,a,selected){
+ const md=model();const n=selected!==''&&selected!=null?Number(selected):null;const seat=n!=null?m.seats.find(s=>s.number===n):null;
+ const refs=new Map(m.seats.map(s=>[s.ref,s]));
+ const cells=m.cells.map(c=>{if(refs.has(c.ref))return '';const b=c.border||{};const line=x=>b[x]?'1px solid #bbb':'0';return '<div class="seat-cell" style="left:'+c.x+'px;top:'+c.y+'px;width:'+c.w+'px;height:'+c.h+'px;background:'+esc(c.fill)+';color:'+esc(c.ink)+';border-left:'+line('left')+';border-right:'+line('right')+';border-top:'+line('top')+';border-bottom:'+line('bottom')+';font-size:'+Math.min(c.fontSize,14)+'px">'+esc(c.text||'').replace(/\n/g,'<br>')+'</div>'}).join('');
+ const seats=m.seats.map(s2=>{const c=m.cells.find(x=>x.ref===s2.ref)||{};return '<button class="seat-cell seat-anchor seat-pick-seat'+(seat&&s2.number===seat.number?' chosen':'')+'" data-a="asset-seat-pick" data-v="'+s2.number+'" style="left:'+s2.x+'px;top:'+s2.y+'px;width:'+s2.w+'px;height:'+Math.max(s2.h,22)+'px;background:'+esc(c.fill||'#fff')+'" title="點選此座位">'+s2.number+'</button>'}).join('');
+ let h='<div class="seat-layout-scroll seat-fit" data-seat-width="'+m.width+'" data-seat-height="'+m.height+'" aria-label="從座位圖選位置"><div class="seat-layout" style="width:'+m.width+'px;height:'+m.height+'px">'+cells+seats+'</div></div>';
+ if(seat){const o=md.occupants[m.id+':'+seat.number];const links=Object.values(md.bindings).filter(e=>e.version===m.id&&e.seat===seat.number);
+  h+='<p class="small"><b>'+seat.number+'號座位</b> · 使用人：'+esc(o&&o.data.name?o.data.name:'待確認')+' · 已放設備 '+links.length+'台'+(links.length?'：'+links.map(e=>esc(e.code)).join('、'):'')+'</p>'+(o&&o.data.name?'<p class="small">座位使用人不等於設備保管人，要不要帶入由你決定。</p><button class="pill sm" data-a="asset-seat-custodian" data-v="'+esc(o.data.name)+'">把使用人「'+esc(o.data.name)+'」填入保管人欄位（只改本次編輯草稿，按「保存」才生效，不綁定、不連動其他設備）</button>':'')+'<p class="small">選好後按下方「確認並保存這台設備的座位」才會保存；上方其他編輯不會遺失。</p>';}
+ else h+='<p class="small">點圖上的座位可看座號、使用人與已放設備；選好後再按「確認並保存這台設備的座位」。</p>';
+ return h;}
+function assetEditor(a,selected,busy){const md=model(),old=md.bindings[a.code],m=mapFor(a.site,a.zone);const open=S.pickFor===a.code;
+ let inner='';
+ if(old){inner='<p class="small">已有座位登記，保留原位置；搬動請另行核對，不直接覆蓋。</p>';}
+ else if(!m){inner='<p class="small">此據點／區域沒有已保存座位圖，不能猜座位。</p>';}
+ else{
+  inner='<select class="inp" data-f="editSeat"><option value="">請明確選擇座位，不從舊帳推測</option>'+C.ordered(m.seats).map(x=>'<option value="'+x.number+'"'+(String(x.number)===String(selected)?' selected':'')+'>'+x.number+'號座位</option>').join('')+'</select>'
+   +'<button class="pill sm" data-seat-action="picktoggle" data-seat-code="'+esc(a.code)+'">'+(open?'收起座位圖':'從座位圖選位置')+'</button>'
+   +(open?pickPanel(m,a,selected):'')
+   +'<button class="pill" data-a="asset-seat-save"'+(busy?' disabled':'')+'>確認並保存這台設備的座位</button>'
+   +'<p class="small">單獨保存座位，不會保存上方其他編輯、不增加已掃設備或已核對座位數；不改保管人。若更改區域，請先保存設備資料。</p>';
+ }
+ return '<div class="card"><label class="lbl">座位編號（人工指定，不是掃描紀錄）</label><p class="small">目前：'+esc(old?old.seat+'號座位 · '+(old.kind==='placement'?'人工指定':'掃描登記'):'未指定座位')+'</p>'+inner+'</div>';}
  async function savePlacement(a,number){await load();const md=model(),m=mapFor(a.site,a.zone),seat=Number(number);if(!m||!m.seats.some(x=>x.number===seat))throw Error('座位不在這個據點／區域的座位圖內');const old=md.bindings[a.code];if(old&&(old.version!==m.id||old.seat!==seat))throw Error('設備已有其他座位，保留原登記，請重新核對');await event('placement',m,seat,a.code,{source:'asset-editor',confirmed:true},'placement:'+m.id+':'+a.code+':'+seat);await load();const saved=model().bindings[a.code];if(!saved||saved.version!==m.id||saved.seat!==seat)throw Error('座位未能讀回確認，請重試');}
  function layout(){for(const box of document.querySelectorAll('.seat-layout-scroll[data-seat-width]')){const w=Number(box.dataset.seatWidth),h=Number(box.dataset.seatHeight),zoom=box.classList.contains('seat-zoom'),scale=zoom?1:Math.min(1,box.clientWidth/w,Math.max(260,window.innerHeight*.65)/h);box.style.height=(zoom?Math.min(h,640):h*scale)+'px';const inner=box.querySelector('.seat-layout');inner.style.transform='scale('+scale+')';if(!zoom){box.scrollLeft=0;box.scrollTop=0;}}}
  if(typeof ResizeObserver!=='undefined'){const ro=new ResizeObserver(()=>layout());setTimeout(()=>ro.observe(document.documentElement),0);}
