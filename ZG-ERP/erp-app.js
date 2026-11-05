@@ -437,7 +437,7 @@
     if (D.isMock || typeof store.syncStatus !== "function") return "";
     return '<div id="erp-sync-badge" class="syncbadge" style="display:none"></div><div id="erp-version-badge" class="versionbadge" style="display:none"></div>';
   }
-  const LOADED_BUILD = { id: "2026-11-05.2", builtAt: "2026-11-05T17:10:00+08:00" }; /* 隨本頁程式一起載入的建置識別；每次部署必須同步改這裡與 version.json 的 build */
+  const LOADED_BUILD = { id: "2026-11-05.3" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
   async function checkAppVersion() {
     if (D.isMock) return;
     try {
@@ -445,6 +445,7 @@
       if (!res.ok) return;
       const v = await res.json();
       S.manifest = v;
+      if (v.build === LOADED_BUILD.id) S.servedAt = res.headers.get("last-modified") || "";
       S.newerVersion = !!(v.build && v.build !== LOADED_BUILD.id);
       refreshVersionBadge();
     } catch (e) { /* 版本檢查失敗不擋使用 */ }
@@ -455,7 +456,7 @@
     if (D.isMock) { el.style.display = "none"; return; }
     const st = (typeof store.syncStatus === "function") ? store.syncStatus() : {};
     const fmt = (iso) => { if (!iso) return "尚未成功同步"; const d = new Date(iso); return d.toLocaleString("zh-TW", { hour12: false, month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }); };
-    const ver = "此頁版本 " + LOADED_BUILD.id + " · 建置 " + fmt(LOADED_BUILD.builtAt);
+    const ver = "此頁版本 " + LOADED_BUILD.id + (S.servedAt ? " · 伺服器發布 " + fmt(new Date(S.servedAt).toISOString()) : " · 發布時間待伺服器確認");
     let cls = "versionbadge", extra = "";
     if (st.unsynced > 0) { cls += " bad"; extra = " · 同步失敗 " + st.unsynced + " 筆（見上方提示）"; }
     else if (st.pending > 0) { cls += " ing"; extra = " · 同步中"; }
