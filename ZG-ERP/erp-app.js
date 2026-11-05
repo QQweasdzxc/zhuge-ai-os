@@ -442,9 +442,10 @@
   /* 同步狀態徽章：同步中／未同步（可點重試）。只更新徽章，不整頁重繪，避免打斷掃描。 */
   function syncBadge() {
     if (D.isMock || typeof store.syncStatus !== "function") return "";
+    setTimeout(refreshSyncBadge, 0); /* 整頁重繪會重建徽章（預設隱藏），重繪後立刻補上內容 */
     return '<div id="erp-sync-badge" class="syncbadge" style="display:none"></div><div id="erp-version-badge" class="versionbadge" style="display:none"></div>';
   }
-  const LOADED_BUILD = { id: "2026-11-05.6" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
+  const LOADED_BUILD = { id: "2026-11-05.7" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
   async function checkAppVersion() {
     if (D.isMock) return;
     try {
@@ -732,7 +733,7 @@
         '<div class="srow"><button class="shead" data-a="dsite" data-v="' + esc(r.n) + '"><span class="sname">' + esc(r.n) + '</span><span class="spct">' + r.pct + '%</span><span class="bar"><i style="width:' + r.pct + '%"></i></span><span class="smeta">相符 ' + r.done + "/" + r.t + " · 待核對 " + r.reg + " · 無掃描 " + r.left + " · 不符 " + r.z + "</span></button>" +
         (S.dsite === r.n ? '<div class="sdet"><div class="lbl">狀態分布</div><div class="smeta">' + D.STATUSES.map((st) => esc(st) + " " + assets().filter((a) => a.site === r.n && a.status === st).length).join(" · ") + '</div><button class="pill sm" data-a="gosite" data-v="' + esc(r.n) + '">去盤點' + esc(r.n) + "</button></div>" : "") + "</div>").join("");
     }
-    return '<div class="lbl sim">各據點位置核對（掃描相符，不等於整場盤點完成）· ' + mlabel + " · 最沒進度的排前面</div>" +
+    return '<div class="lbl sim">各據點位置核對（掃描相符，不等於整場盤點完成）· ' + mlabel + "</div>" +
       '<div class="scards">' + sorted.map((r) => {
         const worst = r.left > 0;
         return '<div class="scard"><div class="sct"><b>' + esc(r.n) + "</b><span class=\"spct\">" + r.pct + "%</span></div>" +
@@ -742,7 +743,7 @@
           '<div class="scact"><button class="pill sm" data-a="sitelist" data-v="' + esc(r.n) + '">看設備</button>' +
           (worst ? '<button class="pill sm" data-a="gositepc" data-v="' + esc(r.n) + '">去盤點</button>' : "") + "</div></div>";
       }).join("") + "</div>" +
-      '<p class="small">盤點進度以試算表的「最後盤點時間」和「登記區域」即時計算。</p>';
+      '<p class="small">位置核對相符與已登記待核對依試算表盤點紀錄的最後一筆「判定」即時計算；僅涵蓋目前登記的設備，不代表整場或全公司盤點進度。</p>';
   }
 
   /* ---- 電腦端 ---- */
