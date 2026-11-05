@@ -188,7 +188,7 @@ test('observeAsset: all/unspecified sentinels never assign a project to existing
 test('mock fallback scan function: assigned and blocked paths render; live atomic route covered by scan-intent tests', async () => {
   const fs=require('node:fs'), vm=require('node:vm');
   const app=fs.readFileSync(path.join(ROOT,'ZG-ERP/erp-app.js'),'utf8');
-  const scanSource=app.slice(app.indexOf('  async function scan(code,retained) {'), app.indexOf('  function detectGps()'));
+  const scanSource=app.slice(app.indexOf('  async function scan(code,retained'), app.indexOf('  function detectGps()'));
   const store=makeStore([assetRow('A','台北','10F','','使用中'), assetRow('B','台北','10F','','待修')]);
   await store.init();
   let appends=0, updates=0, renders=0;
