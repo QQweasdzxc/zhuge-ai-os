@@ -437,16 +437,17 @@
     if (D.isMock || typeof store.syncStatus !== "function") return "";
     return '<div id="erp-sync-badge" class="syncbadge" style="display:none"></div><div id="erp-version-badge" class="versionbadge" style="display:none"></div>';
   }
+  const LOADED_BUILD = { id: "2026-11-05.2", builtAt: "2026-11-05T17:10:00+08:00" }; /* 隨本頁程式一起載入的建置識別；每次部署必須同步改這裡與 version.json 的 build */
   async function checkAppVersion() {
     if (D.isMock) return;
     try {
       const res = await fetch("version.json", { cache: "reload" });
       if (!res.ok) return;
       const v = await res.json();
-      if (!S.appVersion) S.appVersion = v;
-      else if (v.version !== S.appVersion.version || v.updated !== S.appVersion.updated) S.newerVersion = true;
+      S.manifest = v;
+      S.newerVersion = !!(v.build && v.build !== LOADED_BUILD.id);
       refreshVersionBadge();
-    } catch (e) { /* 版本檢查失敗不擋使用；保持目前顯示 */ }
+    } catch (e) { /* 版本檢查失敗不擋使用 */ }
   }
   function refreshVersionBadge() {
     const el = document.getElementById("erp-version-badge");
@@ -454,13 +455,13 @@
     if (D.isMock) { el.style.display = "none"; return; }
     const st = (typeof store.syncStatus === "function") ? store.syncStatus() : {};
     const fmt = (iso) => { if (!iso) return "尚未成功同步"; const d = new Date(iso); return d.toLocaleString("zh-TW", { hour12: false, month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }); };
-    const ver = S.appVersion ? ("版本 " + String(S.appVersion.version || "?") + " · 發布 " + String(S.appVersion.updated || "?")) : "版本讀取中…";
+    const ver = "此頁版本 " + LOADED_BUILD.id + " · 建置 " + fmt(LOADED_BUILD.builtAt);
     let cls = "versionbadge", extra = "";
     if (st.unsynced > 0) { cls += " bad"; extra = " · 同步失敗 " + st.unsynced + " 筆（見上方提示）"; }
     else if (st.pending > 0) { cls += " ing"; extra = " · 同步中"; }
-    if (S.newerVersion) { cls += " new"; extra += " · 已有新版本，請重新整理"; }
+    if (S.newerVersion) { cls += " new"; extra += " · 已有新版本 " + String(S.manifest.build) + "，請重新整理"; }
     el.className = cls;
-    el.textContent = ver + " · 資料最後成功同步 " + fmt(st.lastSync) + extra;
+    el.textContent = ver + " · 整份資料最後完整讀取 " + fmt(st.lastSync) + extra;
     el.style.display = "";
   }
   function refreshSyncBadge() {
