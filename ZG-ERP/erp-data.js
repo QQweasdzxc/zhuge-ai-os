@@ -96,6 +96,9 @@
       try { raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"); } catch { raw = null; }
       this.db = raw && raw.__v === 2 ? raw : seed();
       this.db.batches = this.db.batches || [];
+      this.db.seatRows = this.db.seatRows || [];
+      this.seatRows = this.db.seatRows;
+      this.seatReady = true;
       this.actor = "現場測試"; // 釐清標示確認人（mock）
       this.db.annotations = this.db.annotations || [];
       this.db.movements = this.db.movements || [];
@@ -105,6 +108,12 @@
     }
     persist() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(this.db)); } catch { /* 空間不足時維持記憶體狀態 */ } }
     state() { return this.db; }
+    async loadSeatMap() { this.seatRows=this.db.seatRows;this.seatReady=true;return this.seatRows; }
+    async appendSeatEvent(row) {
+      if(!Array.isArray(row)||row.length!==10)throw Error("測試座位事件格式不符");
+      if(!this.seatRows.some(r=>r[0]===row[0]))this.seatRows.push([...row]);
+      this.persist();return {ok:true,row:[...row]};
+    }
     saveAsset(code, patch) {
       const a = this.db.assets.find((x) => x.code === code);
       if (!a) throw new Error("找不到設備 " + code);
