@@ -133,7 +133,7 @@
       return '<section class="geo-panel"><h3>' + seat.number + "號座位 · " + esc(S.site) + " " + esc(S.zone) + "</h3>" +
         (S.nameEditing === seat.number
           ? '<div class="geo-personedit"><label class="lbl" for="geo-name-input">這個座位目前的使用人</label><input id="geo-name-input" class="inp" data-geo-field="name" value="' + esc(S.nameDraft) + '" placeholder="輸入姓名；留空代表目前待確認"><div class="geo-editrow"><button class="pill" data-a="geo" data-v="name:save"' + (S.nameBusy ? " disabled" : "") + '>儲存使用人</button><button class="pill sm" data-a="geo" data-v="name:cancel">取消</button></div><p class="geo-note">只改這個座位的使用人；不改設備保管人，也不搬動設備。</p></div>'
-          : '<div class="geo-person">' + (o && o.data.name ? esc(o.data.name) : "目前使用人待確認") + '</div><div class="geo-editrow"><button class="pill sm" data-a="geo" data-v="name:edit">' + (o && o.data.name ? "修改使用人" : "填寫使用人") + "</button></div>") +
+          : '<div class="geo-person">' + (o && o.data.public ? "公共區域" : o && o.data.name ? esc(o.data.name) : "目前使用人待確認") + '</div>' + (o && o.data.public ? '<p class="geo-note">公共區域不填個人姓名。要改請到「座位」頁取消公共區域標記。</p>' : '<div class="geo-editrow"><button class="pill sm" data-a="geo" data-v="name:edit">' + (o && o.data.name ? "修改使用人" : "填寫使用人") + "</button></div>")) +
         '<p class="geo-note">人員是座位使用人，不自動等於設備保管人。</p>' +
         "<h4>此座位設備 " + links.length + "台</h4>" +
         (links.length ? links.map((e) => { const a = assets().find((x) => x.code === e.code); return '<div class="geo-asset"><b>' + esc(e.code) + "</b><span>" + esc(a ? (a.name || "未填名稱") + " · " + (a.model || "未填型號") : "清冊查無") + "</span></div>"; }).join("") : "<p>此座位未有已登記設備。</p>") +
@@ -147,7 +147,7 @@
       const nameRefs = new Map();
       for (const st of m.seats) for (const x of st.nearbySource || []) if (!nameRefs.has(x.ref)) nameRefs.set(x.ref, st);
       return '<div class="seat-layout-scroll seat-fit" data-seat-width="' + m.width + '" data-seat-height="' + m.height + '" aria-label="' + esc(S.site) + " " + esc(S.zone) + ' 座位圖"><div class="seat-layout" style="width:' + m.width + "px;height:" + m.height + 'px">' +
-        m.cells.map((c) => { if (refs.has(c.ref)) return ""; const b = c.border || {}; const line = (n) => (b[n] ? "1px solid #bbb" : "0"); const nameSeat = nameRefs.get(c.ref); if (nameSeat) { const o = md.occupants[m.id + ":" + nameSeat.number]; return '<button class="seat-cell seat-name geo-seat' + (S.seat === nameSeat.number ? " chosen" : "") + '" data-a="geo" data-v="seat:' + nameSeat.number + '" title="點看人員、設備與盤點時間" style="left:' + c.x + "px;top:" + c.y + "px;width:" + c.w + "px;height:" + c.h + "px;background:" + esc(c.fill) + ";color:" + esc(c.ink) + ";border-left:" + line("left") + ";border-right:" + line("right") + ";border-top:" + line("top") + ";border-bottom:" + line("bottom") + ";font-size:" + Math.min(c.fontSize, 14) + 'px">' + esc(o && o.data.name ? o.data.name : "待輸入") + "</button>"; } return '<div class="seat-cell" style="left:' + c.x + "px;top:" + c.y + "px;width:" + c.w + "px;height:" + c.h + "px;background:" + esc(c.fill) + ";color:" + esc(c.ink) + ";border-left:" + line("left") + ";border-right:" + line("right") + ";border-top:" + line("top") + ";border-bottom:" + line("bottom") + ";font-size:" + Math.min(c.fontSize, 14) + 'px">' + esc(c.text || "").replace(/\n/g, "<br>") + "</div>"; }).join("") +
+        m.cells.map((c) => { if (refs.has(c.ref)) return ""; const b = c.border || {}; const line = (n) => (b[n] ? "1px solid #bbb" : "0"); const nameSeat = nameRefs.get(c.ref); if (nameSeat) { const o = md.occupants[m.id + ":" + nameSeat.number]; return '<button class="seat-cell seat-name geo-seat' + (S.seat === nameSeat.number ? " chosen" : "") + '" data-a="geo" data-v="seat:' + nameSeat.number + '" title="點看人員、設備與盤點時間" style="left:' + c.x + "px;top:" + c.y + "px;width:" + c.w + "px;height:" + c.h + "px;background:" + esc(c.fill) + ";color:#111;border-left:" + line("left") + ";border-right:" + line("right") + ";border-top:" + line("top") + ";border-bottom:" + line("bottom") + ";font-size:" + Math.min(c.fontSize, 14) + 'px">' + esc(o && o.data.public ? "公共區域" : o && o.data.name ? o.data.name : "待輸入") + "</button>"; } return '<div class="seat-cell" style="left:' + c.x + "px;top:" + c.y + "px;width:" + c.w + "px;height:" + c.h + "px;background:" + esc(c.fill) + ";color:" + esc(c.ink) + ";border-left:" + line("left") + ";border-right:" + line("right") + ";border-top:" + line("top") + ";border-bottom:" + line("bottom") + ";font-size:" + Math.min(c.fontSize, 14) + 'px">' + esc(c.text || "").replace(/\n/g, "<br>") + "</div>"; }).join("") +
         m.seats.map((s) => { const c = m.cells.find((x) => x.ref === s.ref) || {}; const o = md.occupants[m.id + ":" + s.number]; const nm = o && !(s.nearbySource || []).length ? String(o.data.name || "").trim() : ""; return '<button class="seat-cell seat-anchor geo-seat' + (S.seat === s.number ? " chosen" : "") + (nm ? " has-name" : "") + '" data-a="geo" data-v="seat:' + s.number + '" style="left:' + s.x + "px;top:" + s.y + "px;width:" + s.w + "px;height:" + Math.max(s.h, 22) + "px;background:" + esc(c.fill || "#fff") + '" title="點看人員、設備與盤點時間">' + s.number + (nm ? "<small>" + esc(nm) + "</small>" : "") + "</button>"; }).join("") +
         "</div></div>";
     }
@@ -208,6 +208,9 @@
       return '<div class="geo-view">' + crumb() + (S.warn ? '<p class="warn">' + esc(S.warn) + "</p>" : "") + '<div class="geo-grid"><div class="geo-left">' + left + '</div><div class="geo-right">' + right + "</div></div></div>";
     }
 
+    let hooks = null;
+    function setDrafts(h) { hooks = h; }
+    function dkey() { const m = currentMap(); return m && S.seat !== null ? m.id + ":" + S.seat : ""; }
     function act(v) {
       const i = v.indexOf(":"), cmd = i < 0 ? v : v.slice(0, i), arg = i < 0 ? "" : v.slice(i + 1);
       if (S.nameDirty && cmd !== "name") {
@@ -237,35 +240,42 @@
         if (key === "fDept") S.fDept = val; else if (key === "fProj") S.fProj = val; else if (key === "fType") S.fType = val;
       } else if (cmd === "name") {
         const m = currentMap();
-        if (arg === "edit" && m && S.seat !== null) {
+        if (arg === "edit" && m && S.seat !== null && !((seatModel().occupants[m.id + ":" + S.seat] || {data:{}}).data.public)) {
           const o = seatModel().occupants[m.id + ":" + S.seat];
           S.nameEditing = S.seat;
           S.nameDraft = o && o.data.name ? o.data.name : "";
           S.nameDirty = false; S.warn = "";
+          const dk = dkey(), dr = hooks && dk ? hooks.get(dk) : null;
+          if (dr && typeof dr.name === "string" && dr.name !== S.nameDraft) { S.nameDraft = dr.name; S.nameDirty = true; S.warn = "已還原上次尚未儲存的草稿（尚未存入正式資料）。"; }
         } else if (arg === "cancel") {
-          S.nameEditing = null; S.nameDraft = ""; S.nameDirty = false; S.warn = "";
+          const kept = S.nameDirty && hooks && dkey();
+          S.nameEditing = null; S.nameDraft = ""; S.nameDirty = false; S.warn = kept ? "已取消編輯；未儲存的內容仍以草稿保留，可到「管理功能 › 本機草稿」刪除。" : "";
         } else if (arg === "save") { saveName(); return; }
       }
       rerender();
     }
     function field(name, v) {
-      if (name === "name") { S.nameDraft = v; S.nameDirty = true; }
+      if (name === "name") { S.nameDraft = v; S.nameDirty = true; const dk = dkey(); if (hooks && dk) hooks.put(dk, { name: v }); }
     }
     async function saveName() {
       const m = currentMap();
       if (!m || S.seat === null) return;
       const name = (S.nameDraft || "").trim();
       const key = m.id + ":" + S.seat;
-      const previous = seatModel().occupants[key];
+      /* occupant re-read after fresh load below */
       S.nameBusy = true; S.warn = ""; rerender();
       try {
         if (!store || typeof store.appendSeatEvent !== "function") throw new Error("座位資料尚未連接，無法寫入");
+        if (typeof store.loadSeatMap === "function") await store.loadSeatMap();
+        const fresh = seatModel().occupants[key];
+        if (fresh && fresh.data && fresh.data.public) { S.warn = "這個座位已被標為公共區域，沒有寫入個人姓名。"; S.nameEditing = null; S.nameDraft = ""; S.nameDirty = false; S.nameBusy = false; rerender(); return; }
         const id = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : "occ-" + Date.now() + "-" + Math.random().toString(36).slice(2);
-        await store.appendSeatEvent([id, "occupant", m.id, m.site, m.zone, S.seat, "", JSON.stringify({ name: name, previous: (previous && previous.id) || "" }), new Date().toISOString(), ""]);
+        await store.appendSeatEvent([id, "occupant", m.id, m.site, m.zone, S.seat, "", JSON.stringify({ name: name, previous: (fresh && fresh.id) || "" }), new Date().toISOString(), ""]);
         if (typeof store.loadSeatMap === "function") await store.loadSeatMap();
         const after = seatModel().occupants[key];
         if (after && after.id === id && (after.data.name || "") === name) {
           S.nameEditing = null; S.nameDraft = ""; S.nameDirty = false; S.warn = "";
+          if (hooks) hooks.discard(key);
         } else {
           S.warn = "另一筆使用人登記已先保存，已重新載入目前資料；請核對後再修改。";
         }
@@ -275,7 +285,7 @@
       S.nameBusy = false;
       rerender();
     }
-    return { html, act, field, state: S };
+    return { html, act, field, state: S, setDrafts };
   }
   g.ErpGeoOverview = { create, scopeCounts, citySites, unmatchedSites };
   if (typeof module !== "undefined") module.exports = g.ErpGeoOverview;

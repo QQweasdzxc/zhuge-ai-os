@@ -60,5 +60,7 @@ async function parseXlsx(buffer,filename){
  const numberRefs=new Set(seats.map(s=>s.ref));for(const s of seats){const c=out.find(c=>c.ref===s.ref);const candidates=out.filter(x=>x.col===c.col&&Math.abs(x.row-c.row)===1&&x.text&&!numberRefs.has(x.ref)&&!/(門|區|部|手語|10F)/.test(x.text));s.nearbySource=candidates.map(x=>({ref:x.ref,text:x.text}));}
  const map={schema:1,sourceFilename:filename,sourceSheet:sheet.getAttribute('name'),width:xs[maxCol],height:ys[maxRow],cells:out,seats:ordered(seats)};validate(map);return map;
 }
-g.ErpSeatCore={HEADER,reduce,ordered,validate,progress,parseXlsx,matchSeatLabel};if(typeof module!=='undefined')module.exports=g.ErpSeatCore;
+/* 姓名計畫（私下提供的 JSON：{seats:{座號:姓名}}）套用到「現有」座位圖：只選目前沒有使用人的座位，不重建圖、不動既有 ID。 */
+function planNames(plan,map,occupants){const src=plan&&typeof plan==='object'&&plan.seats&&typeof plan.seats==='object'?plan.seats:null;if(!src)return {error:'檔案格式不對：需要 {"seats":{"座號":"姓名"}}。沒有任何資料被改。',todo:[],has:0,off:0,bad:0};const nums=new Set(map.seats.map(s=>s.number)),todo=[];let has=0,off=0,bad=0;for(const [k,v] of Object.entries(src)){const n=Number(k),name=typeof v==='string'?v.trim():'';if(!Number.isInteger(n)||!name||name.length>120){bad++;continue}if(!nums.has(n)){off++;continue}const cur=occupants[map.id+':'+n];if(cur&&cur.data&&(cur.data.name||cur.data.public)){has++;continue}todo.push({seat:n,name})}todo.sort((a,b)=>a.seat-b.seat);return {todo,has,off,bad}}
+g.ErpSeatCore={planNames,HEADER,reduce,ordered,validate,progress,parseXlsx,matchSeatLabel};if(typeof module!=='undefined')module.exports=g.ErpSeatCore;
 })(typeof window!=='undefined'?window:globalThis);

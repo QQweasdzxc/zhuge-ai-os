@@ -63,6 +63,98 @@
     return null;
   }
 
+  /* 本機草稿：只在這台裝置、按帳號分開；「草稿已保留」不等於「已儲存」 */
+  const DRAFT=window.ErpDraftCore||null;
+  const DRAFTS=DRAFT?DRAFT.create((()=>{try{return window.localStorage;}catch(e){return null;}})()):null;
+  const draftAcct=()=>DRAFT?DRAFT.accountOf(session()):'';
+  function draftSaveEdit(){
+    if(!DRAFTS||!S.editCode||!S.editDraft)return;
+    const r=DRAFTS.put(draftAcct(),'asset-edit',S.editCode,{values:{...S.editDraft},base:{...S.editBase}});
+    S.draftNote=r.saved?'draft':(r.reason==='no-account'?'':'failed');
+    const el=document.getElementById('erp-draft-line');if(el)el.innerHTML=draftInner();
+  }
+  /* 非保管人欄位的正式自動存檔：只寫「這一個欄位」，以伺服器比對舊值（不符就不寫）；保管人、使用部門、區域、狀態、專案一律不自動存，仍需按儲存。
+     每次寫入用掉一次編輯權，成功後重新取得並以最新資料當基準；任何不確定結果都鎖住並保留輸入。 */
+  const AUTO_FIELDS=['name','model','serial','purchase','activate','warranty','brand','origin','mfgYear','type','po'];
+  async function autosaveAsset(f){
+    if(!S.editCode||!S.editDraft||!AUTO_FIELDS.includes(f)||S.editBusy||S.editLocked||S.editConflict)return;
+    const code=S.editCode,oldBase={...S.editBase},oldDraft={...S.editDraft},val=String(oldDraft[f]??'').trim();
+    if(!val&&f==='name'){if(String(oldBase[f]??'').trim()){S.autoNote='';S.editError='設備名稱不能留空，沒有儲存；正式資料維持原名稱「'+String(oldBase[f]||'')+'」。請輸入名稱，或取消編輯。';render();}return;}
+    if(val===String(oldBase[f]??''))return; /* 欄位政策：只在離開欄位（change）時存；名稱不可清空，其他選填欄位清空視為有意刪除，舊值寫在提示裡 */
+    if(!D.isMock&&store._editReservations?.get(code)?.attempted)return;
+    let wrote=false;S.editBusy=true;S.autoNote='';render();
+    try{
+      if(D.isMock){store.saveAsset(code,{[f]:val});}
+      else{
+        await store.saveAssetVerified(code,{...oldBase,[f]:val},oldBase);wrote=true;
+        await store.reserveAssetEdit(code);const fresh=await store.readAssetForEdit(code);
+        const nd=editValues(fresh);
+        for(const k of Object.keys(nd)){if(k!==f&&String(oldDraft[k]??'')!==String(oldBase[k]??''))nd[k]=oldDraft[k];}
+        const typed=String(S.editDraft[f]??'');if(typed.trim()!==val)nd[f]=S.editDraft[f];
+        S.editDraft=nd;
+      }
+      if(D.isMock){S.editBase={...S.editBase,[f]:val};}
+      S.autoNote='已自動儲存：'+(window.ErpDraftCore?window.ErpDraftCore.fieldLabels([f])[0]:f)+(val?'':'已清空（原：'+String(oldBase[f]||'')+'）')+'（已存入正式資料並讀回）';
+      const others=Object.keys(S.editDraft).some(k=>String(S.editDraft[k]??'')!==String(S.editBase[k]??''));
+      if(others)draftSaveEdit();else draftDiscardEdit(code);
+    }catch(e){S.editLocked=true;S.editError=wrote?'這個欄位已存入正式資料，但重新取得編輯權失敗（'+(e.message||'未知')+'）。其餘輸入保留為草稿；請取消後重新開啟再繼續。':'自動儲存沒有確認成功（'+(e.message||'未知')+'）。輸入已保留為草稿，不會重送；請取消後重新開啟核對。';draftSaveEdit();}
+    finally{S.editBusy=false;render();}
+  }
+  function draftDiscardEdit(code){if(DRAFTS)DRAFTS.discard(draftAcct(),'asset-edit',code);S.draftNote='';}
+  function draftApplyEdit(code){
+    S.draftNote='';S.draftConflict=[];
+    if(!DRAFTS||!DRAFT)return;
+    const stored=DRAFTS.get(draftAcct(),'asset-edit',code);if(!stored)return;
+    const plan=DRAFT.restorePlan(stored,{...S.editBase},window.ErpEditCore.rebase);
+    if(plan.mode==='restored'||plan.mode==='merged'){S.editDraft=plan.values;S.editBase=plan.base;S.editTouched=true;S.draftNote=plan.mode==='merged'?'restored-merged':'restored';}
+    else if(plan.mode==='conflict'){S.draftConflict=plan.conflicts;S.draftNote='conflict';}
+  }
+  const bagHooks=(kind)=>({get:k=>bagGet(kind,k),put:(k,v)=>bagPut(kind,k,v),discard:k=>bagDiscard(kind,k)});
+  if(intakeUI&&intakeUI.setDrafts&&DRAFTS)intakeUI.setDrafts(bagHooks('intake-xlsx'));
+  if(differenceUI&&differenceUI.setDrafts&&DRAFTS)differenceUI.setDrafts(bagHooks('difference'));
+  if(geoUI&&geoUI.setDrafts&&DRAFTS)geoUI.setDrafts({get:k=>{const r=DRAFTS.get(draftAcct(),'geo-name',k);return r&&r.payload;},put:(k,v)=>DRAFTS.put(draftAcct(),'geo-name',k,v),discard:k=>DRAFTS.discard(draftAcct(),'geo-name',k)});
+  if(seatUI&&DRAFTS)seatUI.setDrafts({imp:{get:()=>{const r=DRAFTS.get(draftAcct(),'seat-import','pending');return r&&r.payload;},put:v=>DRAFTS.put(draftAcct(),'seat-import','pending',v),discard:()=>DRAFTS.discard(draftAcct(),'seat-import','pending')},get:k=>{const r=DRAFTS.get(draftAcct(),'seat-name',k);return r&&r.payload;},put:(k,v)=>DRAFTS.put(draftAcct(),'seat-name',k,v),discard:k=>DRAFTS.discard(draftAcct(),'seat-name',k)});
+  function draftInner(){
+    const n=S.draftNote;if(S.autoNote&&!S.cancelAsk)return '<div class="match" role="status">'+esc(S.autoNote)+'</div>'+(n==='draft'?'<div class="small">另有尚未儲存的內容以草稿保留（尚未存入正式資料）</div>':'');if(!n)return '';
+    if(S.cancelAsk)return '<div class="warn">取消會刪除這份尚未存入正式資料的草稿。再按一次「取消」確定刪除，或繼續編輯。</div>';
+    if(n==='draft')return '<div class="small">草稿已保留在這台裝置（尚未存入正式資料）</div>';
+    if(n==='restored')return '<div class="small">已還原你上次輸入的草稿（尚未存入正式資料），請核對後再儲存。</div>';
+    if(n==='restored-merged')return '<div class="small">已還原上次草稿，並與這段期間的最新資料合併（尚未存入正式資料），請核對後再儲存。</div>';
+    if(n==='conflict')return '<div class="warn">上次草稿與最新資料有衝突，沒有套用：'+esc(DRAFT.fieldLabels(S.draftConflict||[]).join('、'))+'。草稿仍保留；取消編輯不會刪除它，可到「管理功能 › 本機草稿」刪除。</div>';
+    if(n==='failed')return '<div class="warn">草稿無法保留在這台裝置，請先不要關閉頁面。</div>';
+    return '';
+  }
+  const KIND_LABEL={'asset-edit':'設備編輯','inbound-batch':'入庫批次表單','difference':'帳上A／現場B差異表單','intake-xlsx':'XLSX批次匯入（需重新選檔）','map-image':'地圖圖片（需重新選檔）','inbound-confirm':'入庫確認','seat-name':'座位使用人姓名','site-new':'新增據點','zone-new':'新增區域','annotation':'釐清標示','scan-held':'待核對掃描',repair:'維修登記','geo-name':'座位使用人（地圖）','seat-import':'座位圖匯入預覽（需重新選檔）','scan-setup':'掃描場次設定（部門／專案，尚未開始）','recv-serial':'到貨序號（尚未核對）'};
+  function bagPut(kind,entity,values){if(DRAFTS)DRAFTS.put(draftAcct(),kind,entity,{values:{...values},base:{}});}
+  function bagGet(kind,entity){const r=DRAFTS&&DRAFTS.get(draftAcct(),kind,entity);return r&&r.payload&&r.payload.values?r.payload.values:null;}
+  function bagDiscard(kind,entity){if(DRAFTS)DRAFTS.discard(draftAcct(),kind,entity);}
+  /* 掃描設定（部門／專案）與到貨序號框：只存本機草稿、只還原成「預填」。不自動開始盤點、不自動核對；還原內容在畫面上明示。 */
+  function putSetup(){if(!DRAFTS)return;if(S.scanDepartment||S.scanProject||S.scanProjectInput)bagPut('scan-setup','new',{dept:S.scanDepartment,proj:S.scanProject,projIn:S.scanProjectInput});else bagDiscard('scan-setup','new');}
+  function ensureSetupDraft(){if(S._setupRestored||S.sess||!draftAcct())return;S._setupRestored=true;const b=bagGet('scan-setup','new');if(b&&(b.dept||b.proj||b.projIn)){if(!S.scanDepartment&&b.dept)S.scanDepartment=b.dept;if(!S.scanProject&&!S.scanProjectInput){if(b.proj)S.scanProject=b.proj;if(b.projIn)S.scanProjectInput=b.projIn;}S.setupRestored=true;}}
+  function ensureRecvDraft(){if(!draftAcct()||!S.recvBatch)return;S._recvR=S._recvR||{};if(S._recvR[S.recvBatch])return;S._recvR[S.recvBatch]=true;if(!S.recvCode){const d=bagGet('recv-serial',S.recvBatch);if(d&&d.v){S.recvCode=d.v;S.recvRestored=S.recvBatch;}}}
+  function ensureSiteDraft(){if(S._siteRestored)return;S._siteRestored=true;if(!Object.keys(S.newSite||{}).length){const b=bagGet('site-new','new');if(b)S.newSite=b;}}
+  function heldSync(){
+    if(!DRAFTS)return;
+    for(const [code,h] of Object.entries(S.scanHeld||{})){const ent=(h.sessionId||'')+':'+code;DRAFTS.put(draftAcct(),'scan-held',ent,{values:{code,zone:h.zone||'',sessionId:h.sessionId||'',uncertain:!!h.uncertain,error:String(h.error||''),at:new Date().toISOString()},base:{}});}
+  }
+  function heldDrop(code,sessionId){if(DRAFTS)DRAFTS.discard(draftAcct(),'scan-held',(sessionId||'')+':'+code);}
+  function heldReloaded(){
+    if(!DRAFTS)return [];const mem=new Set(Object.entries(S.scanHeld||{}).map(([c,h])=>(h.sessionId||'')+':'+c));
+    return DRAFTS.list(draftAcct(),'scan-held').filter(r=>!mem.has(r.entity));
+  }
+  function draftCard(){
+    if(!DRAFTS)return '';
+    const mine=DRAFTS.list(draftAcct()).filter(r=>r.kind!=='scan-held'),held=heldReloaded();
+    const lab=r=>esc(KIND_LABEL[r.kind]||'草稿')+' · '+esc(String(r.entity).slice(0,40));
+    let h='<details class="card" id="erp-draft-card" style="margin:12px 0;grid-column:1/-1;width:100%;box-sizing:border-box"'+((held.length||S.draftClearAsk)?' open':'')+'><summary><b>本機草稿</b><span class="small"> · '+mine.length+' 筆'+(held.length?' · '+held.length+' 筆待核對掃描':'')+'</span></summary><p class="small">草稿存在這台裝置的瀏覽器，尚未存入正式資料，不會自動刪除。畫面只列出目前登入帳號的草稿；這只是介面分開，不是加密，同一台電腦上能操作瀏覽器的人仍可能讀到儲存內容，共用電腦請在離開前刪除。</p>';
+    h+=mine.length?'<ul class="small">'+mine.map(r=>'<li>'+lab(r)+'</li>').join('')+'</ul>':'<p class="small">目前沒有保留中的草稿。</p>';
+    if(held.length)h+='<div class="warn">上次中斷時有 '+held.length+' 筆掃描沒有確認保存，不會自動重送。請先到設備紀錄核對編號再移除：</div>'+held.map(r=>'<div class="small">'+esc(r.payload.values.code)+' · '+esc(r.payload.values.zone)+' · '+(r.payload.values.uncertain?'結果待查':'未保存')+'<button class="pill sm" data-a="held-ack" data-v="'+esc(r.entity)+'">我已核對，移除這筆</button></div>').join('');
+    if(S.draftClearAsk){h+='<div class="warn">將永久刪除'+('你的 '+mine.length+' 筆草稿')+'（尚未存入正式資料，無法復原；待核對掃描不受影響）。</div><button class="pill" data-a="draft-clear-do">確定刪除</button><button class="pill" data-a="draft-clear-no">先不要</button>';}
+    else{if(mine.length)h+='<button class="pill" data-a="draft-clear-ask" data-v="mine">刪除我的草稿</button>';}
+    return h+'</details>';
+  }
+  if(typeof repairUI!=='undefined'&&repairUI&&repairUI.setDrafts&&DRAFTS)repairUI.setDrafts({get:k=>{const r=DRAFTS.get(draftAcct(),'repair',k);return r&&r.payload;},put:(k,v)=>DRAFTS.put(draftAcct(),'repair',k,v),discard:k=>DRAFTS.discard(draftAcct(),'repair',k)});
+  function draftLine(){return '<div id="erp-draft-line" aria-live="polite">'+draftInner()+'</div>';}
   const S = {
     booting: !D.isMock, mode: new URLSearchParams(location.search).get("mode") === "phone" ? "phone" : "pc", workspaceMore: false,
     dtab: "dash", dash: false, screen: "start",
@@ -194,7 +286,7 @@
     if(S.editBusy)return;const x=getA(code);if(!x)return;
     if(S.editCode&&S.editCode!==code&&!D.isMock)await store.releaseAssetEdit(S.editCode);
     S.editTouched=false;S.editCode=code;S.editDraft=editValues(x);S.editError='';S.editSeat='';S.savedAt='';S.editBusy=true;S.editLocked=true;S.cascadeInfo='';render();
-    try{if(!D.isMock){await store.reserveAssetEdit(code);const fresh=await store.readAssetForEdit(code);S.editDraft=editValues(fresh);}S.editConflict=false;S.editLocked=false;}
+    try{if(!D.isMock){await store.reserveAssetEdit(code);const fresh=await store.readAssetForEdit(code);S.editDraft=editValues(fresh);}draftApplyEdit(code);S.editConflict=false;S.editLocked=false;}
     catch(e){S.editError=e.message+'；輸入已保留，尚未保存。';}
     finally{S.editBusy=false;render();}
   }
@@ -207,7 +299,7 @@
       const fresh=await store.readAssetForEdit(code);
       const merged=window.ErpEditCore.rebase(base,draft,fresh),conflicts=merged.conflicts;
       if(!conflicts.length){S.editDraft=merged.values;S.editBase=merged.base;}
-      if(conflicts.length){S.editConflict=true;S.editLocked=true;S.editError='資料已被其他操作改動，輸入保留但未保存。衝突欄位：'+conflicts.join('、')+'。請取消後重新核對，不自動覆蓋。';await store.releaseAssetEdit(code);}
+      if(conflicts.length){S.editConflict=true;S.editLocked=true;S.editError='資料已被其他操作改動，輸入保留但未保存。衝突欄位：'+(window.ErpDraftCore?window.ErpDraftCore.fieldLabels(conflicts):conflicts).join('、')+'。請取消後重新核對，不自動覆蓋。';await store.releaseAssetEdit(code);}
       else{S.editLocked=false;S.editError='已重新讀取並取得編輯權，原輸入保留；請核對後再儲存。';}
     }catch(e){S.editLocked=true;S.editError=e.message;}
     finally{S.editBusy=false;render();}
@@ -225,8 +317,8 @@
       if(S.scanBusy){S.scanQueue=S.scanQueue||[];S.scanQueue.push(retained||{sessionId:S.sess.id,code,zone:S.zone,seatTarget,...(captured||{})});render();return;}
       S.scanUncertain=false;
       S.scanBusy=true;S.scanIntent=retained||{sessionId:S.sess.id,code,zone:S.zone,seatTarget,...(captured||{})};S.manualCode=code;render();
-      try{await S.sess.__write;if(S.sess.__unsynced)throw Error('盤點場次尚未保存，不能追加掃描');await store.scanIntentVerified(S.scanIntent);S.scanIntent=null;if(S.scanHeld)delete S.scanHeld[code];S.manualCode='';S.open=code;}
-      catch(e){S.scanSetupErr=e.message;S.scanUncertain=!e.safeToRetry;S.scanHeld=S.scanHeld||{};S.scanHeld[code]={...S.scanIntent,uncertain:S.scanUncertain,error:e.message};}
+      try{await S.sess.__write;if(S.sess.__unsynced)throw Error('盤點場次尚未保存，不能追加掃描');await store.scanIntentVerified(S.scanIntent);S.scanIntent=null;if(S.scanHeld)delete S.scanHeld[code];heldDrop(code,S.sess&&S.sess.id);S.manualCode='';S.open=code;}
+      catch(e){S.scanSetupErr=e.message;S.scanUncertain=!e.safeToRetry;S.scanHeld=S.scanHeld||{};S.scanHeld[code]={...S.scanIntent,uncertain:S.scanUncertain,error:e.message};heldSync();}
       finally{S.scanBusy=false;render();const next=S.scanQueue?.shift();if(next)scan(next.code,next);}return;
     }
     const a = getA(code);
@@ -296,6 +388,7 @@
       const g = fix || S.gps || { lat: null, lon: null, acc: null };
       try { S.sess = store.startSession(S.site, g.lat, g.lon, g.acc != null ? g.acc : null, S.scanProject || "", "", S.scanDepartment); }
       catch (err) { S.scanSetupErr = err.message; render(); return; }
+      bagDiscard('scan-setup','new'); S.setupRestored = false;
       S.zone = zonesOf(S.site)[0] || "";
       S.open = ""; S.screen = "scan";
       render();
@@ -445,7 +538,7 @@
     setTimeout(refreshSyncBadge, 0); /* 整頁重繪會重建徽章（預設隱藏），重繪後立刻補上內容 */
     return '<div id="erp-sync-badge" class="syncbadge" style="display:none"></div><div id="erp-version-badge" class="versionbadge" style="display:none"></div>';
   }
-  const LOADED_BUILD = { id: "2026-11-05.9" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
+  const LOADED_BUILD = { id: "2026-11-05.10" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
   async function checkAppVersion() {
     if (D.isMock) return;
     try {
@@ -509,12 +602,13 @@
     return '<div class="zhugebar"><b>諸葛</b><span>／ ZG-ERP 庫存 · 設備管理</span><a class="pill sm" style="display:inline-flex;align-items:center;text-decoration:none" href="../">返回諸葛</a></div>';
   }
   function modeBar() {
-    const more = S.workspaceMore ? '<section class="workspace-more" aria-label="管理功能"><h3>管理功能</h3>'+[['geo','地圖總覽'],['assets','設備資料'],['inbound','入庫作業'],['zones','公司據點'],['map','座位圖'],['diff','盤點差異'],['legacy','舊帳比對']].map(([key,label])=>'<button class="pill" data-a="workspace-manage" data-v="'+key+'">'+label+'</button>').join('')+'<button class="pill" data-a="workspace-more">關閉</button></section>' : '';
+    const more = S.workspaceMore ? '<section class="workspace-more" aria-label="管理功能"><h3>管理功能</h3>'+[['geo','地圖總覽'],['assets','設備資料'],['inbound','入庫作業'],['zones','公司據點'],['map','座位圖'],['diff','盤點差異'],['legacy','舊帳比對']].map(([key,label])=>'<button class="pill" data-a="workspace-manage" data-v="'+key+'">'+label+'</button>').join('')+draftCard()+'<button class="pill" data-a="workspace-more">關閉</button></section>' : '';
     return '<nav class="workspace-nav" aria-label="工作區"><span class="workspace-title">設備管理工作區</span><button class="mb'+(S.mode==='pc'&&S.dtab==='dash'?' on':'')+'" data-a="workspace-overview">總覽</button><button class="mb'+(S.mode==='phone'?' on':'')+'" data-a="workspace-scan">掃描</button><button class="mb" aria-expanded="'+!!S.workspaceMore+'" data-a="workspace-more">更多管理</button></nav>'+more;
   }
 
   /* ---- 手機端 ---- */
   function phoneStart() {
+    ensureSetupDraft();
     const g = S.gps;
     return '<div class="screen"><h3 class="ptitle">設備盤點</h3>' +
       '<p class="psub">按開始後會記下當下定位與時間，之後可以連續掃描。定位只用來判斷最近據點，不會用來猜樓層或房間。</p>' +
@@ -542,6 +636,7 @@
         " · 應盤 <b>" + assets().filter((a) => a.site === S.site && (!S.scanProject || (a.project || D.UNASSIGNED) === S.scanProject)).length + "</b> 台</div>" : "") +
       "</div>" +
       (S.scanSetupErr ? '<div class="warn">' + esc(S.scanSetupErr) + "</div>" : "") +
+      (S.setupRestored ? '<div class="warn" id="setup-restored">已還原上次尚未開始的設定：部門「' + esc(S.scanDepartment || "未填") + '」、專案「' + esc(S.scanProject || S.scanProjectInput || "全部專案") + '」。這只是預填，沒有開始盤點、沒有寫入任何資料；請核對，按下面「開始連續掃描」才會生效。<button class="pill sm" data-a="setup-clear">清除這些還原內容</button></div>' : "") +
       '<button class="btn" data-a="start"' + (S.site ? "" : " disabled") + ">開始連續掃描" + (S.site ? " · " + esc(S.site) : "") + (S.scanProject ? " · " + esc(S.scanProject.replace("（測試）", "")) : "") + "</button></div>";
   }
   function phoneScan() {
@@ -594,10 +689,10 @@
       '<div class="scanbar"><button class="zonebtn" data-a="zoneopen"><span class="lbl">' + esc(S.site) + " · 目前區域</span><b>" + esc(S.zone) + " ▾</b></button>" +
       '<button class="btn mini" data-a="toresult">結束 (' + recs.length + ")</button></div>" +
       '<div class="small">本次使用部門：' + esc(S.sess.department || "未指定") + " · 專案：" + esc(S.sess.project || "全部專案") + " · 經手人：" + esc(S.sess.operator || "未記錄") + "（開始前設定，這批沿用）</div>" +
+      (seatUI ? seatUI.scanPanel(S.site,S.zone,S.sess,recs) : "") +
       scopeStrip +
       (S.scanSetupErr ? '<div class="warn">'+(S.scanUncertain?'本筆掃描 '+esc(S.scanIntent?.code||'')+'：保存結果待查，請勿重送。':esc(S.scanSetupErr))+(S.scanIntent&&!S.scanUncertain?'<button class="pill" data-a="scan-intent-retry">重試這筆未保存掃描</button>':'')+'</div>' : "") +
       recs.filter(r=>r.__seatError).map(r=>'<div class="warn">座位登記未同步：'+esc(r.code)+' · '+esc(r.__seatError)+'<button class="pill" data-seat-retry="'+esc(r.code)+'">重試座位登記（不重掃設備）</button></div>').join("") +
-      (seatUI ? seatUI.scanPanel(S.site,S.zone,S.sess,recs) : "") +
       '<div class="small">起點定位 ' + (S.sess.lat != null ? Number(S.sess.lat).toFixed(3) + ", " + Number(S.sess.lon).toFixed(3) + (S.sess.acc != null ? "（±" + S.sess.acc + " m）" : "") : "無（手動選擇據點）") + " · " + esc(new Date(S.sess.at).toLocaleTimeString("zh-TW", { hour12: false })) + "（固定，換區域不會改）</div>" +
       (S.zoneOpen ? '<div class="zonepick">' + zonesOf(S.site).map((z) => '<button class="pill' + (S.zone === z ? " on" : "") + '" data-a="zone" data-v="' + esc(z) + '">' + esc(z) + "</button>").join("") + "</div>" : "") +
       (S.camOn
@@ -605,6 +700,7 @@
         : '<div class="view" role="img" aria-label="相機取景區"><i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i><div class="qr"></div><span class="hint">可用相機連續掃描，或用下方手動輸入</span></div><div class="frow"><button class="pill sm" data-a="camstart">開啟相機掃描</button></div>' + (S.camErr ? '<div class="warn">' + esc(S.camErr) + "</div>" : "")) +
       toast +
       (S.scanBusy?'<div class="warn">正在核對保存：'+esc(S.scanIntent?.code||'')+'，完成前不計入成功。</div>':'')+(S.scanQueue?.length?'<div class="warn">等候保存：'+S.scanQueue.map(x=>esc(x.code)).join('、')+'</div>':'')+
+      heldReloaded().map(r=>'<div class="warn">上次中斷的掃描 '+esc(r.payload.values.code)+'：'+(r.payload.values.uncertain?'結果待查':'未保存')+'，不會自動重送。請先核對該編號的紀錄，再到「管理功能 › 本機草稿」移除。</div>').join('') +
       Object.values(S.scanHeld||{}).map(x=>'<div class="warn">'+(x.uncertain?'結果待查掃描 ':'未保存掃描 ')+esc(x.code)+' · '+esc(x.zone)+'：'+(x.uncertain?'不能確認已保存':esc(x.error))+(x.uncertain?'（結果待查，不可重送）':'<button class="pill" data-a="scan-intent-retry" data-v="'+esc(x.code)+'">重試這筆</button>')+'</div>').join('') +
       '<div class="frow"><input class="inp" data-f="manualCode" placeholder="輸入登記編號（如 CSPH107030182）" value="' + esc(S.manualCode) + '"><button class="btn mini" data-a="manual">手動登記</button></div>' +
       (D.isMock
@@ -813,7 +909,7 @@
             '<div class="frow"><span class="lbl">啟用日期</span><input class="inp" type="date" data-f="activate" value="' + esc(d.activate) + '"></div>' +
             '<div class="frow"><span class="lbl">保固到期</span><input class="inp" type="date" data-f="warranty" value="' + esc(d.warranty) + '"></div>' +
             '<div class="frow"><span class="lbl">最後盤點</span><span class="small">' + (lr ? esc(new Date(lr.at).toLocaleString("zh-TW", { hour12: false })) + "（由掃描紀錄帶出，不可手改）" : "尚未盤點") + "</span></div>" +
-            (S.editError&&!S.editLocked ? '<div class="warn">' + esc(S.editError) + '</div>' : '') +
+            draftLine() + (S.editError&&!S.editLocked ? '<div class="warn">' + esc(S.editError) + '</div>' : '') +
             (()=>{const plan=cascadePlanFor(a.code,d,S.editBase);if(!plan)return '';
               const fname={owner:'保管人',department:'使用部門'};
               if(plan.unavailable)return '<div class="warn">座位資料尚未讀取完成，無法檢查同座位設備；變更'+plan.fields.map(f=>fname[f]||f).join('、')+'前請先重新整理，否則無法儲存。</div>';
@@ -830,7 +926,7 @@
   }
   function pcZones() {
     const addForm = '<div class="zcard"><b>新增據點</b><div class="small">建立據點和它的第一個區域；手機「盤點據點」就會出現這個選項。座標選填，填了手機才能用定位自動找最近據點。</div>' +
-      '<div class="frow"><input class="inp" data-f="ns_name" placeholder="據點名稱（如 台北）" value="' + esc(S.newSite.name || "") + '"></div>' +
+      (ensureSiteDraft(), "") + '<div class="frow"><input class="inp" data-f="ns_name" placeholder="據點名稱（如 台北）" value="' + esc(S.newSite.name || "") + '"></div>' +
       '<div class="frow"><input class="inp" data-f="ns_zone" placeholder="第一個區域（如 1F 辦公區）" value="' + esc(S.newSite.zone || "") + '"></div>' +
       '<div class="frow"><input class="inp" data-f="ns_lat" placeholder="緯度（選填，如 25.033）" value="' + esc(S.newSite.lat || "") + '"><input class="inp" data-f="ns_lon" placeholder="經度（選填，如 121.565）" value="' + esc(S.newSite.lon || "") + '"></div>' +
       (S.siteErr ? '<div class="warn">' + esc(S.siteErr) + "</div>" : "") +
@@ -840,7 +936,7 @@
       (sites().length === 0 ? '<div class="zcard"><div class="small">還沒有任何據點。先用上方「新增據點」建立第一個，手機掃描才能開始。</div></div>' : "") +
       sites().map((s) => '<div class="zcard"><div><b>' + esc(s.name) + '</b> <span class="small">' + ((s.lat || s.lon) ? "座標 " + Number(s.lat || 0).toFixed(4) + ", " + Number(s.lon || 0).toFixed(4) : "未標座標") + "</span></div>" +
         s.zones.map((z) => '<div class="zrow"><span>' + esc(z) + "</span><b>" + assets().filter((a) => a.site === s.name && a.zone === z).length + " 台</b></div>").join("") +
-        '<div class="frow"><input class="inp" data-f="nz_' + esc(s.name) + '" placeholder="新增' + esc(s.name) + '的區域" value="' + esc(S.newZone[s.name] || "") + '"><button class="pill sm" data-a="addzone" data-v="' + esc(s.name) + '">加入</button></div>' +
+        '<div class="frow"><input class="inp" data-f="nz_' + esc(s.name) + '" placeholder="新增' + esc(s.name) + '的區域" value="' + esc(S.newZone[s.name] != null ? S.newZone[s.name] : ((bagGet('zone-new', s.name) || {}).v || "")) + '"><button class="pill sm" data-a="addzone" data-v="' + esc(s.name) + '">加入</button></div>' +
         '<div class="small">加入後，手機端「目前區域」會出現這個選項。重新命名、停用區域尚未支援。</div></div>').join("");
   }
   function zoneAssets(site, zone) { return assets().filter((a) => a.site === site && a.zone === zone); }
@@ -866,6 +962,7 @@
     const sel = S.mapZone;
     const selAssets = sel ? zoneAssets(S.mapSite, sel) : [];
     let canvas;
+    const mapNote = (!S.mapImg && DRAFTS && bagGet('map-image', 'last')) ? '<div class="warn">上次選的地圖圖片「' + esc(bagGet('map-image', 'last').name || '') + '」不會保留在這台裝置。請重新選圖；沒有任何資料被改。<button class="pill sm" data-a="map-image-clear">清除這則提醒</button></div>' : '';
     if (S.mapImg) {
       canvas = '<div style="position:relative;max-width:720px"><img src="' + S.mapImg + '" style="width:100%;border:1px solid var(--ds-hairline);border-radius:12px;display:block" data-a="mapimg" alt="位置圖（本機預覽）">' +
         zones.filter((z) => marks[z]).map((z) =>
@@ -882,7 +979,7 @@
         ? '<div class="small">圖檔只在這個瀏覽器這次開啟期間預覽，<b>沒有上傳</b>；正式上傳需要私有儲存位置（不放公開網站），之後依你提供的儲存方式處理。' + (S.mapEdit ? '標記模式：先在下方選一個區域，再點圖上的位置。' : "") + "</div>"
         : '<div class="small">目前顯示自動產生的<b>示意平面圖</b>（不是實際格局）。上傳你的位置圖後，可改用實際圖面標記。</div>') +
       (S.mapEdit && S.mapImg ? '<div class="chips">' + zones.map((z) => '<button class="pill sm' + (sel === z ? " on" : "") + '" data-a="mapzone" data-v="' + esc(z) + '">' + esc(z) + (marks[z] ? " ✓" : "") + "</button>").join("") + "</div>" : "") +
-      canvas +
+      mapNote + canvas +
       (sel ? '<div class="card"><div class="lbl">' + esc(S.mapSite) + " · " + esc(sel) + " 的設備（" + selAssets.length + " 台）</div>" +
         (selAssets.length === 0 ? '<div class="small">這個位置目前沒有登記設備。</div>' :
           selAssets.map((a) => '<div class="zrow act"><span><b>' + esc(a.name) + "</b> " + esc(a.code) + '<br><span class="small">S/N ' + esc(a.serial || "未登記") + " · " + esc(a.status) + " · 保管人 " + esc(a.owner ? (a.owner === "公用" && a.source === "盤點" ? "公用（舊版預設，未確認）" : a.owner) : "未確認") + " · 歸屬 " + esc((a.project || D.UNASSIGNED).replace("（測試）", "")) + '</span></span><button class="pill sm" data-a="ajump" data-v="' + esc(a.code) + '">處理</button></div>').join("")) + "</div>"
@@ -896,7 +993,7 @@
   /* ---- 入庫作業：整批建單（待入庫，不影響庫存）→ 到貨核對（手機）→ 確認入庫（此時才建設備）---- */
   function pcInbound() {
     const bs = batches().slice().reverse();
-    const nb = S.nb || (S.nb = { po: "", vendor: "", brand: "", model: "", origin: "", mfgYear: "", type: "", note: "", serials: "" });
+    const nb = S.nb || (S.nb = Object.assign({ po: "", vendor: "", brand: "", model: "", origin: "", mfgYear: "", type: "", note: "", serials: "" }, bagGet('inbound-batch', 'new') || {}));
     let html = '<h3 class="ptitle">入庫作業</h3><p class="psub">廠商序號清單先建成「待入庫」批次，不增加庫存；實物到貨逐台核對後確認入庫，才產生內部登記編號並列入設備與應盤。批次直接存進你的試算表。</p>';
     if(intakeUI)html+=intakeUI.html();
     // 建單
@@ -953,6 +1050,7 @@
     if (!S.recvBatch || !obs.some((b) => b.id === S.recvBatch)) S.recvBatch = obs.length ? obs[0].id : "";
     const b = S.recvBatch ? store.batch(S.recvBatch) : null;
     if (!b) return '<div class="screen"><h3 class="ptitle">到貨核對</h3><p class="psub">還沒有待入庫批次。先在「電腦 · 入庫作業」貼上廠商序號清單建立批次。</p><button class="btn" data-a="goinbound">到電腦建立批次</button></div>';
+    ensureRecvDraft();
     const pend = b.items.filter((x) => x.state === "pending");
     const got = b.items.filter((x) => x.state === "received").length;
     const last = S.recvLast;
@@ -970,6 +1068,7 @@
       '<div class="smeta">待收 ' + pend.length + " · 已核對 " + got + (b.unexpected.length ? ' · <b class="pbad">清單外 ' + b.unexpected.length + "</b>" : "") + "</div>" +
       (pend.length ? '<div class="smeta">還沒到：' + pend.slice(0, 6).map((x) => esc(x.serial)).join("、") + (pend.length > 6 ? " …等 " + pend.length + " 筆" : "") + "</div>" : "") + "</div>" +
       toast +
+      (S.recvRestored === S.recvBatch && S.recvCode ? '<div class="warn">已還原上次尚未核對的序號輸入。按「核對」才會送出，不會自動核對。</div>' : '') +
       '<div class="frow"><input class="inp" data-f="recvCode" placeholder="輸入廠商序號" value="' + esc(S.recvCode) + '"><button class="btn mini" data-a="recvscan">核對</button></div>' +
       '<div class="lbl sim">測試用：模擬掃到</div><div class="chips">' +
       (pend.length ? '<button class="pill sm" data-a="recvtest" data-v="' + esc(pend[0].serial) + '">清單內序號</button>' : "") +
@@ -1065,7 +1164,7 @@
       (projs.length ? '<div class="chips"><button class="pill' + (!S.legProj ? " on" : "") + '" data-a="legproj" data-v="">全部專案</button>' +
         projs.map((p) => '<button class="pill' + (S.legProj === p ? " on" : "") + '" data-a="legproj" data-v="' + esc(p) + '">' + esc(p) + "</button>").join("") + "</div>" : "");
     let out = '<h3 class="ptitle">舊帳比對</h3>' +
-      '<p class="psub">舊帳原文永不改寫；每筆的核對進度與人工結論存到新帳「釐清標示」，以記錄鍵＋出處快照連結，舊帳列變動會標「標示失配」留人工。出處與舊帳專案欄位都是原值線索，不是確認位置或正式歸屬；選定專案後，「舊帳有而未掃到」才是該專案的缺漏清單。</p>' +
+      '<p class="psub">只列有差異、要你處理的項目；已對上的收在最下面。舊帳原文永不改寫。</p><details><summary class="small">說明</summary><p class="small">舊帳原文永不改寫；每筆的核對進度與人工結論存到新帳「釐清標示」，以記錄鍵＋出處快照連結，舊帳列變動會標「標示失配」留人工。出處與舊帳專案欄位都是原值線索，不是確認位置或正式歸屬；選定專案後，「舊帳有而未掃到」才是該專案的缺漏清單。</p></details>' +
       chips +
       '<div class="scope"><div class="sct"><span>舊帳 ' + c.legacyInScope + " 筆（範圍內）</span><span>有交代 " + c.accounted + " · 沒查清 " + c.unaccounted + "</span></div>" +
       '<div class="smeta">已盤到 ' + c.matched + " · 已釐清 " + c.clarified + " · 尚未掃到 " + c.pending + " · 位置不符 " + c.locationMismatch + " · 同編號多筆 " + c.ambiguous + " 組 · 現場實際觀察 " + c.newInventory + " 台 · 新有舊無 " + c.newOnly + (noCode ? " · 無編號 " + noCode + " 列僅人工查" : "") + "</div></div>";
@@ -1107,12 +1206,12 @@
           (x) => legacyLine(x.row, "此編號共有 " + x.count + " 筆候選；不自動選定。已存結論見「已釐清」；快照變動見「標示失配」", true, flowHint(x.row))) + "</div>";
     }
     if (res.clarified.length) {
-      out += '<div class="lbl">已釐清（' + res.clarified.length + "）</div><div class=\"ztable\">" +
-        capList("已釐清", res.clarified, (x) => legacyLine(x.legacy, (x.identityUnresolved ? "同編號候選關係仍待確認 · " : "") + "結論「" + esc(x.annotation.conclusion) + "」" + (x.annotation.reason ? " · 原因：" + esc(x.annotation.reason) : "") + (x.annotation.evidence ? " · 證據：" + esc(x.annotation.evidence) : "") + (x.annotation.note ? " · 備註：" + esc(x.annotation.note) : "") + " · 確認人 " + esc(x.annotation.confirmer || "") + " " + esc(x.annotation.at ? new Date(x.annotation.at).toLocaleString("zh-TW", { hour12: false }) : ""), false)) + "</div>";
+      out += '<details><summary class="lbl">已釐清（' + res.clarified.length + "）— 已有結論，預設收合</summary><div class=\"ztable\">" +
+        capList("已釐清", res.clarified, (x) => legacyLine(x.legacy, (x.identityUnresolved ? "同編號候選關係仍待確認 · " : "") + "結論「" + esc(x.annotation.conclusion) + "」" + (x.annotation.reason ? " · 原因：" + esc(x.annotation.reason) : "") + (x.annotation.evidence ? " · 證據：" + esc(x.annotation.evidence) : "") + (x.annotation.note ? " · 備註：" + esc(x.annotation.note) : "") + " · 確認人 " + esc(x.annotation.confirmer || "") + " " + esc(x.annotation.at ? new Date(x.annotation.at).toLocaleString("zh-TW", { hour12: false }) : ""), false)) + "</div></details>";
     }
     if (res.matched.length) {
-      out += '<div class="lbl">已盤到（' + res.matched.length + "）</div><div class=\"ztable\">" +
-        capList("已盤到", res.matched, (x) => legacyLine(x.legacy, "", true, flowHint(x.legacy))) + "</div>";
+      out += '<details><summary class="lbl">已盤到、無差異（' + res.matched.length + "）— 不用處理，預設收合</summary><div class=\"ztable\">" +
+        capList("已盤到", res.matched, (x) => legacyLine(x.legacy, "", true, flowHint(x.legacy))) + "</div></details>";
     }
     if (res.newOnly.length) {
       out += '<div class="lbl">新有舊無（' + res.newOnly.length + "）— 現場實際觀察到、舊帳沒有；已算進新帳</div><div class=\"ztable\">" +
@@ -1193,6 +1292,14 @@
     if(a==='vendor-copy'){navigator.clipboard.writeText(S.vendorReview?.raw||'').then(()=>{S.vendorCopyStatus='已複製';render();}).catch(()=>{S.vendorCopyStatus='複製未成功，請選取上方原碼';render();});return;}
     if (a === "workspace-overview") { S.mode="pc"; S.dtab="dash"; S.dash=false; S.workspaceMore=false; }
     else if (a === "workspace-scan") { S.mode="phone"; S.dash=false; S.workspaceMore=false; }
+    else if (a === "held-ack") { if (DRAFTS) DRAFTS.discard(draftAcct(), 'scan-held', v); }
+    else if (a === "draft-clear-ask") { S.draftClearAsk = v; }
+    else if (a === "draft-clear-no") { S.draftClearAsk = ""; }
+    else if (a === "draft-clear-do") {
+      if (DRAFTS) { for (const r of DRAFTS.list(draftAcct())) if (r.kind !== 'scan-held') DRAFTS.discard(draftAcct(), r.kind, r.entity); }
+      S.draftClearAsk = ""; S.draftNote = "";
+    }
+    else if (a === "map-image-clear") { bagDiscard('map-image', 'last'); }
     else if (a === "workspace-more") { S.workspaceMore=!S.workspaceMore; }
     else if (a === "workspace-manage") { S.mode="pc"; S.dtab=v; S.dash=false; S.workspaceMore=false; }
     else if (a === "mode") { S.mode = v; }
@@ -1226,8 +1333,9 @@
     else if (a === "godiff") { S.mode = "pc"; S.dash = false; S.dtab = "diff"; }
     else if (a === "sitelist") { S.mode = "pc"; S.dash = false; S.asite = v; S.dtab = "assets"; S.retTab = "dash"; S.editCode = ""; S.editDraft = null; }
     else if (a === "gositepc") { S.mode = "phone"; S.dash = false; S.site = v; S.screen = "start"; }
-    else if (a === "sproj") { S.scanProject = v; S.scanProjectInput = ""; }
-    else if (a === "sprojset") { S.scanProject = (S.scanProjectInput || "").trim(); }
+    else if (a === "sproj") { S.scanProject = v; S.scanProjectInput = ""; putSetup(); }
+    else if (a === "setup-clear") { S.scanDepartment = ""; S.scanProject = ""; S.scanProjectInput = ""; S.setupRestored = false; bagDiscard("scan-setup", "new"); }
+    else if (a === "sprojset") { S.scanProject = (S.scanProjectInput || "").trim(); putSetup(); }
     else if (a === "asite") { S.asite = v; S.editCode = ""; S.editDraft = null; }
     else if (a === "gosite") { S.site = v; S.dash = false; S.screen = "start"; }
     else if (a === "edit") {
@@ -1242,11 +1350,12 @@
       }
     }
     else if (a === "edit-rebase") {rebaseControlledEditor();return;}
-    else if (a === "cancel") { if(!D.isMock&&S.editCode)store.releaseAssetEdit(S.editCode).catch(()=>{});S.editCode = ""; S.editDraft = null; }
+    else if (a === "cancel") { const hasDraft=S.editCode&&S.editDraft&&['draft','restored','restored-merged'].includes(S.draftNote);if(hasDraft&&!S.editLocked&&!S.cancelAsk){S.cancelAsk=true;render();return;}S.cancelAsk=false;if(S.editCode&&!S.editLocked&&S.draftNote!=='conflict')draftDiscardEdit(S.editCode);if(!D.isMock&&S.editCode)store.releaseAssetEdit(S.editCode).catch(()=>{});S.editCode = ""; S.editDraft = null; }
     else if (a === "save") {
       if (S.editCode && S.editDraft) {
         if (S.editBusy||S.editLocked) return;
         const code = S.editCode, draft = { ...S.editDraft }, base = { ...S.editBase };
+        if(!String(draft.name??'').trim()){S.editError='設備名稱不能留空，沒有儲存；請輸入名稱後再儲存。';render();return;}
         S.savedAt = ""; S.editBusy = true; S.editError = ""; render();
         (async () => {
           try {
@@ -1273,7 +1382,7 @@
               }
               else await store.saveAssetVerified(code, draft, base);
             }
-            if (S.editCode === code) { S.savedAt = code; S.editCode = ""; S.editDraft = null; S.cascadeInfo=cascadeInfo; }
+            draftDiscardEdit(code);if (S.editCode === code) { S.savedAt = code; S.editCode = ""; S.editDraft = null; S.cascadeInfo=cascadeInfo; }
           } catch (e) { S.editLocked=true;S.editError = e.message || "儲存結果未確認，輸入保留，不可重送，請先核對"; }
           finally { S.editBusy = false; render(); }
         })();
@@ -1291,12 +1400,12 @@
       else if ((latS && (Number(latS) < -90 || Number(latS) > 90)) || (lonS && (Number(lonS) < -180 || Number(lonS) > 180))) S.siteErr = "座標超出範圍。";
       if (S.siteErr) { render(); return; }
       if (typeof store.addSite === "function" && store.addSite(name, zone, latS === "" ? null : Number(latS), lonS === "" ? null : Number(lonS))) {
-        S.newSite = {};
+        S.newSite = {}; bagDiscard('site-new', 'new');
       }
     }
     else if (a === "addzone") {
       const val = (S.newZone[v] || "").trim();
-      if (val) { store.addZone(v, val); S.newZone[v] = ""; }
+      if (val) { store.addZone(v, val); S.newZone[v] = ""; bagDiscard('zone-new', v); }
     }
     else if (a === "mapsite") { if(seatUI)seatUI.resetSelection();S.mapSite = v; S.mapZone = ""; }
     else if (a === "mapzone") { S.mapZone = S.mapZone === v ? "" : v; }
@@ -1319,24 +1428,27 @@
       if (!serials.length) { S.nbNote = "請先貼上至少一筆序號（每行一筆）。"; }
       else {
         const b = store.addBatch({ po: nb.po, vendor: nb.vendor, brand: nb.brand, model: nb.model, origin: nb.origin, mfgYear: nb.mfgYear, type: nb.type, note: nb.note, serials });
-        S.nb = { po: "", vendor: "", brand: "", model: "", origin: "", mfgYear: "", type: "", note: "", serials: "" }; S.nbNote = "";
+        S.nb = { po: "", vendor: "", brand: "", model: "", origin: "", mfgYear: "", type: "", note: "", serials: "" }; S.nbNote = ""; bagDiscard('inbound-batch', 'new');
         S.ibOpen = b.id; S.ibConfirm = ""; S.ibDraft = null;
       }
     }
     else if (a === "ibopen") { S.ibOpen = S.ibOpen === v ? "" : v; }
     else if (a === "ibconfirm") {
-      if (S.ibConfirm === v) { S.ibConfirm = ""; S.ibDraft = null; }
+      if (S.ibConfirm === v) { if (DRAFTS) DRAFTS.discard(draftAcct(), 'inbound-confirm', v); S.ibConfirm = ""; S.ibDraft = null; }
       else {
         const b = store.batch(v); if (!b) return;
         S.ibConfirm = v; S.ibOpen = v;
         const s0 = siteNames()[0] || "";
         S.ibDraft = { site: s0, zone: zonesOf(s0)[0] || "", project: D.UNASSIGNED, owner: "公用" };
+        const sd = DRAFTS && DRAFTS.get(draftAcct(), 'inbound-confirm', v);
+        if (sd && sd.payload && sd.payload.values && siteNames().includes(sd.payload.values.site)) { const o = sd.payload.values; S.ibDraft = { ...S.ibDraft, ...o, zone: zonesOf(o.site).includes(o.zone) ? o.zone : (zonesOf(o.site)[0] || "") }; S.draftNote = 'restored'; }
       }
     }
     else if (a === "ibdo") {
       const made = store.confirmInbound(v, S.ibDraft || {});
       if (made.length) {
         S.ibDone = S.ibDone || {}; S.ibDone[v] = made;
+        if (DRAFTS) DRAFTS.discard(draftAcct(), 'inbound-confirm', v);
         S.ibConfirm = ""; S.ibDraft = null; S.ibOpen = v;
       }
     }
@@ -1345,7 +1457,7 @@
     else if (a === "recvscan") {
       const r = store.receiveSerial(S.recvBatch, S.recvCode);
       S.recvLast = { serial: String(S.recvCode || "").trim(), result: r.result, asset: r.asset || null };
-      S.recvCode = "";
+      S.recvCode = ""; S.recvRestored = ""; bagDiscard('recv-serial', S.recvBatch);
     }
     else if (a === "recvtest") {
       const r = store.receiveSerial(S.recvBatch, v);
@@ -1367,8 +1479,12 @@
     }
     else if (a === "leglead") { S.legLead = v; S.legPages = {}; S.annOpen = ""; S.annDraft = {}; S.annErr = ""; }
     else if (a === "legproj") { S.legProj = v; S.legPages = {}; S.annOpen = ""; S.annDraft = {}; S.annErr = ""; }
-    else if (a === "annopen") { S.annOpen = v; S.annDraft = {}; S.annErr = ""; }
-    else if (a === "anncancel") { S.annOpen = ""; S.annDraft = {}; S.annErr = ""; }
+    else if (a === "annopen") { S.annOpen = v; S.annDraft = bagGet('annotation', v) || {}; S.annErr = ""; }
+    else if (a === "anncancel") {
+      const has = Object.values(S.annDraft || {}).some(x => String(x || '').trim());
+      if (has && !S.annCancelAsk) { S.annCancelAsk = true; S.annErr = '取消會刪除已輸入的內容。再按一次「取消」確定刪除，或繼續填寫。'; }
+      else { bagDiscard('annotation', S.annOpen); S.annCancelAsk = false; S.annOpen = ""; S.annDraft = {}; S.annErr = ""; }
+    }
     else if (a === "annsub") {
       const row = (store.legacyRows ? store.legacyRows() : []).find((x) => x.recordKey === v);
       const d = S.annDraft || {};
@@ -1388,6 +1504,7 @@
       else if (!chk.ok) { S.annErr = chk.reason; }
       else {
         store.addAnnotation(ann);
+        bagDiscard('annotation', S.annOpen);
         S.annOpen = ""; S.annDraft = {}; S.annErr = "";
       }
     }
@@ -1401,25 +1518,25 @@
     if (gf) { if (geoUI) geoUI.field(gf, e.target.value); return; }
     const f = e.target.getAttribute && e.target.getAttribute("data-f");
     if (!f) return;
-    if (f === "scanDepartment") { S.scanDepartment = e.target.value; return; }
+    if (f === "scanDepartment") { S.scanDepartment = e.target.value; putSetup(); return; }
     if (f === "manualCode") { S.manualCode = e.target.value; return; }
-    if (f === "scanProjectInput") { S.scanProjectInput = e.target.value; return; }
-    if (f.indexOf("ann_") === 0) { S.annDraft = S.annDraft || {}; S.annDraft[f.slice(4)] = e.target.value; return; }
-    if (f.indexOf("nz_") === 0) { S.newZone[f.slice(3)] = e.target.value; return; }
-    if (f.indexOf("ns_") === 0) { S.newSite[f.slice(3)] = e.target.value; return; }
-    if (f.indexOf("nb_") === 0) { S.nb = S.nb || {}; S.nb[f.slice(3)] = e.target.value; return; }
+    if (f === "scanProjectInput") { S.scanProjectInput = e.target.value; putSetup(); return; }
+    if (f.indexOf("ann_") === 0) { S.annDraft = S.annDraft || {}; S.annDraft[f.slice(4)] = e.target.value; if (S.annOpen) bagPut('annotation', S.annOpen, S.annDraft); return; }
+    if (f.indexOf("nz_") === 0) { S.newZone[f.slice(3)] = e.target.value; bagPut('zone-new', f.slice(3), { v: e.target.value }); return; }
+    if (f.indexOf("ns_") === 0) { S.newSite[f.slice(3)] = e.target.value; bagPut('site-new', 'new', S.newSite); return; }
+    if (f.indexOf("nb_") === 0) { S.nb = S.nb || {}; S.nb[f.slice(3)] = e.target.value; bagPut('inbound-batch', 'new', S.nb); return; }
     if (f.indexOf("ibd_") === 0) { if (S.ibDraft) S.ibDraft[f.slice(4)] = e.target.value; return; }
-    if (f === "recvCode") { S.recvCode = e.target.value; return; }
+    if (f === "recvCode") { S.recvCode = e.target.value; S.recvRestored = ""; if (S.recvBatch) { if (S.recvCode.trim()) bagPut("recv-serial", S.recvBatch, { v: S.recvCode }); else bagDiscard("recv-serial", S.recvBatch); } return; }
     if (f === "ageThreshold") { S.ageThreshold = Number(e.target.value) || AGE_THRESHOLD_DEFAULT; return; } /* 重繪在 change（blur/Enter/步進）時做，避免打字中斷焦點 */
     if (f === "ageBasis") { S.ageBasis = e.target.value; render(); return; }
     if (f === "ageThreshold") { S.ageThreshold = Number(e.target.value) || AGE_THRESHOLD_DEFAULT; render(); return; }
     if (f === "editSeat") S.editSeat = e.target.value;
-    if (S.editDraft && Object.prototype.hasOwnProperty.call(S.editDraft, f)) {S.editDraft[f] = e.target.value;noteControlledActivity();}
+    if (S.editDraft && Object.prototype.hasOwnProperty.call(S.editDraft, f)) {S.editDraft[f] = e.target.value;S.cancelAsk=false;S.autoNote='';noteControlledActivity();draftSaveEdit();}
   });
   document.addEventListener("change", (e) => {
     if (e.target.getAttribute && e.target.getAttribute("data-f") === "mapfile") {
       const file = e.target.files && e.target.files[0];
-      if (file) { S.mapImg = URL.createObjectURL(file); S.mapZone = ""; render(); }
+      if (file) { S.mapImg = URL.createObjectURL(file); S.mapZone = ""; bagPut('map-image', 'last', { name: file.name }); render(); }
       return;
     }
     const f = e.target.getAttribute && e.target.getAttribute("data-f");
@@ -1427,10 +1544,11 @@
     if (f && f.indexOf("ibd_") === 0 && S.ibDraft) {
       S.ibDraft[f.slice(4)] = e.target.value;
       if (f === "ibd_site") S.ibDraft.zone = zonesOf(S.ibDraft.site)[0] || "";
+      if (DRAFTS && S.ibConfirm) DRAFTS.put(draftAcct(), 'inbound-confirm', S.ibConfirm, { values: { ...S.ibDraft } });
       render(); return;
     }
     if (f === "editSeat") S.editSeat = e.target.value;
-    if (f && S.editDraft && Object.prototype.hasOwnProperty.call(S.editDraft, f)) {S.editDraft[f] = e.target.value;noteControlledActivity();if(f==="owner"||f==="department")render();} /* 保管人／部門在 blur 時重繪，讓同座位連動提示在儲存前出現 */
+    if (f && S.editDraft && Object.prototype.hasOwnProperty.call(S.editDraft, f)) {S.editDraft[f] = e.target.value;noteControlledActivity();draftSaveEdit();if(f==="owner"||f==="department")render();else autosaveAsset(f);} /* 保管人／部門在 blur 時重繪，讓同座位連動提示在儲存前出現 */
   });
   document.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && e.target.getAttribute && e.target.getAttribute("data-f") === "manualCode") { scan(S.manualCode); }
@@ -1454,7 +1572,8 @@
   document.addEventListener("change",e=>{
     const f=e.target.dataset && e.target.dataset.seatField;if(!f||!seatUI)return;
     if(f==="file"){const file=e.target.files&&e.target.files[0];if(file)seatUI.file(file,S.mapSite,"");}
-    else seatUI.field(f,e.target.value);
+    else if(f==="plan-file"){const file=e.target.files&&e.target.files[0];if(file)seatUI.planFile(file);}
+    else {seatUI.field(f,f==='imp-names'?e.target.checked:e.target.value);if(f==="name")seatUI.autosaveName({site:S.mode==="phone"?S.site:S.mapSite,zone:S.mode==="phone"?S.zone:""});}
   });
   document.addEventListener("input",e=>{const f=e.target.dataset&&e.target.dataset.seatField;if(f==="name"&&seatUI)seatUI.field(f,e.target.value);});
   document.addEventListener("change",e=>{if(intakeUI&&(e.target.dataset.intake||e.target.dataset.intakeMap))intakeUI.field(e.target);});
