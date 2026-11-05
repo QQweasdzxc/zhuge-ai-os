@@ -66,7 +66,8 @@ function assetEditor(a,selected,busy){const md=model(),old=md.bindings[a.code],m
  function layout(){for(const box of document.querySelectorAll('.seat-layout-scroll[data-seat-width]')){const w=Number(box.dataset.seatWidth),h=Number(box.dataset.seatHeight),zoom=box.classList.contains('seat-zoom'),scale=zoom?1:Math.min(1,box.clientWidth/w,Math.max(260,window.innerHeight*.65)/h);box.style.height=(zoom?Math.min(h,640):h*scale)+'px';const inner=box.querySelector('.seat-layout');inner.style.transform='scale('+scale+')';if(!zoom){box.scrollLeft=0;box.scrollTop=0;}}}
  if(typeof ResizeObserver!=='undefined'){const ro=new ResizeObserver(()=>layout());setTimeout(()=>ro.observe(document.documentElement),0);}
  function resetSelection(){S.scanSelected=false;S.selected=1;}
- return {assetEditor,savePlacement,render,scanPanel,act,file,field,bind,target,layout,resetSelection,orderedRecords,recordLabel,state:S,mapFor};
+ function seatBindings(){return {...model().bindings};}
+ return {assetEditor,savePlacement,render,scanPanel,act,file,field,bind,target,layout,resetSelection,orderedRecords,recordLabel,state:S,mapFor,seatBindings};
 }
 g.ErpSeatUI={create};
 })(window);
