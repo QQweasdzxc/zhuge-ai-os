@@ -426,8 +426,9 @@
   }
 
   /* ---- 相機連續掃描：getUserMedia 取影像；條碼辨識優先 BarcodeDetector，不支援時用內建 jsQR（僅 QR） ---- */
-  const cam = { busy:false, format:"", stream: null, det: null, timer: null, canvas: null, dedup: null, engine: "", detection: null };
+  const cam = { starting:false, startId:0, watchdog:null, busy:false, format:"", stream: null, det: null, timer: null, canvas: null, dedup: null, engine: "", detection: null };
   function camStop(silent) {
+    cam.startId++;cam.starting=false;if(cam.watchdog){clearTimeout(cam.watchdog);cam.watchdog=null;}
     if (cam.timer) { clearInterval(cam.timer); cam.timer = null; }
     if (cam.stream) { cam.stream.getTracks().forEach((t) => t.stop()); cam.stream = null; }
     cam.det = null; cam.engine = ""; cam.detection = null;
@@ -479,6 +480,7 @@
     finally{cam.busy=false;}
   }
   function camStart() {
+    if(cam.starting||S.camOn||cam.stream)return;
     window.ErpReadFeedback?.unlock().then(ok=>{S.audioReady=ok;const h=document.getElementById('qrdetected');if(h&&!ok)h.textContent='音效未啟用；請看辨識提示與保存狀態';});
     window.ZXingWASM?.setZXingModuleOverrides({locateFile:p=>p.endsWith(".wasm")?new URL("vendor/zxing_reader.wasm",location.href).href:p});
     S.camErr = "";
@@ -489,32 +491,20 @@
     if (!window.ZXingWASM) {
       S.camErr = "這個瀏覽器不支援即時條碼辨識，備用辨識元件也未載入，請用輸入或測試按鈕。"; render(); return;
     }
-    let settled = false;
-    const watchdog = setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      camStop(true);
-      S.camErr = "相機超過 8 秒沒有回應（可能沒有相機或授權視窗被擋）。請用輸入或測試按鈕，或換一支手機瀏覽器再試。";
-      render();
-    }, 8000);
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false }).then((stream) => {
-      if (settled) { stream.getTracks().forEach((t) => t.stop()); return; }
-      settled = true; clearTimeout(watchdog);
-      cam.stream = stream;
-      cam.engine = "zxing";
-      if (hasBD) cam.det = new BarcodeDetector({ formats: ["qr_code", "code_128", "code_39", "ean_13", "ean_8", "data_matrix"] });
-      cam.dedup = ErpScanCore.makePresenceDeduper(1500);
-      S.camOn = true; S.camLast = ""; S.camLastAt = 0;
-      render();
-      cam.timer = setInterval(camTick, 700);
-    }).catch((err) => {
-      if (settled) return;
-      settled = true; clearTimeout(watchdog);
-      S.camErr = err && err.name === "NotAllowedError"
-        ? "相機權限被拒絕。要用相機掃描請在瀏覽器網址列允許相機後再試；目前先用輸入或測試按鈕。"
-        : err && err.name === "NotFoundError"
-        ? "找不到可用的相機鏡頭。請用輸入或測試按鈕。"
-        : "相機開啟失敗（" + (err && err.name ? err.name : "未知原因") + "），請用輸入或測試按鈕。";
+    const attempt=++cam.startId;cam.starting=true;render();
+    const current=()=>cam.starting&&cam.startId===attempt;
+    const clear=()=>{if(cam.watchdog){clearTimeout(cam.watchdog);cam.watchdog=null;}cam.starting=false;};
+    cam.watchdog=setTimeout(()=>{if(!current())return;clear();cam.startId++;S.camErr="相機超過 8 秒沒有回應，尚未開啟。可點取景區重試，或使用手動輸入。";render();},8000);
+    Promise.resolve().then(()=>navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })).then(stream=>{
+      if(!current()){stream.getTracks().forEach(t=>t.stop());return;}
+      clear();if(cam.stream&&cam.stream!==stream)cam.stream.getTracks().forEach(t=>t.stop());
+      cam.stream=stream;cam.engine="zxing";
+      if(hasBD)cam.det=new BarcodeDetector({formats:["qr_code","code_128","code_39","ean_13","ean_8","data_matrix"]});
+      cam.dedup=ErpScanCore.makePresenceDeduper(1500);S.camOn=true;S.camLast="";S.camLastAt=0;render();
+      if(cam.timer)clearInterval(cam.timer);cam.timer=setInterval(camTick,700);
+    }).catch(err=>{
+      if(!current())return;clear();
+      S.camErr=err&&err.name==="NotAllowedError"?"相機權限被拒絕。請在瀏覽器允許相機，再點取景區重試；也可使用手動輸入。":err&&err.name==="NotFoundError"?"找不到可用的相機鏡頭。請使用手動輸入。":"相機開啟失敗（"+(err&&err.name?err.name:"未知原因")+"），可點取景區重試或使用手動輸入。";
       render();
     });
   }
@@ -538,7 +528,7 @@
     setTimeout(refreshSyncBadge, 0); /* 整頁重繪會重建徽章（預設隱藏），重繪後立刻補上內容 */
     return '<div id="erp-sync-badge" class="syncbadge" style="display:none"></div><div id="erp-version-badge" class="versionbadge" style="display:none"></div>';
   }
-  const LOADED_BUILD = { id: "2026-11-05.10" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
+  const LOADED_BUILD = { id: "2026-11-05.11" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
   async function checkAppVersion() {
     if (D.isMock) return;
     try {
@@ -689,15 +679,17 @@
       '<div class="scanbar"><button class="zonebtn" data-a="zoneopen"><span class="lbl">' + esc(S.site) + " · 目前區域</span><b>" + esc(S.zone) + " ▾</b></button>" +
       '<button class="btn mini" data-a="toresult">結束 (' + recs.length + ")</button></div>" +
       '<div class="small">本次使用部門：' + esc(S.sess.department || "未指定") + " · 專案：" + esc(S.sess.project || "全部專案") + " · 經手人：" + esc(S.sess.operator || "未記錄") + "（開始前設定，這批沿用）</div>" +
-      (seatUI ? seatUI.scanPanel(S.site,S.zone,S.sess,recs) : "") +
       scopeStrip +
       (S.scanSetupErr ? '<div class="warn">'+(S.scanUncertain?'本筆掃描 '+esc(S.scanIntent?.code||'')+'：保存結果待查，請勿重送。':esc(S.scanSetupErr))+(S.scanIntent&&!S.scanUncertain?'<button class="pill" data-a="scan-intent-retry">重試這筆未保存掃描</button>':'')+'</div>' : "") +
       recs.filter(r=>r.__seatError).map(r=>'<div class="warn">座位登記未同步：'+esc(r.code)+' · '+esc(r.__seatError)+'<button class="pill" data-seat-retry="'+esc(r.code)+'">重試座位登記（不重掃設備）</button></div>').join("") +
       '<div class="small">起點定位 ' + (S.sess.lat != null ? Number(S.sess.lat).toFixed(3) + ", " + Number(S.sess.lon).toFixed(3) + (S.sess.acc != null ? "（±" + S.sess.acc + " m）" : "") : "無（手動選擇據點）") + " · " + esc(new Date(S.sess.at).toLocaleTimeString("zh-TW", { hour12: false })) + "（固定，換區域不會改）</div>" +
       (S.zoneOpen ? '<div class="zonepick">' + zonesOf(S.site).map((z) => '<button class="pill' + (S.zone === z ? " on" : "") + '" data-a="zone" data-v="' + esc(z) + '">' + esc(z) + "</button>").join("") + "</div>" : "") +
+      '<div class="scan-camera">' + (seatUI ? seatUI.scanPanel(S.site,S.zone,S.sess,recs,"above") : "") +
       (S.camOn
-        ? '<div class="view live"><video id="camv" autoplay playsinline muted></video><svg id="qrframe" class="qrframe" preserveAspectRatio="xMidYMid meet" aria-hidden="true" hidden><polygon id="qrpolygon" vector-effect="non-scaling-stroke"></polygon></svg><span id="qrdetected" class="detectedhint" aria-live="polite">對準標籤；嗶聲只表示已讀到，保存狀態見下方</span><span class="hint">' + (cam.engine === "jsqr" ? "對準 QR 碼（此瀏覽器僅支援 QR），掃到會自動記一筆（同一張持續對準只記一次，移開約 1.5 秒後可再掃）" : "對準 QR／條碼，掃到會自動記一筆（同一張持續對準只記一次，移開約 1.5 秒後可再掃）") + '</span></div><div class="frow"><button class="pill sm" data-a="camstop">關閉相機</button></div>'
-        : '<div class="view" role="img" aria-label="相機取景區"><i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i><div class="qr"></div><span class="hint">可用相機連續掃描，或用下方手動輸入</span></div><div class="frow"><button class="pill sm" data-a="camstart">開啟相機掃描</button></div>' + (S.camErr ? '<div class="warn">' + esc(S.camErr) + "</div>" : "")) +
+        ? '<div class="view live"><video id="camv" autoplay playsinline muted></video><svg id="qrframe" class="qrframe" preserveAspectRatio="xMidYMid meet" aria-hidden="true" hidden><polygon id="qrpolygon" vector-effect="non-scaling-stroke"></polygon></svg><span id="qrdetected" class="detectedhint" aria-live="polite">對準標籤；嗶聲只表示已讀到，保存狀態見下方</span><span class="hint">' + (cam.engine === "jsqr" ? "對準 QR 碼（此瀏覽器僅支援 QR），掃到會自動記一筆（同一張持續對準只記一次，移開約 1.5 秒後可再掃）" : "對準 QR／條碼，掃到會自動記一筆（同一張持續對準只記一次，移開約 1.5 秒後可再掃）") + '</span></div>'
+        : '<button type="button" class="view camera-activate" data-a="camstart" aria-label="點一下開啟相機掃描"'+(cam.starting?' disabled aria-busy="true"':'')+'><i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i><div class="qr"></div><span class="hint">'+(cam.starting?'正在開啟相機…<br>瀏覽器詢問時，請允許相機':'點一下開啟相機掃描<br>瀏覽器詢問時，請允許相機')+'</span></button>' + (S.camErr ? '<div class="warn">' + esc(S.camErr) + "</div>" : "")) +
+      (seatUI ? seatUI.scanPanel(S.site,S.zone,S.sess,recs) : "") +
+      (S.camOn?'<button class="pill sm camera-stop" data-a="camstop">關閉相機</button>':'') + '</div>' +
       toast +
       (S.scanBusy?'<div class="warn">正在核對保存：'+esc(S.scanIntent?.code||'')+'，完成前不計入成功。</div>':'')+(S.scanQueue?.length?'<div class="warn">等候保存：'+S.scanQueue.map(x=>esc(x.code)).join('、')+'</div>':'')+
       heldReloaded().map(r=>'<div class="warn">上次中斷的掃描 '+esc(r.payload.values.code)+'：'+(r.payload.values.uncertain?'結果待查':'未保存')+'，不會自動重送。請先核對該編號的紀錄，再到「管理功能 › 本機草稿」移除。</div>').join('') +
@@ -1241,7 +1233,7 @@
 
   /* ---- 渲染 ---- */
   function render() {
-    if ((S.mode !== "phone" || S.screen !== "scan" || S.dash) && S.camOn) camStop(true);
+    if ((S.mode !== "phone" || S.screen !== "scan" || S.dash) && (S.camOn||cam.starting)) camStop(true);
     const root = document.getElementById("erp-root");
     refreshSyncBadge.__lastRoot = root;
     if (window.ErpAuth && window.ErpAuth.state().status !== "ready" && !D.isMock) {

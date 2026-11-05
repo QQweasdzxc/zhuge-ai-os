@@ -288,3 +288,18 @@ button.geo-kpi:hover{border-color:var(--ds-teal,#0a7)}
 .versionbadge.bad { color:#b3261e; border-color:#e5b4ae; font-weight:600; }
 .versionbadge.new { color:#0b5394; border-color:#9fc5e8; font-weight:600; }
 @media (max-width: 820px) { .versionbadge { position: static; max-width: none; margin: 6px 0; padding: 6px 10px; font-size: 12px; line-height: 1.5; pointer-events: auto; } }
+
+/* Camera and seat selection stay together; no zoom restrictions. */
+.scan-camera {display:flex;flex-direction:column;gap:8px;min-width:0;}
+.camera-activate {width:100%;border:0;cursor:pointer;color:white;font:inherit;}
+.camera-activate .hint {left:12px;right:12px;text-align:center;}
+.camera-stop {align-self:flex-start;}
+.seat-above {font-size:14px;padding:6px 10px;border-radius:10px;background:var(--ds-raised);}
+.seat-above b {color:var(--ds-ink);}
+.seat-controls {display:grid;grid-template-columns:minmax(56px,1fr) minmax(56px,1fr) auto auto;gap:6px;align-items:end;}
+.seat-current {display:flex;flex-direction:column;}.seat-current b {font-size:26px;line-height:1.2;}
+.seat-entry {display:flex;flex-direction:column;gap:4px;min-width:0;}.seat-entry .inp {width:100%;min-width:0;}
+.seat-scan {padding:10px;gap:6px;}.seat-controls .pill {padding:0 9px;white-space:nowrap;}
+.seat-scan-details {font-size:12px;}.seat-scan-details[open] {display:flex;flex-direction:column;gap:8px;}
+@media(min-width:1100px){.screen:has(.scan-camera)>.scan-camera{grid-column:1;grid-row:2 / span 8;}.screen:has(.scan-camera) .scan-camera .view{height:clamp(280px,45vh,520px);}}
+@media(max-width:700px){input,select,textarea,.inp {font-size:16px;} .frow:has([data-f="manualCode"]){display:grid;grid-template-columns:minmax(0,1fr) auto;}.frow [data-f="manualCode"]{min-width:0;width:100%;}.scan-camera .view.live{height:clamp(180px,32dvh,300px);}.scan-camera .view{min-height:160px;}.scan-camera .hint{font-size:11px;line-height:1.4;}.scan-camera .detectedhint{font-size:11px;}}
