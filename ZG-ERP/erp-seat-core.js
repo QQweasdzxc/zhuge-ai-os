@@ -1,14 +1,39 @@
+/* Pure ordered map reduction. Shared byte-for-byte with the bridge. */
+(function(g){'use strict';
+function validate(m){
+ if(!m||!Array.isArray(m.seats)||!m.seats.length||m.seats.length>500||!Array.isArray(m.cells)||m.cells.length>6000)throw Error('MAP_SHAPE');
+ const n=m.seats.map(s=>s.number);if(n.some(x=>!Number.isInteger(x)||x<1||x>500)||new Set(n).size!==n.length)throw Error('MAP_SEATS');
+ if(!(m.width>0&&m.height>0&&m.width<10000&&m.height<10000))throw Error('MAP_SIZE');
+ for(const c of m.cells)if(![c.x,c.y,c.w,c.h].every(Number.isFinite)||c.w<0||c.h<0)throw Error('MAP_CELLS');
+ return m;
+}
+function snapshot(rows){
+ const seen=new Set(),parts=new Map(),maps=new Map(),accepted=new Set();
+ for(const r of rows||[]){if(!Array.isArray(r)||!r[0]||seen.has(r[0]))continue;seen.add(r[0]);try{
+  const [id,kind,version,site,zone]=r;if(!version||!site||!zone)continue;const place=JSON.stringify([site,zone]),data=JSON.parse(r[7]);
+  if(kind==='part'){if(data&&typeof data.text==='string'&&data.text.length<=12000)parts.set(id,{version,site,zone,text:data.text});continue;}
+  if(kind!=='map')continue;const prior=maps.get(place);if(prior&&prior.id!==version)continue;
+  let map;if(Object.prototype.hasOwnProperty.call(data||{},'parts')){if(!Array.isArray(data.parts)||!data.parts.length||data.parts.length>60||new Set(data.parts).size!==data.parts.length)continue;const text=data.parts.map(id=>{const p=parts.get(id);if(!p||p.version!==version||p.site!==site||p.zone!==zone)throw Error('MAP_PART');return p.text}).join('');map=validate(JSON.parse(text));}else map=validate(data);
+  maps.set(place,Object.assign({},map,{id:version,site,zone}));accepted.add(id);
+ }catch{}}
+ return {maps:[...maps.values()],accepted};
+}
+function reduce(rows){return snapshot(rows).maps;}
+g.ErpSeatMapCore=Object.freeze({validate,reduce,snapshot});if(typeof module!=='undefined')module.exports=g.ErpSeatMapCore;
+})(globalThis);
+
 /* Seat maps: source layout is private ledger data, never bundled people data. */
 (function(g){
 'use strict';
+if(!g.ErpSeatMapCore&&typeof require==='function')g.ErpSeatMapCore=require('./erp-seat-map-core.js');
 const HEADER=['事件鍵','類型','圖版本','據點','區域','座位編號','資產編號','內容JSON','時間','經手人'];
 const text=(el,tag)=>{const n=el&&el.getElementsByTagName(tag)[0];return n?n.textContent:''};
 function reduce(rows){
- const out={maps:[],occupants:{},bindings:{},checks:{}}; const parts={},seen=new Set();
- for(const r of rows||[]){try{if(seen.has(r[0]))continue;seen.add(r[0]);
+ const out={maps:[],occupants:{},bindings:{},checks:{}};const prefix=[]; const parts={},seen=new Set();
+ for(const r of rows||[]){prefix.push(r);try{if(seen.has(r[0]))continue;seen.add(r[0]);
   const e={id:r[0],kind:r[1],version:r[2],site:r[3],zone:r[4],seat:Number(r[5]),code:r[6],data:JSON.parse(r[7]||'{}'),at:r[8],actor:r[9]};
   if(e.kind==='part')parts[e.id]=e.data.text;
-  else if(e.kind==='map'){const data=e.data.parts?JSON.parse(e.data.parts.map(id=>parts[id]||'').join('')):e.data;validate(data);const mi=out.maps.findIndex(m=>m.site===e.site&&m.zone===e.zone);if(mi<0)out.maps.push(Object.assign({},data,{id:e.version,site:e.site,zone:e.zone}));else if(out.maps[mi].id===e.version)out.maps[mi]=Object.assign({},data,{id:e.version,site:e.site,zone:e.zone});}
+  else if(e.kind==='map'){out.maps=g.ErpSeatMapCore.reduce(prefix);}
   else if(['occupant','binding','placement','check'].includes(e.kind)&&!out.maps.some(m=>m.id===e.version&&m.site===e.site&&m.zone===e.zone))continue;
   else if(e.kind==='occupant'){const key=e.version+':'+e.seat,prior=out.occupants[key];if((e.data.previous||'')===(prior?.id||''))out.occupants[key]=e;}
   else if((e.kind==='binding'||e.kind==='placement')){const prior=out.bindings[e.code];if(!prior||(prior.version===e.version&&prior.seat===e.seat))out.bindings[e.code]=e;}
