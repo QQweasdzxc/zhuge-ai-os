@@ -186,7 +186,7 @@
   async function openControlledEditor(code){
     if(S.editBusy)return;const x=getA(code);if(!x)return;
     if(S.editCode&&S.editCode!==code&&!D.isMock)await store.releaseAssetEdit(S.editCode);
-    S.editTouched=false;S.editCode=code;S.editDraft=editValues(x);S.editError='';S.editSeat='';S.savedAt='';S.editBusy=true;S.editLocked=true;S.editCascadeAck=true;S.cascadeInfo='';render();
+    S.editTouched=false;S.editCode=code;S.editDraft=editValues(x);S.editError='';S.editSeat='';S.savedAt='';S.editBusy=true;S.editLocked=true;S.cascadeInfo='';render();
     try{if(!D.isMock){await store.reserveAssetEdit(code);const fresh=await store.readAssetForEdit(code);S.editDraft=editValues(fresh);}S.editConflict=false;S.editLocked=false;}
     catch(e){S.editError=e.message+'；輸入已保留，尚未保存。';}
     finally{S.editBusy=false;render();}
@@ -778,8 +778,8 @@
               if(plan.unavailable)return '<div class="warn">座位資料尚未讀取完成，無法檢查同座位設備；變更'+plan.fields.map(f=>fname[f]||f).join('、')+'前請先重新整理，否則無法儲存。</div>';
               if(!plan.peers.length)return '';
               const lines=plan.peers.map(p=>'<div class="small">'+esc(p.code)+'：'+Object.keys(p.patch).map(f=>esc(fname[f]||f)+' '+esc(p.expected[f]||'（空）')+' → '+esc(p.patch[f])).join('；')+'</div>').join('');
-              return '<div class="warn"><b>同座位連動</b>（'+esc(String(plan.seat.seat))+'號座位 · 同座位應同保管人、同使用部門；專案不連動）：'+lines+
-                '<label class="small"><input type="checkbox" data-a="cascade-ack"'+(S.editCascadeAck?' checked':'')+'> 一併更新以上 '+plan.peers.length+' 台同座位設備（全部成功才生效，任一失敗會全部回復原值）。取消勾選則只改這台，同座位會不一致。</label></div>';})() +
+              return '<div class="warn"><b>同座位連動</b>（'+esc(String(plan.seat.seat))+'號座位 · 同座位應同保管人、同使用部門；專案不連動）。按「儲存至資料庫」會一併更新以上 '+plan.peers.length+' 台同座位設備，不能只改其中一台：'+lines+
+                '<div class="small">寫入前會重新讀取每台現況，任一筆失敗會把本次已寫入的改回原值並如實回報；若回復本身失敗，會列出需要人工核對的設備。不想連動請按「取消」。</div></div>';})() +
             '<div class="frow"><button class="btn mini" data-a="save"' + (S.editBusy ? ' disabled' : '') + '>' + (S.editBusy ? '正在儲存並讀回核對…' : D.isMock ? '儲存（隔離測試）' : '儲存至資料庫') + '</button><button class="pill sm" data-a="cancel"' + (S.editBusy ? ' disabled' : '') + '>取消</button></div>' +
             (seatUI ? seatUI.assetEditor(a, S.editSeat, S.editBusy) : '') +
             '<div class="small">狀態改動是人工判斷（例如送修），手機掃描本身不會改狀態。歸屬專案和實際放置地點分開。序號、購入、啟用、保固到期都可留空；登記編號不等於設備序號。</div></fieldset></div>';
@@ -1200,7 +1200,6 @@
         seatUI.savePlacement(asset, S.editSeat).then(() => { S.editSeat = ""; }).catch(e => { S.editError = e.message; }).finally(() => { S.editBusy = false; render(); });
       }
     }
-    else if (a === "cascade-ack") { S.editCascadeAck = !S.editCascadeAck; render(); return; }
     else if (a === "edit-rebase") {rebaseControlledEditor();return;}
     else if (a === "cancel") { if(!D.isMock&&S.editCode)store.releaseAssetEdit(S.editCode).catch(()=>{});S.editCode = ""; S.editDraft = null; }
     else if (a === "save") {
@@ -1214,7 +1213,7 @@
             if (D.isMock) {
               store.saveAsset(code, draft);
               const plan=cascadePlanFor(code,draft,base);
-              if(plan&&!plan.unavailable&&plan.peers.length&&S.editCascadeAck){for(const p of plan.peers)store.saveAsset(p.code,p.patch);cascadeInfo='已一併更新同座位 '+plan.peers.length+' 台：'+plan.peers.map(p=>p.code).join('、');}
+              if(plan&&!plan.unavailable&&plan.peers.length){for(const p of plan.peers)store.saveAsset(p.code,p.patch);cascadeInfo='已一併更新同座位 '+plan.peers.length+' 台：'+plan.peers.map(p=>p.code).join('、');}
             }
             else {
               const changed={};
@@ -1225,7 +1224,7 @@
                 const bindings=seatUI.state.loaded&&store.seatReady?seatUI.seatBindings():null;
                 if(!bindings)throw new Error('座位資料未能讀取，無法確認同座位設備；未保存，請重新整理後重試。');
                 const plan=window.ErpEditCore.planSeatCascade({bindings,assets:assets(),code,changed});
-                if(plan.peers.length&&S.editCascadeAck){
+                if(plan.peers.length){
                   const res=await window.ErpEditCore.runSeatCascade(store,code,draft,base,plan);
                   cascadeInfo='已一併更新同座位 '+res.cascaded.length+' 台：'+res.cascaded.join('、');
                 }
