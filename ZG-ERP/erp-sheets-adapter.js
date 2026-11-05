@@ -386,7 +386,7 @@
     async readAssetForEdit(code){const data=await this._readFull('assets'),hits=data.rows.map((r,i)=>({r,i})).filter(x=>x.r[0]===code);if(hits.length!==1)throw new Error('設備編號不唯一，沒有取得可編輯資料');const fresh=rowToAsset(hits[0].r,hits[0].i);Object.assign(this._db().assets.find(a=>a.code===code),fresh);return fresh;}
     async releaseAssetEdit(code){if(this._editReservations?.has(code))return this.editControl('release',code);}
     async noteEditActivity(code){const h=this._editReservations?.get(code);if(!h||h.expiresAt<=Date.now())throw new Error('編輯權限已到期，輸入保留；請重新讀取後核對');if(Date.now()-h.lastRenewAt>=60000){if(!h.renewing)h.renewing=this.editControl('renew',code).finally(()=>{h.renewing=null});return h.renewing;}}
-    async saveAssetVerified(code, draft, base) {
+    async saveAssetVerified(code, draft, base, opId) {
       const a = this._db().assets.find(x => x.code === code);
       if (!a) throw new Error("找不到設備 " + code);
       const held=this._editReservations?.get(code);if(held?.attempted)throw new Error('上次儲存結果未確定，不可重送；輸入保留請先核對');if(!held||held.expiresAt<=Date.now())throw new Error('編輯權限已到期，輸入保留；請重新讀取後核對');
@@ -394,7 +394,7 @@
       const normalized = { ...draft }; if (["未指定（待確認）", "未指定(待確認)", "未指定"].includes(normalized.project)) normalized.project = "";
       for (const k of Object.keys(normalized)) if (String(normalized[k] ?? "") !== String(base[k] ?? "")) { patch[k] = String(normalized[k] ?? ""); expected[k] = String(base[k] ?? ""); }
       held.attempted=true;
-      const res = await this._fetchAuth(this._url("asset-edit", "assets"), { method: "POST", headers: this._authHeaders({ "content-type": "application/json" }), body: JSON.stringify({ code, patch, expected,reservationToken:held.token,operationId:operationId() }) });
+      const res = await this._fetchAuth(this._url("asset-edit", "assets"), { method: "POST", headers: this._authHeaders({ "content-type": "application/json" }), body: JSON.stringify({ code, patch, expected,reservationToken:held.token,operationId:opId||operationId() }) });
       const b = res ? await res.json() : null;
       if (!res || !res.ok || !b?.ok || !Array.isArray(b.row) || !Number.isInteger(b.rowNum) || b.row[0] !== code) throw new Error(b?.error?.message || "儲存未確認，請保留輸入後重試");
       Object.assign(a, rowToAsset(b.row, b.rowNum - 2));this._originalRows=this._originalRows||{};this._originalRows.assets=this._originalRows.assets||[];this._originalRows.assets[b.rowNum-2]=[...b.row];this._editReservations.delete(code);
