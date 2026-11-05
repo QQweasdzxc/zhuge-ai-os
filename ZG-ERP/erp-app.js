@@ -1390,7 +1390,7 @@
       render(); return;
     }
     if (f === "editSeat") S.editSeat = e.target.value;
-    if (f && S.editDraft && Object.prototype.hasOwnProperty.call(S.editDraft, f)) {S.editDraft[f] = e.target.value;noteControlledActivity();}
+    if (f && S.editDraft && Object.prototype.hasOwnProperty.call(S.editDraft, f)) {S.editDraft[f] = e.target.value;noteControlledActivity();if(f==="owner"||f==="department")render();} /* 保管人／部門在 blur 時重繪，讓同座位連動提示在儲存前出現 */
   });
   document.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && e.target.getAttribute && e.target.getAttribute("data-f") === "manualCode") { scan(S.manualCode); }
