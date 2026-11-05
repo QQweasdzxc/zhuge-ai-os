@@ -32,6 +32,8 @@ function progress(model,map,sessionId,records){
 function colNum(ref){let n=0;for(const c of ref.replace(/[0-9]/g,''))n=n*26+c.charCodeAt(0)-64;return n}
 function rgb(v,fallback){return /^([A-Fa-f0-9]{6}|[A-Fa-f0-9]{8})$/.test(v||'')?'#'+v.slice(-6):fallback}
 function color(el,theme,fallback){if(!el)return fallback;let c=rgb(el.getAttribute('rgb'),null);if(!c&&el.hasAttribute('theme'))c=theme[Number(el.getAttribute('theme'))];if(!c&&el.hasAttribute('indexed')){const i=Number(el.getAttribute('indexed'));c=i===64?'#000000':i===65?'#ffffff':null}if(!c)return fallback;const t=Number(el.getAttribute('tint')||0);if(t){c='#'+c.slice(1).match(/../g).map(h=>{let n=parseInt(h,16);n=Math.round(t<0?n*(1+t):n*(1-t)+255*t);return n.toString(16).padStart(2,'0')}).join('')}return c}
+/* Seat label: trailing 1-3 digit number. Plain single-line labels allow a digit-free prefix; multi-line labels (department on its own line) allow digits in the prefix but require a real newline before the number, so asset codes like R005458 never match. */
+function matchSeatLabel(t){const m=String(t||'').match(/^([^\d]*)(\d{1,3})$/)||String(t||'').match(/^([\s\S]*\S)[\r\n]+\s*(\d{1,3})$/);return m||null}
 async function parseXlsx(buffer,filename){
  if(buffer.byteLength>5*1024*1024)throw Error('檔案超過5MB，請使用座位圖原檔');
  if(!g.fflate)throw Error('XLSX讀取元件未載入');
@@ -53,10 +55,10 @@ async function parseXlsx(buffer,filename){
  const theme=['#ffffff','#000000','#eeece1','#1f497d','#4f81bd','#c0504d','#9bbb59','#8064a2','#4bacc6','#f79646'];
  const style=xml('xl/styles.xml'),fills=Array.from(style.getElementsByTagName('fills')[0].children),fonts=Array.from(style.getElementsByTagName('fonts')[0].children),borders=Array.from(style.getElementsByTagName('borders')[0].children),xfs=Array.from(style.getElementsByTagName('cellXfs')[0].children);
  const out=[];for(const c of raw){if(covered.has(c.row+':'+c.col))continue;const xf=xfs[c.style]||xfs[0],font=fonts[Number(xf.getAttribute('fontId')||0)],fill=fills[Number(xf.getAttribute('fillId')||0)],border=borders[Number(xf.getAttribute('borderId')||0)],m=mergeStarts[c.ref];const b={};for(const side of ['left','right','top','bottom','diagonal']){const n=border.getElementsByTagName(side)[0];if(n&&n.getAttribute('style'))b[side]=n.getAttribute('style')};out.push({...c,x:xs[c.col-1],y:ys[c.row-1],w:xs[m?m.bc:c.col]-xs[c.col-1],h:ys[m?m.br:c.row]-ys[c.row-1],fill:color(fill.getElementsByTagName('fgColor')[0],theme,'#ffffff'),ink:color(font.getElementsByTagName('color')[0],theme,'#222222'),bold:font.getElementsByTagName('b').length>0,fontSize:Number(font.getElementsByTagName('sz')[0]?.getAttribute('val')||12),border:b})}
- const seats=[];for(const c of out){const m=c.text.match(/^([^\d]*)(\d{1,3})$/);if(!m)continue;const n=Number(m[2]);if(n<1||n>500)continue;seats.push({number:n,rawLabel:c.text,ref:c.ref,x:c.x,y:c.y,w:c.w,h:c.h,sourceText:m[1]||'',sourceOccupant:'',occupantRef:''})}
+ const seats=[];for(const c of out){const m=matchSeatLabel(c.text);if(!m)continue;const n=Number(m[2]);if(n<1||n>500)continue;seats.push({number:n,rawLabel:c.text,ref:c.ref,x:c.x,y:c.y,w:c.w,h:c.h,sourceText:m[1]||'',sourceOccupant:'',occupantRef:''})}
  // White adjacent text is source reference only, never confirmed as a current person.
  const numberRefs=new Set(seats.map(s=>s.ref));for(const s of seats){const c=out.find(c=>c.ref===s.ref);const candidates=out.filter(x=>x.col===c.col&&Math.abs(x.row-c.row)===1&&x.text&&!numberRefs.has(x.ref)&&!/(門|區|部|手語|10F)/.test(x.text));s.nearbySource=candidates.map(x=>({ref:x.ref,text:x.text}));}
  const map={schema:1,sourceFilename:filename,sourceSheet:sheet.getAttribute('name'),width:xs[maxCol],height:ys[maxRow],cells:out,seats:ordered(seats)};validate(map);return map;
 }
-g.ErpSeatCore={HEADER,reduce,ordered,validate,progress,parseXlsx};if(typeof module!=='undefined')module.exports=g.ErpSeatCore;
+g.ErpSeatCore={HEADER,reduce,ordered,validate,progress,parseXlsx,matchSeatLabel};if(typeof module!=='undefined')module.exports=g.ErpSeatCore;
 })(typeof window!=='undefined'?window:globalThis);
