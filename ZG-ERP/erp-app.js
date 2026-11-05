@@ -86,6 +86,9 @@
     const rs = allRecords().filter((r) => r.code === code);
     return rs.length ? rs[rs.length - 1] : null;
   }
+  /* 掃描相符＝最後一筆掃描當下比對相符；標記補登＝新登記待核對。皆不代表保管人／座位／部門或整場盤點完成。 */
+  const isScanOk = (r) => !!r && r.status === "ok" && r.sessionSite !== undefined;
+  const isRegPending = (r) => !!r && r.status === "none";
   const curRecs = () => (S.sess ? store.sessionRecords(S.sess) : []);
   /* 位置圖標記：只存「區域 → 圖上位置」對照（本機測試用）。正式版對照放試算表、圖檔放私有儲存，不放公開 repo。 */
   const MARKS_KEY = "zg_erp_mapmarks_v1";
@@ -95,13 +98,13 @@
   function siteRows() {
     return sites().map((s) => {
       const mine = assets().filter((a) => a.site === s.name);
-      const done = mine.filter((a) => lastRecordOf(a.code)).length;
-      const mismatch = mine.filter((a) => {
-        const r = lastRecordOf(a.code);
-        return r && (r.sessionSite !== a.site || r.zone !== a.zone);
-      }).length;
+      const isMis = (r) => r && !isRegPending(r) && (r.sessionSite !== s.name || r.zone !== (mine.find((x) => x.code === r.code) || {}).zone);
+      const done = mine.filter((a) => { const r = lastRecordOf(a.code); return isScanOk(r) && !isMis(r); }).length;
+      const reg = mine.filter((a) => isRegPending(lastRecordOf(a.code))).length;
+      const mismatch = mine.filter((a) => isMis(lastRecordOf(a.code))).length;
+      const noscan = mine.filter((a) => !lastRecordOf(a.code)).length;
       const pct = mine.length ? Math.round((done / mine.length) * 100) : 0;
-      return { n: s.name, t: mine.length, done, left: mine.length - done, z: mismatch, pct };
+      return { n: s.name, t: mine.length, done, reg, left: noscan, z: mismatch, pct };
     });
   }
   const stCount = (st) => assets().filter((a) => a.status === st).length;
@@ -437,7 +440,7 @@
     if (D.isMock || typeof store.syncStatus !== "function") return "";
     return '<div id="erp-sync-badge" class="syncbadge" style="display:none"></div><div id="erp-version-badge" class="versionbadge" style="display:none"></div>';
   }
-  const LOADED_BUILD = { id: "2026-11-05.4" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
+  const LOADED_BUILD = { id: "2026-11-05.5" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
   async function checkAppVersion() {
     if (D.isMock) return;
     try {
@@ -663,9 +666,9 @@
   }
   function phoneDash() {
     const rows = siteRows();
-    const sum = rows.reduce((a, r) => ({ t: a.t + r.t, d: a.d + r.done, z: a.z + r.z }), { t: 0, d: 0, z: 0 });
+    const sum = rows.reduce((a, r) => ({ t: a.t + r.t, d: a.d + r.done, g: a.g + r.reg, n: a.n + r.left, z: a.z + r.z }), { t: 0, d: 0, g: 0, n: 0, z: 0 });
     const metric = S.metric;
-    const sorted = [...rows].sort((a, b) => metric === "todo" ? b.left - a.left : metric === "zone" ? b.z - a.z : metric === "done" ? b.pct - a.pct : b.t - a.t);
+    const sorted = [...rows].sort((a, b) => metric === "reg" ? b.reg - a.reg : metric === "todo" ? b.left - a.left : metric === "zone" ? b.z - a.z : metric === "done" ? b.pct - a.pct : b.t - a.t);
     return '<div class="screen"><h3 class="ptitle">統計儀表板</h3><p class="psub">' + (D.isMock ? "由本頁測試資料即時計算，不是公司實際資料。" : "由現存資料庫即時計算。") + '</p>' + dashBody(rows, sum, sorted, true) + "</div>";
   }
   function dashBody(rows, sum, sorted, isPhone) {
@@ -673,11 +676,12 @@
     let drill = "";
     if (metric !== "total") {
       let list = [];
-      if (metric === "done") list = assets().filter((a) => lastRecordOf(a.code)).map((a) => ({ a, tag: "已掃", note: "" }));
-      if (metric === "todo") list = assets().filter((a) => !lastRecordOf(a.code)).map((a) => ({ a, tag: "未盤", note: "" }));
-      if (metric === "zone") list = assets().filter((a) => { const r = lastRecordOf(a.code); return r && (r.sessionSite !== a.site || r.zone !== a.zone); }).map((a) => { const r = lastRecordOf(a.code); return { a, tag: "位置不符", note: "現場 " + r.sessionSite + " " + r.zone }; });
+      if (metric === "done") list = assets().filter((a) => { const r = lastRecordOf(a.code); return isScanOk(r) && r.sessionSite === a.site && r.zone === a.zone; }).map((a) => ({ a, tag: "掃描相符", note: "" }));
+      if (metric === "reg") list = assets().filter((a) => isRegPending(lastRecordOf(a.code))).map((a) => ({ a, tag: "已登記待核對", note: "補登新資產，尚未與既有帳比對" }));
+      if (metric === "todo") list = assets().filter((a) => !lastRecordOf(a.code)).map((a) => ({ a, tag: "尚無掃描", note: "" }));
+      if (metric === "zone") list = assets().filter((a) => { const r = lastRecordOf(a.code); return r && !isRegPending(r) && (r.sessionSite !== a.site || r.zone !== a.zone); }).map((a) => { const r = lastRecordOf(a.code); return { a, tag: "位置不符", note: "現場 " + r.sessionSite + " " + r.zone }; });
       if (dst) list = list.filter((x) => x.a.status === dst);
-      drill = '<div class="drill"><div class="lbl">' + { done: "已盤點明細", todo: "未盤到明細", zone: "位置不符明細" }[metric] + "（篩選：" + esc(dst || "全部狀態") + "）</div>" +
+      drill = '<div class="drill"><div class="lbl">' + { done: "位置核對相符明細", reg: "已登記待核對明細", todo: "尚無掃描紀錄明細", zone: "位置不符明細" }[metric] + "（篩選：" + esc(dst || "全部狀態") + "）</div>" +
         (list.length === 0 ? '<div class="small">沒有符合的設備。</div>' : list.slice(0, 8).map((x) =>
           '<div class="zrow act"><span><b>' + esc(x.a.name) + "</b> " + esc(x.a.code) + '<br><span class="small">' + esc(x.a.site) + " " + esc(x.a.zone) + " · " + esc(x.a.status) + " · 歸屬 " + esc(x.a.project || D.UNASSIGNED) + (x.note ? " · " + esc(x.note) : "") + '</span></span><button class="pill sm" data-a="ajump" data-v="' + esc(x.a.code) + '">處理</button><span class="small">' + esc(x.tag) + "</span></div>").join("")) +
         (list.length > 8 ? '<div class="small">另有 ' + (list.length - 8) + " 筆。</div>" : "") + "</div>";
@@ -690,8 +694,9 @@
     }
     const tiles = '<div class="' + (isPhone ? "tiles two" : "dtiles") + '">' +
       '<button class="tile tb' + (metric === "total" ? " sel" : "") + '" data-a="metric" data-v="total"><b>' + sum.t + "</b>設備總數</button>" +
-      '<button class="tile tb' + (metric === "done" ? " sel" : "") + '" data-a="metric" data-v="done"><b>' + (sum.t ? Math.round((sum.d / sum.t) * 100) : 0) + "%</b>已盤點（" + sum.d + "）</button>" +
-      '<button class="tile tb' + (metric === "todo" ? " sel" : "") + '" data-a="metric" data-v="todo"><b>' + (sum.t - sum.d) + "</b>未盤到</button>" +
+      '<button class="tile tb' + (metric === "done" ? " sel" : "") + '" data-a="metric" data-v="done"><b>' + (sum.t ? Math.round((sum.d / sum.t) * 100) : 0) + "%</b>位置核對相符（" + sum.d + "）</button>" +
+      '<button class="tile tb' + (metric === "reg" ? " sel" : "") + '" data-a="metric" data-v="reg"><b>' + sum.g + "</b>已登記待核對</button>" +
+      '<button class="tile tb' + (metric === "todo" ? " sel" : "") + '" data-a="metric" data-v="todo"><b>' + sum.n + "</b>尚無掃描紀錄</button>" +
       '<button class="tile tb' + (metric === "zone" ? " sel" : "") + '" data-a="metric" data-v="zone"><b>' + sum.z + "</b>位置不符</button></div>";
     const stChips = '<div class="lbl sim">設備狀態篩選（和盤點是兩回事）</div><div class="chips">' +
       '<button class="pill sm' + (dst === "" ? " on" : "") + '" data-a="dst" data-v="">全部</button>' +
@@ -717,18 +722,18 @@
       (pfilter ? '<div class="chips" style="margin-top:6px"><button class="pill sm" data-a="pfilter" data-v="">清除專案篩選</button></div>' : "");
   }
   function siteTable(rows, sorted, isPhone) {
-    const mlabel = { total: "依設備數排序", done: "依盤點進度排序", todo: "依未盤到排序", zone: "依位置不符排序" }[S.metric];
+    const mlabel = { total: "依設備數排序", done: "依位置核對相符排序", reg: "依待核對排序", todo: "依尚無掃描排序", zone: "依位置不符排序" }[S.metric];
     if (isPhone) {
       return '<div class="lbl sim">各據點 · ' + mlabel + " · 點開看明細</div>" + sorted.map((r) =>
-        '<div class="srow"><button class="shead" data-a="dsite" data-v="' + esc(r.n) + '"><span class="sname">' + esc(r.n) + '</span><span class="spct">' + r.pct + '%</span><span class="bar"><i style="width:' + r.pct + '%"></i></span><span class="smeta">已盤 ' + r.done + "/" + r.t + " · 未盤 " + r.left + " · 不符 " + r.z + "</span></button>" +
+        '<div class="srow"><button class="shead" data-a="dsite" data-v="' + esc(r.n) + '"><span class="sname">' + esc(r.n) + '</span><span class="spct">' + r.pct + '%</span><span class="bar"><i style="width:' + r.pct + '%"></i></span><span class="smeta">相符 ' + r.done + "/" + r.t + " · 待核對 " + r.reg + " · 無掃描 " + r.left + " · 不符 " + r.z + "</span></button>" +
         (S.dsite === r.n ? '<div class="sdet"><div class="lbl">狀態分布</div><div class="smeta">' + D.STATUSES.map((st) => esc(st) + " " + assets().filter((a) => a.site === r.n && a.status === st).length).join(" · ") + '</div><button class="pill sm" data-a="gosite" data-v="' + esc(r.n) + '">去盤點' + esc(r.n) + "</button></div>" : "") + "</div>").join("");
     }
-    return '<div class="lbl sim">各據點盤點進度 · ' + mlabel + " · 最沒進度的排前面</div>" +
+    return '<div class="lbl sim">各據點位置核對（掃描相符，不等於整場盤點完成）· ' + mlabel + " · 最沒進度的排前面</div>" +
       '<div class="scards">' + sorted.map((r) => {
         const worst = r.left > 0;
         return '<div class="scard"><div class="sct"><b>' + esc(r.n) + "</b><span class=\"spct\">" + r.pct + "%</span></div>" +
           '<span class="bar"><i style="width:' + r.pct + '%"></i></span>' +
-          '<div class="smeta">已盤 ' + r.done + "/" + r.t + (worst ? ' · <b class="pbad">未盤 ' + r.left + "</b>" : (r.t ? " · 新帳已登記設備均有盤點紀錄（仍需核對舊帳）" : " · 尚無設備基準，不能判定盤完")) + (r.z ? ' · <b class="pbad">不符 ' + r.z + "</b>" : "") + "</div>" +
+          '<div class="smeta">位置核對相符 ' + r.done + "/" + r.t + (r.reg ? ' · <b class="pbad">已登記待核對 ' + r.reg + "</b>" : "") + (worst ? ' · 尚無掃描 ' + r.left : "") + (!r.t ? " · 尚無設備基準，不能判定盤完" : "") + (r.z ? ' · <b class="pbad">不符 ' + r.z + "</b>" : "") + "</div>" +
           '<div class="smeta">' + D.STATUSES.map((st) => esc(st) + " " + assets().filter((a) => a.site === r.n && a.status === st).length).join(" · ") + "</div>" +
           '<div class="scact"><button class="pill sm" data-a="sitelist" data-v="' + esc(r.n) + '">看設備</button>' +
           (worst ? '<button class="pill sm" data-a="gositepc" data-v="' + esc(r.n) + '">去盤點</button>' : "") + "</div></div>";
@@ -739,8 +744,8 @@
   /* ---- 電腦端 ---- */
   function pcDash() {
     const rows = siteRows();
-    const sum = rows.reduce((a, r) => ({ t: a.t + r.t, d: a.d + r.done, z: a.z + r.z }), { t: 0, d: 0, z: 0 });
-    const sorted = [...rows].sort((a, b) => S.metric === "todo" ? b.left - a.left : S.metric === "zone" ? b.z - a.z : S.metric === "done" ? b.pct - a.pct : b.t - a.t);
+    const sum = rows.reduce((a, r) => ({ t: a.t + r.t, d: a.d + r.done, g: a.g + r.reg, n: a.n + r.left, z: a.z + r.z }), { t: 0, d: 0, g: 0, n: 0, z: 0 });
+    const sorted = [...rows].sort((a, b) => S.metric === "reg" ? b.reg - a.reg : metric === "todo" ? b.left - a.left : S.metric === "zone" ? b.z - a.z : S.metric === "done" ? b.pct - a.pct : b.t - a.t);
     return '<h3 class="ptitle">總覽儀表板</h3><p class="psub">' + (D.isMock ? "由本頁測試資料即時計算，不是公司實際資料。" : "由現存資料庫即時計算。") + '</p>' + '<div class="chips"><button class="pill" data-a="dtab" data-v="geo">地圖總覽：從全台灣一路點到座位 →</button></div>' + dashBody(rows, sum, sorted, false);
   }
   function pcAssets() {
