@@ -287,3 +287,4 @@ button.geo-kpi:hover{border-color:var(--ds-teal,#0a7)}
 .versionbadge.ing { color:#8d6e00; border-color:#e8d894; }
 .versionbadge.bad { color:#b3261e; border-color:#e5b4ae; font-weight:600; }
 .versionbadge.new { color:#0b5394; border-color:#9fc5e8; font-weight:600; }
+@media (max-width: 820px) { .versionbadge { bottom: 78px; left: 8px; } }
