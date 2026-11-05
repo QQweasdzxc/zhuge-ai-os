@@ -528,7 +528,7 @@
     setTimeout(refreshSyncBadge, 0); /* 整頁重繪會重建徽章（預設隱藏），重繪後立刻補上內容 */
     return '<div id="erp-sync-badge" class="syncbadge" style="display:none"></div><div id="erp-version-badge" class="versionbadge" style="display:none"></div>';
   }
-  const LOADED_BUILD = { id: "2026-11-05.11" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
+  const LOADED_BUILD = { id: "2026-11-05.12" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
   async function checkAppVersion() {
     if (D.isMock) return;
     try {
@@ -626,8 +626,8 @@
         " · 應盤 <b>" + assets().filter((a) => a.site === S.site && (!S.scanProject || (a.project || D.UNASSIGNED) === S.scanProject)).length + "</b> 台</div>" : "") +
       "</div>" +
       (S.scanSetupErr ? '<div class="warn">' + esc(S.scanSetupErr) + "</div>" : "") +
-      (S.setupRestored ? '<div class="warn" id="setup-restored">已還原上次尚未開始的設定：部門「' + esc(S.scanDepartment || "未填") + '」、專案「' + esc(S.scanProject || S.scanProjectInput || "全部專案") + '」。這只是預填，沒有開始盤點、沒有寫入任何資料；請核對，按下面「開始連續掃描」才會生效。<button class="pill sm" data-a="setup-clear">清除這些還原內容</button></div>' : "") +
-      '<button class="btn" data-a="start"' + (S.site ? "" : " disabled") + ">開始連續掃描" + (S.site ? " · " + esc(S.site) : "") + (S.scanProject ? " · " + esc(S.scanProject.replace("（測試）", "")) : "") + "</button></div>";
+      (S.setupRestored ? '<div class="warn" id="setup-restored">已還原上次尚未開始的設定：部門「' + esc(S.scanDepartment || "未填") + '」、專案「' + esc(S.scanProject || S.scanProjectInput || "全部專案") + '」。這只是預填，沒有開始盤點、沒有寫入任何資料；請核對，按下面「開始掃描」才會生效。<button class="pill sm" data-a="setup-clear">清除這些還原內容</button></div>' : "") +
+      '<button class="btn" data-a="start"' + (S.site ? "" : " disabled") + ">開始掃描" + (S.site ? " · " + esc(S.site) : "") + (S.scanProject ? " · " + esc(S.scanProject.replace("（測試）", "")) : "") + "</button></div>";
   }
   function phoneScan() {
     const recs = curRecs();
