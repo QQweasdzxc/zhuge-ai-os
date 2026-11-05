@@ -283,3 +283,7 @@ button.geo-kpi:hover{border-color:var(--ds-teal,#0a7)}
 
 .geo-personedit{margin-bottom:8px}
 .geo-editrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0 8px}
+.versionbadge { position:fixed; left:10px; bottom:8px; z-index:60; font-size:11px; color:#777; background:rgba(255,255,255,.92); border:1px solid #e3e0da; border-radius:8px; padding:3px 8px; max-width:72vw; pointer-events:none; }
+.versionbadge.ing { color:#8d6e00; border-color:#e8d894; }
+.versionbadge.bad { color:#b3261e; border-color:#e5b4ae; font-weight:600; }
+.versionbadge.new { color:#0b5394; border-color:#9fc5e8; font-weight:600; }
