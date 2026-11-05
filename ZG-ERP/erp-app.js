@@ -119,11 +119,12 @@
     });
     const undecided = allRecords().filter((r) => r.status !== "ok" && !r.decision).length;
     const recv = openBatches().map((b) => ({ b, left: b.items.filter((x) => x.state === "pending").length, got: b.items.filter((x) => x.state === "received").length }));
-    return { items, undecided, recv };
+    const regPending = assets().filter((a) => { const r = lastRecordOf(a.code); return isRegPending(r) && !!r.decision; }).length;
+    return { items, undecided, recv, regPending };
   }
   function attentionCard() {
-    const { items, undecided, recv } = attention();
-    if (!items.length && !undecided && !recv.length) return '<div class="acard ok"><b>目前沒有需要立即處理的項目。</b><span class="small">待修、維修中、保固到期和未決定的盤點差異會列在這裡。</span></div>';
+    const { items, undecided, recv, regPending } = attention();
+    if (!items.length && !undecided && !recv.length && !regPending) return '<div class="acard ok"><b>目前沒有需要立即處理的項目。</b><span class="small">待修、維修中、保固到期和未決定的盤點差異會列在這裡。</span></div>';
     const shown = items.slice(0, 6);
     let rows = shown.map((x) =>
       '<div class="arow2"><span class="dot ' + x.tone + '"></span><span class="aname"><b>' + esc(x.a.name) + "</b> " + esc(x.a.code) +
@@ -136,8 +137,11 @@
     if (undecided) rows += '<div class="arow2"><span class="dot mid"></span><span class="aname"><b>' + undecided + " 筆盤點差異</b>還沒決定" +
       '<br><span class="small">手機掃到的位置不符或查無編號，決定後才會從這裡消失。</span></span>' +
       '<button class="pill sm" data-a="godiff">去決定</button></div>';
+    if (regPending) rows += '<div class="arow2"><span class="dot mid"></span><span class="aname"><b>' + regPending + " 台已登記待核對</b>（補登的新資產）" +
+      '<br><span class="small">已標記補登，但尚未與既有帳比對，不算已盤點；僅涵蓋目前這些補登資產。</span></span>' +
+      '<button class="pill sm" data-a="metric" data-v="reg">看明細</button></div>';
     if (items.length > shown.length) rows += '<div class="small">另有 ' + (items.length - shown.length) + " 筆；到「設備資料」依狀態篩選可逐筆處理。</div>";
-    return '<div class="acard"><div class="albl">需要處理（' + (items.length + (undecided ? 1 : 0) + recv.length) + "）</div>" + rows + "</div>";
+    return '<div class="acard"><div class="albl">需要處理（' + (items.length + (undecided ? 1 : 0) + (regPending ? 1 : 0) + recv.length) + "）</div>" + rows + "</div>";
   }
   const projAssets = (p) => assets().filter((a) => (a.project || D.UNASSIGNED) === p);
   const batches = () => store.listBatches();
@@ -440,7 +444,7 @@
     if (D.isMock || typeof store.syncStatus !== "function") return "";
     return '<div id="erp-sync-badge" class="syncbadge" style="display:none"></div><div id="erp-version-badge" class="versionbadge" style="display:none"></div>';
   }
-  const LOADED_BUILD = { id: "2026-11-05.5" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
+  const LOADED_BUILD = { id: "2026-11-05.6" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
   async function checkAppVersion() {
     if (D.isMock) return;
     try {
@@ -694,7 +698,7 @@
     }
     const tiles = '<div class="' + (isPhone ? "tiles two" : "dtiles") + '">' +
       '<button class="tile tb' + (metric === "total" ? " sel" : "") + '" data-a="metric" data-v="total"><b>' + sum.t + "</b>設備總數</button>" +
-      '<button class="tile tb' + (metric === "done" ? " sel" : "") + '" data-a="metric" data-v="done"><b>' + (sum.t ? Math.round((sum.d / sum.t) * 100) : 0) + "%</b>位置核對相符（" + sum.d + "）</button>" +
+      '<button class="tile tb' + (metric === "done" ? " sel" : "") + '" data-a="metric" data-v="done"><b>' + (sum.t ? Math.round((sum.d / sum.t) * 100) : 0) + "%</b>位置核對相符（" + sum.d + "／" + sum.t + " 台，依最後一筆掃描）</button>" +
       '<button class="tile tb' + (metric === "reg" ? " sel" : "") + '" data-a="metric" data-v="reg"><b>' + sum.g + "</b>已登記待核對</button>" +
       '<button class="tile tb' + (metric === "todo" ? " sel" : "") + '" data-a="metric" data-v="todo"><b>' + sum.n + "</b>尚無掃描紀錄</button>" +
       '<button class="tile tb' + (metric === "zone" ? " sel" : "") + '" data-a="metric" data-v="zone"><b>' + sum.z + "</b>位置不符</button></div>";
