@@ -8,7 +8,7 @@ function reduce(rows){
  for(const r of rows||[]){try{if(seen.has(r[0]))continue;seen.add(r[0]);
   const e={id:r[0],kind:r[1],version:r[2],site:r[3],zone:r[4],seat:Number(r[5]),code:r[6],data:JSON.parse(r[7]||'{}'),at:r[8],actor:r[9]};
   if(e.kind==='part')parts[e.id]=e.data.text;
-  else if(e.kind==='map'){const data=e.data.parts?JSON.parse(e.data.parts.map(id=>parts[id]||'').join('')):e.data;validate(data);if(!out.maps.some(m=>m.site===e.site&&m.zone===e.zone))out.maps.push(Object.assign({},data,{id:e.version,site:e.site,zone:e.zone}));}
+  else if(e.kind==='map'){const data=e.data.parts?JSON.parse(e.data.parts.map(id=>parts[id]||'').join('')):e.data;validate(data);const mi=out.maps.findIndex(m=>m.site===e.site&&m.zone===e.zone);if(mi<0)out.maps.push(Object.assign({},data,{id:e.version,site:e.site,zone:e.zone}));else if(out.maps[mi].id===e.version)out.maps[mi]=Object.assign({},data,{id:e.version,site:e.site,zone:e.zone});}
   else if(['occupant','binding','placement','check'].includes(e.kind)&&!out.maps.some(m=>m.id===e.version&&m.site===e.site&&m.zone===e.zone))continue;
   else if(e.kind==='occupant'){const key=e.version+':'+e.seat,prior=out.occupants[key];if((e.data.previous||'')===(prior?.id||''))out.occupants[key]=e;}
   else if((e.kind==='binding'||e.kind==='placement')){const prior=out.bindings[e.code];if(!prior||(prior.version===e.version&&prior.seat===e.seat))out.bindings[e.code]=e;}
