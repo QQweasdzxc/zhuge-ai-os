@@ -9,6 +9,7 @@
   const store = D.store;
   const intakeUI = window.ErpIntakeUI ? window.ErpIntakeUI.create(store, () => render()) : null;
   const seatUI = window.ErpSeatUI ? window.ErpSeatUI.create(store, () => render()) : null;
+  const geoUI = window.ErpGeoOverview ? window.ErpGeoOverview.create(store, () => render()) : null;
   const repairUI=window.ErpRepairUI?window.ErpRepairUI.create(store,()=>render()):null;
   const differenceUI=window.ErpDifferenceUI?window.ErpDifferenceUI.create(store,()=>render()):null;
   const LABEL = { ok: "相符", zone: "位置不符", site: "異地設備", none: "查無編號", dup: "重複掃描" };
@@ -459,7 +460,7 @@
     return '<div class="zhugebar"><b>諸葛</b><span>／ ZG-ERP 庫存 · 設備管理</span><a class="pill sm" style="display:inline-flex;align-items:center;text-decoration:none" href="../">返回諸葛</a></div>';
   }
   function modeBar() {
-    const more = S.workspaceMore ? '<section class="workspace-more" aria-label="管理功能"><h3>管理功能</h3>'+[['assets','設備資料'],['inbound','入庫作業'],['zones','公司據點'],['map','座位圖'],['diff','盤點差異'],['legacy','舊帳比對']].map(([key,label])=>'<button class="pill" data-a="workspace-manage" data-v="'+key+'">'+label+'</button>').join('')+'<button class="pill" data-a="workspace-more">關閉</button></section>' : '';
+    const more = S.workspaceMore ? '<section class="workspace-more" aria-label="管理功能"><h3>管理功能</h3>'+[['geo','地圖總覽'],['assets','設備資料'],['inbound','入庫作業'],['zones','公司據點'],['map','座位圖'],['diff','盤點差異'],['legacy','舊帳比對']].map(([key,label])=>'<button class="pill" data-a="workspace-manage" data-v="'+key+'">'+label+'</button>').join('')+'<button class="pill" data-a="workspace-more">關閉</button></section>' : '';
     return '<nav class="workspace-nav" aria-label="工作區"><span class="workspace-title">設備管理工作區</span><button class="mb'+(S.mode==='pc'&&S.dtab==='dash'?' on':'')+'" data-a="workspace-overview">總覽</button><button class="mb'+(S.mode==='phone'?' on':'')+'" data-a="workspace-scan">掃描</button><button class="mb" aria-expanded="'+!!S.workspaceMore+'" data-a="workspace-more">更多管理</button></nav>'+more;
   }
 
@@ -697,7 +698,7 @@
     const rows = siteRows();
     const sum = rows.reduce((a, r) => ({ t: a.t + r.t, d: a.d + r.done, z: a.z + r.z }), { t: 0, d: 0, z: 0 });
     const sorted = [...rows].sort((a, b) => S.metric === "todo" ? b.left - a.left : S.metric === "zone" ? b.z - a.z : S.metric === "done" ? b.pct - a.pct : b.t - a.t);
-    return '<h3 class="ptitle">總覽儀表板</h3><p class="psub">' + (D.isMock ? "由本頁測試資料即時計算，不是公司實際資料。" : "由現存資料庫即時計算。") + '</p>' + dashBody(rows, sum, sorted, false);
+    return '<h3 class="ptitle">總覽儀表板</h3><p class="psub">' + (D.isMock ? "由本頁測試資料即時計算，不是公司實際資料。" : "由現存資料庫即時計算。") + '</p>' + '<div class="chips"><button class="pill" data-a="dtab" data-v="geo">地圖總覽：從全台灣一路點到座位 →</button></div>' + dashBody(rows, sum, sorted, false);
   }
   function pcAssets() {
     if (!S.asite) S.asite = siteNames()[0] || "";
@@ -1058,13 +1059,15 @@
     }
     return out;
   }
+  function pcGeo() { return geoUI ? geoUI.html() : '<div class="card">地圖總覽模組未載入，請重新整理。</div>'; }
   function pcView() {
     const tab = S.dtab;
-    const body = tab === "dash" ? pcDash() : tab === "assets" ? pcAssets() : tab === "inbound" ? pcInbound() : tab === "zones" ? pcZones() : tab === "map" ? pcMap() : tab === "legacy" ? pcLegacy() : pcDiff();
+    const body = tab === "dash" ? pcDash() : tab === "assets" ? pcAssets() : tab === "inbound" ? pcInbound() : tab === "zones" ? pcZones() : tab === "map" ? pcMap() : tab === "geo" ? pcGeo() : tab === "legacy" ? pcLegacy() : pcDiff();
     const recs = curRecs();
     const diffN = allRecords().filter((r) => r.status !== "ok" && !r.decision).length;
     return '<div class="desktop"><div class="dbody"><nav class="dside"><div class="dlogo">諸葛 · 設備管理</div>' +
       '<button class="dnav' + (tab === "dash" ? " on" : "") + '" data-a="dtab" data-v="dash">總覽儀表板</button>' +
+      '<button class="dnav' + (tab === "geo" ? " on" : "") + '" data-a="dtab" data-v="geo">地圖總覽</button>' +
       '<button class="dnav' + (tab === "assets" ? " on" : "") + '" data-a="dtab" data-v="assets">設備資料</button>' +
       '<button class="dnav' + (tab === "inbound" ? " on" : "") + '" data-a="dtab" data-v="inbound">入庫作業' + (openBatches().length ? " (" + openBatches().length + ")" : "") + '</button>' +
       '<button class="dnav' + (tab === "zones" ? " on" : "") + '" data-a="dtab" data-v="zones">公司據點</button>' +
@@ -1306,6 +1309,9 @@
         S.annOpen = ""; S.annDraft = {}; S.annErr = "";
       }
     }
+    else if (a === "geo") { if (geoUI) geoUI.act(v); }
+    else if (a === "asset-seat-pick") { S.editSeat = v; }
+    else if (a === "asset-seat-custodian") { if (S.editDraft && Object.prototype.hasOwnProperty.call(S.editDraft, "owner")) { S.editDraft.owner = v; noteControlledActivity(); } }
     render();
   });
   document.addEventListener("input", (e) => {
@@ -1359,7 +1365,7 @@
   document.addEventListener("click", e => {
     const t=e.target.closest && e.target.closest("[data-seat-action]"); if(!t||!seatUI)return;
     e.preventDefault();
-    seatUI.act(t.dataset.seatAction,{number:t.dataset.seatNumber,site:S.mode==="phone"?S.site:S.mapSite,zone:S.mode==="phone"?S.zone:"",sess:S.sess,onScan:(n,m)=>{S.site=m.site;S.zone=m.zone;S.mode="phone";S.screen="start";S.dash=false;render();}});
+    seatUI.act(t.dataset.seatAction,{number:t.dataset.seatNumber,code:t.dataset.seatCode,site:S.mode==="phone"?S.site:S.mapSite,zone:S.mode==="phone"?S.zone:"",sess:S.sess,onScan:(n,m)=>{S.site=m.site;S.zone=m.zone;S.mode="phone";S.screen="start";S.dash=false;render();}});
   });
   document.addEventListener("change",e=>{
     const f=e.target.dataset && e.target.dataset.seatField;if(!f||!seatUI)return;
