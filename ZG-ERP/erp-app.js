@@ -435,7 +435,33 @@
   /* 同步狀態徽章：同步中／未同步（可點重試）。只更新徽章，不整頁重繪，避免打斷掃描。 */
   function syncBadge() {
     if (D.isMock || typeof store.syncStatus !== "function") return "";
-    return '<div id="erp-sync-badge" class="syncbadge" style="display:none"></div>';
+    return '<div id="erp-sync-badge" class="syncbadge" style="display:none"></div><div id="erp-version-badge" class="versionbadge" style="display:none"></div>';
+  }
+  async function checkAppVersion() {
+    if (D.isMock) return;
+    try {
+      const res = await fetch("version.json", { cache: "reload" });
+      if (!res.ok) return;
+      const v = await res.json();
+      if (!S.appVersion) S.appVersion = v;
+      else if (v.version !== S.appVersion.version || v.updated !== S.appVersion.updated) S.newerVersion = true;
+      refreshVersionBadge();
+    } catch (e) { /* 版本檢查失敗不擋使用；保持目前顯示 */ }
+  }
+  function refreshVersionBadge() {
+    const el = document.getElementById("erp-version-badge");
+    if (!el) return;
+    if (D.isMock) { el.style.display = "none"; return; }
+    const st = (typeof store.syncStatus === "function") ? store.syncStatus() : {};
+    const fmt = (iso) => { if (!iso) return "尚未成功同步"; const d = new Date(iso); return d.toLocaleString("zh-TW", { hour12: false, month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }); };
+    const ver = S.appVersion ? ("版本 " + String(S.appVersion.version || "?") + " · 發布 " + String(S.appVersion.updated || "?")) : "版本讀取中…";
+    let cls = "versionbadge", extra = "";
+    if (st.unsynced > 0) { cls += " bad"; extra = " · 同步失敗 " + st.unsynced + " 筆（見上方提示）"; }
+    else if (st.pending > 0) { cls += " ing"; extra = " · 同步中"; }
+    if (S.newerVersion) { cls += " new"; extra += " · 已有新版本，請重新整理"; }
+    el.className = cls;
+    el.textContent = ver + " · 資料最後成功同步 " + fmt(st.lastSync) + extra;
+    el.style.display = "";
   }
   function refreshSyncBadge() {
     if (D.isMock || typeof store.syncStatus !== "function") return;
@@ -454,6 +480,7 @@
       el.style.display = "none";
       el.textContent = "";
     }
+    refreshVersionBadge();
   }
   function loginBar() {
     const s = session();
@@ -671,16 +698,18 @@
     return attentionCard() + tiles + drill + siteTable(rows, sorted, isPhone) + stChips + projTable(pfilter) + projDrill;
   }
   function projTable(pfilter) {
-    const head = '<div class="lbl sim">各專案使用概況（按專案反查設備，和實際放置地點、保管人分開）</div>';
+    const head = '<div class="lbl sim">各專案使用概況（按專案反查設備，和實際放置地點、保管人分開；部門為已登記的使用部門彙總）</div>';
     const rowsHtml = projects().map((p) => {
       const list = projAssets(p);
       const use = list.filter((a) => a.status === "使用中").length;
       const repair = list.filter((a) => a.status === "待修" || a.status === "維修中").length;
       const where = [...new Set(list.map((a) => a.site))].join("、");
+      const depts = {}; list.forEach((a) => { const d = String(a.department || "").trim() || "部門未填"; depts[d] = (depts[d] || 0) + 1; });
+      const deptText = Object.keys(depts).sort().map((d) => d + " " + depts[d]).join("、");
       return '<button class="prow' + (pfilter === p ? " sel" : "") + '" data-a="pfilter" data-v="' + esc(p) + '">' +
         '<span class="pn">' + esc(p.replace("（測試）", "")) + '</span><span>' + list.length + " 台</span>" +
         '<span>使用中 ' + use + '</span><span class="' + (repair ? "pbad" : "") + '">' + (repair ? "待修/維修 " + repair : "—") + '</span>' +
-        '<span class="small">' + esc(where) + "</span></button>";
+        '<span class="small">' + esc(where) + '</span><span class="small">部門：' + esc(deptText) + "</span></button>";
     }).join("");
     return head + '<div class="ptable">' + rowsHtml + "</div>" +
       (pfilter ? '<div class="chips" style="margin-top:6px"><button class="pill sm" data-a="pfilter" data-v="">清除專案篩選</button></div>' : "");
@@ -1400,7 +1429,7 @@
   document.addEventListener('input',e=>{if(e.target.dataset?.diffField&&differenceUI)differenceUI.field(e.target);});
   document.addEventListener('change',e=>{if(e.target.dataset?.diffField&&differenceUI)differenceUI.field(e.target);});
   function sharedReadSafe(){return !S.scanBusy&&!S.scanQueue?.length&&!Object.keys(S.scanHeld||{}).length&&!S.editDraft&&!S.ibDraft&&!S.annOpen&&!S.camOn&&!seatUI?.state.busy&&!seatUI?.state.draft&&!seatUI?.state.editing&&!intakeUI?.state.busy&&!intakeUI?.state.book&&!differenceUI?.state.key&&!repairUI?.state.code;}
-  document.addEventListener('click',async e=>{const t=e.target.closest?.('[data-a="shared-refresh"]');if(!t||S.sharedBusy||!store.refreshShared)return;S.sharedBusy=true;S.sharedMessage='';render();try{await store.refreshShared(sharedReadSafe);const current=S.sess&&db().sessions.find(x=>x.id===S.sess.id);if(current)S.sess=current;S.sharedMessage='共同資料已更新，包含所有人的設備與盤點結果。';}catch(e){S.sharedMessage=e.message;}finally{S.sharedBusy=false;render();}});
+  document.addEventListener('click',async e=>{const t=e.target.closest?.('[data-a="shared-refresh"]');if(!t||S.sharedBusy||!store.refreshShared)return;S.sharedBusy=true;S.sharedMessage='';render();try{await store.refreshShared(sharedReadSafe);const current=S.sess&&db().sessions.find(x=>x.id===S.sess.id);if(current)S.sess=current;S.sharedMessage='共同資料已更新，包含所有人的設備與盤點結果。';}catch(e){S.sharedMessage=e.message;}finally{S.sharedBusy=false;checkAppVersion();render();}});
   document.addEventListener('click',async e=>{const t=e.target.closest?.('[data-repair-action]');if(t&&repairUI){if(t.dataset.repairAction==='save'&&S.editTouched){repairUI.state.error='上方有尚未保存的設備編輯，請先保存或取消後再登記維修。';render();return;}await repairUI.act(t.dataset.repairAction,t.dataset.repairCode);if(t.dataset.repairAction==='save'&&!repairUI.state.code){S.editCode='';S.editDraft=null;render();}}});
   document.addEventListener('change',e=>{if(e.target.dataset?.repairField&&repairUI)repairUI.field(e.target)});
   document.addEventListener('input',e=>{if(e.target.dataset?.repairField&&repairUI)repairUI.field(e.target)});
@@ -1424,8 +1453,10 @@
       S.booting = true; S.bootErr = ""; render();
       store.init().then(() => {
         S.booting = false;
+        refreshVersionBadge();
         if (seatUI && typeof store.loadSeatMap === "function") store.loadSeatMap().then(() => {seatUI.state.loaded=true;render();});
-        if (typeof store.onSyncChange === "function") store.onSyncChange(() => { refreshSyncBadge(); refreshScanSync(); });
+        if (typeof store.onSyncChange === "function") store.onSyncChange(() => { refreshSyncBadge(); refreshScanSync(); refreshVersionBadge(); });
+        checkAppVersion();
         render();
       }).catch((e) => {
         S.booting = false; S.bootErr = String(e && e.message || e); S.bootAuth = !!(e && e.authRefused);
@@ -1436,6 +1467,7 @@
       render();
     }
   }
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) checkAppVersion(); });
   document.addEventListener("click", (e) => {
     const t = e.target.closest && e.target.closest("#erp-sync-badge");
     if (t && typeof store.retryUnsynced === "function") { store.retryUnsynced(); }
