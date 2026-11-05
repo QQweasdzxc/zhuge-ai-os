@@ -389,7 +389,7 @@
       try { S.sess = store.startSession(S.site, g.lat, g.lon, g.acc != null ? g.acc : null, S.scanProject || "", "", S.scanDepartment); }
       catch (err) { S.scanSetupErr = err.message; render(); return; }
       bagDiscard('scan-setup','new'); S.setupRestored = false;
-      S.zone = zonesOf(S.site)[0] || "";
+      S.zone = zonesOf(S.site).includes(S.zone) ? S.zone : (zonesOf(S.site)[0] || "");
       S.open = ""; S.screen = "scan";
       render();
     };
@@ -528,7 +528,7 @@
     setTimeout(refreshSyncBadge, 0); /* 整頁重繪會重建徽章（預設隱藏），重繪後立刻補上內容 */
     return '<div id="erp-sync-badge" class="syncbadge" style="display:none"></div><div id="erp-version-badge" class="versionbadge" style="display:none"></div>';
   }
-  const LOADED_BUILD = { id: "2026-11-05.13" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
+  const LOADED_BUILD = { id: "2026-11-06.14" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
   async function checkAppVersion() {
     if (D.isMock) return;
     try {
@@ -591,6 +591,12 @@
   function zhugeBar() {
     return '<div class="zhugebar"><b>諸葛</b><span>／ ZG-ERP 庫存 · 設備管理</span><a class="pill sm" style="display:inline-flex;align-items:center;text-decoration:none" href="../">返回諸葛</a></div>';
   }
+  /* Goal-first shortcuts are read-only until the existing explicit edit/start actions. */
+  function seatLabelFor(code){const b=seatUI&&seatUI.seatBindings&&seatUI.seatBindings();const x=b&&b[code];return x?x.zone+' · '+x.seat+'號':'座位未登記';}
+  function assetView(){const a=getA(S.viewCode);if(!a)return '';return '<section class="card goal-read" aria-label="設備資料唯讀"><button class="pill" data-a="view-close">返回原清單</button><h3>'+esc(a.name||a.code)+'</h3><b>'+esc(a.code)+'</b><p>'+esc(a.model||'型號未填')+' · S/N '+esc(a.serial||'未登記')+'</p><p>'+esc(a.site)+' '+esc(seatLabelFor(a.code))+'</p><p>保管人：'+esc(a.owner||'未確認')+' · 使用部門：'+esc(a.department||'未指定')+' · '+esc(a.status)+'</p><p>專案：'+esc(a.project||D.UNASSIGNED)+'</p><details><summary>來源與其他資料</summary>'+legacyDetails(a.code)+'<p>購入：'+esc(a.purchase||'未填')+' · 品牌：'+esc(a.brand||'未填')+' · 產地：'+esc(a.origin||'未確認')+'</p></details><button class="pill" data-a="view-edit" data-v="'+esc(a.code)+'">需要變更，進入編輯</button><div class="small">目前只查詢，沒有取得編輯權或改動資料。</div></section>';}
+  function goalRows(list){return list.map(a=>'<div class="zrow goal-row"><span><b>'+esc(a.name||a.code)+'</b> '+esc(a.code)+'<br><span class="small">'+esc(a.model||'型號未填')+' · '+esc(a.site)+' '+esc(seatLabelFor(a.code))+'<br>保管人 '+esc(a.owner||'未確認')+' · 部門 '+esc(a.department||'未指定')+'</span></span><button class="pill sm" data-a="view-asset" data-v="'+esc(a.code)+'">查看</button></div>').join('')||'<p class="small">這個範圍沒有符合的設備。</p>';}
+  function goalPanel(){const all=assets(),scope=all.filter(a=>(!S.goalSite||a.site===S.goalSite)&&(!S.goalDept||(a.department||'未指定')===S.goalDept));const pending=scope.filter(a=>{const r=lastRecordOf(a.code);return !r||isRegPending(r)}),mismatch=scope.filter(a=>{const r=lastRecordOf(a.code);return r&&!isRegPending(r)&&(r.sessionSite!==a.site||r.zone!==a.zone)});const list=S.goalMetric==='pending'?pending:S.goalMetric==='mismatch'?mismatch:scope;return '<section class="goal-home"><h3>今天要做什麼？</h3><div class="chips"><button class="pill" data-a="goal-seat">選座位，開始盤點</button><button class="pill" data-a="goal-find">找設備</button>'+(S.sess?'<button class="pill" data-a="goal-resume">接續本次盤點</button>':'')+'</div><label class="lbl" for="goal-search">找設備：編號、序號、型號或保管人</label><input id="goal-search" class="inp" data-f="goalSearch" placeholder="輸入關鍵字，按 Enter 查詢" value="'+esc(S.goalSearch||'')+'"><button class="pill sm" data-a="goal-search">查詢</button>'+(S.goalSearchDone?'<div class="card"><b>查詢結果（全部已登記設備）</b>'+goalRows(all.filter(a=>[a.code,a.serial,a.model,a.name,a.owner].some(v=>String(v||'').toLowerCase().includes(String(S.goalSearchDone).toLowerCase()))))+'</div>':'')+'<h3>快速看數據</h3><div class="goal-scope"><label>據點<select class="inp" data-f="goalSite"><option value="">全部據點</option>'+siteNames().map(n=>'<option value="'+esc(n)+'"'+(S.goalSite===n?' selected':'')+'>'+esc(n)+'</option>').join('')+'</select></label><label>使用部門<select class="inp" data-f="goalDept"><option value="">全部部門</option>'+[...new Set(all.map(a=>a.department||'未指定'))].sort().map(n=>'<option value="'+esc(n)+'"'+(S.goalDept===n?' selected':'')+'>'+esc(n)+'</option>').join('')+'</select></label></div><div class="small">範圍：'+esc(S.goalSite||'全部據點')+' · '+esc(S.goalDept||'全部部門')+' · 目前登記設備（依最後紀錄，不是本次場次或全公司舊帳）</div><div class="tiles two"><button class="tile tb" data-a="goal-metric" data-v="all"><b>'+scope.length+'</b>登記設備</button><button class="tile tb" data-a="goal-metric" data-v="pending"><b>'+pending.length+'</b>待現場核對</button><button class="tile tb" data-a="goal-metric" data-v="mismatch"><b>'+mismatch.length+'</b>位置差異</button></div><div class="small">待現場核對＝沒有掃描紀錄或補登待核對，逐台去重；位置差異另列，不等於座位盤完。'+(!store.seatReady?'座位資料尚未就緒。':'')+'</div>'+(S.goalMetric?'<div class="card" id="goal-results"><b>'+({all:'登記設備',pending:'待現場核對',mismatch:'位置差異'}[S.goalMetric])+' · '+list.length+'台</b>'+goalRows(list)+'</div>':'')+'</section>';}
+  function prestartSeat(){if(!seatUI)return '';const m=seatUI.mapFor(S.site,S.zone),st=seatUI.state;if(!m||!st.scanSelected)return '<div class="warn">尚未選目前座位。<button class="pill" data-a="goal-seat">先選座位</button></div>';const count=Object.values(seatUI.seatBindings()).filter(x=>x.version===m.id&&x.seat===st.selected).length;return '<div class="match"><b>目前座位：'+esc(m.site)+' '+esc(m.zone)+' · '+st.selected+'號</b><div>此座位已登記 '+count+' 台設備（不代表現場全部設備）；換號不會自動核對。</div><button class="pill sm" data-a="goal-seat">換座位</button></div>';}
   function modeBar() {
     const more = S.workspaceMore ? '<section class="workspace-more" aria-label="管理功能"><h3>管理功能</h3>'+[['geo','地圖總覽'],['assets','設備資料'],['inbound','入庫作業'],['zones','公司據點'],['map','座位圖'],['diff','盤點差異'],['legacy','舊帳比對']].map(([key,label])=>'<button class="pill" data-a="workspace-manage" data-v="'+key+'">'+label+'</button>').join('')+draftCard()+'<button class="pill" data-a="workspace-more">關閉</button></section>' : '';
     return '<nav class="workspace-nav" aria-label="工作區"><span class="workspace-title">設備管理工作區</span><button class="mb'+(S.mode==='pc'&&S.dtab==='dash'?' on':'')+'" data-a="workspace-overview">總覽</button><button class="mb'+(S.mode==='phone'?' on':'')+'" data-a="workspace-scan">掃描</button><button class="mb" aria-expanded="'+!!S.workspaceMore+'" data-a="workspace-more">更多管理</button></nav>'+more;
@@ -601,7 +607,7 @@
     ensureSetupDraft();
     const g = S.gps;
     return '<div class="screen"><h3 class="ptitle">設備盤點</h3>' +
-      '<p class="psub">按開始後會記下當下定位與時間，之後可以連續掃描。定位只用來判斷最近據點，不會用來猜樓層或房間。</p>' +
+      '<p class="psub">確認目前座位與設定後開始；同一次盤點換座位不用重填。</p>' + prestartSeat() + '<div class="small">本次部門：'+esc(S.scanDepartment||'未指定')+' · 專案：'+esc(S.scanProject||'全部專案')+'（既有設備歸屬不會因此覆蓋）</div><details class="goal-setup"><summary>修改本次設定／取得定位</summary>' +
       '<div class="card"><div class="lbl">掃描起點定位（使用瀏覽器實際定位，需你授權）</div>' +
       (!g
         ? '<button class="btn secondary" data-a="gps">取得目前定位</button>' + (S.gpsErr ? '<div class="warn">' + esc(S.gpsErr) + "</div>" : "")
@@ -624,7 +630,7 @@
       '<div class="small">這次設定的專案會記在每一筆掃描裡；掃到的新設備、以及原本未指定專案的設備，會登記到這個專案。已屬其他專案的設備歸屬不變，掃到會提示差異並照樣記錄。</div>' +
       (S.site ? '<div class="match">本次範圍：<b>' + esc(S.site) + "</b>" + (S.scanProject ? " · <b>" + esc(S.scanProject.replace("（測試）", "")) + "</b>" : " · 全部專案") +
         " · 應盤 <b>" + assets().filter((a) => a.site === S.site && (!S.scanProject || (a.project || D.UNASSIGNED) === S.scanProject)).length + "</b> 台</div>" : "") +
-      "</div>" +
+      "</div></details>" +
       (S.scanSetupErr ? '<div class="warn">' + esc(S.scanSetupErr) + "</div>" : "") +
       (S.setupRestored ? '<div class="warn" id="setup-restored">已還原上次尚未開始的設定：部門「' + esc(S.scanDepartment || "未填") + '」、專案「' + esc(S.scanProject || S.scanProjectInput || "全部專案") + '」。這只是預填，沒有開始盤點、沒有寫入任何資料；請核對，按下面「開始掃描」才會生效。<button class="pill sm" data-a="setup-clear">清除這些還原內容</button></div>' : "") +
       '<button class="btn" data-a="start"' + (S.site ? "" : " disabled") + ">開始掃描" + (S.site ? " · " + esc(S.site) : "") + (S.scanProject ? " · " + esc(S.scanProject.replace("（測試）", "")) : "") + "</button></div>";
@@ -839,7 +845,7 @@
     const rows = siteRows();
     const sum = rows.reduce((a, r) => ({ t: a.t + r.t, d: a.d + r.done, g: a.g + r.reg, n: a.n + r.left, z: a.z + r.z }), { t: 0, d: 0, g: 0, n: 0, z: 0 });
     const sorted = [...rows].sort((a, b) => S.metric === "reg" ? b.reg - a.reg : metric === "todo" ? b.left - a.left : S.metric === "zone" ? b.z - a.z : S.metric === "done" ? b.pct - a.pct : b.t - a.t);
-    return '<h3 class="ptitle">總覽儀表板</h3><p class="psub">' + (D.isMock ? "由本頁測試資料即時計算，不是公司實際資料。" : "由現存資料庫即時計算。") + '</p>' + '<div class="chips"><button class="pill" data-a="dtab" data-v="geo">地圖總覽：從全台灣一路點到座位 →</button></div>' + dashBody(rows, sum, sorted, false);
+    return '<h3 class="ptitle">總覽儀表板</h3><p class="psub">' + (D.isMock ? "由本頁測試資料即時計算，不是公司實際資料。" : "由現存資料庫即時計算。") + '</p>' + goalPanel() + '<details class="goal-more-stats"><summary>其他統計與地圖總覽</summary><div class="chips"><button class="pill" data-a="dtab" data-v="geo">地圖總覽</button></div>' + dashBody(rows, sum, sorted, false) + '</details>';
   }
   function pcAssets() {
     const belongLabel = (a) => { const p = a.project && a.project !== D.UNASSIGNED ? "專案：" + a.project.replace("（測試）", "") : ""; const dep = a.department ? "部門：" + a.department : ""; return p || dep ? esc(p) + (p && dep ? "<br>" : "") + esc(dep) : esc(D.UNASSIGNED); };
@@ -854,10 +860,10 @@
         return S.ageFilter === "aged" ? (g !== null && g >= (S.ageThreshold || AGE_THRESHOLD_DEFAULT)) : g === null;
       });
     const zones = zonesOf(S.asite);
-    return '<h3 class="ptitle">設備資料</h3><p class="psub">編輯保管人、區域、設備狀態、歸屬專案、序號與日期。儲存直接寫回你的試算表；失敗會標「未同步」，不會假裝成功。</p>' +
+    return '<h3 class="ptitle">設備資料</h3><button class="pill" data-a="goal-find">快速搜尋設備</button><p class="psub">編輯保管人、區域、設備狀態、歸屬專案、序號與日期。儲存直接寫回你的試算表；失敗會標「未同步」，不會假裝成功。</p>' +
       (S.retTab ? '<div class="chips"><button class="pill sm" data-a="back">← 回' + ({ dash: "儀表板", map: "位置圖", diff: "盤點差異" }[S.retTab] || "上一頁") + "</button></div>" : "") +
       '<div class="chips">' + siteNames().map((p) => '<button class="pill sm' + (S.asite === p ? " on" : "") + '" data-a="asite" data-v="' + esc(p) + '">' + esc(p) + "</button>").join("") + "</div>" +
-      '<div class="chips"><span class="lbl" style="align-self:center">產地</span>' +
+      '<details class="goal-filters"><summary>進階篩選：品牌、產地、年限</summary><div class="chips"><span class="lbl" style="align-self:center">產地</span>' +
       '<button class="pill sm' + (S.afOrigin === "" ? " on" : "") + '" data-a="aforigin" data-v="">全部</button>' +
       distinctOrigins().map((o) => '<button class="pill sm' + (S.afOrigin === o ? " on" : "") + '" data-a="aforigin" data-v="' + esc(o) + '">' + esc(o) + "</button>").join("") + "</div>" +
       '<div class="chips"><span class="lbl" style="align-self:center">品牌</span>' +
@@ -875,12 +881,12 @@
       [["purchase", "從購入日算"], ["activate", "從啟用日算"], ["mfgYear", "從製造年份算"]].map((o) => '<option value="' + o[0] + '"' + (S.ageBasis === o[0] ? " selected" : "") + ">" + o[1] + "</option>").join("") + "</select>" +
       '<input class="inp sm" type="number" min="1" max="30" data-f="ageThreshold" value="' + (S.ageThreshold || AGE_THRESHOLD_DEFAULT) + '" style="width:64px;min-height:36px"><span class="lbl" style="align-self:center">年（待確認，不是公司正式規定）</span></div>' +
       (S.ageFilter === "aged" ? '<p class="small">屆齡評估清單 ' + list.length + ' 台：滿 ' + (S.ageThreshold || AGE_THRESHOLD_DEFAULT) + ' 年只列入評估，不會自動改狀態或報廢；實際淘汰由你決定。</p>' : "") +
-      '<div class="dtable"><div class="atr head"><span>登記編號</span><span>名稱 / 型號 / S/N</span><span>歸屬專案／部門</span><span class="opt">保管人</span><span class="opt">區域</span><span>狀態</span><span></span></div>' +
+      '</details><div class="dtable"><div class="atr head"><span>登記編號</span><span>名稱 / 型號 / S/N</span><span>歸屬專案／部門</span><span class="opt">保管人</span><span class="opt">區域</span><span>狀態</span><span></span></div>' +
       list.map((a) => {
         const lr = lastRecordOf(a.code);
-        let row = '<button class="atr arow" data-a="edit" data-v="' + esc(a.code) + '"><span class="icode">' + esc(a.code) + "</span>" +
-          "<span>" + esc(a.name) + ' <span class="small">' + esc(a.model) + " · S/N " + esc(a.serial || "未登記") + " · " + esc(brandOf(a)) + " · 產地 " + esc(originOf(a)) + (a.po ? " · PO " + esc(a.po) : "") + "</span>" + legacyDetails(a.code) + (S.savedAt === a.code ? '<span class="dbadge"> ✓已儲存</span>' + (S.cascadeInfo ? '<span class="small"> ' + esc(S.cascadeInfo) + '</span>' : "") : "") + "</span>" +
-          "<span>" + belongLabel(a) + '</span><span class="opt">' + esc(a.owner ? (a.owner === "公用" && a.source === "盤點" ? "公用（舊版預設，未確認）" : a.owner) : "未確認") + '</span><span class="opt">' + esc(a.zone) + "</span><span>" + esc(a.status) + '</span><span class="small">' + (S.editCode === a.code ? "收合" : "編輯") + "</span></button>";
+        let row = '<button class="atr arow" data-a="'+(S.editCode===a.code?'edit':'view-asset')+'" data-v="' + esc(a.code) + '"><span class="icode">' + esc(a.code) + "</span>" +
+          "<span>" + esc(a.name) + ' <span class="small">' + esc(a.model) + " · S/N " + esc(a.serial || "未登記") + " · " + esc(brandOf(a)) + " · 產地 " + esc(originOf(a)) + (a.po ? " · PO " + esc(a.po) : "") + "</span>" + '<span class="small">'+esc(seatLabelFor(a.code))+' · 保管人 '+esc(a.owner||'未確認')+'</span>' + (S.savedAt === a.code ? '<span class="dbadge"> ✓已儲存</span>' + (S.cascadeInfo ? '<span class="small"> ' + esc(S.cascadeInfo) + '</span>' : "") : "") + "</span>" +
+          "<span>" + belongLabel(a) + '</span><span class="opt">' + esc(a.owner ? (a.owner === "公用" && a.source === "盤點" ? "公用（舊版預設，未確認）" : a.owner) : "未確認") + '</span><span class="opt">' + esc(a.zone) + "</span><span>" + esc(a.status) + '</span><span class="small">' + (S.editCode === a.code ? "編輯中" : "查看") + "</span></button>";
         if (S.editCode === a.code && S.editDraft) {
           const d = S.editDraft;
           row += '<div class="drawer">' + (repairUI&&!S.editLocked?repairUI.html(a):'') + (S.editLocked?'<div class="warn">編輯權限不可用，資料為唯讀，原輸入保留。'+esc(S.editError||'')+'</div>'+(S.editConflict?'':'<button class="pill" data-a="edit-rebase">重新讀取核對並取得編輯權</button>')+'<button class="pill" data-a="cancel">取消編輯</button>':'') + (S.editLegacy?.length ? '<div class="small">已帶入唯一完整編號舊帳的空白描述欄位：'+esc(S.editLegacy.join('、'))+'。供核對，按儲存才寫入；不帶入保管人或座位。</div>' : '') + '<fieldset style="border:0;padding:0;margin:0;min-width:0"' + (S.editBusy||S.editLocked ? ' disabled' : '') + '>' + legacyDetails(a.code) +
@@ -1254,6 +1260,7 @@
       root.innerHTML = html + '<div class="phone"><div class="card"><h2>正在連接現存資料庫…</h2></div></div>';
       return;
     }
+    if(S.viewCode){html+=assetView();root.innerHTML=html;afterRender();return;}
     if (S.mode === "phone") {
       let body;
       if (S.dash) body = phoneDash();
@@ -1274,7 +1281,7 @@
     const t = e.target.closest("[data-a]");
     if (!t) return;
     const a = t.getAttribute("data-a"), v = t.getAttribute("data-v") || "";
-    if(S.editCode&&['workspace-overview','workspace-scan','workspace-manage','mode','tab','dtab','back','godiff','sitelist','gositepc','asite','gosite'].includes(a)){
+    if(S.editCode&&['goal-seat','goal-find','goal-resume','view-asset','view-edit','workspace-overview','workspace-scan','workspace-manage','mode','tab','dtab','back','godiff','sitelist','gositepc','asite','gosite'].includes(a)){
       if(S.editTouched){S.editError='還有未保存的輸入，請先保存或明確取消編輯後再離開。';render();return;}
       if(S.editBusy)return;
       if(!D.isMock)store.releaseAssetEdit(S.editCode).catch(()=>{});
@@ -1282,6 +1289,15 @@
     }
     if(['end','finish','newsession','start','toresult'].includes(a)&&(S.scanBusy||S.scanQueue?.length||Object.keys(S.scanHeld||{}).length)){S.scanSetupErr='尚有未保存或結果待查的掃描，保留場次與輸入；請先核對。';render();return;}
     if(a==='vendor-copy'){navigator.clipboard.writeText(S.vendorReview?.raw||'').then(()=>{S.vendorCopyStatus='已複製';render();}).catch(()=>{S.vendorCopyStatus='複製未成功，請選取上方原碼';render();});return;}
+    if(['workspace-overview','workspace-scan','workspace-manage','goal-seat','goal-find','goal-resume'].includes(a))S.viewCode='';
+    if(a==='view-asset'){S.viewScroll=window.scrollY;S.viewCode=v;render();window.scrollTo(0,0);return;}
+    if(a==='view-close'){S.viewCode='';render();window.scrollTo(0,S.viewScroll||0);return;}
+    if(a==='view-edit'){S.viewCode='';const x=getA(v);if(!x)return;S.retTab=S.dtab;S.mode='pc';S.dtab='assets';S.asite=x.site;openControlledEditor(v);return;}
+    if(a==='goal-search'){S.goalSearchDone=String(S.goalSearch||'').trim();render();return;}
+    if(a==='goal-find'){S.mode='pc';S.dtab='dash';render();document.querySelector('#goal-search')?.focus();return;}
+    if(a==='goal-seat'){S.mode='pc';S.dtab='map';S.mapSite=S.site||S.mapSite||siteNames()[0]||'';S.dash=false;S.workspaceMore=false;render();window.scrollTo(0,0);return;}
+    if(a==='goal-resume'){S.mode='phone';S.screen=S.sess?'scan':'start';S.dash=false;render();window.scrollTo(0,0);return;}
+    if(a==='goal-metric'){S.goalMetric=v;render();document.querySelector('#goal-results')?.scrollIntoView({block:'start'});return;}
     if (a === "workspace-overview") { S.mode="pc"; S.dtab="dash"; S.dash=false; S.workspaceMore=false; }
     else if (a === "workspace-scan") { S.mode="phone"; S.dash=false; S.workspaceMore=false; }
     else if (a === "held-ack") { if (DRAFTS) DRAFTS.discard(draftAcct(), 'scan-held', v); }
@@ -1317,9 +1333,7 @@
     else if (a === "dtab") { S.dtab = v; S.editCode = ""; S.editDraft = null; S.retTab = ""; }
     else if (a === "ajump") {
       const x = getA(v); if (!x) return;
-      S.retTab = S.dtab; S.mode = "pc"; S.dash = false;
-      S.dtab = "assets"; S.asite = x.site;
-      openControlledEditor(v);return;
+      S.viewScroll=window.scrollY;S.viewCode=v;render();window.scrollTo(0,0);return;
     }
     else if (a === "back") { S.dtab = S.retTab || "dash"; S.retTab = ""; S.editCode = ""; S.editDraft = null; }
     else if (a === "godiff") { S.mode = "pc"; S.dash = false; S.dtab = "diff"; }
@@ -1510,6 +1524,7 @@
     if (gf) { if (geoUI) geoUI.field(gf, e.target.value); return; }
     const f = e.target.getAttribute && e.target.getAttribute("data-f");
     if (!f) return;
+    if(f==="goalSearch"){S.goalSearch=e.target.value;return;}
     if (f === "scanDepartment") { S.scanDepartment = e.target.value; putSetup(); return; }
     if (f === "manualCode") { S.manualCode = e.target.value; return; }
     if (f === "scanProjectInput") { S.scanProjectInput = e.target.value; putSetup(); return; }
@@ -1532,6 +1547,7 @@
       return;
     }
     const f = e.target.getAttribute && e.target.getAttribute("data-f");
+    if(f==="goalSite"||f==="goalDept"){S[f]=e.target.value;render();return;}
     if (f === "ageBasis") { S.ageBasis = e.target.value; render(); return; }
     if (f && f.indexOf("ibd_") === 0 && S.ibDraft) {
       S.ibDraft[f.slice(4)] = e.target.value;
@@ -1543,6 +1559,7 @@
     if (f && S.editDraft && Object.prototype.hasOwnProperty.call(S.editDraft, f)) {S.editDraft[f] = e.target.value;noteControlledActivity();draftSaveEdit();if(f==="owner"||f==="department")render();else autosaveAsset(f);} /* 保管人／部門在 blur 時重繪，讓同座位連動提示在儲存前出現 */
   });
   document.addEventListener("keydown", (e) => {
+    if(e.key==="Enter"&&e.target.dataset?.f==="goalSearch"){S.goalSearchDone=String(S.goalSearch||" ").trim();render();return;}
     if (e.key === "Enter" && e.target.getAttribute && e.target.getAttribute("data-f") === "manualCode") { scan(S.manualCode); }
     if (e.key === "Enter" && e.target.getAttribute && e.target.getAttribute("data-f") === "scanProjectInput") { S.scanProject = (S.scanProjectInput || "").trim(); render(); }
   });
@@ -1559,7 +1576,7 @@
   document.addEventListener("click", e => {
     const t=e.target.closest && e.target.closest("[data-seat-action]"); if(!t||!seatUI)return;
     e.preventDefault();
-    seatUI.act(t.dataset.seatAction,{number:t.dataset.seatNumber,code:t.dataset.seatCode,site:S.mode==="phone"?S.site:S.mapSite,zone:S.mode==="phone"?S.zone:"",sess:S.sess,onScan:(n,m)=>{S.site=m.site;S.zone=m.zone;S.mode="phone";S.screen="start";S.dash=false;render();}});
+    seatUI.act(t.dataset.seatAction,{number:t.dataset.seatNumber,code:t.dataset.seatCode,site:S.mode==="phone"?S.site:S.mapSite,zone:S.mode==="phone"?S.zone:"",sess:S.sess,onScan:(n,m)=>{S.site=m.site;S.zone=m.zone;S.mode="phone";S.screen="start";S.dash=false;render();window.scrollTo(0,0);},onView:code=>{S.viewCode=code;render();window.scrollTo(0,0);}});
   });
   document.addEventListener("change",e=>{
     const f=e.target.dataset && e.target.dataset.seatField;if(!f||!seatUI)return;
