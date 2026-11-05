@@ -301,6 +301,7 @@
         if (m) maxSeq = Math.max(maxSeq, Number(m[1]));
       });
       this.db.meta.codeSeq = maxSeq + 1;
+      this.lastSharedReadAt=new Date().toISOString();
       return this.db;
     }
     _db() { if (!this.db) throw new Error("請先 await init()"); return this.db; }
@@ -309,7 +310,7 @@
     onSyncChange(cb) { (this._listeners = this._listeners || []).push(cb); }
     syncStatus() {
       const u = this._unsynced || [];
-      return { pending: this._pendingCount || 0, unsynced: u.length };
+      return { pending: this._pendingCount || 0, unsynced: u.length, lastSync: this.lastSharedReadAt || null };
     }
     _notify() { (this._listeners || []).forEach((cb) => { try { cb(this.syncStatus()); } catch (e) { /* 聽眾錯誤不影響寫入 */ } }); }
     /* Explicit shared read refresh. Never replace pending/failed local work or a snapshot
@@ -398,6 +399,7 @@
       const b = res ? await res.json() : null;
       if (!res || !res.ok || !b?.ok || !Array.isArray(b.row) || !Number.isInteger(b.rowNum) || b.row[0] !== code) throw new Error(b?.error?.message || "儲存未確認，請保留輸入後重試");
       Object.assign(a, rowToAsset(b.row, b.rowNum - 2));this._originalRows=this._originalRows||{};this._originalRows.assets=this._originalRows.assets||[];this._originalRows.assets[b.rowNum-2]=[...b.row];this._editReservations.delete(code);
+      this.lastSharedReadAt=new Date().toISOString();
       return a;
     }
 
