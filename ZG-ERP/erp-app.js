@@ -701,6 +701,7 @@
     return '<h3 class="ptitle">總覽儀表板</h3><p class="psub">' + (D.isMock ? "由本頁測試資料即時計算，不是公司實際資料。" : "由現存資料庫即時計算。") + '</p>' + '<div class="chips"><button class="pill" data-a="dtab" data-v="geo">地圖總覽：從全台灣一路點到座位 →</button></div>' + dashBody(rows, sum, sorted, false);
   }
   function pcAssets() {
+    const belongLabel = (a) => { const p = a.project && a.project !== D.UNASSIGNED ? "專案：" + a.project.replace("（測試）", "") : ""; const dep = a.department ? "部門：" + a.department : ""; return p || dep ? esc(p) + (p && dep ? "<br>" : "") + esc(dep) : esc(D.UNASSIGNED); };
     if (!S.asite) S.asite = siteNames()[0] || "";
     const list = assets().filter((a) => a.site === S.asite)
       .filter((a) => !S.afOrigin || originOf(a) === S.afOrigin)
@@ -733,12 +734,12 @@
       [["purchase", "從購入日算"], ["activate", "從啟用日算"], ["mfgYear", "從製造年份算"]].map((o) => '<option value="' + o[0] + '"' + (S.ageBasis === o[0] ? " selected" : "") + ">" + o[1] + "</option>").join("") + "</select>" +
       '<input class="inp sm" type="number" min="1" max="30" data-f="ageThreshold" value="' + (S.ageThreshold || AGE_THRESHOLD_DEFAULT) + '" style="width:64px;min-height:36px"><span class="lbl" style="align-self:center">年（待確認，不是公司正式規定）</span></div>' +
       (S.ageFilter === "aged" ? '<p class="small">屆齡評估清單 ' + list.length + ' 台：滿 ' + (S.ageThreshold || AGE_THRESHOLD_DEFAULT) + ' 年只列入評估，不會自動改狀態或報廢；實際淘汰由你決定。</p>' : "") +
-      '<div class="dtable"><div class="atr head"><span>登記編號</span><span>名稱 / 型號 / S/N</span><span>歸屬專案</span><span class="opt">保管人</span><span class="opt">區域</span><span>狀態</span><span></span></div>' +
+      '<div class="dtable"><div class="atr head"><span>登記編號</span><span>名稱 / 型號 / S/N</span><span>歸屬專案／部門</span><span class="opt">保管人</span><span class="opt">區域</span><span>狀態</span><span></span></div>' +
       list.map((a) => {
         const lr = lastRecordOf(a.code);
         let row = '<button class="atr arow" data-a="edit" data-v="' + esc(a.code) + '"><span class="icode">' + esc(a.code) + "</span>" +
           "<span>" + esc(a.name) + ' <span class="small">' + esc(a.model) + " · S/N " + esc(a.serial || "未登記") + " · " + esc(brandOf(a)) + " · 產地 " + esc(originOf(a)) + (a.po ? " · PO " + esc(a.po) : "") + "</span>" + legacyDetails(a.code) + (S.savedAt === a.code ? '<span class="dbadge"> ✓已儲存</span>' : "") + "</span>" +
-          "<span>" + esc((a.project || D.UNASSIGNED).replace("（測試）", "")) + '</span><span class="opt">' + esc(a.owner ? (a.owner === "公用" && a.source === "盤點" ? "公用（舊版預設，未確認）" : a.owner) : "未確認") + '</span><span class="opt">' + esc(a.zone) + "</span><span>" + esc(a.status) + '</span><span class="small">' + (S.editCode === a.code ? "收合" : "編輯") + "</span></button>";
+          "<span>" + belongLabel(a) + '</span><span class="opt">' + esc(a.owner ? (a.owner === "公用" && a.source === "盤點" ? "公用（舊版預設，未確認）" : a.owner) : "未確認") + '</span><span class="opt">' + esc(a.zone) + "</span><span>" + esc(a.status) + '</span><span class="small">' + (S.editCode === a.code ? "收合" : "編輯") + "</span></button>";
         if (S.editCode === a.code && S.editDraft) {
           const d = S.editDraft;
           row += '<div class="drawer">' + (repairUI&&!S.editLocked?repairUI.html(a):'') + (S.editLocked?'<div class="warn">編輯權限不可用，資料為唯讀，原輸入保留。'+esc(S.editError||'')+'</div>'+(S.editConflict?'':'<button class="pill" data-a="edit-rebase">重新讀取核對並取得編輯權</button>')+'<button class="pill" data-a="cancel">取消編輯</button>':'') + (S.editLegacy?.length ? '<div class="small">已帶入唯一完整編號舊帳的空白描述欄位：'+esc(S.editLegacy.join('、'))+'。供核對，按儲存才寫入；不帶入保管人或座位。</div>' : '') + '<fieldset style="border:0;padding:0;margin:0;min-width:0"' + (S.editBusy||S.editLocked ? ' disabled' : '') + '>' + legacyDetails(a.code) +
@@ -1315,6 +1316,8 @@
     render();
   });
   document.addEventListener("input", (e) => {
+    const gf = e.target.getAttribute && e.target.getAttribute("data-geo-field");
+    if (gf) { if (geoUI) geoUI.field(gf, e.target.value); return; }
     const f = e.target.getAttribute && e.target.getAttribute("data-f");
     if (!f) return;
     if (f === "scanDepartment") { S.scanDepartment = e.target.value; return; }
