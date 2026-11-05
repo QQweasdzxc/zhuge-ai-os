@@ -1070,7 +1070,7 @@
       '<button class="dnav' + (tab === "legacy" ? " on" : "") + '" data-a="dtab" data-v="legacy">舊帳比對</button></nav>' +
       '<div class="dmain"><div class="dhand">' + (recs.length > 0
         ? "手機在 <b>" + esc(S.site) + "</b> 掃了 " + recs.length + " 筆（" + esc(new Date(S.sess.at).toLocaleTimeString("zh-TW", { hour12: false })) + " 起）。差異已帶到「盤點差異」。"
-        : "還沒有手機掃描紀錄。切到上方「手機 · 現場掃描」掃幾筆，寫進試算表後這裡會接著顯示。") + "</div>" + body + "</div></div></div>";
+        : "這個視窗尚未開始盤點場次；不代表共用試算表沒有紀錄。既有紀錄請看總覽與「盤點差異」。") + "</div>" + body + "</div></div></div>";
   }
 
   /* ---- 渲染 ---- */
@@ -1374,6 +1374,7 @@
         render();
       });
     } else {
+      if (seatUI && typeof store.loadSeatMap === "function") store.loadSeatMap().then(() => {seatUI.state.loaded=true;render();});
       render();
     }
   }

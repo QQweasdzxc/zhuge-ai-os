@@ -1,5 +1,5 @@
-import { MiniMarketChart } from "../components/mini-market-chart.mjs?v=20261105-0727";
-import { portfolioHistoryForPosition } from "./history.mjs?v=20261105-0727";
+import { MiniMarketChart } from "../components/mini-market-chart.mjs?v=20261105-0804";
+import { portfolioHistoryForPosition } from "./history.mjs?v=20261105-0804";
 
 const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, char => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
