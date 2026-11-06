@@ -160,7 +160,7 @@
     dtab: "dash", dash: false, screen: "start",
     place: "", gps: null, gpsErr: "", site: "", zone: "", zoneOpen: false,
     open: "", filter: "all", metric: "total", dsite: "", dst: "", pfilter: "",
-    asite: "", editCode: "", editDraft: null, savedAt: "", newZone: {}, newSite: {}, siteErr: "", sess: null, manualCode: "", camOn: false, camErr: "", camLast: "", camLastAt: 0,
+    asite: "", editCode: "", editDraft: null, savedAt: "", newZone: {}, newSite: {}, siteErr: "", sess: null, manualCode: "", camOn: false, scanStarting: false, camErr: "", camLast: "", camLastAt: 0,
     mapSite: "", mapZone: "", mapImg: "", mapEdit: false, retTab: "", scanDepartment: "", scanSetupErr: "", scanProject: "", scanProjectInput: "", afOrigin: "", afBrand: "", afType: "", ageBasis: "purchase", ageFilter: "", ibOpen: "", ibConfirm: "", ibDraft: null, recvBatch: "", recvCode: "", recvLast: null
   };
 
@@ -432,12 +432,15 @@
     }, { enableHighAccuracy: true, timeout: 10000 });
   }
   function startSession() {
-    if (!S.site) return;
+    if (!S.site && siteNames().length === 1) S.site = siteNames()[0];
+    if (!S.site) { S.scanSetupErr = siteNames().length ? "請先選盤點據點：展開「修改本次設定／取得定位」，點一個據點再開始。" : "尚未建立據點。請先在電腦「公司據點」新增據點。"; render(); return; }
+    S.scanStarting = true;
     camPreWarm();
     if (S.scanProjectInput.trim()) S.scanProject = S.scanProjectInput.trim();
     S.scanDepartment = S.scanDepartment.trim();
     S.scanSetupErr = "";
     const begin = (fix) => {
+      S.scanStarting = false;
       const g = fix || S.gps || { lat: null, lon: null, acc: null };
       try { S.sess = store.startSession(S.site, g.lat, g.lon, g.acc != null ? g.acc : null, S.scanProject || "", "", S.scanDepartment); }
       catch (err) { S.scanSetupErr = err.message; render(); return; }
@@ -609,7 +612,7 @@
     setTimeout(refreshSyncBadge, 0); /* 整頁重繪會重建徽章（預設隱藏），重繪後立刻補上內容 */
     return '<div id="erp-sync-badge" class="syncbadge" style="display:none"></div><div id="erp-version-badge" class="versionbadge" style="display:none"></div>';
   }
-  const LOADED_BUILD = { id: "2026-11-06.23" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
+  const LOADED_BUILD = { id: "2026-11-06.24" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
   async function checkAppVersion() {
     if (D.isMock) return;
     try {
@@ -691,6 +694,7 @@
   /* ---- 手機端 ---- */
   function phoneStart() {
     ensureSetupDraft();
+    if (!S.site && siteNames().length === 1) S.site = siteNames()[0];
     const g = S.gps;
     return '<div class="screen"><h3 class="ptitle">設備盤點</h3>' +
       '<p class="psub">確認目前座位與設定後開始；同一次盤點換座位不用重填。</p>' + prestartSeat() + '<div class="small">本次部門：'+esc(S.scanDepartment||'未指定')+' · 專案：'+esc(S.scanProject||'全部專案')+'（既有設備歸屬不會因此覆蓋）</div><details class="goal-setup"><summary>修改本次設定／取得定位</summary>' +
@@ -719,7 +723,7 @@
       "</div></details>" +
       (S.scanSetupErr ? '<div class="warn">' + esc(S.scanSetupErr) + "</div>" : "") +
       (S.setupRestored ? '<div class="warn" id="setup-restored">已還原上次尚未開始的設定：部門「' + esc(S.scanDepartment || "未填") + '」、專案「' + esc(S.scanProject || S.scanProjectInput || "全部專案") + '」。這只是預填，沒有開始盤點、沒有寫入任何資料；請核對，按下面「開始掃描」才會生效。<button class="pill sm" data-a="setup-clear">清除這些還原內容</button></div>' : "") +
-      '<button class="btn" data-a="start"' + (S.site ? "" : " disabled") + ">開始掃描" + (S.site ? " · " + esc(S.site) : "") + (S.scanProject ? " · " + esc(S.scanProject.replace("（測試）", "")) : "") + "</button></div>";
+      '<button class="btn" data-a="start">' + "開始掃描" + (S.site ? " · " + esc(S.site) : "") + (S.scanProject ? " · " + esc(S.scanProject.replace("（測試）", "")) : "") + "</button></div>";
   }
   function phoneScan() {
     const recs = curRecs();
@@ -787,6 +791,7 @@
       '<div class="small">本次使用部門：' + esc(S.sess.department || "未指定") + " · 專案：" + esc(S.sess.project || "全部專案") + " · 經手人：" + esc(S.sess.operator || "未記錄") + "（開始前設定，這批沿用）</div>" +
       scopeStrip +
       '<div class="small">起點定位 ' + (S.sess.lat != null ? Number(S.sess.lat).toFixed(3) + ", " + Number(S.sess.lon).toFixed(3) + (S.sess.acc != null ? "（±" + S.sess.acc + " m）" : "") : "無（手動選擇據點）") + " · " + esc(new Date(S.sess.at).toLocaleTimeString("zh-TW", { hour12: false })) + "（固定，換區域不會改）</div>" +
+      (S.gpsErr && S.sess.lat == null ? '<div class="warn">' + esc(S.gpsErr) + "</div>" : "") +
       '</details>' +
       toast +
       (S.scanBusy?'<div class="warn">正在核對保存：'+esc(S.scanIntent?.code||'')+'，完成前不計入成功。</div>':'')+(S.scanQueue?.length?'<div class="warn">等候保存：'+S.scanQueue.map(x=>esc(x.code)).join('、')+'</div>':'')+
@@ -1300,7 +1305,7 @@
 
   /* ---- 渲染 ---- */
   function render() {
-    if ((S.mode !== "phone" || S.screen !== "scan" || S.dash) && (S.camOn||cam.starting)) camStop(true);
+    if ((S.mode !== "phone" || S.screen !== "scan" || S.dash) && (S.camOn||cam.starting) && !S.scanStarting) camStop(true);
     const root = document.getElementById("erp-root");
     refreshSyncBadge.__lastRoot = root;
     if (window.ErpAuth && window.ErpAuth.state().status !== "ready" && !D.isMock) {
