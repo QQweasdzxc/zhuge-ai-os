@@ -617,7 +617,7 @@
     setTimeout(refreshSyncBadge, 0); /* 整頁重繪會重建徽章（預設隱藏），重繪後立刻補上內容 */
     return '<div id="erp-sync-badge" class="syncbadge" style="display:none"></div><div id="erp-version-badge" class="versionbadge" style="display:none"></div>';
   }
-  const LOADED_BUILD = { id: "2026-11-06.32" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
+  const LOADED_BUILD = { id: "2026-11-06.33" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
   async function checkAppVersion() {
     if (D.isMock) return;
     try {
@@ -704,7 +704,7 @@
     const lbl=LABEL[best.status]||best.status||'已掃';
     return '<div class="small" style="margin-top:4px">'+(thisSess?'本次已掃':'以前掃過')+'：'+esc(whenTxt)+' · '+esc(a?a.name:best.code)+' '+esc(best.code)+' · '+esc(lbl)+(thisSess?'':'（紀錄保留，不等於本次已確認；本次請照掃）')+'</div>';
   }
-  function prestartSeat(){if(!seatUI)return '';const m=seatUI.mapFor(S.site,S.zone),st=seatUI.state;if(!m||!st.scanSelected)return '<div class="warn">尚未選目前座位。<button class="pill" data-a="goal-seat">先選座位</button></div>';const count=Object.values(seatUI.seatBindings()).filter(x=>x.version===m.id&&x.seat===st.selected).length;return '<div class="match"><b>目前座位：'+esc(m.site)+' '+esc(m.zone)+' · '+st.selected+'號</b><div>此座位已登記 '+count+' 台設備（不代表現場全部設備）；換號不會自動核對。</div>'+seatLastScanHtml()+'<div style="margin-top:6px"><button class="pill sm" data-a="goal-seat">換座位</button></div></div>';}
+  function prestartSeat(){if(!seatUI)return '';const m=seatUI.mapFor(S.site,S.zone),st=seatUI.state;if(!m||!st.scanSelected)return '<div class="warn">尚未選目前座位。<button class="pill em" data-a="goal-seat">先選座位</button></div>';const count=Object.values(seatUI.seatBindings()).filter(x=>x.version===m.id&&x.seat===st.selected).length;return '<div class="match"><b>目前座位：'+esc(m.site)+' '+esc(m.zone)+' · '+st.selected+'號</b><div>此座位已登記 '+count+' 台設備（不代表現場全部設備）；換號不會自動核對。</div>'+seatLastScanHtml()+'<div style="margin-top:6px"><button class="pill em" data-a="goal-seat">換座位</button></div></div>';}
   function modeBar() {
     const more = S.workspaceMore ? '<section class="workspace-more" aria-label="管理功能"><h3>管理功能</h3>'+[['geo','地圖總覽'],['assets','設備資料'],['inbound','入庫作業'],['zones','公司據點'],['map','座位圖'],['diff','盤點差異'],['legacy','舊帳比對']].map(([key,label])=>'<button class="pill" data-a="workspace-manage" data-v="'+key+'">'+label+'</button>').join('')+draftCard()+'<button class="pill" data-a="workspace-more">關閉</button></section>' : '';
     if (S.mode==='phone') return '<nav class="workspace-nav" aria-label="工作區"><span class="workspace-title">設備管理工作區</span><button class="mb on" data-a="workspace-scan">掃描</button></nav>';
@@ -716,7 +716,7 @@
     ensureSetupDraft();
     if (!S.site && siteNames().length === 1) S.site = siteNames()[0];
     const g = S.gps;
-    return '<div class="screen"><h3 class="ptitle">設備盤點 <button class="pill sm" data-a="workspace-seats" style="float:right">座位圖</button></h3>' +
+    return '<div class="screen"><h3 class="ptitle">設備盤點 <button class="pill em" data-a="workspace-seats" style="float:right">座位圖</button></h3>' +
       '<p class="psub">確認目前座位與設定後開始；同一次盤點換座位不用重填。</p>' + prestartSeat() + '<div class="small">本次部門：'+esc(S.scanDepartment||'未指定')+' · 專案：'+esc(S.scanProject||'全部專案')+'（既有設備歸屬不會因此覆蓋）</div><details class="goal-setup"><summary>修改本次設定／取得定位</summary>' +
       '<div class="card"><div class="lbl">掃描起點定位（使用瀏覽器實際定位，需你授權）</div>' +
       (!g
@@ -795,7 +795,7 @@
       (outScope ? " · 範圍外 " + outScope + " 筆（都有記錄）" : "") + "</div>" +
       (scopeMiss.length ? '<div class="smeta">未掃：' + scopeMiss.slice(0, 8).map((a) => esc(a.name) + " " + esc(a.code)).join("、") + (scopeMiss.length > 8 ? " …等 " + scopeMiss.length + " 台" : "") + "</div>" : "") + "</div>";
     return '<div class="screen">' +
-      '<div class="scanbar"><button class="pill sm" data-a="workspace-seats">座位圖</button><button class="zonebtn" data-a="zoneopen"><span class="lbl">' + esc(S.site) + " · 目前區域</span><b>" + esc(S.zone) + " ▾</b></button>" +
+      '<div class="scanbar"><button class="pill em" data-a="workspace-seats">座位圖</button><button class="zonebtn" data-a="zoneopen"><span class="lbl">' + esc(S.site) + " · 目前區域</span><b>" + esc(S.zone) + " ▾</b></button>" +
       '<button class="btn mini" data-a="toresult">結束 (' + recs.length + ")</button></div>" +
       '<div class="smeta scan-prog">應盤 ' + scope.length + ' · 已掃 ' + scopeGot.length + (scopeMiss.length ? ' · <b class="pbad">還差 ' + scopeMiss.length + '</b>' : ' · 全部掃完') + '</div>' +
       (S.scanSetupErr ? '<div class="warn">'+(S.scanUncertain?'本筆掃描 '+esc(S.scanIntent?.code||'')+'：保存結果待查，請勿重送。':esc(S.scanSetupErr))+(S.scanIntent&&!S.scanUncertain?'<button class="pill" data-a="scan-intent-retry">重試這筆未保存掃描</button>':'')+'</div>' : "") +
