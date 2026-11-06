@@ -40,7 +40,7 @@ const snapshot = (overrides = {}) => ({
   ...overrides,
 });
 const status = {
-  project_name: 'Zhuge AI OS', overall_status: 'blocked', current_phase: 'test', current_milestone: 'test',
+  project_name: 'Tron', overall_status: 'blocked', current_phase: 'test', current_milestone: 'test',
   updated_at: new Date(now).toISOString(), summary: 'fixture only',
   active_modules: [{ name: 'TaskFlow', status: 'working', owner: 'Co', description: 'fixture' }],
   blocked_items: [], next_actions: [], recent_prs: [{ id: '#70', title: 'fixture PR', status: 'open', url: 'https://github.com/QQweasdzxc/zhuge-ai-os/pull/70' }],
