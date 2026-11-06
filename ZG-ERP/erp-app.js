@@ -282,6 +282,42 @@
     const plan=window.ErpEditCore.planSeatCascade({bindings:seatUI.seatBindings(),assets:assets(),code,changed});
     return plan;
   }
+  function assetDrawerHtml(a, lr, zones) {
+    let out = '';
+    if (S.editCode === a.code && S.editDraft) {
+          const d = S.editDraft;
+          out += '<div class="drawer">' + (repairUI&&!S.editLocked?repairUI.html(a):'') + (S.editLocked?'<div class="warn">編輯權限不可用，資料為唯讀，原輸入保留。'+esc(S.editError||'')+'</div>'+(S.editConflict?'':'<button class="pill" data-a="edit-rebase">重新讀取核對並取得編輯權</button>')+'<button class="pill" data-a="cancel">取消編輯</button>':'') + (S.editLegacy?.length ? '<div class="small">已帶入唯一完整編號舊帳的空白描述欄位：'+esc(S.editLegacy.join('、'))+'。供核對，按儲存才寫入；不帶入保管人或座位。</div>' : '') + '<fieldset style="border:0;padding:0;margin:0;min-width:0"' + (S.editBusy||S.editLocked ? ' disabled' : '') + '>' + legacyDetails(a.code) +
+            '<div class="frow"><span class="lbl">名稱</span><input class="inp" data-f="name" value="' + esc(d.name) + '"></div>' +
+            '<div class="frow"><span class="lbl">型號</span><input class="inp" data-f="model" value="' + esc(d.model) + '"></div>' +
+            (store.departmentReady || D.isMock ? '<div class="frow"><span class="lbl">使用部門</span><input class="inp" data-f="department" value="' + esc(d.department || "") + '"></div>' : "") +
+      '<div class="frow"><span class="lbl">保管人</span><input class="inp" data-f="owner" value="' + esc(d.owner) + '"></div>' +
+            '<div class="frow"><span class="lbl">區域</span><select class="inp" data-f="zone">' + zones.map((z) => '<option value="' + esc(z) + '"' + (d.zone === z ? " selected" : "") + ">" + esc(z) + "</option>").join("") + "</select></div>" +
+            '<div class="frow"><span class="lbl">設備狀態</span><select class="inp" data-f="status">' + D.STATUSES.map((st) => '<option value="' + esc(st) + '"' + (d.status === st ? " selected" : "") + ">" + esc(st) + "</option>").join("") + "</select></div>" +
+            '<div class="frow"><span class="lbl">歸屬專案</span><select class="inp" data-f="project">' + projects().map((p) => '<option value="' + esc(p) + '"' + ((d.project || D.UNASSIGNED) === p ? " selected" : "") + ">" + esc(p) + "</option>").join("") + "</select></div>" +
+            '<div class="frow"><span class="lbl">設備序號</span><input class="inp" data-f="serial" value="' + esc(d.serial) + '" placeholder="S/N，可留空"></div>' +
+            '<div class="frow"><span class="lbl">品牌</span><input class="inp" data-f="brand" value="' + esc(d.brand || "") + '" placeholder="品牌，可留空"></div>' +
+            '<div class="frow"><span class="lbl">產地</span><input class="inp" data-f="origin" value="' + esc(d.origin || "") + '" placeholder="製造產地；沒資料留「未確認」，不要依品牌猜"></div>' +
+            '<div class="frow"><span class="lbl">產品類型</span><input class="inp" data-f="type" value="' + esc(d.type || "") + '" placeholder="耳機/話機/PC/NB…可新增分類"></div>' +
+            '<div class="frow"><span class="lbl">PO 編號</span><input class="inp" data-f="po" value="' + esc(d.po || "") + '" placeholder="採購編號，可回查到貨批次"></div>' +
+            '<div class="frow"><span class="lbl">製造年份</span><input class="inp" data-f="mfgYear" value="' + esc(d.mfgYear || "") + '" placeholder="如 2023；和購入日、啟用日分開"></div>' +
+            '<div class="frow"><span class="lbl">購入日期</span><input class="inp" type="date" data-f="purchase" value="' + esc(d.purchase) + '"></div>' +
+            '<div class="frow"><span class="lbl">啟用日期</span><input class="inp" type="date" data-f="activate" value="' + esc(d.activate) + '"></div>' +
+            '<div class="frow"><span class="lbl">保固到期</span><input class="inp" type="date" data-f="warranty" value="' + esc(d.warranty) + '"></div>' +
+            '<div class="frow"><span class="lbl">最後盤點</span><span class="small">' + (lr ? esc(new Date(lr.at).toLocaleString("zh-TW", { hour12: false })) + "（由掃描紀錄帶出，不可手改）" : "尚未盤點") + "</span></div>" +
+            draftLine() + (S.editError&&!S.editLocked ? '<div class="warn">' + esc(S.editError) + '</div>' : '') +
+            (()=>{const plan=cascadePlanFor(a.code,d,S.editBase);if(!plan)return '';
+              const fname={owner:'保管人',department:'使用部門'};
+              if(plan.unavailable)return '<div class="warn">座位資料尚未讀取完成，無法檢查同座位設備；變更'+plan.fields.map(f=>fname[f]||f).join('、')+'前請先重新整理，否則無法儲存。</div>';
+              if(!plan.peers.length)return '';
+              const lines=plan.peers.map(p=>'<div class="small">'+esc(p.code)+'：'+Object.keys(p.patch).map(f=>esc(fname[f]||f)+' '+esc(p.expected[f]||'（空）')+' → '+esc(p.patch[f])).join('；')+'</div>').join('');
+              return '<div class="warn"><b>同座位連動</b>（'+esc(String(plan.seat.seat))+'號座位 · 同座位應同保管人、同使用部門；專案不連動）。按「儲存至資料庫」會一併更新以上 '+plan.peers.length+' 台同座位設備，不能只改其中一台：'+lines+
+                '<div class="small">寫入前會重新讀取每台現況，任一筆失敗會把本次已寫入的改回原值並如實回報；若回復本身失敗，會列出需要人工核對的設備。不想連動請按「取消」。</div></div>';})() +
+            '<div class="frow"><button class="btn mini" data-a="save"' + (S.editBusy ? ' disabled' : '') + '>' + (S.editBusy ? '正在儲存並讀回核對…' : D.isMock ? '儲存（隔離測試）' : '儲存至資料庫') + '</button><button class="pill sm" data-a="cancel"' + (S.editBusy ? ' disabled' : '') + '>取消</button></div>' +
+            (seatUI ? seatUI.assetEditor(a, S.editSeat, S.editBusy) : '') +
+            '<div class="small">狀態改動是人工判斷（例如送修），手機掃描本身不會改狀態。歸屬專案和實際放置地點分開。序號、購入、啟用、保固到期都可留空；登記編號不等於設備序號。</div></fieldset></div>';
+    }
+    return out;
+  }
   async function openControlledEditor(code){
     if(S.editBusy)return;const x=getA(code);if(!x)return;
     if(S.editCode&&S.editCode!==code&&!D.isMock)await store.releaseAssetEdit(S.editCode);
@@ -888,39 +924,8 @@
         let row = '<button class="atr arow" data-a="'+(S.editCode===a.code?'edit':'view-asset')+'" data-v="' + esc(a.code) + '"><span class="icode">' + esc(a.code) + "</span>" +
           "<span>" + esc(a.name) + ' <span class="small">' + esc(a.model) + " · S/N " + esc(a.serial || "未登記") + " · " + esc(brandOf(a)) + " · 產地 " + esc(originOf(a)) + (a.po ? " · PO " + esc(a.po) : "") + "</span>" + '<span class="small">'+esc(seatLabelFor(a.code))+' · 保管人 '+esc(a.owner||'未確認')+'</span>' + (S.savedAt === a.code ? '<span class="dbadge"> ✓已儲存</span>' + (S.cascadeInfo ? '<span class="small"> ' + esc(S.cascadeInfo) + '</span>' : "") : "") + "</span>" +
           "<span>" + belongLabel(a) + '</span><span class="opt">' + esc(a.owner ? (a.owner === "公用" && a.source === "盤點" ? "公用（舊版預設，未確認）" : a.owner) : "未確認") + '</span><span class="opt">' + esc(a.zone) + "</span><span>" + esc(a.status) + '</span><span class="small">' + (S.editCode === a.code ? "編輯中" : "查看") + "</span></button>";
-        if (S.editCode === a.code && S.editDraft) {
-          const d = S.editDraft;
-          row += '<div class="drawer">' + (repairUI&&!S.editLocked?repairUI.html(a):'') + (S.editLocked?'<div class="warn">編輯權限不可用，資料為唯讀，原輸入保留。'+esc(S.editError||'')+'</div>'+(S.editConflict?'':'<button class="pill" data-a="edit-rebase">重新讀取核對並取得編輯權</button>')+'<button class="pill" data-a="cancel">取消編輯</button>':'') + (S.editLegacy?.length ? '<div class="small">已帶入唯一完整編號舊帳的空白描述欄位：'+esc(S.editLegacy.join('、'))+'。供核對，按儲存才寫入；不帶入保管人或座位。</div>' : '') + '<fieldset style="border:0;padding:0;margin:0;min-width:0"' + (S.editBusy||S.editLocked ? ' disabled' : '') + '>' + legacyDetails(a.code) +
-            '<div class="frow"><span class="lbl">名稱</span><input class="inp" data-f="name" value="' + esc(d.name) + '"></div>' +
-            '<div class="frow"><span class="lbl">型號</span><input class="inp" data-f="model" value="' + esc(d.model) + '"></div>' +
-            (store.departmentReady || D.isMock ? '<div class="frow"><span class="lbl">使用部門</span><input class="inp" data-f="department" value="' + esc(d.department || "") + '"></div>' : "") +
-      '<div class="frow"><span class="lbl">保管人</span><input class="inp" data-f="owner" value="' + esc(d.owner) + '"></div>' +
-            '<div class="frow"><span class="lbl">區域</span><select class="inp" data-f="zone">' + zones.map((z) => '<option value="' + esc(z) + '"' + (d.zone === z ? " selected" : "") + ">" + esc(z) + "</option>").join("") + "</select></div>" +
-            '<div class="frow"><span class="lbl">設備狀態</span><select class="inp" data-f="status">' + D.STATUSES.map((st) => '<option value="' + esc(st) + '"' + (d.status === st ? " selected" : "") + ">" + esc(st) + "</option>").join("") + "</select></div>" +
-            '<div class="frow"><span class="lbl">歸屬專案</span><select class="inp" data-f="project">' + projects().map((p) => '<option value="' + esc(p) + '"' + ((d.project || D.UNASSIGNED) === p ? " selected" : "") + ">" + esc(p) + "</option>").join("") + "</select></div>" +
-            '<div class="frow"><span class="lbl">設備序號</span><input class="inp" data-f="serial" value="' + esc(d.serial) + '" placeholder="S/N，可留空"></div>' +
-            '<div class="frow"><span class="lbl">品牌</span><input class="inp" data-f="brand" value="' + esc(d.brand || "") + '" placeholder="品牌，可留空"></div>' +
-            '<div class="frow"><span class="lbl">產地</span><input class="inp" data-f="origin" value="' + esc(d.origin || "") + '" placeholder="製造產地；沒資料留「未確認」，不要依品牌猜"></div>' +
-            '<div class="frow"><span class="lbl">產品類型</span><input class="inp" data-f="type" value="' + esc(d.type || "") + '" placeholder="耳機/話機/PC/NB…可新增分類"></div>' +
-            '<div class="frow"><span class="lbl">PO 編號</span><input class="inp" data-f="po" value="' + esc(d.po || "") + '" placeholder="採購編號，可回查到貨批次"></div>' +
-            '<div class="frow"><span class="lbl">製造年份</span><input class="inp" data-f="mfgYear" value="' + esc(d.mfgYear || "") + '" placeholder="如 2023；和購入日、啟用日分開"></div>' +
-            '<div class="frow"><span class="lbl">購入日期</span><input class="inp" type="date" data-f="purchase" value="' + esc(d.purchase) + '"></div>' +
-            '<div class="frow"><span class="lbl">啟用日期</span><input class="inp" type="date" data-f="activate" value="' + esc(d.activate) + '"></div>' +
-            '<div class="frow"><span class="lbl">保固到期</span><input class="inp" type="date" data-f="warranty" value="' + esc(d.warranty) + '"></div>' +
-            '<div class="frow"><span class="lbl">最後盤點</span><span class="small">' + (lr ? esc(new Date(lr.at).toLocaleString("zh-TW", { hour12: false })) + "（由掃描紀錄帶出，不可手改）" : "尚未盤點") + "</span></div>" +
-            draftLine() + (S.editError&&!S.editLocked ? '<div class="warn">' + esc(S.editError) + '</div>' : '') +
-            (()=>{const plan=cascadePlanFor(a.code,d,S.editBase);if(!plan)return '';
-              const fname={owner:'保管人',department:'使用部門'};
-              if(plan.unavailable)return '<div class="warn">座位資料尚未讀取完成，無法檢查同座位設備；變更'+plan.fields.map(f=>fname[f]||f).join('、')+'前請先重新整理，否則無法儲存。</div>';
-              if(!plan.peers.length)return '';
-              const lines=plan.peers.map(p=>'<div class="small">'+esc(p.code)+'：'+Object.keys(p.patch).map(f=>esc(fname[f]||f)+' '+esc(p.expected[f]||'（空）')+' → '+esc(p.patch[f])).join('；')+'</div>').join('');
-              return '<div class="warn"><b>同座位連動</b>（'+esc(String(plan.seat.seat))+'號座位 · 同座位應同保管人、同使用部門；專案不連動）。按「儲存至資料庫」會一併更新以上 '+plan.peers.length+' 台同座位設備，不能只改其中一台：'+lines+
-                '<div class="small">寫入前會重新讀取每台現況，任一筆失敗會把本次已寫入的改回原值並如實回報；若回復本身失敗，會列出需要人工核對的設備。不想連動請按「取消」。</div></div>';})() +
-            '<div class="frow"><button class="btn mini" data-a="save"' + (S.editBusy ? ' disabled' : '') + '>' + (S.editBusy ? '正在儲存並讀回核對…' : D.isMock ? '儲存（隔離測試）' : '儲存至資料庫') + '</button><button class="pill sm" data-a="cancel"' + (S.editBusy ? ' disabled' : '') + '>取消</button></div>' +
-            (seatUI ? seatUI.assetEditor(a, S.editSeat, S.editBusy) : '') +
-            '<div class="small">狀態改動是人工判斷（例如送修），手機掃描本身不會改狀態。歸屬專案和實際放置地點分開。序號、購入、啟用、保固到期都可留空；登記編號不等於設備序號。</div></fieldset></div>';
-        }
-        return row;
+        row += assetDrawerHtml(a, lr, zones);
+                return row;
       }).join("") + "</div>";
   }
   function pcZones() {
@@ -987,7 +992,7 @@
   function pcMap() {
     if (!seatUI) return legacyPcMap();
     S.mapSite = S.mapSite || siteNames()[0] || "";
-    return '<div class="chips">' + siteNames().map(p => '<button class="pill" data-a="mapsite" data-v="' + esc(p) + '">' + esc(p) + '</button>').join("") + '</div>' + seatUI.render(S.mapSite, "");
+    return '<div class="chips">' + siteNames().map(p => '<button class="pill" data-a="mapsite" data-v="' + esc(p) + '">' + esc(p) + '</button>').join("") + '</div>' + seatUI.render(S.mapSite, "") + (S.editCode && getA(S.editCode) ? '<div class="card">' + assetDrawerHtml(getA(S.editCode), lastRecordOf(S.editCode), zonesOf(getA(S.editCode).site)) + '</div>' : '');
   }
   /* ---- 入庫作業：整批建單（待入庫，不影響庫存）→ 到貨核對（手機）→ 確認入庫（此時才建設備）---- */
   function pcInbound() {
