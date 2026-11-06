@@ -28,7 +28,7 @@ export function HelpLauncher() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" side="top" sideOffset={8} className="min-w-44 max-w-64">
         <DropdownMenuGroup>
-          <DropdownMenuLabel className="font-normal">Zhuge AI OS · Multica Lab</DropdownMenuLabel>
+          <DropdownMenuLabel className="font-normal">Tron · Multica Lab</DropdownMenuLabel>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem render={<a href={DOCS_URL} target="_blank" rel="noopener noreferrer" />}>
