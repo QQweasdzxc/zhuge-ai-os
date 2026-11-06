@@ -259,7 +259,7 @@
     const r = rows[0], current = getA(code);
     const conflicts = current ? ["name", "model", "serial", "purchase"].filter((k) => current[k] && r[k] && String(current[k]).trim() !== String(r[k]).trim()) : [];
     const warning = conflicts.length ? '<div class="warn">新舊資料不同（' + esc(conflicts.join("、")) + '），保留新帳待查。</div>' : "";
-    return warning + '<div class="small legacydetail">舊帳參考（尚未確認為現況）：' + esc(r.name || "名稱未填") + " · 型號 " + esc(r.model || "未填") + " · S/N " + esc(r.serial || "舊帳未填") + '<br>出處 ' + esc(r.provenance || r.siteLead || "") + " · " + esc(r.recordKey || "") + " · 原區域 " + esc(r.zone || "未填") + " · 原位置 " + esc(r.place || "未填") + "。不自動改使用部門、專案或保管人。</div>";
+    return warning + '<div class="small legacydetail">舊帳參考（尚未確認為現況）：' + esc(r.name || "名稱未填") + " · 型號 " + esc(r.model || "未填") + " · S/N " + esc(r.serial || "舊帳未填") + '<br>出處 ' + esc(r.provenance || r.siteLead || "") + " · " + esc(r.recordKey || "") + " · 原區域 " + esc(r.zone || "未填") + " · 原位置 " + esc(r.place || "未填") + "。舊帳內容不會自動帶入使用部門、專案或保管人。</div>";
   }
 
   function editValues(x) {
@@ -790,13 +790,13 @@
       }).join("") + "</div>" +
       '<div class="lbl sim">需要你決定（' + todo.length + "）</div>" +
       '<div class="chips"><button class="pill sm' + (S.filter === "all" ? " on" : "") + '" data-a="filter" data-v="all">全部</button><button class="pill sm' + (S.filter === "todo" ? " on" : "") + '" data-a="filter" data-v="todo">只看待處理</button></div>' +
-      (shown.length === 0 ? '<div class="toast idle">沒有要處理的項目。</div>"'.replace('"</div>"', '"') : shown.map((r) => {
+      (shown.length === 0 ? '<div class="toast idle">沒有要處理的項目。</div>' : shown.map((r) => {
         const a = getA(r.code);
         return '<div class="item static">' + chip(r.status) + syncMark(r) + '<span class="iname">' + esc(a ? a.name : r.code) + '</span><span class="icode">' + esc(r.code) + "</span>" +
           '<span class="idet">' + (a ? esc(a.status) + " · S/N " + esc(a.serial || "未登記") + " · 使用部門 " + esc(a.department || "未指定") + " · 歸屬 " + esc(a.project || D.UNASSIGNED) + " · 購入 " + esc(a.purchase || "未登記") + " · 保固 " + esc(a.warranty || "未登記") + " · 登記 " + esc(a.site) + " " + esc(a.zone) + " → 現場 " + esc(S.site) + " " + esc(r.zone) : "清冊查無，需補登") + "</span>" +
           decisionButtons(r) + "</div>";
       }).join("")) +
-      '<div class="hand">接下來在電腦整理：這批掃描已寫進試算表，「電腦 · 管理編輯」的盤點差異會看到同一份。</div>' +
+      (D.isMock ? '<div class="hand">接下來：這批掃描只存在這個瀏覽器的測試資料，尚未連接試算表；正式版會把同一批寫進試算表。</div>' : '<div class="hand">接下來在電腦整理：這批掃描已寫進試算表，「電腦 · 管理編輯」的盤點差異會看到同一份。</div>') +
       '<button class="btn" data-a="mode" data-v="pc">到電腦管理端處理</button>' +
       '<button class="btn secondary" data-a="tostart">回到起點</button></div>';
   }
