@@ -103,7 +103,10 @@
       serial: g("S-N", "S/N", "序號"),
       project: g("專案"),
       scopeStatus: g("對應狀態"),
-      provenance: src + (srcRow ? " 第" + srcRow + "列" : "")
+      provenance: src + (srcRow ? " 第" + srcRow + "列" : ""),
+      /* 通用全欄帶入：保留完整表頭與原始列（僅記憶體；不進 snapshot 以外的寫入） */
+      header: (header || []).map((h) => String(h == null ? "" : h).trim()),
+      raw: (row || []).map((c) => String(c == null ? "" : c))
     };
   }
 
@@ -622,19 +625,47 @@
     /* 現場觀察（使用者 12:07 商業規則）：現場在用的設備按「使用中」記，不逐台再問；
      * 已有 待修/維修中/已報廢 的，不因再掃到自動改回可用——回 exception 給管理端提示。
      * 備用（入庫新建）不因掃描被猜成使用中；位置以最新現場觀察更新。 */
+    /* 通用全欄帶入（使用者 11/6 要求：已掃設備完整舊資料帶入新庫，非全庫遷移）：
+     * 唯一完整編號命中時，空白欄位自舊帳主檔補齊；既有新帳值永不覆寫，衝突列出保留新帳待查。
+     * 不帶入：保管人、使用部門、專案、據點區域、狀態（現場與盤點規則）。
+     * 總表_0331 依用戶 11/4 排除，不在來源內（主檔本不含總表）。 */
     legacyMetadata(code) {
+      const LEGACY_FIELD_MAP = [
+        ["name", ["名稱"]], ["model", ["型號規格", "型號"]], ["serial", ["S-N", "S/N", "序號"]],
+        ["purchase", ["採購日期"]], ["brand", ["品牌"]], ["type", ["類型"]],
+        ["mfgYear", ["製造年份"]], ["po", ["PO編號", "PO"]], ["activate", ["啟用日期"]],
+        ["warranty", ["保固到期"]], ["origin", ["產地"]]
+      ];
       const matches = this.legacyRows().filter((r) => r.code === code);
       if (matches.length !== 1) return { patch: {}, issue: matches.length > 1 ? "舊帳同編號多筆，未自動帶入" : "" };
       const r = matches[0], a = this._db().assets.find((x) => x.code === code) || {};
+      const header = Array.isArray(r.header) ? r.header : [];
+      const raw = Array.isArray(r.raw) ? r.raw : [];
+      const col = (names) => {
+        for (const nm of names) { const n = header.indexOf(nm); if (n !== -1 && String(raw[n] || "").trim()) return String(raw[n]).trim(); }
+        return "";
+      };
       const patch = {}, conflicts = [];
-      for (const k of ["name", "model", "serial", "purchase"]) {
-        if (!r[k]) continue;
-        if (!String(a[k] || "").trim()) patch[k] = r[k];
-        else if (String(a[k]).trim() !== String(r[k]).trim()) conflicts.push(k);
+      for (const [k, names] of LEGACY_FIELD_MAP) {
+        const v = col(names);
+        if (!v) continue;
+        const cur = String(a[k] || "").trim();
+        if (!cur || (k === "origin" && cur === "未確認")) patch[k] = v;
+        else if (cur !== v) conflicts.push(k);
       }
-      if (Object.keys(patch).length) Object.assign(patch, {
+      /* 無欄位需補且快照已存在：不重複寫入（避免每次掃描都產生一次儲存） */
+      if (!Object.keys(patch).length && a.legacyKey === r.recordKey && a.legacySnapshot) {
+        return { patch, issue: conflicts.length ? "舊帳與新帳欄位不同（" + conflicts.join("、") + "），保留新帳待查" : "" };
+      }
+      const srcRow = {};
+      header.forEach((h, n) => { if (h && String(raw[n] || "").trim()) srcRow[h] = String(raw[n]).trim(); });
+      Object.assign(patch, {
         legacyKey: r.recordKey, legacyProvenance: r.provenance,
-        legacySnapshot: JSON.stringify({ code: r.code, recordKey: r.recordKey, name: r.name, model: r.model, serial: r.serial, purchase: r.purchase || "", zone: r.zone, place: r.place, provenance: r.provenance }),
+        legacySnapshot: JSON.stringify({
+          code: r.code, recordKey: r.recordKey, provenance: r.provenance,
+          sources: { "整合-主檔": Object.assign({ "列": r.__row }, srcRow) },
+          "補入說明": "掃描／帶入時自動補齊空白欄位，既有新帳值不覆寫；衝突保留新帳待查。總表_0331 依 11/4 決定不作來源。"
+        }),
         legacyImportedAt: new Date().toISOString()
       });
       return { patch, issue: conflicts.length ? "舊帳與新帳欄位不同（" + conflicts.join("、") + "），保留新帳待查" : "" };
