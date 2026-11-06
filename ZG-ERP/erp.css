@@ -332,3 +332,13 @@ button.geo-kpi:hover{border-color:var(--ds-teal,#0a7)}
 .seat-help summary{cursor:pointer;font-size:12px;color:#666}
 .seat-edit-overlay{position:fixed;inset:0;background:rgba(15,15,20,.30);z-index:70}
 .seat-edit-panel{position:absolute;top:0;right:0;bottom:0;width:min(620px,97vw);overflow:auto;background:#fff;padding:14px 16px;box-shadow:-6px 0 18px rgba(0,0,0,.25)}
+
+/* hotfix7 手機掃描主畫面：相機撐滿可用寬、加高為主內容；直向影像填滿（裁上下）不左右留黑；場次資訊收摺疊 */
+@media (max-width: 699px) {
+  .view.live { height: clamp(360px, 58dvh, 560px); }
+  .view.live video { object-fit: cover; }
+  .view.camera-activate { height: min(46dvh, 400px); }
+  .scan-prog { margin: 2px 0 0; }
+}
+.scan-meta { margin-top: 8px; }
+.scan-meta summary { cursor: pointer; font-size: 12px; opacity: .75; }
