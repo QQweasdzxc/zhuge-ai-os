@@ -1,4 +1,4 @@
-/* Zhuge AI OS root router contract.
+/* Tron root router contract.
  * The root shell owns application-level destinations; modules own their
  * internal pages and may depend on shared/* only.
  */
