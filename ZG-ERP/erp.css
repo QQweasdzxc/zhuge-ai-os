@@ -342,3 +342,8 @@ button.geo-kpi:hover{border-color:var(--ds-teal,#0a7)}
 }
 .scan-meta { margin-top: 8px; }
 .scan-meta summary { cursor: pointer; font-size: 12px; opacity: .75; }
+
+/* 2026-11-06.23：掃描頁相機上方座位列直接放換座按鈕（第一屏可用） */
+.seat-above{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.seat-above .inp{width:64px;min-height:36px;padding:4px 8px}
+.legacyfull{margin-top:8px}
