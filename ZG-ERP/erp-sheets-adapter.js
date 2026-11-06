@@ -449,7 +449,7 @@
         if(!Array.isArray(body.asset)||!Array.isArray(body.record)||body.asset[0]!==intent.code||body.record[0]!==intent.sessionId||body.record[1]!==intent.code||!Number.isInteger(body.assetRow)||!Number.isInteger(body.recordRow))throw Error('掃描保存結果待查，保留輸入且不可重送');
         const db=this._db(),asset=rowToAsset(body.asset,body.assetRow-2),record=rowToRecord(body.record,body.recordRow-2),oldAsset=db.assets.find(x=>x.code===intent.code),oldRecord=db.records.find(x=>x.sessionId===intent.sessionId&&x.code===intent.code);
         if(oldAsset)Object.assign(oldAsset,asset);else db.assets.push(asset);this._originalRows=this._originalRows||{};for(const [tab,row,num]of [['assets',body.asset,body.assetRow],['records',body.record,body.recordRow]]){this._originalRows[tab]=this._originalRows[tab]||[];this._originalRows[tab][num-2]=[...row];}
-        if(body.exception)record.stateException=body.exception;if(body.metadataIssue)record.metadataIssue=body.metadataIssue;if(body.assignedProject)record.projectAssigned=body.assignedProject;if(body.departmentMismatch)record.departmentMismatch=true;
+        if(body.exception)record.stateException=body.exception;if(body.metadataIssue)record.metadataIssue=body.metadataIssue;if(body.assignedProject)record.projectAssigned=body.assignedProject;if(body.departmentMismatch)record.departmentMismatch=true;if(body.bindingConflict)record.bindingConflict=body.bindingConflict;
         const rawProject=String(record.sessProject||'').trim();
         const sessionProject=['','全部','全部專案','未指定','未指定（待確認）','未指定(待確認)'].includes(rawProject)?'':rawProject;
         const assetProject=String(asset.project||'').trim();
