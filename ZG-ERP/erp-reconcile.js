@@ -141,7 +141,7 @@
       else ambiguousUnobserved.push(g);
     });
 
-    const legacyCodes = new Set(scopedLegacy.map((r) => r.code));
+    const legacyCodes = new Set(legacy.map((r) => r.code)); // 新有舊無＝全舊帳都沒有；不隨出處篩選把別處舊帳有的設備誤列
     const newOnly = [...observed.entries()].filter(([code]) => !legacyCodes.has(code))
       .map(([code, obs]) => ({ code, observed: obs, verdict: "新增／待查", countedInNewInventory: true }));
 
