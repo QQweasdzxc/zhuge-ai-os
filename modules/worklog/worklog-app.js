@@ -3342,7 +3342,7 @@ function worklogWelcomeScreen() {
     confirm: ["Step 4 / 4", "■■■■"]
   };
   if (step === "welcome") {
-    return `<div class="wrap"><div class="card"><section class="panel welcome-panel work-identity-welcome" style="margin-top:18px"><h1>👋 歡迎來到 ZhuGe AI OS</h1><p class="work-identity-tagline">一句話記錄工作，一步步建立專屬於你的 AI 工作助理。</p><p>我是 Mr. KM，您的工作搭檔與 Knowledge Manager。</p><p>未來我會逐漸學習您的工作方式，成為最了解您的 AI 助理。</p><p>開始之前，我們先花不到一分鐘，建立您的工作身分。</p><div class="muted">工作身分是 ZhuGe AI OS 對您工作角色的理解基礎，未來 Knowledge Brain、Recommendation Engine 與 Suggestion Engine 都會以此作為 Context。</div><div class="form-actions"><button class="btn" data-work-identity-start="1">開始設定</button></div></section></div></div>`;
+    return `<div class="wrap"><div class="card"><section class="panel welcome-panel work-identity-welcome" style="margin-top:18px"><h1>👋 歡迎來到 Tron</h1><p class="work-identity-tagline">一句話記錄工作，一步步建立專屬於你的 AI 工作助理。</p><p>我是 Mr. KM，您的工作搭檔與 Knowledge Manager。</p><p>未來我會逐漸學習您的工作方式，成為最了解您的 AI 助理。</p><p>開始之前，我們先花不到一分鐘，建立您的工作身分。</p><div class="muted">工作身分是 Tron 對您工作角色的理解基礎，未來 Knowledge Brain、Recommendation Engine 與 Suggestion Engine 都會以此作為 Context。</div><div class="form-actions"><button class="btn" data-work-identity-start="1">開始設定</button></div></section></div></div>`;
   }
   if (step === "confirm") {
     const [label, bars] = progress.confirm;
@@ -4414,7 +4414,7 @@ function worklogAssistantPanel(mode = "web") {
       : `<button class="assistant-icon-action disabled" type="button" disabled title="安裝 Chrome 擴充功能（即將推出）" aria-label="安裝 Chrome 擴充功能（即將推出）">🧩</button>`)
     : "";
   const osAction = mode === "extension" || mode === "standalone"
-    ? `<a class="assistant-icon-action" href="${escapeHtml(appHomeUrl())}" target="${mode === "extension" ? "_blank" : "_self"}" rel="noopener" title="開啟 ZhuGe AI OS" aria-label="開啟 ZhuGe AI OS">🖥</a>`
+    ? `<a class="assistant-icon-action" href="${escapeHtml(appHomeUrl())}" target="${mode === "extension" ? "_blank" : "_self"}" rel="noopener" title="開啟 Tron" aria-label="開啟 Tron">🖥</a>`
     : "";
   const fullscreenAction = mode === "floating"
     ? `<a class="assistant-icon-action" href="${escapeHtml(standaloneChatUrl())}" title="全螢幕開啟" aria-label="全螢幕開啟">↗</a>`
