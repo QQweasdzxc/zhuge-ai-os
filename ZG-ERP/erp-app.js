@@ -528,7 +528,7 @@
     setTimeout(refreshSyncBadge, 0); /* 整頁重繪會重建徽章（預設隱藏），重繪後立刻補上內容 */
     return '<div id="erp-sync-badge" class="syncbadge" style="display:none"></div><div id="erp-version-badge" class="versionbadge" style="display:none"></div>';
   }
-  const LOADED_BUILD = { id: "2026-11-06.14" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
+  const LOADED_BUILD = { id: "2026-11-06.16" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
   async function checkAppVersion() {
     if (D.isMock) return;
     try {
@@ -536,7 +536,7 @@
       if (!res.ok) return;
       const v = await res.json();
       S.manifest = v;
-      if (v.build === LOADED_BUILD.id) S.servedAt = res.headers.get("last-modified") || "";
+      S.servedAt = res.headers.get("last-modified") || ""; /* 發布時間以版本檔 Last-Modified 為準，與建置號是否相符無關 */
       S.newerVersion = !!(v.build && v.build !== LOADED_BUILD.id);
       refreshVersionBadge();
     } catch (e) { /* 版本檢查失敗不擋使用 */ }
