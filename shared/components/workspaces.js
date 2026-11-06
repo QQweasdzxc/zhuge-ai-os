@@ -1,4 +1,4 @@
-/* Zhuge AI OS Foundation v1.0: module contract. */
+/* Tron Foundation v1.0: module contract. */
 (function (global) {
   const normalize = (id = "dashboard") => ({
     id,

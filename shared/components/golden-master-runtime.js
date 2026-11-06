@@ -768,7 +768,7 @@
   function renderSystemMaps(systemMaps) {
     const zone = document.getElementById("systemMapCards");
     if (!zone) return;
-    const fallback = [{ code: "CURRENT-SYSTEM-MAP", title: "Zhuge AI OS Current System Map", summary: "Shared Identity、Shared Navigation、Shared Supabase Gateway，以及 WorkLog、Investment、AI Board 的目前模組關係。", version: "目前資料尚待補充" }];
+    const fallback = [{ code: "CURRENT-SYSTEM-MAP", title: "Tron Current System Map", summary: "Shared Identity、Shared Navigation、Shared Supabase Gateway，以及 WorkLog、Investment、AI Board 的目前模組關係。", version: "目前資料尚待補充" }];
     zone.replaceChildren();
     const rows = systemMaps.length ? systemMaps : fallback;
     zone.innerHTML = rows.map(item => `<article class="system-map-card"><div class="code">${esc(item.code || "SYSTEM-MAP")}</div><h3>${esc(item.title)}</h3><p>${esc(item.summary || "尚未補充系統藍圖內容")}</p><div class="meta"><span class="tag">Current Architecture</span>${item.version ? `<span class="tag">v${esc(item.version)}</span>` : ""}</div></article>`).join("");
@@ -1041,7 +1041,7 @@
     if (state.applicationScope !== "c" && !state.cNativeWorkTodo) return;
     const label = workItemLabel();
     if (state.cNativeWorkTodo && root.document) {
-      root.document.title = "Zhuge AI OS｜WorkTodo";
+      root.document.title = "Tron｜WorkTodo";
     }
     const addModal = document.getElementById("addCardModal");
     const addTitle = addModal?.querySelector(".modalhead h2");
@@ -1721,7 +1721,7 @@
           <label class="ws-field"><span>回報通知 CC</span><input type="text" data-ws-progress-cc value="${esc(progressCc)}" placeholder="manager@company.com"></label>
           <label class="ws-field"><span>回報通知 BCC</span><input type="text" data-ws-progress-bcc value="${esc(progressBcc)}" placeholder="audit@company.com"></label>
         </div>
-        <small class="ws-help">通知信會附上此卡片的直接連結；收件人仍須具備 Zhuge AI OS 的登入與該卡片存取權限。</small>
+        <small class="ws-help">通知信會附上此卡片的直接連結；收件人仍須具備 Tron 的登入與該卡片存取權限。</small>
       </section>
       <footer><button type="button" data-ws-cancel>取消</button><button type="button" class="primary" data-ws-save>儲存設定</button></footer>
     </section>`;
@@ -1983,7 +1983,7 @@
     section.className = "board-subview creator-mfa-settings-view";
     section.dataset.boardView = "security";
     section.hidden = true;
-    section.innerHTML = `<header class="subview-header"><div><span class="subview-kicker">AI Board／安全設定</span><h2>🔐 安全設定</h2><p>管理 Investment 與 AI Board 需要額外確認的操作。</p></div><span class="subview-source">來源：Zhuge AI OS 安全設定</span></header><div class="creator-mfa-settings-card"><div class="creator-mfa-settings-list" data-creator-mfa-list></div><p class="creator-mfa-settings-note" data-creator-mfa-note>設定只會保存於系統安全設定。</p></div>`;
+    section.innerHTML = `<header class="subview-header"><div><span class="subview-kicker">AI Board／安全設定</span><h2>🔐 安全設定</h2><p>管理 Investment 與 AI Board 需要額外確認的操作。</p></div><span class="subview-source">來源：Tron 安全設定</span></header><div class="creator-mfa-settings-card"><div class="creator-mfa-settings-list" data-creator-mfa-list></div><p class="creator-mfa-settings-note" data-creator-mfa-note>設定只會保存於系統安全設定。</p></div>`;
     content.appendChild(section);
 
     const settingGroups = Object.freeze([
@@ -2877,7 +2877,7 @@
     const aiResult = result.aiResult || null;
     const aiOutput = aiResult?.status === "ready" && aiResult.output && typeof aiResult.output === "object" ? aiResult.output : null;
     const aiMarkup = aiOutput
-      ? `<section class="shared-attachment-ai-result" data-state="ready"><strong>諸葛 AI 閱讀</strong><p>${esc(aiOutput.summary || "目前沒有可驗證摘要。")}</p>${Array.isArray(aiOutput.observations) && aiOutput.observations.length ? `<ul>${aiOutput.observations.map(item => `<li>${esc(item)}</li>`).join("")}</ul>` : ""}${Array.isArray(aiOutput.uncertainties) && aiOutput.uncertainties.length ? `<small>仍需確認：${esc(aiOutput.uncertainties.join("、"))}</small>` : ""}</section>`
+      ? `<section class="shared-attachment-ai-result" data-state="ready"><strong>Tron AI 閱讀</strong><p>${esc(aiOutput.summary || "目前沒有可驗證摘要。")}</p>${Array.isArray(aiOutput.observations) && aiOutput.observations.length ? `<ul>${aiOutput.observations.map(item => `<li>${esc(item)}</li>`).join("")}</ul>` : ""}${Array.isArray(aiOutput.uncertainties) && aiOutput.uncertainties.length ? `<small>仍需確認：${esc(aiOutput.uncertainties.join("、"))}</small>` : ""}</section>`
       : aiResult
         ? `<small class="shared-attachment-ai-status" data-state="${esc(String(aiResult.status || "unavailable"))}">AI 閱讀：${esc(aiResult.nextStep || aiResult.reason || "目前沒有可驗證 AI 摘要。")}</small>`
         : "";
@@ -4983,7 +4983,7 @@
         throw error;
       }
       const loginLink = "../../../?app=1";
-      const message = error && error.code === "BOARD_SESSION_REQUIRED" ? "請先登入 Zhuge AI OS，再開啟 AI Board。<a href=\"" + loginLink + "\">前往登入</a>" : "正式 Cloud Read 失敗：" + esc(error && error.message || "未知錯誤") + "。請重新整理或確認 Shared Session。";
+      const message = error && error.code === "BOARD_SESSION_REQUIRED" ? "請先登入 Tron，再開啟 AI Board。<a href=\"" + loginLink + "\">前往登入</a>" : "正式 Cloud Read 失敗：" + esc(error && error.message || "未知錯誤") + "。請重新整理或確認 Shared Session。";
       setBanner(message, "error");
       root.ZhugeSharedNavigation?.setSyncStatus?.({ label: "🔴 同步失敗", time: "請重新整理", state: "error" });
       throw error;
@@ -5205,7 +5205,7 @@
     const procurement = isProcurementMode();
     renderAccessState({
       title: procurement ? "請先登入庶務行政" : workTodo ? "請先登入工作待辦" : "請先登入 AI Board",
-      message: procurement ? "庶務行政需要目前登入的 UUID，才能只呈現自己的正式 GAS 資料。" : workTodo ? "工作待辦需要目前登入的 UUID，才能只讀寫自己的正式資料。" : "AI Board 包含工程治理、GPT 審查與 Co 協作資料，請先登入 Zhuge AI OS。",
+      message: procurement ? "庶務行政需要目前登入的 UUID，才能只呈現自己的正式 GAS 資料。" : workTodo ? "工作待辦需要目前登入的 UUID，才能只讀寫自己的正式資料。" : "AI Board 包含工程治理、GPT 審查與 Co 協作資料，請先登入 Tron。",
       kind: "login",
       body: `<div class="board-access-actions"><a class="btn primary" href="../../../?app=1">前往登入</a><a class="btn" href="../../../app/dashboard/">回到 Dashboard</a></div>`
     });

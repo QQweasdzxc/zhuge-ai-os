@@ -1,4 +1,4 @@
-/* Zhuge AI OS Shared App Shell presentation adapter.
+/* Tron Shared App Shell presentation adapter.
  *
  * The existing ZhugeSharedNavigation remains the single source for the
  * sidebar. This adapter owns only the shared page header so modules can keep
@@ -44,7 +44,7 @@
 
   function renderHeader(options = {}) {
     const identity = identityInfo(options);
-    const title = options.title || "Zhuge AI OS";
+    const title = options.title || "Tron";
     const description = options.description || "AI 工作管理平台";
     const requestedActionMarkup = options.actionMarkup || (options.actionLabel
       ? `<button class="btn" type="button" ${options.actionId ? `id="${esc(options.actionId)}"` : ""} ${options.actionData ? esc(options.actionData) : ""}>${esc(options.actionLabel)}</button>`
@@ -55,13 +55,13 @@
     const actionMarkup = /work-identity-header-status/.test(requestedActionMarkup) ? "" : requestedActionMarkup;
     const actions = actionMarkup ? `<div class="actions zhuge-shared-header-actions">${actionMarkup}</div>` : "";
     const id = options.id ? ` id="${esc(options.id)}"` : "";
-    const navigationMenu = options.showNavigationMenu === false ? "" : `<button class="mini adaptive-menu zhuge-shared-menu" type="button" data-toggle-sidebar="1" aria-label="開啟 Zhuge AI OS 導覽" aria-expanded="false" aria-controls="zhugeSharedNavigationPanel">☰</button>`;
+    const navigationMenu = options.showNavigationMenu === false ? "" : `<button class="mini adaptive-menu zhuge-shared-menu" type="button" data-toggle-sidebar="1" aria-label="開啟 Tron 導覽" aria-expanded="false" aria-controls="zhugeSharedNavigationPanel">☰</button>`;
     return `<header${id} class="workspace-shell-header zhuge-shared-header" data-zhuge-shared-header="true" data-mounted="true"><div class="zhuge-shared-header-main">${navigationMenu}<div class="zhuge-shared-header-copy"><h1 title="${esc(title)}">${esc(title)}</h1><p title="${esc(description)}">${esc(description)}</p></div></div><div class="zhuge-shared-header-right">${renderIdentity(identity, options)}${actions}</div></header>`;
   }
 
   function optionsFromTarget(target) {
     return {
-      title: target.dataset.title || "Zhuge AI OS",
+      title: target.dataset.title || "Tron",
       description: target.dataset.description || "AI 工作管理平台",
       actionLabel: target.dataset.actionLabel || "",
       actionId: target.dataset.actionId || "",

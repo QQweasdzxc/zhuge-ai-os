@@ -700,7 +700,7 @@
     return {
       key: "system",
       label: "System",
-      detail: "Zhuge AI OS",
+      detail: "Tron",
       status: "na",
       children: moduleNodes
     };

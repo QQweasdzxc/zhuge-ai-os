@@ -1,5 +1,5 @@
 /*
- * Zhuge AI OS System Template Catalog.
+ * Tron System Template Catalog.
  *
  * C is the one operational motherboard. Board consumers apply this shared
  * presentation/runtime and retain only their own data and permission wiring.
