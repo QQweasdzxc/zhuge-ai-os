@@ -1,7 +1,8 @@
 (function(g){'use strict';
+function readZoom(){try{const v=localStorage.getItem('zg_erp_seat_zoom');return v==null?true:v==='1'}catch(e){return true}}
 const C=g.ErpSeatCore,esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function create(store,rerender){
- let hooks=null;const S={loaded:false,busy:false,error:'',draft:null,selected:1,mapId:'',name:'',notice:'',pending:null,scanSelected:false,zoom:false,pickFor:'',conflictSeat:null};
+ let hooks=null;const S={loaded:false,busy:false,error:'',draft:null,selected:1,mapId:'',name:'',notice:'',pending:null,scanSelected:false,zoom:readZoom(),pickFor:'',conflictSeat:null};
  const model=()=>C.reduce(store.seatRows||[]);
  const isMock=()=>!!(g.ZgErpData&&g.ZgErpData.isMock);
  const mapFor=(site,zone)=>{const maps=model().maps.filter(m=>m.site===site&&(!zone||m.zone===zone));return maps.find(m=>m.id===S.mapId)||maps[maps.length-1]};
@@ -30,7 +31,7 @@ function create(store,rerender){
  if(action==='mark-public'||action==='unmark-public'){const m0=model().maps.find(x=>S.curKey&&S.curKey.indexOf(x.id+':')===0);if(!m0)return;const cur=model().occupants[m0.id+':'+S.selected];const pub=action==='mark-public';if(pub&&cur&&cur.data.name)throw Error('這個座位已有使用人姓名，不能直接標為公共區域；請先清空姓名。');await event('occupant',m0,S.selected,'',{name:'',public:pub,previous:(cur&&cur.id)||''});S.notice=(pub?'已標為公共區域：不填個人姓名，保管人與部門未動。':'已取消公共區域標記。')+(isMock()?'（隔離測試，未寫入正式資料）':'');S.popup=null;rerender();return}
  if(action==='plan-clear'){S.plan=null;rerender();return}
  if(action==='plan-apply'){const P=S.plan;if(!P||!P.todo||!P.todo.length)return;S.busy=true;rerender();let ok=0,skipped=0;try{const m=model().maps.find(x=>x.id===P.mapId);if(!m)throw Error('座位圖已變更，請重新選檔');for(const t of P.todo){await store.loadSeatMap();const cur=model().occupants[m.id+':'+t.seat];if(cur&&cur.data&&(cur.data.name||cur.data.public)){skipped++;continue}await event('occupant',m,t.seat,'',{name:t.name,previous:(cur&&cur.id)||'',source:'name-plan'});ok++}await store.loadSeatMap();S.notice='已寫入 '+ok+' 個座位的使用人'+(skipped?'；'+skipped+' 個在寫入前已有人填寫或被標為公共區域，沒有覆蓋':'')+'。保管人與設備綁定未動。'}catch(e){S.error='寫入到第 '+ok+' 個就中斷：'+e.message+'。已寫入的保留；重新選同一個檔案會只補還沒有的。'}finally{S.busy=false;S.plan=null;rerender()}return}
- if(action==='zoom'){S.zoom=!S.zoom;rerender();return}
+ if(action==='zoom'){S.zoom=!S.zoom;try{localStorage.setItem('zg_erp_seat_zoom',S.zoom?'1':'0')}catch(e){}rerender();return}
  if(action==='picktoggle'){S.pickFor=S.pickFor===ctx.code?'':(ctx.code||'');rerender();return}
  if(action==='close-popup'){S.popup=null;S.conflictSeat=null;rerender();return}
  if(action==='select'){const box=document.querySelector('.seat-layout-scroll'),xy=box&&[box.scrollLeft,box.scrollTop];S.gridOpen=true;S.selected=Number(ctx.number);S.scanSelected=true;S.editing=null;S.conflictSeat=null;S.popup=S.selected;rerender();const next=document.querySelector('.seat-layout-scroll');if(next&&xy){next.scrollLeft=xy[0];next.scrollTop=xy[1]}return}
