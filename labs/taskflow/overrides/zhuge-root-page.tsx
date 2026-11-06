@@ -3,8 +3,8 @@ import { RedirectIfAuthenticated } from "@/features/landing/components/redirect-
 import { MulticaBrandMark } from "@/components/zhuge-multica-brand";
 
 export const metadata: Metadata = {
-  title: { absolute: "Multica Agent Lab · Zhuge AI OS" },
-  description: "Zhuge AI OS 的 Multica 原生 Agent 協作實驗場域。",
+  title: { absolute: "Multica Agent Lab · Tron" },
+  description: "Tron 的 Multica 原生 Agent 協作實驗場域。",
 };
 
 export default function LandingPage() {
@@ -16,19 +16,19 @@ export default function LandingPage() {
           <section className="w-full rounded-2xl border border-border bg-card p-7 shadow-sm sm:p-10">
             <div className="flex items-center gap-2 text-foreground">
               <MulticaBrandMark className="flex items-center gap-2" />
-              <span className="text-xs text-muted-foreground">· ZHUGE AI OS LAB</span>
+              <span className="text-xs text-muted-foreground">· TRON LAB</span>
             </div>
             <h1 className="mt-3 text-3xl font-semibold tracking-tight">Multica Agent Lab</h1>
             <p className="mt-4 leading-7 text-muted-foreground">
-              這是 Zhuge AI OS 內的 Multica 實驗場域。人類身分、UUID 與 Workspace 邊界由 Zhuge 管理；
+              這是 Tron 內的 Multica 實驗場域。人類身分、UUID 與 Workspace 邊界由 Tron 管理；
               Multica 保留原生 Issues、Agents、Runs、Runtimes、Skills、Squads 與 Autopilot 體驗。
             </p>
             <div className="mt-7 rounded-xl border border-border bg-muted/30 p-4 text-sm leading-6">
-              <strong>請從 Zhuge AI OS 的 Lab 入口進入。</strong>
+              <strong>請從 Tron 的 Lab 入口進入。</strong>
               <p className="mt-1 text-muted-foreground">此技術網址不提供另一套註冊、OTP 或 Multica Cloud 帳號。</p>
             </div>
             <div className="mt-6 flex flex-wrap gap-3">
-              <a href="https://qqweasdzxc.github.io/zhuge-ai-os/" className="inline-flex h-10 items-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground">回到 Zhuge AI OS</a>
+              <a href="https://qqweasdzxc.github.io/zhuge-ai-os/" className="inline-flex h-10 items-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground">回到 Tron</a>
               <a href="https://github.com/multica-ai/multica" target="_blank" rel="noopener noreferrer" className="inline-flex h-10 items-center rounded-lg border border-border px-4 text-sm font-medium">查看上游原始碼</a>
             </div>
             <footer className="mt-8 border-t border-border pt-4 text-xs text-muted-foreground">

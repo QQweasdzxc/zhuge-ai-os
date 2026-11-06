@@ -68,7 +68,7 @@ must_replace(sidebar, '            <JoinDiscordCard />\n', '')
 must_replace(
     sidebar,
     '<DropdownMenuItem variant="destructive" onClick={logout}>\n                      <LogOut className="h-3.5 w-3.5" />\n                      {t(($) => $.sidebar.log_out)}\n                    </DropdownMenuItem>',
-    '<DropdownMenuItem\n                      onClick={() => {\n                        logout();\n                        window.location.assign("https://qqweasdzxc.github.io/zhuge-ai-os/");\n                      }}\n                    >\n                      <LogOut className="h-3.5 w-3.5" />\n                      返回 Zhuge AI OS\n                    </DropdownMenuItem>'
+    '<DropdownMenuItem\n                      onClick={() => {\n                        logout();\n                        window.location.assign("https://qqweasdzxc.github.io/zhuge-ai-os/");\n                      }}\n                    >\n                      <LogOut className="h-3.5 w-3.5" />\n                      返回 Tron\n                    </DropdownMenuItem>'
 )
 
 # ---------------------------------------------------------------------------
@@ -87,12 +87,12 @@ must_replace(
 # profile description/preferences so the native product can still be evaluated.
 # ---------------------------------------------------------------------------
 account = "packages/views/settings/components/account-tab.tsx"
-must_replace(account, 'description={t(($) => $.account.click_avatar_hint)}', 'description="由 Zhuge AI OS 管理"')
+must_replace(account, 'description={t(($) => $.account.click_avatar_hint)}', 'description="由 Tron 管理"')
 must_replace(account, '                size={64}\n                onUploaded=', '                size={64}\n                disabled\n                onUploaded=')
 must_replace(
     account,
     '            label={t(($) => $.account.name_label)}\n            size="text"',
-    '            label={t(($) => $.account.name_label)}\n            description="由 Zhuge AI OS 管理"\n            size="text"'
+    '            label={t(($) => $.account.name_label)}\n            description="由 Tron 管理"\n            size="text"'
 )
 must_replace(account, '              value={profileName}\n              onChange=', '              value={profileName}\n              disabled\n              onChange=')
 
