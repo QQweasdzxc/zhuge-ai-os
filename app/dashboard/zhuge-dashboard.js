@@ -1,4 +1,4 @@
-/* Sprint 5.0: root Zhuge AI OS dashboard presentation only.
+/* Sprint 5.0: root Tron dashboard presentation only.
  * Authentication and module state remain owned by the existing WorkLog shell.
  */
 function zhugeRootInitials(identity = {}) {
