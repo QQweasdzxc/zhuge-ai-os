@@ -1,0 +1,106 @@
+@import url("./tokens.css");
+@import url("./responsive.css");
+@import url("./feedback.css");
+@import url("./core-components.css");
+
+/* Shared page frame. Product-wide tokens are owned by tokens.css; modules
+ * own their content and may only add scoped presentation aliases. */
+:root {
+  /* Canonical Shared App Shell geometry.  Modules may shape their content,
+   * but the outer frame, header rhythm and main gutter use these tokens. */
+}
+
+/* Sole geometry authority for headers rendered by ZhugeSharedShell. */
+.zhuge-shared-header,
+.zhuge-module-shell .workspace-shell-header.zhuge-shared-header {
+  width: 100%; min-width: 0; height: auto; min-height: var(--shell-header-height);
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--shell-header-gap);
+  padding: var(--shell-header-padding-block) var(--shell-header-padding-inline);
+  border: 1px solid #173242; border-radius: var(--shell-radius);
+  background: #0b1520; color: #f8fafc; box-shadow: 0 10px 30px rgba(2,6,23,.14);
+  box-sizing: border-box;
+  font: 16px -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",Arial,sans-serif;
+  line-height: normal;
+}
+.zhuge-shared-header-main { display: flex; align-items: center; gap: var(--shell-header-gap); min-width: 0; flex: 1; }
+.zhuge-shared-menu { display: none; flex: 0 0 auto; }
+.zhuge-shared-header-copy { min-width: 0; }
+.zhuge-shared-header h1 { color: inherit; margin: 0; font-size: 1.25rem; line-height: 1.25; }
+.zhuge-shared-header-copy > p:last-child { margin: 2px 0 0; color: #cbd5e1; font-size: .75rem; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zhuge-shared-header-right { display: flex; align-items: center; justify-content: flex-end; gap: var(--shell-header-gap); min-width: 0; }
+.zhuge-shared-identity { display: flex; align-items: center; gap: 6px; min-width: 0; max-width: 180px; border: 1px solid #173242; border-radius: 10px; background: #0d1a24; padding: 5px 8px; }
+.zhuge-shared-identity-dot { width: 8px; height: 8px; border-radius: 50%; background: #f59e0b; flex: 0 0 auto; }
+.zhuge-shared-identity-dot.is-authenticated { background: #22c55e; }
+.zhuge-shared-identity-copy { display: flex; flex-direction: column; min-width: 0; }
+.zhuge-shared-identity-copy strong { font-size: .75rem; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zhuge-shared-identity-copy small { color: #94a3b8; font-size: .6875rem; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zhuge-shared-header-actions { margin: 0; display: flex; align-items: center; gap: var(--shell-header-gap); }
+.zhuge-shared-header-build { color: #94a3b8; font-size: .68rem; white-space: nowrap; }
+.zhuge-shared-header :is(button, .btn, .btn2, summary, [role="button"]),
+.zhuge-module-shell .workspace-shell-header.zhuge-shared-header :is(button, .btn, .btn2, summary, [role="button"]) {
+  box-sizing: border-box; min-width: var(--zhuge-touch-target-min); min-height: var(--zhuge-touch-target-min);
+  flex-shrink: 0;
+}
+@media (max-width: 1180px) {
+  .zhuge-shared-header,
+  .zhuge-module-shell .workspace-shell-header.zhuge-shared-header {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(100px, 36%);
+    grid-template-rows: minmax(44px, auto) auto;
+    min-height: var(--shell-header-mobile-height); align-items: center;
+  }
+  .zhuge-shared-header-main { grid-column: 1; grid-row: 1; }
+  .zhuge-shared-header-right { display: contents; }
+  .zhuge-shared-header-right > .zhuge-shared-identity { grid-column: 2; grid-row: 1; justify-self: end; max-width: 100%; }
+  .zhuge-shared-header .zhuge-shared-header-actions > div { display: flex; flex-wrap: nowrap; flex-shrink: 0; }
+  .zhuge-shared-header-actions { grid-column: 1 / -1; grid-row: 2; min-width: 0; flex-wrap: nowrap; overflow-x: auto; max-width: 100%; }
+  /* Tool menus must escape the scrolling action row; otherwise their popup
+   * is clipped. On narrow headers they use the existing fixed overlay layer. */
+  .zhuge-shared-header .zhuge-shared-header-actions .board-header-status-popover { position: fixed; top: calc(var(--shell-header-mobile-height) + 18px); left: 16px; right: 16px; width: auto; max-height: calc(100dvh - var(--shell-header-mobile-height) - 34px); overflow-y: auto; }
+  .zhuge-shared-header h1 { font-size: 1.125rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .zhuge-shared-header:has(.zhuge-shared-header-actions:empty),
+  .zhuge-shared-header:not(:has(.zhuge-shared-header-actions)),
+  .zhuge-module-shell .workspace-shell-header.zhuge-shared-header:has(.zhuge-shared-header-actions:empty),
+  .zhuge-module-shell .workspace-shell-header.zhuge-shared-header:not(:has(.zhuge-shared-header-actions)) { min-height: var(--shell-header-height); grid-template-rows: minmax(44px, auto); }
+}
+.zhuge-module-shell>.workspace-app,.zhuge-module-shell>.app{min-width:0;width:100%}.workspace-content-container,.workspace-canvas{min-width:0;max-width:none}
+.os-shell.zhuge-module-shell{max-width:none;margin:0}.os-shell.zhuge-module-shell>.os-main{min-width:0;width:100%}.os-shell.zhuge-module-shell>.sidebar-backdrop{display:none}
+.zhuge-dashboard-shell .page-shell{width:100%;max-width:none;margin:0;padding:0 0 40px}.zhuge-dashboard-shell .section-heading{margin-top:0}
+.zhuge-dashboard-shell>.workspace-app{min-width:0;padding:0;box-sizing:border-box}
+.investment-module-shell>.workspace-app{min-width:0;padding:0;box-sizing:border-box}
+.zhuge-dashboard-shell .page-shell,.zhuge-dashboard-shell .page-shell h1,.zhuge-dashboard-shell .page-shell h2,.zhuge-dashboard-shell .page-shell p{min-width:0;max-width:100%;overflow-wrap:anywhere;word-break:break-word}.zhuge-dashboard-shell .identity-hub>div{min-width:0;max-width:100%}
+.zhuge-module-shell.zhuge-nav-collapsed>.workspace-app,.zhuge-module-shell.zhuge-nav-collapsed>.app{min-width:0}
+
+/* Wide desktop uses the circular shared rail control as the only Sidebar
+ * controller.  The hamburger remains available only to tablet/mobile
+ * navigation patterns, where the rail is no longer persistently visible. */
+@media (min-width: 768px) and (max-width: 1180px){.zhuge-shared-menu{display:inline-flex}}
+@media (min-width: 1181px){
+  .zhuge-shared-menu{display:none!important}
+  .zhuge-module-shell.zhuge-nav-collapsed .zhuge-shared-menu{display:none!important}
+}
+@media(max-width:767px){.zhuge-shared-menu{display:inline-flex}.zhuge-dashboard-shell .identity-hub{gap:14px}.zhuge-dashboard-shell .primary-action{white-space:normal;text-align:center;max-width:100%}}
+@media(max-width:900px){.zhuge-dashboard-shell>.workspace-app,.investment-module-shell>.workspace-app{padding:0}}
+@media(max-width:767px){.zhuge-dashboard-shell>.workspace-app,.investment-module-shell>.workspace-app{padding:0}}
+
+/* Tron 全站主題覆蓋（候選）：藍橘雙光、切角主按鈕、面板細邊光；語義色不動 */
+.zhuge-shared-header,
+.zhuge-module-shell .workspace-shell-header.zhuge-shared-header { background:#0b1520; border-color:#173242; box-shadow:0 1px 0 rgba(47,215,245,.28), 0 10px 30px rgba(2,6,23,.3); }
+.zhuge-shared-header h1 { letter-spacing:1px; }
+.zhuge-shared-identity { background:#08101a; border-color:#173242; }
+.zhuge-core-button[data-variant="primary"],
+.zhuge-dashboard-shell .dashboard-auth-strip .primary-action.primary-action,
+.appearance-segmented button.is-selected.is-selected { background:#2a1503; border:2px solid #ff9a3c; color:#ffc58f; border-radius:6px; clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px); box-shadow:inset 0 0 0 3px #060b12, inset 0 0 0 4.5px #2fd7f5; }
+.zhuge-module-shell a, .zhuge-dashboard-shell a { color:#6ff3ff; }
+
+/* Tron 淺色模式可讀性修正：連結/頁尾用深青，不用亮青 */
+html[data-theme="light"] .zhuge-module-shell a, html[data-theme="light"] .zhuge-dashboard-shell a { color:#0b7a94; }
+html[data-theme="light"] .zhuge-module-shell a:hover, html[data-theme="light"] .zhuge-dashboard-shell a:hover { color:#c2410c; }
+html[data-theme="light"] .zhuge-dashboard-shell .site-footer a { color:#3d4a5c; }
+html[data-theme="light"] .zhuge-dashboard-shell .site-footer a:hover { color:#c2410c; }
+
+@media (prefers-color-scheme: light) {
+  html[data-theme="system"] .zhuge-module-shell a, html[data-theme="system"] .zhuge-dashboard-shell a { color:#0b7a94; }
+  html[data-theme="system"] .zhuge-module-shell a:hover, html[data-theme="system"] .zhuge-dashboard-shell a:hover { color:#c2410c; }
+  html[data-theme="system"] .zhuge-dashboard-shell .site-footer a { color:#3d4a5c; }
+}
