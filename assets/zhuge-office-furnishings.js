@@ -1,4 +1,4 @@
-/* Zhuge AI OS P1 — scene furnishings; static navigation only, no fake agent/CLI state. */
+/* Tron P1 — scene furnishings; static navigation only, no fake agent/CLI state. */
 (function () {
   "use strict";
   const current = new URL(location.href);
@@ -65,7 +65,7 @@
     const board = node("section", "zgf-awards");
     board.id = "zgf-trophy-board";
     board.dataset.sceneAnchor = "core:recepcao";
-    board.setAttribute("aria-label", "Zhuge AI OS 作品獎牌牆");
+    board.setAttribute("aria-label", "Tron 作品獎牌牆");
     const boardHeader = node("div", "zgf-board-header");
     boardHeader.append(node("span", "zgf-board-title", "★ 作品獎牌牆"));
     const toggle = node("button", "zgf-board-toggle", "−");
@@ -79,7 +79,7 @@
       { id: "taskflow", title: "TaskFlow", caption: "正式大廳", glyph: "TF", note: "AI 工程任務與專案協作的正式作品入口。" },
       { id: "worklog", title: "WorkLog", caption: "工時作品", glyph: "WL", note: "工時、工作紀錄與待辦管理的作品入口。" },
       { id: "investment", title: "Investment", caption: "投資作品", glyph: "IV", note: "投資研究與資產觀察的作品入口。" },
-      { id: "lab", title: "Lab", caption: "實驗室", glyph: "LB", note: "Zhuge AI OS Labs 的功能實驗與作品集合。" }
+      { id: "lab", title: "Lab", caption: "實驗室", glyph: "LB", note: "Tron Labs 的功能實驗與作品集合。" }
     ];
     const details = node("section", "zgf-work-details");
     details.id = "zgf-work-details";
