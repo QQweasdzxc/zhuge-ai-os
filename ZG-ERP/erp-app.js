@@ -12,8 +12,8 @@
   const geoUI = window.ErpGeoOverview ? window.ErpGeoOverview.create(store, () => render()) : null;
   const repairUI=window.ErpRepairUI?window.ErpRepairUI.create(store,()=>render()):null;
   const differenceUI=window.ErpDifferenceUI?window.ErpDifferenceUI.create(store,()=>render()):null;
-  const LABEL = { ok: "相符", zone: "位置不符", site: "異地設備", none: "查無編號", dup: "重複掃描" };
-  const GLYPH = { ok: "✓", zone: "≠", site: "⇄", none: "?", dup: "×2" };
+  const LABEL = { ok: "相符", zone: "位置不符", site: "異地設備", none: "查無編號", dup: "重複掃描", seat: "座位差異" };
+  const GLYPH = { ok: "✓", zone: "≠", site: "⇄", none: "?", dup: "×2", seat: "⚠" };
   const LOGIN_URL = "./";
 
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
@@ -22,7 +22,7 @@
     return Math.sqrt(x * x + y * y) * 6371;
   }
   function timeStr(d) { return d.toTimeString().slice(0, 8); }
-  function chip(st) { return '<span class="chip chip-' + st + '"><b>' + GLYPH[st] + "</b> " + LABEL[st] + "</span>"; }
+  function chip(st) { const g = GLYPH[st] || "•", l = LABEL[st] || String(st || "未知"); return '<span class="chip chip-' + (GLYPH[st] ? st : "unknown") + '"><b>' + g + "</b> " + l + "</span>"; }
   /* 每筆記錄的寫回狀態：失敗要看得見（未同步），進行中標同步中 */
   function syncMark(r) {
     if (D.isMock || !r) return "";
@@ -657,6 +657,7 @@
         (lastShown.metadataIssue ? '<div class="warn">' + esc(lastShown.metadataIssue) + "</div>" : "") +
         legacyDetails(r.code) +
         (lastShown.departmentMismatch ? '<div class="warn">既有使用部門與本次設定不同，保留原登記；本次觀察另外保存，待管理端確認。</div>' : "") +
+      (lastShown.bindingConflict ? '<div class="warn">' + esc(lastShown.bindingConflict) + "</div>" : "") +
         (lastShown.projMismatch && a ? '<div class="warn">歸屬專案是「' + esc((a.project || D.UNASSIGNED).replace("（測試）", "")) + "」，和這次設定的「" + esc((lastShown.sessProject || "").replace("（測試）", "")) + "」不同。已記錄，不會自動改歸屬。</div>" : "") +
         (lastShown.projectAssigned ? '<div class="tloc">原本未指定專案，已歸入「' + esc(String(lastShown.projectAssigned).replace("（測試）", "")) + "」。</div>" : "") +
         (lastShown.stateException ? '<div class="warn">' + esc(lastShown.stateException) + "。需由管理端確認後才會變更，本次掃描已照常保存。</div>" : "") +
@@ -714,7 +715,7 @@
         const a = getA(r.code);
         return '<button class="item" data-a="open" data-v="' + esc(r.code) + '">' + chip(dupFlag(r)) +
           '<span class="iname">' + (seatUI?esc(seatUI.recordLabel(r.code))+' · ':'') + esc(a ? a.name : r.code) + '</span><span class="icode">' + esc(r.code) + "</span>" +
-          (S.open === r.code ? '<span class="idet">' + (a ? esc(a.model) + " · S/N " + esc(a.serial || "未登記") + " · 狀態 " + esc(a.status) + " · 保管人 " + esc(a.owner ? (a.owner === "公用" && a.source === "盤點" ? "公用（舊版預設，未確認）" : a.owner) : "未確認") + " · 使用部門 " + esc(a.department || "未指定") + " · 歸屬 " + esc(a.project || D.UNASSIGNED) + " · 購入 " + esc(a.purchase || "未登記") + " · 啟用 " + esc(a.activate || "未登記") + " · 保固 " + esc(a.warranty || "未登記") + " · 登記 " + esc(a.site) + " " + esc(a.zone) : "清冊無此編號") + " · " + esc(new Date(r.at).toLocaleTimeString("zh-TW", { hour12: false })) + (r.n > 1 ? " · 已重複 " + r.n + " 次" : "") + (r.departmentMismatch ? " · 使用部門不同（保留原登記）" : "") + " · 本次部門 " + esc(r.department || "未指定") + (r.projMismatch ? " · 歸屬專案與本次範圍不同（未改歸屬）" : "") + (r.projectAssigned ? " · 原本未指定專案→已歸入本次專案" : "") + (r.stateException ? " · ⚠ " + esc(r.stateException) : "") + "</span>" : "") + "</button>";
+          (S.open === r.code ? '<span class="idet">' + (a ? esc(a.model) + " · S/N " + esc(a.serial || "未登記") + " · 狀態 " + esc(a.status) + " · 保管人 " + esc(a.owner ? (a.owner === "公用" && a.source === "盤點" ? "公用（舊版預設，未確認）" : a.owner) : "未確認") + " · 使用部門 " + esc(a.department || "未指定") + " · 歸屬 " + esc(a.project || D.UNASSIGNED) + " · 購入 " + esc(a.purchase || "未登記") + " · 啟用 " + esc(a.activate || "未登記") + " · 保固 " + esc(a.warranty || "未登記") + " · 登記 " + esc(a.site) + " " + esc(a.zone) : "清冊無此編號") + " · " + esc(new Date(r.at).toLocaleTimeString("zh-TW", { hour12: false })) + (r.n > 1 ? " · 已重複 " + r.n + " 次" : "") + (r.departmentMismatch ? " · 使用部門不同（保留原登記）" : "") + " · 本次部門 " + esc(r.department || "未指定") + (r.projMismatch ? " · 歸屬專案與本次範圍不同（未改歸屬）" : "") + (r.projectAssigned ? " · 原本未指定專案→已歸入本次專案" : "") + (r.stateException ? " · ⚠ " + esc(r.stateException) : "") + (r.bindingConflict ? " · ⚠ " + esc(r.bindingConflict) : "") + "</span>" : "") + "</button>";
       }).join("") + "</div>";
   }
   function decisionButtons(r) {
