@@ -306,3 +306,10 @@ button.geo-kpi:hover{border-color:var(--ds-teal,#0a7)}
 
 /* Goal-first everyday routes. */
 .goal-home{margin:12px 0}.goal-scope{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.goal-row{display:flex;align-items:center;gap:12px;justify-content:space-between}.goal-row span{min-width:0;overflow-wrap:anywhere}.goal-row button{flex-shrink:0}.goal-read{max-width:760px;margin:16px auto}.goal-home summary,.goal-setup summary,.goal-more-stats summary,.goal-map-admin summary,.goal-filters summary{min-height:44px;padding:12px;cursor:pointer}.goal-home input,.goal-scope select{font-size:16px}.goal-home h3{margin-top:20px}.goal-map-admin{margin-top:20px}.goal-read{overflow-wrap:anywhere}#goal-results{scroll-margin-top:24px}
+
+/* 座位點選編輯彈窗（ZG-59 大圖 popup） */
+.seat-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:60;display:flex;align-items:center;justify-content:center;padding:16px}
+.seat-modal{background:#fff;border-radius:12px;width:100%;max-width:420px;max-height:85vh;overflow:auto;padding:16px;box-shadow:0 8px 30px rgba(0,0,0,.25)}
+.seat-modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.seat-modal-actions{margin-top:8px}
+.seat-modal-meta{margin-top:8px}
