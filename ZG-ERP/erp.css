@@ -347,3 +347,27 @@ button.geo-kpi:hover{border-color:var(--ds-teal,#0a7)}
 .seat-above{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .seat-above .inp{width:64px;min-height:36px;padding:4px 8px}
 .legacyfull{margin-top:8px}
+
+/* 2026-11-06.30：淺/深色切換（記住選擇；座位辨識色不隨主題改變） */
+:root { --ds-surface: #fff; --ds-teal-soft: #e3f2ef; --ds-canvas: #fafafa; }
+:root[data-theme="dark"] {
+  --ds-page: #171413; --ds-ink: #ede8e6; --ds-ink-2: #b8afb1; --ds-ink-4: #8a8284;
+  --ds-hairline: #3c3637; --ds-raised: #292322; --ds-teal: #3aa897; --ds-red: #e07d68;
+  --ds-surface: #211c1b; --ds-teal-soft: #173b35; --ds-canvas: #1c1817;
+}
+:root[data-theme="dark"] :is(.card,.pill,.btn.secondary,.zonebtn,.toast,.item,.tile,.goal-th,.tabbar,.tabbar button,.drill,.mb,.phone,.desktop,button.arow,.zcard,.shead,.inp,.acard,.scard,.ptable,.prow,.scope,.workspace-more,.workspace-nav,.seat-modal,.seat-edit-panel,.seat-layout-scroll,.dnav.on,.prow:hover,.prow.sel) { background: var(--ds-surface); }
+:root[data-theme="dark"] :is(.pill.on,.mb.on,.btn) { background: var(--ds-ink); color: #171413; border-color: var(--ds-ink); }
+:root[data-theme="dark"] .btn:disabled { background: var(--ds-raised); }
+:root[data-theme="dark"] .goal-tr:nth-child(odd) { background: #242021; }
+:root[data-theme="dark"] .seat-asset-row:nth-child(even) { background: #262122; }
+:root[data-theme="dark"] .mockbar { background: #3a2f14; border-color: #6b5518; color: #e8c96e; }
+:root[data-theme="dark"] .syncbadge.ing { background: #3a3013; color: #e3b93c; }
+:root[data-theme="dark"] .syncbadge.bad { background: #3d211c; color: #e08a7c; }
+:root[data-theme="dark"] .syncmark { color: #e08a7c; }
+:root[data-theme="dark"] .syncmark.ing { color: #e3b93c; }
+:root[data-theme="dark"] .toast.syncfailed { background: #3d211c; }
+:root[data-theme="dark"] .geo-pending-badge { background: #3a3013; color: #e3b93c; }
+:root[data-theme="dark"] .versionbadge { background: rgba(33,28,27,.92); color: #a89fa1; border-color: #3c3637; }
+:root[data-theme="dark"] .seat-name { border-color: var(--ds-hairline); }
+:root[data-theme="dark"] .seat-anchor { border-color: #6a6264; }
+:root[data-theme="dark"] ::placeholder { color: var(--ds-ink-4); }
