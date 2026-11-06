@@ -379,8 +379,9 @@
     const pm = !!(a && sessProj && a.project && a.project !== D.UNASSIGNED && a.project !== sessProj); // 未指定不算衝突：依 14:30 定案歸入本次專案
     store.addRecord(S.sess, { code, status, zone: S.zone, department: S.sess.department || "", at: new Date().toISOString(), projMismatch: pm, sessProject: sessProj });
     /* 12:07 商業規則：現場掃到的設備寫進新帳（使用中）；既有待修/維修/報廢不回沖，記例外提示 */
+    let obs;
     if (typeof store.observeAsset === "function") {
-      const obs = store.observeAsset(S.sess, code, S.zone, occupantName);
+      obs = store.observeAsset(S.sess, code, S.zone, occupantName);
       const rec0 = [...curRecs()].reverse().find((r) => r.code === code);
       if (rec0 && obs && obs.ownerBroughtIn) rec0.ownerBroughtIn = obs.ownerBroughtIn;
       if (obs && (obs.exception || obs.assignedProject || obs.departmentMismatch || obs.metadataIssue)) {
@@ -616,7 +617,7 @@
     setTimeout(refreshSyncBadge, 0); /* 整頁重繪會重建徽章（預設隱藏），重繪後立刻補上內容 */
     return '<div id="erp-sync-badge" class="syncbadge" style="display:none"></div><div id="erp-version-badge" class="versionbadge" style="display:none"></div>';
   }
-  const LOADED_BUILD = { id: "2026-11-06.28" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
+  const LOADED_BUILD = { id: "2026-11-06.29" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
   async function checkAppVersion() {
     if (D.isMock) return;
     try {
