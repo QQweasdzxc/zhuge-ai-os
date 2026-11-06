@@ -82,3 +82,25 @@
 @media(max-width:767px){.zhuge-shared-menu{display:inline-flex}.zhuge-dashboard-shell .identity-hub{gap:14px}.zhuge-dashboard-shell .primary-action{white-space:normal;text-align:center;max-width:100%}}
 @media(max-width:900px){.zhuge-dashboard-shell>.workspace-app,.investment-module-shell>.workspace-app{padding:0}}
 @media(max-width:767px){.zhuge-dashboard-shell>.workspace-app,.investment-module-shell>.workspace-app{padding:0}}
+
+/* Tron 全站主題覆蓋（候選）：藍橘雙光、切角主按鈕、面板細邊光；語義色不動 */
+.zhuge-shared-header,
+.zhuge-module-shell .workspace-shell-header.zhuge-shared-header { background:#0b1520; border-color:#173242; box-shadow:0 1px 0 rgba(47,215,245,.28), 0 10px 30px rgba(2,6,23,.3); }
+.zhuge-shared-header h1 { letter-spacing:1px; }
+.zhuge-shared-identity { background:#08101a; border-color:#173242; }
+.zhuge-core-button[data-variant="primary"],
+.zhuge-dashboard-shell .dashboard-auth-strip .primary-action.primary-action,
+.appearance-segmented button.is-selected.is-selected { background:#2a1503; border:2px solid #ff9a3c; color:#ffc58f; border-radius:6px; clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px); box-shadow:inset 0 0 0 3px #060b12, inset 0 0 0 4.5px #2fd7f5; }
+.zhuge-module-shell a, .zhuge-dashboard-shell a { color:#6ff3ff; }
+
+/* Tron 淺色模式可讀性修正：連結/頁尾用深青，不用亮青 */
+html[data-theme="light"] .zhuge-module-shell a, html[data-theme="light"] .zhuge-dashboard-shell a { color:#0b7a94; }
+html[data-theme="light"] .zhuge-module-shell a:hover, html[data-theme="light"] .zhuge-dashboard-shell a:hover { color:#c2410c; }
+html[data-theme="light"] .zhuge-dashboard-shell .site-footer a { color:#3d4a5c; }
+html[data-theme="light"] .zhuge-dashboard-shell .site-footer a:hover { color:#c2410c; }
+
+@media (prefers-color-scheme: light) {
+  html[data-theme="system"] .zhuge-module-shell a, html[data-theme="system"] .zhuge-dashboard-shell a { color:#0b7a94; }
+  html[data-theme="system"] .zhuge-module-shell a:hover, html[data-theme="system"] .zhuge-dashboard-shell a:hover { color:#c2410c; }
+  html[data-theme="system"] .zhuge-dashboard-shell .site-footer a { color:#3d4a5c; }
+}
