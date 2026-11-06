@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="t d">
+  <title id="t">Tron</title>
+  <desc id="d">Tron mark v4: rounded inverted-triangle gem with diagonal fold and forward lean, orange/cyan double outline</desc>
+  <defs>
+    <radialGradient id="glow4" cx="50%" cy="46%" r="62%">
+      <stop offset="0%" stop-color="#0d2836"/>
+      <stop offset="72%" stop-color="#07121c"/>
+      <stop offset="100%" stop-color="#050b12"/>
+    </radialGradient>
+    <linearGradient id="core4" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#2fd7f5"/><stop offset="1" stop-color="#6ff3ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#glow4)"/>
+  <g transform="translate(66 62) skewX(-5) translate(-66 -62)">
+    <g id="tri4" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M36 30 H92 Q102 30 97.2 38.8 L68.8 91.2 Q64 100 59.2 91.2 L30.8 38.8 Q26 30 36 30 Z"/>
+    </g>
+    <use href="#tri4" stroke="#ff9a3c" stroke-width="13" opacity=".95"/>
+    <use href="#tri4" stroke="#050b12" stroke-width="7.5"/>
+    <use href="#tri4" stroke="url(#core4)" stroke-width="3.2"/>
+    <g id="fold4" fill="none" stroke-linecap="round">
+      <path d="M95 39 L49 66"/>
+    </g>
+    <use href="#fold4" stroke="#ff9a3c" stroke-width="7" opacity=".9"/>
+    <use href="#fold4" stroke="#050b12" stroke-width="4"/>
+    <use href="#fold4" stroke="#6ff3ff" stroke-width="1.8"/>
+    <circle cx="62" cy="52" r="4" fill="#6ff3ff"/>
+  </g>
+</svg>

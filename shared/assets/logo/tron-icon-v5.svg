@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-labelledby="t d">
+  <title id="t">Tron icon</title>
+  <desc id="d">Tron icon v5: segmented glowing identity-disc ring with gaps, inverted rounded triangle at center, orange/yellow/blue line language, hollow</desc>
+  <defs>
+    <filter id="glow5" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="3.2" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <g filter="url(#glow5)" fill="none" stroke-linecap="round">
+    <!-- segmented outer ring: cyan arcs with gaps at 12/3/6/9-ish -->
+    <g stroke="#3fdcf7" stroke-width="7">
+      <path d="M120 26 a94 94 0 0 1 78 40"/>
+      <path d="M214 96 a94 94 0 0 1 -18 84"/>
+      <path d="M186 196 a94 94 0 0 1 -96 12"/>
+      <path d="M62 196 a94 94 0 0 1 -34 -70"/>
+      <path d="M30 96 a94 94 0 0 1 52 -64"/>
+    </g>
+    <!-- yellow tick accents in two gaps -->
+    <g stroke="#ffd76a" stroke-width="7">
+      <path d="M120 26 a94 94 0 0 1 14 1.5" opacity=".95"/>
+      <path d="M186 196 a94 94 0 0 1 -12 6" opacity=".95"/>
+    </g>
+    <!-- orange mid ring, broken arc -->
+    <path d="M120 52 a68 68 0 1 1 -48 20" stroke="#ff9a3c" stroke-width="3.2" opacity=".9"/>
+    <!-- center inverted rounded triangle, layered hollow: orange trace / yellow / blue / dark core -->
+    <g stroke-linejoin="round">
+      <path d="M84 92 H156 L120 158 Z" stroke="#ff9a3c" stroke-width="15" opacity=".95"/>
+      <path d="M84 92 H156 L120 158 Z" stroke="#ffd76a" stroke-width="11" opacity=".95"/>
+      <path d="M84 92 H156 L120 158 Z" stroke="#3fdcf7" stroke-width="6.5"/>
+      <path d="M84 92 H156 L120 158 Z" stroke="#071019" stroke-width="2.6"/>
+    </g>
+    <!-- small dot below triangle tip -->
+    <circle cx="120" cy="176" r="3.4" stroke="#3fdcf7" stroke-width="2.6"/>
+  </g>
+</svg>

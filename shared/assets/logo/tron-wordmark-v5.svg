@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 180" role="img" aria-labelledby="t d">
+  <title id="t">TRON</title>
+  <desc id="d">Tron wordmark v5: thick bold-italic rounded letters, double outline orange/cyan with dark gap, motion streaks</desc>
+  <defs>
+    <linearGradient id="wg5" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#2fd7f5"/><stop offset="1" stop-color="#6ff3ff"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(30 0) skewX(-10)">
+    <g id="letters5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="26" cy="38" r="7"/>
+      <path d="M50 42 H140 M95 42 Q95 42 95 50 V126 Q95 134 103 134"/>
+      <path d="M172 134 V50 Q172 42 180 42 H208 a26 26 0 0 1 0 52 H172 M202 94 L236 134"/>
+      <path d="M322 42 a46 46 0 1 0 0.01 0"/>
+      <path d="M414 134 V50 Q414 42 422 44 L500 126 Q508 134 508 124 V42"/>
+    </g>
+    <use href="#letters5" stroke="#ff9a3c" stroke-width="26" opacity=".95"/>
+    <use href="#letters5" stroke="#050b12" stroke-width="17"/>
+    <use href="#letters5" stroke="url(#wg5)" stroke-width="7"/>
+    <circle cx="26" cy="38" r="7" fill="none" stroke="#ff9a3c" stroke-width="3"/>
+  </g>
+  <g stroke="#2fd7f5" stroke-linecap="round" fill="none">
+    <path d="M6 56 H36" stroke-width="3.5" opacity=".55"/>
+    <path d="M12 118 H34" stroke-width="3" opacity=".35"/>
+  </g>
+</svg>

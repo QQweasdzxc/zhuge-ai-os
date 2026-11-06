@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="t d">
+  <title id="t">Tron</title>
+  <desc id="d">Tron mark: chamfered inverted-triangle frame, layered cyan and orange outlines</desc>
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="46%" r="62%">
+      <stop offset="0%" stop-color="#0d2836"/>
+      <stop offset="72%" stop-color="#07121c"/>
+      <stop offset="100%" stop-color="#050b12"/>
+    </radialGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#glow)"/>
+  <g fill="none" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M30 26 H98 L112 40 L72 102 H56 L16 40 Z" stroke="#2fd7f5" stroke-width="7"/>
+    <path d="M38 33 H90 L100 44 L70 91 H58 L28 44 Z" stroke="#ff9a3c" stroke-width="5"/>
+    <path d="M45 40 H83 L90 47 L68 81 H60 L38 47 Z" stroke="#6ff3ff" stroke-width="3"/>
+  </g>
+  <circle cx="64" cy="58" r="4.5" fill="#6ff3ff"/>
+</svg>
