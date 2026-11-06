@@ -540,7 +540,7 @@
       const count = state.layers.loaded_layers.length;
       const hasError = layers.some(key => ["error", "provider_unavailable"].includes(layerState(key).state));
       setStatus(count ? `${locationLabel()}已載入 ${count} 個資料層` : `${locationLabel()}目前沒有可用資料`, hasError ? "warning" : count ? "success" : "error");
-      setState(count ? "資料已載入；請從圖層或標記查看來源、更新時間與狀態。" : "目前沒有可用 evidence，諸葛暫不做判斷。", hasError ? "warning" : count ? "success" : "error");
+      setState(count ? "資料已載入；請從圖層或標記查看來源、更新時間與狀態。" : "目前沒有可用 evidence，Tron 暫不做判斷。", hasError ? "warning" : count ? "success" : "error");
     } catch (error) {
       if (error?.name === "AbortError" || sequence !== state.requestSequence) return;
       setStatus("資料服務暫時無法讀取", "error");
