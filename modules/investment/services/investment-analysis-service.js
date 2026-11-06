@@ -227,7 +227,7 @@
         ? "已取得部分策略方向性 Evidence；請同時查看支持與反對因素。"
         : status === STATUS.PARTIAL
           ? "策略所需 Evidence 已部分取得，但目前沒有可驗證的方向性結論。"
-          : "策略所需 Evidence 尚未完整，諸葛暫時不判斷。";
+          : "策略所需 Evidence 尚未完整，Tron 暫時不判斷。";
     return Object.freeze({
       status,
       catalogCount,
@@ -354,8 +354,8 @@
       summary: status === STATUS.AVAILABLE
         ? "Technical、Fundamental、Market Phase 與 Strategy Evidence 均有資料，且來源明確提供策略區間。"
         : completeInputs
-          ? "組成分析 Evidence 已具備，但目前沒有完整且可驗證的買點、賣點與策略區間；諸葛不自行推導價位。"
-          : "組成分析 Evidence 尚未完整，諸葛不產生買點、賣點或策略區間。",
+          ? "組成分析 Evidence 已具備，但目前沒有完整且可驗證的買點、賣點與策略區間；Tron 不自行推導價位。"
+          : "組成分析 Evidence 尚未完整，Tron 不產生買點、賣點或策略區間。",
       buyPoint: zone(buyPoint, "買點"),
       sellPoint: zone(sellPoint, "賣點"),
       strategyRange: zone(strategyRange, "策略區間"),

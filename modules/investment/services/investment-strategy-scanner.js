@@ -141,7 +141,7 @@
           ? "策略所需 Evidence 已具備，可交由既有 Analysis Contract 解讀。"
           : status === STATUS.PARTIAL
             ? "策略所需 Evidence 僅部分具備；不產生完整方向結論。"
-            : "策略所需 Evidence 不足，諸葛暫時不判斷。"
+            : "策略所需 Evidence 不足，Tron 暫時不判斷。"
       });
     });
     const synthesis = analysis?.strategySynthesis || {};
