@@ -250,7 +250,7 @@ async function pollTfOnce(fetchImpl, base, now, opts) {
   const stale = () => (typeof opts.isStale === 'function' ? opts.isStale() : false);
   if (stale()) return { state: 'stale', note: '授權已變更，捨棄本次讀取' };
   const supa = opts.embeddedJwt ? null : (opts.storageGet ? readSupabaseToken(opts.storageGet) : (opts.supabaseToken || null));
-  if (!supa && !opts.embeddedJwt) return { state: 'auth-required', note: opts.embedded ? '等待內嵌授權' : '需要登入 Zhuge AI OS' };
+  if (!supa && !opts.embeddedJwt) return { state: 'auth-required', note: opts.embedded ? '等待內嵌授權' : '需要登入 Tron' };
   let ex;
   if (opts.embeddedJwt) {
     ex = { jwt: opts.embeddedJwt };
@@ -261,7 +261,7 @@ async function pollTfOnce(fetchImpl, base, now, opts) {
       return { state: 'error', note: `連線失敗：${e && e.message ? e.message : 'network'}` };
     }
   }
-  if (ex.error) return { state: 'auth-required', note: '登入狀態已失效，請重新登入 Zhuge AI OS', server: String(ex.error) };
+  if (ex.error) return { state: 'auth-required', note: '登入狀態已失效，請重新登入 Tron', server: String(ex.error) };
   let res;
   try {
     res = await fetchImpl(`${apiBase}/api/issues?limit=200`, {
@@ -278,7 +278,7 @@ async function pollTfOnce(fetchImpl, base, now, opts) {
   if (cls !== 'ok') {
     let srvMsg = '';
     try { const j = await res.json(); if (j && j.error) srvMsg = String(j.error).slice(0, 120); } catch {}
-    if (cls === 'auth-required') return { state: cls, note: '登入狀態已失效，請重新登入 Zhuge AI OS', server: srvMsg };
+    if (cls === 'auth-required') return { state: cls, note: '登入狀態已失效，請重新登入 Tron', server: srvMsg };
     if (cls === 'auth-forbidden') return { state: cls, note: '此帳號沒有此工作區權限', server: srvMsg };
     return { state: cls, note: `TaskFlow 暫時無法讀取（HTTP ${res.status}${srvMsg ? `：${srvMsg}` : ''}）`, server: srvMsg };
   }
