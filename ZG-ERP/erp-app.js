@@ -617,7 +617,7 @@
     setTimeout(refreshSyncBadge, 0); /* 整頁重繪會重建徽章（預設隱藏），重繪後立刻補上內容 */
     return '<div id="erp-sync-badge" class="syncbadge" style="display:none"></div><div id="erp-version-badge" class="versionbadge" style="display:none"></div>';
   }
-  const LOADED_BUILD = { id: "2026-11-06.29" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
+  const LOADED_BUILD = { id: "2026-11-06.30" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
   async function checkAppVersion() {
     if (D.isMock) return;
     try {
@@ -678,7 +678,7 @@
     return '<div class="loginbar">尚未登入諸葛。' + (D.isMock ? '測試資料可直接操作；正式版需要 ' : '') + '<a href="' + LOGIN_URL + '">登入諸葛</a> 才能讀寫你的試算表。</div>';
   }
   function zhugeBar() {
-    return '<div class="zhugebar"><b>諸葛</b><span>／ ZG-ERP 庫存 · 設備管理</span><a class="pill sm" style="display:inline-flex;align-items:center;text-decoration:none" href="../">返回諸葛</a></div>';
+    return '<div class="zhugebar"><b>諸葛</b><span>／ ZG-ERP 庫存 · 設備管理</span><a class="pill sm" style="display:inline-flex;align-items:center;text-decoration:none" href="../">返回諸葛</a><button class="pill sm" type="button" data-a="theme-toggle" style="flex:none">'+(document.documentElement.dataset.theme==="dark"?"淺色":"深色")+'</button></div>';
   }
   /* Goal-first shortcuts are read-only until the existing explicit edit/start actions. */
   function seatLabelFor(code){const b=seatUI&&seatUI.seatBindings&&seatUI.seatBindings();const x=b&&b[code];return x?x.zone+' · '+x.seat+'號':'座位未登記';}
@@ -1018,11 +1018,11 @@
       const cx = 10 + (i % cols) * cw, cy = 10 + Math.floor(i / cols) * 120;
       const on = sel === z;
       cells += '<g data-a="mapzone" data-v="' + esc(z) + '" style="cursor:pointer">' +
-        '<rect x="' + cx + '" y="' + cy + '" width="' + (cw - 10) + '" height="110" rx="10" fill="' + (on ? "#e3f2ef" : "#fff") + '" stroke="' + (on ? "var(--ds-teal)" : "var(--ds-hairline)") + '" stroke-width="' + (on ? 2 : 1) + '"/>' +
+        '<rect x="' + cx + '" y="' + cy + '" width="' + (cw - 10) + '" height="110" rx="10" fill="' + (on ? "var(--ds-teal-soft)" : "var(--ds-surface)") + '" stroke="' + (on ? "var(--ds-teal)" : "var(--ds-hairline)") + '" stroke-width="' + (on ? 2 : 1) + '"/>' +
         '<text x="' + (cx + 12) + '" y="' + (cy + 26) + '" font-size="13" font-weight="600" fill="var(--ds-ink)">' + esc(z) + "</text>" +
         '<text x="' + (cx + 12) + '" y="' + (cy + 46) + '" font-size="11" fill="var(--ds-ink-2)">' + zoneAssets(site, z).length + " 台設備</text></g>";
     });
-    return '<svg viewBox="0 0 ' + W + " " + H + '" style="width:100%;max-width:720px;border:1px solid var(--ds-hairline);border-radius:12px;background:#fafafa">' + cells + "</svg>";
+    return '<svg viewBox="0 0 ' + W + " " + H + '" style="width:100%;max-width:720px;border:1px solid var(--ds-hairline);border-radius:12px;background:var(--ds-canvas)">' + cells + "</svg>";
   }
   function legacyPcMap() {
     if (!S.mapSite) S.mapSite = siteNames()[0] || "";
@@ -1472,6 +1472,7 @@
       }
     }
     else if (a === "edit-rebase") {rebaseControlledEditor();return;}
+    else if (a === "theme-toggle") { const el=document.documentElement; const next=el.dataset.theme==="dark"?"light":"dark"; el.dataset.theme=next; try{localStorage.setItem("erp-theme",next)}catch(e){} render(); return; }
     else if (a === "cancel") { const hasDraft=S.editCode&&S.editDraft&&['draft','restored','restored-merged'].includes(S.draftNote);if(hasDraft&&!S.editLocked&&!S.cancelAsk){S.cancelAsk=true;render();return;}S.cancelAsk=false;if(S.editCode&&!S.editLocked&&S.draftNote!=='conflict')draftDiscardEdit(S.editCode);if(!D.isMock&&S.editCode)store.releaseAssetEdit(S.editCode).catch(()=>{});S.editCode = ""; S.editDraft = null; }
     else if (a === "save") {
       if (S.editCode && S.editDraft) {
