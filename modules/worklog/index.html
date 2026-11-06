@@ -3,13 +3,13 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="description" content="Zhuge AI OS 是一套 AI 工作管理平台，提供文件管理與 AI 知識整理。">
+    <meta name="description" content="Tron 是一套 AI 工作管理平台，提供文件管理與 AI 知識整理。">
     <meta name="theme-color" content="#030914">
     <meta property="og:type" content="website">
-    <meta property="og:title" content="Zhuge AI OS">
-    <meta property="og:description" content="Zhuge AI OS 是一套 AI 工作管理平台，提供文件管理與 AI 知識整理。">
-    <title>Zhuge AI OS</title>
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Crect width='128' height='128' rx='30' fill='%23071526'/%3E%3Cpath d='M28 99c18-3 36-12 51-26 18-16 28-36 31-57-22 2-42 11-58 27C37 58 30 78 28 99Z' fill='%2354d7ff'/%3E%3Cpath d='M29 100c17-20 34-37 57-55' fill='none' stroke='%23e9f7ff' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E">
+    <meta property="og:title" content="Tron">
+    <meta property="og:description" content="Tron 是一套 AI 工作管理平台，提供文件管理與 AI 知識整理。">
+    <title>Tron</title>
+    <link rel="icon" href="../../shared/assets/logo/tron-icon.svg" type="image/svg+xml">
     <link id="public-home-styles" rel="stylesheet" href="../../shared/theme/public-home.css?v=20261105-0804">
     <style id="runtime-boot-shell-style">
       .app-boot-shell{min-height:100vh;display:grid;grid-template-columns:minmax(220px,264px) minmax(0,1fr);gap:16px;padding:16px;background:#07111f;color:#e8edf5;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans TC","Segoe UI",sans-serif}
@@ -34,15 +34,47 @@
   <body>
     <div id="app">
       <header class="public-header">
-        <a class="brand" href="./" aria-label="Zhuge AI OS home">
-          <svg class="brand-mark" viewBox="0 0 128 128" role="img" aria-label="Zhuge AI OS logo">
-            <defs><linearGradient id="brand-gradient" x1="26" y1="106" x2="103" y2="18" gradientUnits="userSpaceOnUse"><stop stop-color="#2F82F6"/><stop offset="1" stop-color="#54D7FF"/></linearGradient></defs>
-            <rect width="128" height="128" rx="30" fill="#071526"/>
-            <path d="M28 99c18-3 36-12 51-26 18-16 28-36 31-57-22 2-42 11-58 27C37 58 30 78 28 99Z" fill="url(#brand-gradient)"/>
-            <path d="M29 100c17-20 34-37 57-55M52 80l-1-23M67 66l20-2M40 91l-1-14M79 53l15-1" fill="none" stroke="#E9F7FF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M24 108c19-2 37-8 52-18" fill="none" stroke="#42D392" stroke-width="5" stroke-linecap="round"/>
+        <a class="brand" href="./" aria-label="Tron home">
+          <svg class="brand-mark" viewBox="0 0 128 128" role="img" aria-label="Tron logo">
+            <rect width="128" height="128" rx="30" fill="#060b12"/>
+            <g transform="translate(9.6 9.6) scale(0.4533)">
+  
+  
+  <defs>
+    <filter id="glow5" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="3.2" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <g filter="url(#glow5)" fill="none" stroke-linecap="round">
+    <!-- segmented outer ring: cyan arcs with gaps at 12/3/6/9-ish -->
+    <g stroke="#3fdcf7" stroke-width="7">
+      <path d="M120 26 a94 94 0 0 1 78 40"/>
+      <path d="M214 96 a94 94 0 0 1 -18 84"/>
+      <path d="M186 196 a94 94 0 0 1 -96 12"/>
+      <path d="M62 196 a94 94 0 0 1 -34 -70"/>
+      <path d="M30 96 a94 94 0 0 1 52 -64"/>
+    </g>
+    <!-- yellow tick accents in two gaps -->
+    <g stroke="#ffd76a" stroke-width="7">
+      <path d="M120 26 a94 94 0 0 1 14 1.5" opacity=".95"/>
+      <path d="M186 196 a94 94 0 0 1 -12 6" opacity=".95"/>
+    </g>
+    <!-- orange mid ring, broken arc -->
+    <path d="M120 52 a68 68 0 1 1 -48 20" stroke="#ff9a3c" stroke-width="3.2" opacity=".9"/>
+    <!-- center inverted rounded triangle, layered hollow: orange trace / yellow / blue / dark core -->
+    <g stroke-linejoin="round">
+      <path d="M84 92 H156 L120 158 Z" stroke="#ff9a3c" stroke-width="15" opacity=".95"/>
+      <path d="M84 92 H156 L120 158 Z" stroke="#ffd76a" stroke-width="11" opacity=".95"/>
+      <path d="M84 92 H156 L120 158 Z" stroke="#3fdcf7" stroke-width="6.5"/>
+      <path d="M84 92 H156 L120 158 Z" stroke="#071019" stroke-width="2.6"/>
+    </g>
+    <!-- small dot below triangle tip -->
+    <circle cx="120" cy="176" r="3.4" stroke="#3fdcf7" stroke-width="2.6"/>
+  </g>
+</g>
           </svg>
-          <span><strong>Zhuge AI OS</strong><small>by Mr. KM</small></span>
+          <span><strong>Tron</strong><small>by Mr. KM</small></span>
         </a>
         <a class="header-link" href="?app=1&amp;workspace=dashboard">Open Dashboard</a>
       </header>
@@ -51,8 +83,8 @@
         <section class="hero" aria-labelledby="hero-title">
           <div class="hero-copy">
             <p class="eyebrow">個人工作管理 · AI 知識工作空間</p>
-            <h1 id="hero-title">Zhuge AI OS</h1>
-            <p class="hero-lead">Zhuge AI OS 是一套 AI 工作管理平台，整合 WorkLog、Google Drive 與 AI 知識管理。</p>
+            <h1 id="hero-title"><img src="../../shared/assets/logo/tron-wordmark.svg" alt="Tron" style="height:76px;display:block"></h1>
+            <p class="hero-lead">Tron 是一套 AI 工作管理平台，整合 WorkLog、Google Drive 與 AI 知識管理。</p>
             <p class="hero-body">使用 Google 帳號安全登入，在 WorkLog 記錄工作，並只在授權後匯入你明確選取的 Google Drive 文件，進行 AI 分析與知識整理。</p>
             <p class="hero-local">專為個人工作管理與 AI 協作設計，讓 Google 登入、工時紀錄、文件理解與知識整理在同一個安全工作空間中自然銜接。</p>
             <div class="hero-actions">
@@ -60,13 +92,45 @@
               <a class="button secondary" href="#features">View features</a>
             </div>
           </div>
-          <div class="hero-logo-card" aria-label="Zhuge AI OS product logo">
+          <div class="hero-logo-card" aria-label="Tron product logo">
             <svg class="hero-logo" viewBox="0 0 128 128" aria-hidden="true">
-              <defs><linearGradient id="hero-gradient" x1="26" y1="106" x2="103" y2="18" gradientUnits="userSpaceOnUse"><stop stop-color="#2F82F6"/><stop offset="1" stop-color="#54D7FF"/></linearGradient></defs>
-              <rect width="128" height="128" rx="30" fill="#071526"/>
-              <path d="M28 99c18-3 36-12 51-26 18-16 28-36 31-57-22 2-42 11-58 27C37 58 30 78 28 99Z" fill="url(#hero-gradient)"/>
-              <path d="M29 100c17-20 34-37 57-55M52 80l-1-23M67 66l20-2M40 91l-1-14M79 53l15-1" fill="none" stroke="#E9F7FF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M24 108c19-2 37-8 52-18" fill="none" stroke="#42D392" stroke-width="5" stroke-linecap="round"/>
+            <rect width="128" height="128" rx="30" fill="#060b12"/>
+            <g transform="translate(9.6 9.6) scale(0.4533)">
+  
+  
+  <defs>
+    <filter id="glow5" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="3.2" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <g filter="url(#glow5)" fill="none" stroke-linecap="round">
+    <!-- segmented outer ring: cyan arcs with gaps at 12/3/6/9-ish -->
+    <g stroke="#3fdcf7" stroke-width="7">
+      <path d="M120 26 a94 94 0 0 1 78 40"/>
+      <path d="M214 96 a94 94 0 0 1 -18 84"/>
+      <path d="M186 196 a94 94 0 0 1 -96 12"/>
+      <path d="M62 196 a94 94 0 0 1 -34 -70"/>
+      <path d="M30 96 a94 94 0 0 1 52 -64"/>
+    </g>
+    <!-- yellow tick accents in two gaps -->
+    <g stroke="#ffd76a" stroke-width="7">
+      <path d="M120 26 a94 94 0 0 1 14 1.5" opacity=".95"/>
+      <path d="M186 196 a94 94 0 0 1 -12 6" opacity=".95"/>
+    </g>
+    <!-- orange mid ring, broken arc -->
+    <path d="M120 52 a68 68 0 1 1 -48 20" stroke="#ff9a3c" stroke-width="3.2" opacity=".9"/>
+    <!-- center inverted rounded triangle, layered hollow: orange trace / yellow / blue / dark core -->
+    <g stroke-linejoin="round">
+      <path d="M84 92 H156 L120 158 Z" stroke="#ff9a3c" stroke-width="15" opacity=".95"/>
+      <path d="M84 92 H156 L120 158 Z" stroke="#ffd76a" stroke-width="11" opacity=".95"/>
+      <path d="M84 92 H156 L120 158 Z" stroke="#3fdcf7" stroke-width="6.5"/>
+      <path d="M84 92 H156 L120 158 Z" stroke="#071019" stroke-width="2.6"/>
+    </g>
+    <!-- small dot below triangle tip -->
+    <circle cx="120" cy="176" r="3.4" stroke="#3fdcf7" stroke-width="2.6"/>
+  </g>
+</g>
             </svg>
             <strong>讓 Mr. KM 陪你更有效率地工作</strong>
             <span>理解工作、整理知識、持續前進。</span>
@@ -77,7 +141,7 @@
           <div class="section-heading"><p class="eyebrow">功能</p><h2 id="features-title">一個安全的日常工作空間。</h2></div>
           <div class="feature-grid">
             <article class="feature-card"><span class="feature-icon">W</span><h3>WorkLog</h3><p>在同一個工作空間記錄每日工作、工時、進度與結案結果。</p></article>
-            <article class="feature-card"><span class="feature-icon">G</span><h3>Google Login</h3><p>使用單一 Google 身分安全進入 Zhuge AI OS。</p></article>
+            <article class="feature-card"><span class="feature-icon">G</span><h3>Google Login</h3><p>使用單一 Google 身分安全進入 Tron。</p></article>
             <article class="feature-card"><span class="feature-icon">D</span><h3>Google Drive</h3><p>授權後，只匯入使用者明確選取的單一文件。</p></article>
             <article class="feature-card"><span class="feature-icon">AI</span><h3>AI Knowledge</h3><p>Mr. KM 分析確認後的工作內容，整理成可重複使用的知識。</p></article>
             <article class="feature-card"><span class="feature-icon">S</span><h3>安全工作空間</h3><p>在清楚的存取邊界下管理工作紀錄與指定的知識來源。</p></article>
@@ -88,14 +152,14 @@
           <div class="section-heading"><p class="eyebrow">Designed for trust</p><h2 id="trust-title">Your data, your choices.</h2></div>
           <div class="trust-grid">
             <div><strong>Selected files only</strong><p>After you authorize Google Drive, access is limited to files you explicitly choose through Google Picker.</p></div>
-            <div><strong>Read-only Drive access</strong><p>Drive files are read for analysis; Zhuge AI OS does not modify, delete, or share them.</p></div>
+            <div><strong>Read-only Drive access</strong><p>Drive files are read for analysis; Tron does not modify, delete, or share them.</p></div>
             <div><strong>Personal productivity</strong><p>Built for individual work management and AI-assisted knowledge organization.</p></div>
           </div>
         </section>
       </main>
 
       <footer class="public-footer">
-        <div class="footer-brand"><strong>Zhuge AI OS</strong><span>AI 工作管理與知識整理平台。</span></div>
+        <div class="footer-brand"><strong>Tron</strong><span>AI 工作管理與知識整理平台。</span></div>
         <nav aria-label="Legal and support links">
           <a href="../../product/">Product</a>
           <a href="../../privacy/">Privacy Policy</a>
@@ -108,7 +172,7 @@
     </div>
 
     <noscript>
-      <p class="noscript-message">Zhuge AI OS is an AI-powered productivity platform. JavaScript is required to open WorkLog after you choose to sign in.</p>
+      <p class="noscript-message">Tron is an AI-powered productivity platform. JavaScript is required to open WorkLog after you choose to sign in.</p>
     </noscript>
 
     <script>
@@ -180,7 +244,7 @@
 
         const root = document.getElementById("app");
         const renderBootState = (title, message, links = true) => {
-          root.innerHTML = `<main class="app-boot-shell" aria-live="polite"><aside class="app-boot-sidebar"><div class="app-boot-brand">Zhuge AI OS</div><div class="app-boot-nav" aria-hidden="true"><i></i><i></i><i></i><i></i></div></aside><section class="app-boot-main"><header class="app-boot-header"><span>Zhuge AI OS</span><strong>${title}</strong></header><div class="app-boot-content"><div class="app-boot-status">${message}</div><div class="app-boot-row"></div><div class="app-boot-row short"></div>${links ? '<a href="./?app=1&amp;workspace=dashboard">回到 Dashboard</a>' : ''}</div></section></main>`;
+          root.innerHTML = `<main class="app-boot-shell" aria-live="polite"><aside class="app-boot-sidebar"><div class="app-boot-brand">Tron</div><div class="app-boot-nav" aria-hidden="true"><i></i><i></i><i></i><i></i></div></aside><section class="app-boot-main"><header class="app-boot-header"><span>Tron</span><strong>${title}</strong></header><div class="app-boot-content"><div class="app-boot-status">${message}</div><div class="app-boot-row"></div><div class="app-boot-row short"></div>${links ? '<a href="./?app=1&amp;workspace=dashboard">回到 Dashboard</a>' : ''}</div></section></main>`;
         };
         document.getElementById("public-home-styles")?.remove();
         renderBootState("正在開啟工作空間…", "正在準備共用工作區與登入狀態", false);
@@ -240,11 +304,11 @@
         };
         Promise.all([loadStyles(), preloadRuntime()]).then(load).catch(error => {
           if (error.resourceKind === "stylesheet") {
-            console.error("Zhuge AI OS App stylesheet load failed", error);
+            console.error("Tron App stylesheet load failed", error);
             renderBootState("工作空間暫時無法開啟", "版面資源載入失敗，請重新整理後再試。", true);
             return;
           }
-          console.error("Zhuge AI OS App script load failed", error);
+          console.error("Tron App script load failed", error);
           renderBootState("工作空間暫時無法開啟", "部分共用資源載入失敗，請重新整理後再試。", true);
         });
       })();
