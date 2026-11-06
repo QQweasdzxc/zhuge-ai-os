@@ -14,8 +14,8 @@ for(const width of [1440,390])test(`anonymous navigation returns at ${width}px`,
  // Isolate local navigation from all external services, including Google login.
  await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
  await page.goto(await fixtureURL(path.join(ROOT,'labs/taskflow/index.html')));
- await page.getByRole('button',{name:'前往 Zhuge AI OS 登入'}).waitFor();
- assert.equal(await page.getByRole('link',{name:'回到 Zhuge AI OS'}).getAttribute('href'),HOME);
+ await page.getByRole('button',{name:'前往 Tron 登入'}).waitFor();
+ assert.equal(await page.getByRole('link',{name:'回到 Tron'}).getAttribute('href'),HOME);
  await page.goto(await fixtureURL(path.join(ROOT,'status-classic.html')));
  await page.locator('#tf-login-action').waitFor({state:'visible'});
  assert.equal(new URL(await page.locator('#tf-login-action').evaluate(el=>el.href)).searchParams.get('tfPagesReturn'),'1');

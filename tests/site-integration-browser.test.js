@@ -21,7 +21,7 @@ for (const viewport of [
     await page.route("**/pixel-office/index.html", route => route.fulfill({ contentType: "text/html", body: "<main>SCENE_FIXTURE_ONLY</main>" }));
     await page.goto(await fixtureURL(path.join(root, "index.html")));
 
-    const frame = page.locator('iframe[title="Zhuge AI OS 像素辦公室"]');
+    const frame = page.locator('iframe[title="Tron 像素辦公室"]');
     await frame.waitFor();
     const frameSrc = new URL(await frame.getAttribute("src"), page.url());
     assert.equal(frameSrc.pathname, "/labs/pixel-office-3d/index.html", "root embeds the 3D office");
@@ -67,7 +67,7 @@ for (const viewport of [
     fs.mkdirSync(outputDir, { recursive: true });
     await page.screenshot({ path: path.join(outputDir, `office-${viewport.width}x${viewport.height}.png`) });
     await page.goto(await fixtureURL(path.join(root, "docs/index.html")));
-    const docsFrame = page.locator('iframe[title="Zhuge AI OS 像素辦公室"]');
+    const docsFrame = page.locator('iframe[title="Tron 像素辦公室"]');
     await docsFrame.waitFor();
     const docsFrameSrc = new URL(await docsFrame.getAttribute("src"), page.url());
     assert.equal(docsFrameSrc.pathname, "/labs/pixel-office-3d/index.html", "docs embeds the current office");
