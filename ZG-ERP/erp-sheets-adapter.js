@@ -635,7 +635,7 @@
       if (Object.keys(result.patch).length) this.saveAsset(code, result.patch);
       return { asset: a, issue: result.issue, changed: Object.keys(result.patch).length > 0 };
     }
-    observeAsset(sess, code, zone) {
+    observeAsset(sess, code, zone, occupantName) {
       const rawProject = String(sess.project || "").trim();
       const currentProject = ["", "全部", "全部專案", "未指定", "未指定（待確認）", "未指定(待確認)"].includes(rawProject) ? "" : rawProject;
       const department = String(sess.department || "").trim();
@@ -660,7 +660,9 @@
         return { exception: false, moved: false, departmentMismatch, metadataIssue: metadata.issue, asset: existing };
       }
       const now = new Date().toISOString();
-      const a = { code, name: "", model: "", serial: "", owner: "", site: sess.site, zone: zone || "",
+      /* 新掃建檔：座位使用人帶入為保管人（僅新建；既有資產一律不改保管人）。無座位使用人→留空待現場確認。 */
+      const bring = String(occupantName || "").trim();
+      const a = { code, name: "", model: "", serial: "", owner: bring, site: sess.site, zone: zone || "",
         status: "使用中", project: currentProject, department, brand: "", origin: "未確認", type: "", mfgYear: "", po: "",
         purchase: "", activate: "", warranty: "", source: "盤點", createdAt: now, createdBy: this.actor, updatedAt: now };
       if (this.departmentReady) { const metadata = this.legacyMetadata(code); Object.assign(a, metadata.patch); }
@@ -669,7 +671,7 @@
         const rowNum = await this._append("assets", assetToRow(a, this.actor));
         a.__row = rowNum;
       });
-      return { exception: false, created: true, asset: a };
+      return { exception: false, created: true, ownerBroughtIn: bring || "", asset: a };
     }
     /* 釐清標示：寫入前由呼叫端過 validateAnnotation；快照由呼叫端以 snapshotOf(舊帳列) 提供 */
     addAnnotation(ann) {
