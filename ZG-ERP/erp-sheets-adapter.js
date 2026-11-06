@@ -653,19 +653,35 @@
         if (!cur || (k === "origin" && cur === "未確認")) patch[k] = v;
         else if (cur !== v) conflicts.push(k);
       }
-      /* 無欄位需補且快照已存在：不重複寫入（避免每次掃描都產生一次儲存） */
-      if (!Object.keys(patch).length && a.legacyKey === r.recordKey && a.legacySnapshot) {
-        return { patch, issue: conflicts.length ? "舊帳與新帳欄位不同（" + conflicts.join("、") + "），保留新帳待查" : "" };
-      }
       const srcRow = {};
       header.forEach((h, n) => { if (h && String(raw[n] || "").trim()) srcRow[h] = String(raw[n]).trim(); });
+      /* 快照增量整併：唯一對碼下，舊 9-key 形狀升級、同來源缺欄補存；
+       * 已保存的其他來源與既有欄值一律保留（不覆蓋較完整的已存內容），齊全則不重寫。 */
+      let snap = null;
+      try { snap = a.legacySnapshot ? JSON.parse(a.legacySnapshot) : null; } catch (e) { snap = null; }
+      const linked = a.legacyKey === r.recordKey;
+      let snapNeedsWrite = !linked || !snap || !snap.sources || typeof snap.sources !== "object";
+      if (!snapNeedsWrite) {
+        const cur = snap.sources["整合-主檔"] || {};
+        const merged = Object.assign({ "列": r.__row }, srcRow);
+        snapNeedsWrite = Object.keys(merged).some((k) => !(k in cur));
+      }
+      /* 無欄位需補且快照齊全：不重複寫入（避免每次掃描都產生一次儲存） */
+      if (!Object.keys(patch).length && !snapNeedsWrite) {
+        return { patch, issue: conflicts.length ? "舊帳與新帳欄位不同（" + conflicts.join("、") + "），保留新帳待查" : "" };
+      }
+      const nextSnap = snap && typeof snap === "object" && !Array.isArray(snap) ? Object.assign({}, snap) : {};
+      nextSnap.code = r.code; nextSnap.recordKey = r.recordKey; nextSnap.provenance = r.provenance;
+      nextSnap.sources = nextSnap.sources && typeof nextSnap.sources === "object" ? Object.assign({}, nextSnap.sources) : {};
+      const curSrc = nextSnap.sources["整合-主檔"] && typeof nextSnap.sources["整合-主檔"] === "object" ? nextSnap.sources["整合-主檔"] : {};
+      const addSrc = Object.assign({ "列": r.__row }, srcRow);
+      const mergedSrc = Object.assign({}, curSrc);
+      Object.keys(addSrc).forEach((k) => { if (!(k in mergedSrc) || !String(mergedSrc[k] || "").trim()) mergedSrc[k] = addSrc[k]; });
+      nextSnap.sources["整合-主檔"] = mergedSrc;
+      if (!nextSnap["補入說明"]) nextSnap["補入說明"] = "掃描／帶入時自動補齊空白欄位，既有新帳值不覆寫；衝突保留新帳待查。總表_0331 依 11/4 決定不作來源。";
       Object.assign(patch, {
         legacyKey: r.recordKey, legacyProvenance: r.provenance,
-        legacySnapshot: JSON.stringify({
-          code: r.code, recordKey: r.recordKey, provenance: r.provenance,
-          sources: { "整合-主檔": Object.assign({ "列": r.__row }, srcRow) },
-          "補入說明": "掃描／帶入時自動補齊空白欄位，既有新帳值不覆寫；衝突保留新帳待查。總表_0331 依 11/4 決定不作來源。"
-        }),
+        legacySnapshot: JSON.stringify(nextSnap),
         legacyImportedAt: new Date().toISOString()
       });
       return { patch, issue: conflicts.length ? "舊帳與新帳欄位不同（" + conflicts.join("、") + "），保留新帳待查" : "" };
