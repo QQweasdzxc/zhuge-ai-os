@@ -197,7 +197,7 @@ function captureOAuthError() {
   writeJson(OAUTH_ERROR_KEY, payload);
   clearStoredCodeVerifier();
   cleanAuthCallbackUrl();
-  console.warn("Zhuge AI OS OAuth authorization was not completed", { code });
+  console.warn("Tron OAuth authorization was not completed", { code });
   return payload;
 }
 
@@ -220,7 +220,7 @@ function recordOAuthDebug(stage, detail) {
   } catch { /* storage unavailable: diagnostics are best-effort */ }
   // A signed-out visitor has no refresh token. Keep diagnostic history, but
   // do not classify this expected state as an application error.
-  if (stage !== "auth_session_refresh_missing_token") console.error("Zhuge AI OS OAuth Debug", payload);
+  if (stage !== "auth_session_refresh_missing_token") console.error("Tron OAuth Debug", payload);
 }
 
 function base64UrlEncode(bytes) {

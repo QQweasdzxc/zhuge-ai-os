@@ -1,4 +1,4 @@
-/* Canonical Zhuge AI OS application-access service.
+/* Canonical Tron application-access service.
  *
  * Google/Supabase authentication is intentionally separate from product
  * access.  This module exposes only the controlled RPCs and the ephemeral
