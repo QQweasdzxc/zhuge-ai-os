@@ -256,8 +256,9 @@
     try { snap = cur && cur.legacySnapshot ? JSON.parse(cur.legacySnapshot) : null; } catch (e) { snap = null; }
     if (!snap || !snap.sources) return '';
     const src = Object.entries(snap.sources).map(([k, v]) => '<div class="small"><b>' + esc(k) + '（第 ' + esc(String(v['列'] != null ? v['列'] : '—')) + ' 列）</b><br>' + Object.entries(v).filter(([kk, vv]) => !['列', '說明', '備註性質'].includes(kk) && vv !== '' && vv != null).map(([kk, vv]) => esc(kk) + '：' + esc(String(vv))).join(' · ') + (v['備註性質'] ? '<br>（' + esc(v['備註性質']) + '）' : '') + (v['說明'] ? '<br>（' + esc(v['說明']) + '）' : '') + '</div>').join('');
+    const inc = snap['來源未補齊'] && typeof snap['來源未補齊'] === 'object' ? Object.entries(snap['來源未補齊']).map(([k, v]) => '<div class="warn">出處「' + esc(k) + '」第 ' + esc(String(v['列'] != null ? v['列'] : '—')) + ' 列原始資料尚未補齊：' + esc(String(v['原因'] || '')) + '</div>').join('') : '';
     const cand = snap['序號候選'] ? '<div class="warn">序號候選（未當實機序號）：' + esc(String(snap['序號候選'].value)) + ' · 來源 ' + esc(snap['序號候選'].來源) + ' · ' + esc(snap['序號候選'].疑點) + '</div>' : '';
-    return '<details class="legacyfull"><summary>舊帳全量保存（' + Object.keys(snap.sources).length + ' 個來源原始列，展開核對）</summary>' + cand + src + (snap['補入說明'] ? '<div class="small">' + esc(snap['補入說明']) + '</div>' : '') + '</details>';
+    return '<details class="legacyfull"><summary>舊帳全量保存（' + Object.keys(snap.sources).length + ' 個來源原始列，展開核對）</summary>' + inc + cand + src + (snap['補入說明'] ? '<div class="small">' + esc(snap['補入說明']) + '</div>' : '') + '</details>';
   }
   function legacyDetails(code) {
     if (typeof store.legacyRows !== "function") return "";
@@ -389,6 +390,9 @@
         if (rec && obs.exception) rec.stateException = obs.reason;
         if (rec && obs.assignedProject) rec.projectAssigned = obs.assignedProject; // 原本未指定專案 → 已歸入本次專案（14:30 定案）
       }
+    }
+    if (typeof store.enrichLegacySnapshotFromSource === "function" && !(obs && obs.exception)) {
+      store.enrichLegacySnapshotFromSource(code).then(() => render()).catch(() => {});
     }
     if (seatTarget && typeof seatUI !== "undefined" && seatUI) {
       const rec = [...curRecs()].reverse().find(r => r.code === code);
@@ -612,7 +616,7 @@
     setTimeout(refreshSyncBadge, 0); /* 整頁重繪會重建徽章（預設隱藏），重繪後立刻補上內容 */
     return '<div id="erp-sync-badge" class="syncbadge" style="display:none"></div><div id="erp-version-badge" class="versionbadge" style="display:none"></div>';
   }
-  const LOADED_BUILD = { id: "2026-11-06.27" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
+  const LOADED_BUILD = { id: "2026-11-06.28" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
   async function checkAppVersion() {
     if (D.isMock) return;
     try {
