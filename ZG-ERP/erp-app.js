@@ -617,7 +617,7 @@
     setTimeout(refreshSyncBadge, 0); /* 整頁重繪會重建徽章（預設隱藏），重繪後立刻補上內容 */
     return '<div id="erp-sync-badge" class="syncbadge" style="display:none"></div><div id="erp-version-badge" class="versionbadge" style="display:none"></div>';
   }
-  const LOADED_BUILD = { id: "2026-11-06.33" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
+  const LOADED_BUILD = { id: "2026-11-07.34" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
   async function checkAppVersion() {
     if (D.isMock) return;
     try {
@@ -670,15 +670,15 @@
       const exp = Number(s.expires_at || (s.session && s.session.expires_at) || 0);
       const expMs = exp ? (exp < 1e12 ? exp * 1000 : exp) : 0; // Supabase 秒級與 auth-service 毫秒級都接受
       if (expMs && expMs < Date.now() && !S.booting) {
-        return '<div class="loginbar">諸葛登入狀態：工作階段已過期。<a href="' + LOGIN_URL + '">重新登入諸葛</a>（換發失敗時需要）</div>';
+        return '<div class="loginbar">Tron 登入狀態：工作階段已過期。<a href="' + LOGIN_URL + '">重新登入 Tron</a>（換發失敗時需要）</div>';
       }
       const who = s.user && (s.user.email || s.user.name) ? esc(s.user.email || s.user.name) : "已登入";
-      return '<div class="loginbar">諸葛登入狀態：' + who + "</div>";
+      return '<div class="loginbar">Tron 登入狀態：' + who + "</div>";
     }
-    return '<div class="loginbar">尚未登入諸葛。' + (D.isMock ? '測試資料可直接操作；正式版需要 ' : '') + '<a href="' + LOGIN_URL + '">登入諸葛</a> 才能讀寫你的試算表。</div>';
+    return '<div class="loginbar">尚未登入 Tron。' + (D.isMock ? '測試資料可直接操作；正式版需要 ' : '') + '<a href="' + LOGIN_URL + '">登入 Tron</a> 才能讀寫你的試算表。</div>';
   }
   function zhugeBar() {
-    return '<div class="zhugebar"><b>諸葛</b><span>／ ZG-ERP 庫存 · 設備管理</span><a class="pill sm" style="display:inline-flex;align-items:center;text-decoration:none" href="../">返回諸葛</a><button class="pill sm" type="button" data-a="theme-toggle" style="flex:none">'+(document.documentElement.dataset.theme==="dark"?"淺色":"深色")+'</button></div>';
+    return '<div class="zhugebar"><img class="brandmark" src="../shared/assets/logo/tron-icon.svg" alt=""><img src="../shared/assets/logo/tron-wordmark.svg" alt="Tron" style="height:18px;vertical-align:-4px;margin-right:2px"><span>／ ZG-ERP 庫存 · 設備管理</span><a class="pill sm" style="display:inline-flex;align-items:center;text-decoration:none" href="../">返回 Tron</a><button class="pill sm" type="button" data-a="theme-toggle" style="flex:none">'+(document.documentElement.dataset.theme==="dark"?"淺色":"深色")+'</button></div>';
   }
   /* Goal-first shortcuts are read-only until the existing explicit edit/start actions. */
   function seatLabelFor(code){const b=seatUI&&seatUI.seatBindings&&seatUI.seatBindings();const x=b&&b[code];return x?x.zone+' · '+x.seat+'號':'座位未登記';}
@@ -1339,7 +1339,7 @@
     const body = tab === "dash" ? pcDash() : tab === "assets" ? pcAssets() : tab === "inbound" ? pcInbound() : tab === "zones" ? pcZones() : tab === "map" ? pcMap() : tab === "geo" ? pcGeo() : tab === "legacy" ? pcLegacy() : pcDiff();
     const recs = curRecs();
     const diffN = allRecords().filter((r) => r.status !== "ok" && !r.decision).length;
-    return '<div class="desktop"><div class="dbody"><nav class="dside"><div class="dlogo">諸葛 · 設備管理</div>' +
+    return '<div class="desktop"><div class="dbody"><nav class="dside"><div class="dlogo">Tron · 設備管理</div>' +
       '<button class="dnav' + (tab === "dash" ? " on" : "") + '" data-a="dtab" data-v="dash">總覽儀表板</button>' +
       '<button class="dnav' + (tab === "geo" ? " on" : "") + '" data-a="dtab" data-v="geo">地圖總覽</button>' +
       '<button class="dnav' + (tab === "assets" ? " on" : "") + '" data-a="dtab" data-v="assets">設備資料</button>' +
@@ -1360,7 +1360,7 @@
     refreshSyncBadge.__lastRoot = root;
     if (window.ErpAuth && window.ErpAuth.state().status !== "ready" && !D.isMock) {
       const auth=window.ErpAuth.state(),signed=auth.status==="signed-out",denied=auth.status==="denied",checking=auth.status==="checking";
-      root.innerHTML=zhugeBar()+'<div class="phone"><div class="card"><h2>'+ (checking?'正在確認登入…':denied?'此帳號尚未獲准使用 ERP':signed?'登入 ZG-ERP':'登入暫時無法完成')+'</h2><p>'+esc(auth.error||(denied?'已登入 Google，但尚未通過原本的使用核准。設備資料不會載入。':'沿用諸葛原本的 Google 帳號與 UUID。登入後留在 ERP；所有已核准使用者共看完整設備與盤點結果。'))+'</p>'+(!checking?'<button class="pill" data-erp-auth="'+(signed||denied||auth.error.includes('重新使用 Google')?'login':'retry')+'">'+(signed||denied||auth.error.includes('重新使用 Google')?'使用 Google 登入':'重試驗證')+'</button>':'')+'</div></div>';
+      root.innerHTML=zhugeBar()+'<div class="phone"><div class="card"><h2>'+ (checking?'正在確認登入…':denied?'此帳號尚未獲准使用 ERP':signed?'登入 ZG-ERP':'登入暫時無法完成')+'</h2><p>'+esc(auth.error||(denied?'已登入 Google，但尚未通過原本的使用核准。設備資料不會載入。':'沿用 Tron 原本的 Google 帳號與 UUID。登入後留在 ERP；所有已核准使用者共看完整設備與盤點結果。'))+'</p>'+(!checking?'<button class="pill" data-erp-auth="'+(signed||denied||auth.error.includes('重新使用 Google')?'login':'retry')+'">'+(signed||denied||auth.error.includes('重新使用 Google')?'使用 Google 登入':'重試驗證')+'</button>':'')+'</div></div>';
       return;
     }
     let html = zhugeBar() + loginBar() + mockBar() + syncBadge() + modeBar();
@@ -1368,7 +1368,7 @@
     if(!D.isMock)html+='<div class="loginbar"><button class="pill sm" data-a="shared-refresh"'+(S.sharedBusy?' disabled':'')+'>'+(S.sharedBusy?'正在更新共同資料…':'更新共同盤點結果')+'</button> <span>'+esc(S.sharedMessage||(store.lastSharedReadAt?'上次更新 '+new Date(store.lastSharedReadAt).toLocaleTimeString('zh-TW'):'共用同一份設備與盤點紀錄；更新可查看其他人的新結果。'))+'</span></div>';
     if (S.bootErr) {
       root.innerHTML = html + (S.bootAuth
-        ? '<div class="phone"><div class="card"><h2>工作階段已失效</h2><p>登入驗證被現存資料庫拒絕，自動換發也失敗。請 <a href="' + LOGIN_URL + '">重新登入諸葛</a> 後再回來。</p><button data-a="bootretry">重試</button></div></div>'
+        ? '<div class="phone"><div class="card"><h2>工作階段已失效</h2><p>登入驗證被現存資料庫拒絕，自動換發也失敗。請 <a href="' + LOGIN_URL + '">重新登入 Tron</a> 後再回來。</p><button data-a="bootretry">重試</button></div></div>'
         : '<div class="phone"><div class="card"><h2>連線失敗</h2><p>' + esc(S.bootErr) + '</p><button data-a="bootretry">重試</button></div></div>');
       return;
     }
