@@ -992,7 +992,7 @@
   function pcMap() {
     if (!seatUI) return legacyPcMap();
     S.mapSite = S.mapSite || siteNames()[0] || "";
-    return '<div class="chips">' + siteNames().map(p => '<button class="pill" data-a="mapsite" data-v="' + esc(p) + '">' + esc(p) + '</button>').join("") + '</div>' + seatUI.render(S.mapSite, "") + (S.editCode && getA(S.editCode) ? '<div class="card">' + assetDrawerHtml(getA(S.editCode), lastRecordOf(S.editCode), zonesOf(getA(S.editCode).site)) + '</div>' : '');
+    return '<div class="chips">' + siteNames().map(p => '<button class="pill" data-a="mapsite" data-v="' + esc(p) + '">' + esc(p) + '</button>').join("") + '</div>' + seatUI.render(S.mapSite, "") + (S.editCode && getA(S.editCode) ? '<div class="seat-edit-overlay"><div class="seat-edit-panel card">' + assetDrawerHtml(getA(S.editCode), lastRecordOf(S.editCode), zonesOf(getA(S.editCode).site)) + '</div></div>' : '');
   }
   /* ---- 入庫作業：整批建單（待入庫，不影響庫存）→ 到貨核對（手機）→ 確認入庫（此時才建設備）---- */
   function pcInbound() {
