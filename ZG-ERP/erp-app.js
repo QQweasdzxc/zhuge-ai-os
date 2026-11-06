@@ -617,7 +617,7 @@
     setTimeout(refreshSyncBadge, 0); /* 整頁重繪會重建徽章（預設隱藏），重繪後立刻補上內容 */
     return '<div id="erp-sync-badge" class="syncbadge" style="display:none"></div><div id="erp-version-badge" class="versionbadge" style="display:none"></div>';
   }
-  const LOADED_BUILD = { id: "2026-11-06.30" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
+  const LOADED_BUILD = { id: "2026-11-06.31" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
   async function checkAppVersion() {
     if (D.isMock) return;
     try {
@@ -693,7 +693,8 @@
   function prestartSeat(){if(!seatUI)return '';const m=seatUI.mapFor(S.site,S.zone),st=seatUI.state;if(!m||!st.scanSelected)return '<div class="warn">尚未選目前座位。<button class="pill" data-a="goal-seat">先選座位</button></div>';const count=Object.values(seatUI.seatBindings()).filter(x=>x.version===m.id&&x.seat===st.selected).length;return '<div class="match"><b>目前座位：'+esc(m.site)+' '+esc(m.zone)+' · '+st.selected+'號</b><div>此座位已登記 '+count+' 台設備（不代表現場全部設備）；換號不會自動核對。</div><button class="pill sm" data-a="goal-seat">換座位</button></div>';}
   function modeBar() {
     const more = S.workspaceMore ? '<section class="workspace-more" aria-label="管理功能"><h3>管理功能</h3>'+[['geo','地圖總覽'],['assets','設備資料'],['inbound','入庫作業'],['zones','公司據點'],['map','座位圖'],['diff','盤點差異'],['legacy','舊帳比對']].map(([key,label])=>'<button class="pill" data-a="workspace-manage" data-v="'+key+'">'+label+'</button>').join('')+draftCard()+'<button class="pill" data-a="workspace-more">關閉</button></section>' : '';
-    return '<nav class="workspace-nav" aria-label="工作區"><span class="workspace-title">設備管理工作區</span><button class="mb'+(S.mode==='pc'&&S.dtab==='dash'?' on':'')+'" data-a="workspace-overview">總覽</button><button class="mb'+(S.mode==='phone'?' on':'')+'" data-a="workspace-scan">掃描</button><button class="mb" aria-expanded="'+!!S.workspaceMore+'" data-a="workspace-more">更多管理</button></nav>'+more;
+    if (S.mode==='phone') return '<nav class="workspace-nav" aria-label="工作區"><span class="workspace-title">設備管理工作區</span><button class="mb'+(S.screen==='seats'?' on':'')+'" data-a="workspace-seats">座位圖</button><button class="mb'+(S.screen==='seats'?'':' on')+'" data-a="workspace-scan">掃描</button></nav>';
+    return '<nav class="workspace-nav" aria-label="工作區"><span class="workspace-title">設備管理工作區</span><button class="mb'+(S.dtab==='dash'?' on':'')+'" data-a="workspace-overview">總覽</button><button class="mb" data-a="workspace-scan">掃描</button><button class="mb" aria-expanded="'+!!S.workspaceMore+'" data-a="workspace-more">更多管理</button></nav>'+more;
   }
 
   /* ---- 手機端 ---- */
@@ -1366,10 +1367,11 @@
       let body;
       if (S.dash) body = phoneDash();
       else if (S.screen === "recv") body = phoneRecv();
+      else if (S.screen === "seats") body = (seatUI ? '<section class="card"><h3>座位圖：選目前座位</h3><p class="small">看清楚座號，點選目前座位後按「掃描」開始；換座位隨時回這頁。完整管理功能請用電腦版。</p>' + seatUI.render(S.site||S.mapSite||siteNames()[0]||"", "") + '</section>' : '<div class="card">座位圖模組未載入，請重新整理。</div>');
       else if (S.screen === "start") body = phoneStart();
       else if (S.screen === "scan") body = phoneScan();
       else body = phoneResult();
-      html += '<div class="phone">' + body + '<div class="tabbar"><button class="' + (!S.dash ? "on" : "") + '" data-a="tab" data-v="scan">盤點</button><button class="' + (S.dash ? "on" : "") + '" data-a="tab" data-v="dash">儀表板</button></div></div>';
+      html += '<div class="phone">' + body + '</div>';
     } else {
       html += pcView();
     }
@@ -1382,7 +1384,7 @@
     const t = e.target.closest("[data-a]");
     if (!t) return;
     const a = t.getAttribute("data-a"), v = t.getAttribute("data-v") || "";
-    if(S.editCode&&['goal-seat','goal-find','goal-resume','view-asset','view-edit','workspace-overview','workspace-scan','workspace-manage','mode','tab','dtab','back','godiff','sitelist','gositepc','asite','gosite'].includes(a)){
+    if(S.editCode&&['goal-seat','goal-find','goal-resume','view-asset','view-edit','workspace-overview','workspace-scan','workspace-seats','workspace-manage','mode','tab','dtab','back','godiff','sitelist','gositepc','asite','gosite'].includes(a)){
       if(S.editTouched){S.editError='還有未保存的輸入，請先保存或明確取消編輯後再離開。';render();return;}
       if(S.editBusy)return;
       if(!D.isMock)store.releaseAssetEdit(S.editCode).catch(()=>{});
@@ -1390,17 +1392,20 @@
     }
     if(['end','finish','newsession','start','toresult'].includes(a)&&(S.scanBusy||S.scanQueue?.length||Object.keys(S.scanHeld||{}).length)){S.scanSetupErr='尚有未保存或結果待查的掃描，保留場次與輸入；請先核對。';render();return;}
     if(a==='vendor-copy'){navigator.clipboard.writeText(S.vendorReview?.raw||'').then(()=>{S.vendorCopyStatus='已複製';render();}).catch(()=>{S.vendorCopyStatus='複製未成功，請選取上方原碼';render();});return;}
-    if(['workspace-overview','workspace-scan','workspace-manage','goal-seat','goal-find','goal-resume'].includes(a))S.viewCode='';
+    if(['workspace-overview','workspace-scan','workspace-seats','workspace-manage','goal-seat','goal-find','goal-resume'].includes(a))S.viewCode='';
     if(a==='view-asset'){if(S.mode!=='phone'){const x=getA(v);if(!x)return;openControlledEditor(v);return;}S.viewScroll=window.scrollY;S.viewCode=v;render();window.scrollTo(0,0);return;}
     if(a==='view-close'){S.viewCode='';render();window.scrollTo(0,S.viewScroll||0);return;}
     if(a==='view-edit'){S.viewCode='';const x=getA(v);if(!x)return;S.retTab=S.dtab;S.mode='pc';S.dtab='assets';S.asite=x.site;openControlledEditor(v);return;}
     if(a==='goal-search'){S.goalSearchDone=String(S.goalSearch||'').trim();render();return;}
     if(a==='goal-find'){S.mode='pc';S.dtab='dash';render();document.querySelector('#goal-search')?.focus();return;}
-    if(a==='goal-seat'){S.mode='pc';S.dtab='map';S.mapSite=S.site||S.mapSite||siteNames()[0]||'';S.dash=false;S.workspaceMore=false;render();window.scrollTo(0,0);return;}
+    if(a==='goal-seat'){if(S.mode==='phone'){S.screen='seats';}else{S.dtab='map';S.mapSite=S.site||S.mapSite||siteNames()[0]||'';}S.dash=false;S.workspaceMore=false;render();window.scrollTo(0,0);return;}
     if(a==='goal-resume'){S.mode='phone';S.screen=S.sess?'scan':'start';S.dash=false;render();window.scrollTo(0,0);return;}
     if(a==='goal-metric'){S.goalMetric=v;render();document.querySelector('#goal-results')?.scrollIntoView({block:'start'});return;}
     if (a === "workspace-overview") { S.mode="pc"; S.dtab="dash"; S.dash=false; S.workspaceMore=false; }
-    else if (a === "workspace-scan") { S.mode="phone"; S.dash=false; S.workspaceMore=false; }
+    else if (a === "workspace-seats") { S.mode="phone"; S.screen="seats"; S.dash=false; S.workspaceMore=false; }
+    else if (a === "workspace-scan") { S.mode="phone"; S.dash=false; S.workspaceMore=false;
+      if (seatUI && !S.sess && !(seatUI.state && seatUI.state.scanSelected)) S.screen="seats";
+      else S.screen = S.sess ? "scan" : "start"; }
     else if (a === "held-ack") { if (DRAFTS) DRAFTS.discard(draftAcct(), 'scan-held', v); }
     else if (a === "draft-clear-ask") { S.draftClearAsk = v; }
     else if (a === "draft-clear-no") { S.draftClearAsk = ""; }
@@ -1756,7 +1761,7 @@
   document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-intake-action]");if(t&&intakeUI)intakeUI.act(t.dataset.intakeAction);});
   /* 開機：sheets 後端需先載入鏡像（唯一 async 入口），mock 直接渲染 */
   /* 手機（粗指標或窄視窗）且未指定 ?mode：預設 phone 模式落盤點；有場次直接進掃描頁。兩個分支共用同一函式。 */
-  function applyMobileBootDefault(){try{const qp=new URLSearchParams(location.search);const coarse=!!(window.matchMedia&&matchMedia("(pointer: coarse)").matches);const narrow=(window.innerWidth||0)<700;if(!qp.get("mode")&&(coarse||narrow)&&S.mode!=="phone"){S.mode="phone";S.dash=false;if(S.sess)S.screen="scan";}}catch(e){}}
+  function applyMobileBootDefault(){try{const qp=new URLSearchParams(location.search);const coarse=!!(window.matchMedia&&matchMedia("(pointer: coarse)").matches);const narrow=(window.innerWidth||0)<700;if(!qp.get("mode")&&(coarse||narrow)&&S.mode!=="phone"){S.mode="phone";S.dash=false;if(S.sess)S.screen="scan";else if(seatUI&&!(seatUI.state&&seatUI.state.scanSelected))S.screen="seats";}}catch(e){}}
   function boot() {
     if (!D.isMock && typeof store.init === "function") {
       S.booting = true; S.bootErr = ""; render();
