@@ -63,8 +63,8 @@ function setStatus(message,type="info") {
 }
 function errMessage(error) {
   if(error?.code==="NETWORK_OR_CORS")return "無法連線 TaskFlow API 或尚未授權此網站來源（CORS）。請由管理端確認設定。";
-  if(error?.code==="SIGN_IN_REQUIRED")return "尚未登入：請使用既有 Zhuge AI OS 身分登入。";
-  if(error?.code==="UNAUTHORIZED")return "登入已失效，請先使用既有 Zhuge AI OS 身分登入。";
+  if(error?.code==="SIGN_IN_REQUIRED")return "尚未登入：請使用既有 Tron 身分登入。";
+  if(error?.code==="UNAUTHORIZED")return "登入已失效，請先使用既有 Tron 身分登入。";
   if(error?.code==="FORBIDDEN")return "沒有此工作區的 TaskFlow 存取權限。";
   return "TaskFlow API 發生錯誤："+(error?.message||"Unknown");
 }
@@ -598,7 +598,7 @@ async function loadData(){
 }
 async function bootstrap(){
   refs.refresh.disabled=true;
-  setStatus("驗證正式 Zhuge AI OS 身分中…");
+  setStatus("驗證正式 Tron 身分中…");
   try{
     await transport.connect();
     const workspaces=await transport.listWorkspaces();
