@@ -617,7 +617,7 @@
     setTimeout(refreshSyncBadge, 0); /* 整頁重繪會重建徽章（預設隱藏），重繪後立刻補上內容 */
     return '<div id="erp-sync-badge" class="syncbadge" style="display:none"></div><div id="erp-version-badge" class="versionbadge" style="display:none"></div>';
   }
-  const LOADED_BUILD = { id: "2026-11-06.31" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
+  const LOADED_BUILD = { id: "2026-11-06.32" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
   async function checkAppVersion() {
     if (D.isMock) return;
     try {
@@ -690,10 +690,24 @@
       list.map(a=>'<div class="goal-tr"><span>'+esc(a.name||a.code)+'</span><span class="icode">'+esc(a.code)+'</span><span>'+esc(bm(a))+'</span><span>'+esc(a.site)+' '+esc(seatLabelFor(a.code))+'</span><span>'+esc(a.owner||'未確認')+'</span><span>'+esc(a.department||'未指定')+'</span><span><button class="pill sm" data-a="'+(S.mode==='phone'?'view-asset':'scan-edit')+'" data-v="'+esc(a.code)+'">'+(S.mode==='phone'?'查看':'編輯')+'</button></span></div>').join('')+'</div></div>';
   }
   function goalPanel(){const all=assets(),scope=all.filter(a=>(!S.goalSite||a.site===S.goalSite)&&(!S.goalDept||(a.department||'未指定')===S.goalDept));const pending=scope.filter(a=>{const r=lastRecordOf(a.code);return !r||isRegPending(r)}),mismatch=scope.filter(a=>{const r=lastRecordOf(a.code);return r&&!isRegPending(r)&&(r.sessionSite!==a.site||r.zone!==a.zone)});const list=S.goalMetric==='pending'?pending:S.goalMetric==='mismatch'?mismatch:scope;return '<section class="goal-home"><h3>今天要做什麼？</h3><div class="chips"><button class="pill" data-a="goal-seat">選座位，開始盤點</button><button class="pill" data-a="goal-find">找設備</button>'+(S.sess?'<button class="pill" data-a="goal-resume">接續本次盤點</button>':'')+'</div><label class="lbl" for="goal-search">找設備：編號、序號、型號或保管人</label><input id="goal-search" class="inp" data-f="goalSearch" placeholder="輸入關鍵字，按 Enter 查詢" value="'+esc(S.goalSearch||'')+'"><button class="pill sm" data-a="goal-search">查詢</button>'+(S.goalSearchDone?'<div class="card"><b>查詢結果（全部已登記設備）</b>'+goalRows(all.filter(a=>[a.code,a.serial,a.model,a.name,a.owner].some(v=>String(v||'').toLowerCase().includes(String(S.goalSearchDone).toLowerCase()))))+'</div>':'')+'<h3>快速看數據</h3><div class="goal-scope"><label>據點<select class="inp" data-f="goalSite"><option value="">全部據點</option>'+siteNames().map(n=>'<option value="'+esc(n)+'"'+(S.goalSite===n?' selected':'')+'>'+esc(n)+'</option>').join('')+'</select></label><label>使用部門<select class="inp" data-f="goalDept"><option value="">全部部門</option>'+[...new Set(all.map(a=>a.department||'未指定'))].sort().map(n=>'<option value="'+esc(n)+'"'+(S.goalDept===n?' selected':'')+'>'+esc(n)+'</option>').join('')+'</select></label></div><div class="small">範圍：'+esc(S.goalSite||'全部據點')+' · '+esc(S.goalDept||'全部部門')+' · 目前登記設備（依最後紀錄，不是本次場次或全公司舊帳）</div><div class="tiles three"><button class="tile tb" data-a="goal-metric" data-v="all"><b>'+scope.length+'</b>登記設備</button><button class="tile tb" data-a="goal-metric" data-v="pending"><b>'+pending.length+'</b>待現場核對</button><button class="tile tb" data-a="goal-metric" data-v="mismatch"><b>'+mismatch.length+'</b>位置差異</button></div><div class="small">待現場核對＝沒有掃描紀錄或補登待核對，逐台去重；位置差異另列，不等於座位盤完。'+(!store.seatReady?'座位資料尚未就緒。':'')+'</div>'+(S.goalMetric?'<div class="card" id="goal-results"><b>'+({all:'登記設備',pending:'待現場核對',mismatch:'位置差異'}[S.goalMetric])+' · '+list.length+'台</b>'+goalRows(list)+'</div>':'')+(S.editCode&&getA(S.editCode)?'<div class="seat-edit-overlay"><div class="seat-edit-panel card">'+assetDrawerHtml(getA(S.editCode),lastRecordOf(S.editCode),zonesOf(getA(S.editCode).site))+'</div></div>':'')+'</section>';}
-  function prestartSeat(){if(!seatUI)return '';const m=seatUI.mapFor(S.site,S.zone),st=seatUI.state;if(!m||!st.scanSelected)return '<div class="warn">尚未選目前座位。<button class="pill" data-a="goal-seat">先選座位</button></div>';const count=Object.values(seatUI.seatBindings()).filter(x=>x.version===m.id&&x.seat===st.selected).length;return '<div class="match"><b>目前座位：'+esc(m.site)+' '+esc(m.zone)+' · '+st.selected+'號</b><div>此座位已登記 '+count+' 台設備（不代表現場全部設備）；換號不會自動核對。</div><button class="pill sm" data-a="goal-seat">換座位</button></div>';}
+  function seatLastScanHtml(){
+    if(!seatUI||!seatUI.state||!seatUI.state.scanSelected)return '';
+    const m=seatUI.mapFor(S.site,S.zone);if(!m)return '';
+    const b=seatUI.seatBindings();const seat=seatUI.state.selected;
+    const codes=Object.keys(b).filter(c=>b[c].version===m.id&&Number(b[c].seat)===Number(seat));
+    let best=null;for(const c of codes){const r=lastRecordOf(c);if(r&&r.at&&(!best||String(r.at)>String(best.at)))best={...r,code:c};}
+    if(!best)return '<div class="small">這個座位還沒有掃描紀錄。</div>';
+    const a=getA(best.code);const when=new Date(best.at);
+    const today=new Date();const sameDay=when.toDateString()===today.toDateString();
+    const whenTxt=(sameDay?'今天 ':when.getMonth()+1+'/'+when.getDate()+' ')+when.toLocaleTimeString('zh-TW',{hour12:false,hour:'2-digit',minute:'2-digit'});
+    const thisSess=S.sess&&best.sessionId===S.sess.id;
+    const lbl=LABEL[best.status]||best.status||'已掃';
+    return '<div class="small" style="margin-top:4px">'+(thisSess?'本次已掃':'以前掃過')+'：'+esc(whenTxt)+' · '+esc(a?a.name:best.code)+' '+esc(best.code)+' · '+esc(lbl)+(thisSess?'':'（紀錄保留，不等於本次已確認；本次請照掃）')+'</div>';
+  }
+  function prestartSeat(){if(!seatUI)return '';const m=seatUI.mapFor(S.site,S.zone),st=seatUI.state;if(!m||!st.scanSelected)return '<div class="warn">尚未選目前座位。<button class="pill" data-a="goal-seat">先選座位</button></div>';const count=Object.values(seatUI.seatBindings()).filter(x=>x.version===m.id&&x.seat===st.selected).length;return '<div class="match"><b>目前座位：'+esc(m.site)+' '+esc(m.zone)+' · '+st.selected+'號</b><div>此座位已登記 '+count+' 台設備（不代表現場全部設備）；換號不會自動核對。</div>'+seatLastScanHtml()+'<div style="margin-top:6px"><button class="pill sm" data-a="goal-seat">換座位</button></div></div>';}
   function modeBar() {
     const more = S.workspaceMore ? '<section class="workspace-more" aria-label="管理功能"><h3>管理功能</h3>'+[['geo','地圖總覽'],['assets','設備資料'],['inbound','入庫作業'],['zones','公司據點'],['map','座位圖'],['diff','盤點差異'],['legacy','舊帳比對']].map(([key,label])=>'<button class="pill" data-a="workspace-manage" data-v="'+key+'">'+label+'</button>').join('')+draftCard()+'<button class="pill" data-a="workspace-more">關閉</button></section>' : '';
-    if (S.mode==='phone') return '<nav class="workspace-nav" aria-label="工作區"><span class="workspace-title">設備管理工作區</span><button class="mb'+(S.screen==='seats'?' on':'')+'" data-a="workspace-seats">座位圖</button><button class="mb'+(S.screen==='seats'?'':' on')+'" data-a="workspace-scan">掃描</button></nav>';
+    if (S.mode==='phone') return '<nav class="workspace-nav" aria-label="工作區"><span class="workspace-title">設備管理工作區</span><button class="mb on" data-a="workspace-scan">掃描</button></nav>';
     return '<nav class="workspace-nav" aria-label="工作區"><span class="workspace-title">設備管理工作區</span><button class="mb'+(S.dtab==='dash'?' on':'')+'" data-a="workspace-overview">總覽</button><button class="mb" data-a="workspace-scan">掃描</button><button class="mb" aria-expanded="'+!!S.workspaceMore+'" data-a="workspace-more">更多管理</button></nav>'+more;
   }
 
@@ -702,7 +716,7 @@
     ensureSetupDraft();
     if (!S.site && siteNames().length === 1) S.site = siteNames()[0];
     const g = S.gps;
-    return '<div class="screen"><h3 class="ptitle">設備盤點</h3>' +
+    return '<div class="screen"><h3 class="ptitle">設備盤點 <button class="pill sm" data-a="workspace-seats" style="float:right">座位圖</button></h3>' +
       '<p class="psub">確認目前座位與設定後開始；同一次盤點換座位不用重填。</p>' + prestartSeat() + '<div class="small">本次部門：'+esc(S.scanDepartment||'未指定')+' · 專案：'+esc(S.scanProject||'全部專案')+'（既有設備歸屬不會因此覆蓋）</div><details class="goal-setup"><summary>修改本次設定／取得定位</summary>' +
       '<div class="card"><div class="lbl">掃描起點定位（使用瀏覽器實際定位，需你授權）</div>' +
       (!g
@@ -781,7 +795,7 @@
       (outScope ? " · 範圍外 " + outScope + " 筆（都有記錄）" : "") + "</div>" +
       (scopeMiss.length ? '<div class="smeta">未掃：' + scopeMiss.slice(0, 8).map((a) => esc(a.name) + " " + esc(a.code)).join("、") + (scopeMiss.length > 8 ? " …等 " + scopeMiss.length + " 台" : "") + "</div>" : "") + "</div>";
     return '<div class="screen">' +
-      '<div class="scanbar"><button class="zonebtn" data-a="zoneopen"><span class="lbl">' + esc(S.site) + " · 目前區域</span><b>" + esc(S.zone) + " ▾</b></button>" +
+      '<div class="scanbar"><button class="pill sm" data-a="workspace-seats">座位圖</button><button class="zonebtn" data-a="zoneopen"><span class="lbl">' + esc(S.site) + " · 目前區域</span><b>" + esc(S.zone) + " ▾</b></button>" +
       '<button class="btn mini" data-a="toresult">結束 (' + recs.length + ")</button></div>" +
       '<div class="smeta scan-prog">應盤 ' + scope.length + ' · 已掃 ' + scopeGot.length + (scopeMiss.length ? ' · <b class="pbad">還差 ' + scopeMiss.length + '</b>' : ' · 全部掃完') + '</div>' +
       (S.scanSetupErr ? '<div class="warn">'+(S.scanUncertain?'本筆掃描 '+esc(S.scanIntent?.code||'')+'：保存結果待查，請勿重送。':esc(S.scanSetupErr))+(S.scanIntent&&!S.scanUncertain?'<button class="pill" data-a="scan-intent-retry">重試這筆未保存掃描</button>':'')+'</div>' : "") +
@@ -1367,7 +1381,7 @@
       let body;
       if (S.dash) body = phoneDash();
       else if (S.screen === "recv") body = phoneRecv();
-      else if (S.screen === "seats") body = (seatUI ? '<section class="card"><h3>座位圖：選目前座位</h3><p class="small">看清楚座號，點選目前座位後按「掃描」開始；換座位隨時回這頁。完整管理功能請用電腦版。</p>' + seatUI.render(S.site||S.mapSite||siteNames()[0]||"", "") + '</section>' : '<div class="card">座位圖模組未載入，請重新整理。</div>');
+      else if (S.screen === "seats") body = (seatUI ? '<section class="card"><h3>座位圖：選目前座位</h3><p class="small">看清楚座號，點選目前座位後按「掃描」開始；換座位隨時回這頁。完整管理功能請用電腦版。</p>' + seatLastScanHtml() + seatUI.render(S.site||S.mapSite||siteNames()[0]||"", "") + '</section>' : '<div class="card">座位圖模組未載入，請重新整理。</div>');
       else if (S.screen === "start") body = phoneStart();
       else if (S.screen === "scan") body = phoneScan();
       else body = phoneResult();
@@ -1403,9 +1417,7 @@
     if(a==='goal-metric'){S.goalMetric=v;render();document.querySelector('#goal-results')?.scrollIntoView({block:'start'});return;}
     if (a === "workspace-overview") { S.mode="pc"; S.dtab="dash"; S.dash=false; S.workspaceMore=false; }
     else if (a === "workspace-seats") { S.mode="phone"; S.screen="seats"; S.dash=false; S.workspaceMore=false; }
-    else if (a === "workspace-scan") { S.mode="phone"; S.dash=false; S.workspaceMore=false;
-      if (seatUI && !S.sess && !(seatUI.state && seatUI.state.scanSelected)) S.screen="seats";
-      else S.screen = S.sess ? "scan" : "start"; }
+    else if (a === "workspace-scan") { S.mode="phone"; S.dash=false; S.workspaceMore=false; S.screen = S.sess ? "scan" : "start"; }
     else if (a === "held-ack") { if (DRAFTS) DRAFTS.discard(draftAcct(), 'scan-held', v); }
     else if (a === "draft-clear-ask") { S.draftClearAsk = v; }
     else if (a === "draft-clear-no") { S.draftClearAsk = ""; }
@@ -1761,7 +1773,7 @@
   document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-intake-action]");if(t&&intakeUI)intakeUI.act(t.dataset.intakeAction);});
   /* 開機：sheets 後端需先載入鏡像（唯一 async 入口），mock 直接渲染 */
   /* 手機（粗指標或窄視窗）且未指定 ?mode：預設 phone 模式落盤點；有場次直接進掃描頁。兩個分支共用同一函式。 */
-  function applyMobileBootDefault(){try{const qp=new URLSearchParams(location.search);const coarse=!!(window.matchMedia&&matchMedia("(pointer: coarse)").matches);const narrow=(window.innerWidth||0)<700;if(!qp.get("mode")&&(coarse||narrow)&&S.mode!=="phone"){S.mode="phone";S.dash=false;if(S.sess)S.screen="scan";else if(seatUI&&!(seatUI.state&&seatUI.state.scanSelected))S.screen="seats";}}catch(e){}}
+  function applyMobileBootDefault(){try{const qp=new URLSearchParams(location.search);const coarse=!!(window.matchMedia&&matchMedia("(pointer: coarse)").matches);const narrow=(window.innerWidth||0)<700;if(!qp.get("mode")&&(coarse||narrow)&&S.mode!=="phone"){S.mode="phone";S.dash=false;if(S.sess)S.screen="scan";}}catch(e){}}
   function boot() {
     if (!D.isMock && typeof store.init === "function") {
       S.booting = true; S.bootErr = ""; render();
