@@ -8,9 +8,9 @@
       "status": "ACTIVE",
       "enabled": true,
       "localEntry": "./investment/",
-      "source": "Zhuge AI OS source: labs/investment/",
+      "source": "Tron source: labs/investment/",
       "currentGate": "PRODUCTION_RUNTIME_REVIEW",
-      "licenseStatus": "Zhuge source; provider terms vary",
+      "licenseStatus": "Tron source; provider terms vary",
       "dataTruthLabels": [
         "OFFICIAL",
         "FALLBACK",
