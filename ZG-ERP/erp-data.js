@@ -140,7 +140,7 @@
     }
     /* 現場觀察（與正式 SheetsStore 同規則，供 isolated QA）：新掃到建資產（使用中）；
      * 原本未指定專案的歸入本次專案；已屬其他專案不改；待修/維修/報廢不回沖 */
-    observeAsset(sess, code, zone) {
+    observeAsset(sess, code, zone, occupantName) {
       const rawProject = String(sess.project || "").trim();
       const currentProject = ["", "全部", "全部專案", "未指定", "未指定（待確認）", "未指定(待確認)"].includes(rawProject) ? "" : rawProject;
       const BLOCK = ["待修", "維修中", "已報廢"];
@@ -154,11 +154,12 @@
         return { exception: false, moved: false, asset: existing };
       }
       const now = new Date().toISOString();
-      const a = { code, name: "", model: "", serial: "", owner: "公用", site: sess.site, zone: zone || "",
+      const bring = String(occupantName || "").trim();
+      const a = { code, name: "", model: "", serial: "", owner: bring || "公用", site: sess.site, zone: zone || "",
         status: "使用中", project: currentProject, brand: "", origin: "未確認", type: "", mfgYear: "", po: "",
         purchase: "", activate: "", warranty: "", source: "盤點", createdAt: now, createdBy: this.actor, updatedAt: now };
       this.db.assets.push(a); this.persist();
-      return { exception: false, created: true, asset: a };
+      return { exception: false, created: true, ownerBroughtIn: bring || "", asset: a };
     }
     closeSession(sess) { sess.closed = true; this.persist(); }
     /* ---- 舊帳比對（mock 固定種子；正式由 SheetsStore 讀整合-主檔） ---- */
