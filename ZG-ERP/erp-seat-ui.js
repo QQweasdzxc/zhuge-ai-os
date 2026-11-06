@@ -3,7 +3,7 @@ function readZoom(){try{const v=localStorage.getItem('zg_erp_seat_zoom3');return
 const C=g.ErpSeatCore,esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function create(store,rerender){
  let hooks=null;const S={loaded:false,busy:false,error:'',draft:null,selected:1,mapId:'',name:'',notice:'',pending:null,scanSelected:false,zoom:readZoom(),pickFor:'',conflictSeat:null};
- const model=()=>C.reduce(store.seatRows||[]);
+ let _mk='',_md=null;const model=()=>{const rows=store.seatRows||[];const k=rows.length+'|'+(rows.length?String(rows[rows.length-1][0]):'');if(k!==_mk){_mk=k;_md=C.reduce(rows);}return _md;}; /* 2026-11-06.32 效能：座位事件為 append-only，長度+尾鍵變才重算；修正每格座位都全量 reduce 的 O(n^2) 頓挫 */
  const isMock=()=>!!(g.ZgErpData&&g.ZgErpData.isMock);
  const mapFor=(site,zone)=>{const maps=model().maps.filter(m=>m.site===site&&(!zone||m.zone===zone));return maps.find(m=>m.id===S.mapId)||maps[maps.length-1]};
  const uid=()=>crypto.randomUUID();
