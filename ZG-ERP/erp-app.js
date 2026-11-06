@@ -425,6 +425,7 @@
   }
   function startSession() {
     if (!S.site) return;
+    camPreWarm();
     if (S.scanProjectInput.trim()) S.scanProject = S.scanProjectInput.trim();
     S.scanDepartment = S.scanDepartment.trim();
     S.scanSetupErr = "";
@@ -523,6 +524,34 @@
     }catch(e){cam.detection=null;drawQrFrame();S.camErr='辨識元件暫時失敗，尚未入帳。可重新開相機或使用手動輸入。';}
     finally{cam.busy=false;}
   }
+  function camMapErr(err){return err&&err.name==="NotAllowedError"?"相機權限被拒絕。請在瀏覽器允許相機，再點取景區重試；也可使用手動輸入。":err&&err.name==="NotFoundError"?"找不到可用的相機鏡頭。請使用手動輸入。":"相機開啟失敗（"+(err&&err.name?err.name:"未知原因")+"），可點取景區重試或使用手動輸入。";}
+  function camAdopt(stream){
+    if(cam.stream&&cam.stream!==stream)cam.stream.getTracks().forEach(t=>t.stop());
+    cam.stream=stream;cam.engine="zxing";
+    cam.dedup=ErpScanCore.makePresenceDeduper(1500);S.camOn=true;S.camLast="";S.camLastAt=0;render();
+    if(cam.timer)clearInterval(cam.timer);cam.timer=setInterval(camTick,700);
+  }
+  /* 點「開始掃描」時與定位同手請相機授權：兩個瀏覽器詢問接續出現，進掃描頁時相機已開或正在開；拒絕或逾時不擋進頁，仍可手動輸入或再點取景區 */
+  function camPreWarm(){
+    if(cam.starting||S.camOn||cam.stream)return;
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)return;
+    if(!window.ZXingWASM)return;
+    if(window.ZXingWASM.setZXingModuleOverrides)window.ZXingWASM.setZXingModuleOverrides({locateFile:p=>p.endsWith(".wasm")?new URL("vendor/zxing_reader.wasm",location.href).href:p});
+    if(window.ErpReadFeedback&&window.ErpReadFeedback.unlock)window.ErpReadFeedback.unlock().then(ok=>{S.audioReady=ok;});
+    S.camErr="";
+    const attempt=++cam.startId;cam.starting=true;
+    const current=()=>cam.startId===attempt&&cam.starting;
+    cam.watchdog=setTimeout(()=>{if(!current())return;cam.starting=false;cam.startId++;S.camErr="相機超過 8 秒沒有回應，尚未開啟。可點取景區重試，或使用手動輸入。";if(S.screen==="scan")render();},8000);
+    navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"},audio:false}).then(stream=>{
+      if(!current()){stream.getTracks().forEach(t=>t.stop());return;}
+      cam.starting=false;if(cam.watchdog){clearTimeout(cam.watchdog);cam.watchdog=null;}
+      camAdopt(stream);
+    }).catch(err=>{
+      if(!current())return;
+      cam.starting=false;if(cam.watchdog){clearTimeout(cam.watchdog);cam.watchdog=null;}
+      S.camErr=camMapErr(err);if(S.screen==="scan")render();
+    });
+  }
   function camStart() {
     if(cam.starting||S.camOn||cam.stream)return;
     window.ErpReadFeedback?.unlock().then(ok=>{S.audioReady=ok;const h=document.getElementById('qrdetected');if(h&&!ok)h.textContent='音效未啟用；請看辨識提示與保存狀態';});
@@ -572,7 +601,7 @@
     setTimeout(refreshSyncBadge, 0); /* 整頁重繪會重建徽章（預設隱藏），重繪後立刻補上內容 */
     return '<div id="erp-sync-badge" class="syncbadge" style="display:none"></div><div id="erp-version-badge" class="versionbadge" style="display:none"></div>';
   }
-  const LOADED_BUILD = { id: "2026-11-06.21" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
+  const LOADED_BUILD = { id: "2026-11-06.22" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
   async function checkAppVersion() {
     if (D.isMock) return;
     try {
@@ -736,11 +765,9 @@
     return '<div class="screen">' +
       '<div class="scanbar"><button class="zonebtn" data-a="zoneopen"><span class="lbl">' + esc(S.site) + " · 目前區域</span><b>" + esc(S.zone) + " ▾</b></button>" +
       '<button class="btn mini" data-a="toresult">結束 (' + recs.length + ")</button></div>" +
-      '<div class="small">本次使用部門：' + esc(S.sess.department || "未指定") + " · 專案：" + esc(S.sess.project || "全部專案") + " · 經手人：" + esc(S.sess.operator || "未記錄") + "（開始前設定，這批沿用）</div>" +
-      scopeStrip +
+      '<div class="smeta scan-prog">應盤 ' + scope.length + ' · 已掃 ' + scopeGot.length + (scopeMiss.length ? ' · <b class="pbad">還差 ' + scopeMiss.length + '</b>' : ' · 全部掃完') + '</div>' +
       (S.scanSetupErr ? '<div class="warn">'+(S.scanUncertain?'本筆掃描 '+esc(S.scanIntent?.code||'')+'：保存結果待查，請勿重送。':esc(S.scanSetupErr))+(S.scanIntent&&!S.scanUncertain?'<button class="pill" data-a="scan-intent-retry">重試這筆未保存掃描</button>':'')+'</div>' : "") +
       recs.filter(r=>r.__seatError).map(r=>'<div class="warn">座位登記未同步：'+esc(r.code)+' · '+esc(r.__seatError)+'<button class="pill" data-seat-retry="'+esc(r.code)+'">重試座位登記（不重掃設備）</button></div>').join("") +
-      '<div class="small">起點定位 ' + (S.sess.lat != null ? Number(S.sess.lat).toFixed(3) + ", " + Number(S.sess.lon).toFixed(3) + (S.sess.acc != null ? "（±" + S.sess.acc + " m）" : "") : "無（手動選擇據點）") + " · " + esc(new Date(S.sess.at).toLocaleTimeString("zh-TW", { hour12: false })) + "（固定，換區域不會改）</div>" +
       (S.zoneOpen ? '<div class="zonepick">' + zonesOf(S.site).map((z) => '<button class="pill' + (S.zone === z ? " on" : "") + '" data-a="zone" data-v="' + esc(z) + '">' + esc(z) + "</button>").join("") + "</div>" : "") +
       '<div class="scan-camera">' + (seatUI ? seatUI.scanPanel(S.site,S.zone,S.sess,recs,"above") : "") +
       (S.camOn
@@ -748,6 +775,11 @@
         : '<button type="button" class="view camera-activate" data-a="camstart" aria-label="點一下開啟相機掃描"'+(cam.starting?' disabled aria-busy="true"':'')+'><i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i><div class="qr"></div><span class="hint">'+(cam.starting?'正在開啟相機…<br>瀏覽器詢問時，請允許相機':'點一下開啟相機掃描<br>瀏覽器詢問時，請允許相機')+'</span></button>' + (S.camErr ? '<div class="warn">' + esc(S.camErr) + "</div>" : "")) +
       (seatUI ? seatUI.scanPanel(S.site,S.zone,S.sess,recs) : "") +
       (S.camOn?'<button class="pill sm camera-stop" data-a="camstop">關閉相機</button>':'') + '</div>' +
+      '<details class="scan-meta"><summary>進度、範圍與場次資訊</summary>' +
+      '<div class="small">本次使用部門：' + esc(S.sess.department || "未指定") + " · 專案：" + esc(S.sess.project || "全部專案") + " · 經手人：" + esc(S.sess.operator || "未記錄") + "（開始前設定，這批沿用）</div>" +
+      scopeStrip +
+      '<div class="small">起點定位 ' + (S.sess.lat != null ? Number(S.sess.lat).toFixed(3) + ", " + Number(S.sess.lon).toFixed(3) + (S.sess.acc != null ? "（±" + S.sess.acc + " m）" : "") : "無（手動選擇據點）") + " · " + esc(new Date(S.sess.at).toLocaleTimeString("zh-TW", { hour12: false })) + "（固定，換區域不會改）</div>" +
+      '</details>' +
       toast +
       (S.scanBusy?'<div class="warn">正在核對保存：'+esc(S.scanIntent?.code||'')+'，完成前不計入成功。</div>':'')+(S.scanQueue?.length?'<div class="warn">等候保存：'+S.scanQueue.map(x=>esc(x.code)).join('、')+'</div>':'')+
       heldReloaded().map(r=>'<div class="warn">上次中斷的掃描 '+esc(r.payload.values.code)+'：'+(r.payload.values.uncertain?'結果待查':'未保存')+'，不會自動重送。請先核對該編號的紀錄，再到「管理功能 › 本機草稿」移除。</div>').join('') +
@@ -1615,6 +1647,7 @@
       S.booting = true; S.bootErr = ""; render();
       store.init().then(() => {
         S.booting = false;
+        try{const qp=new URLSearchParams(location.search);const coarse=!!(window.matchMedia&&matchMedia("(pointer: coarse)").matches);const narrow=(window.innerWidth||0)<700;if(!qp.get("mode")&&(coarse||narrow)&&S.mode!=="phone"){S.mode="phone";S.dash=false;if(S.sess)S.screen="scan";}}catch(e){}
         refreshVersionBadge();
         if (seatUI && typeof store.loadSeatMap === "function") store.loadSeatMap().then(() => {seatUI.state.loaded=true;render();});
         if (typeof store.onSyncChange === "function") store.onSyncChange(() => { refreshSyncBadge(); refreshScanSync(); refreshVersionBadge(); });
