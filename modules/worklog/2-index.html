@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="Tron 是一套 AI 工作管理平台，提供文件管理與 AI 知識整理。">
+    <meta name="theme-color" content="#030914">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Tron">
+    <meta property="og:description" content="Tron 是一套 AI 工作管理平台，提供文件管理與 AI 知識整理。">
+    <title>Tron</title>
+    <link rel="icon" href="../../shared/assets/logo/tron-icon.svg" type="image/svg+xml">
+    <link id="public-home-styles" rel="stylesheet" href="../../shared/theme/public-home.css?v=20261105-0804">
+    <style id="runtime-boot-shell-style">
+      .app-boot-shell{min-height:100vh;display:grid;grid-template-columns:minmax(220px,264px) minmax(0,1fr);gap:16px;padding:16px;background:radial-gradient(circle at 82% -10%,rgba(47,215,245,.12),transparent 30rem),#050b12;color:#e8f6fb;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans TC","Segoe UI",sans-serif}
+      .app-boot-sidebar,.app-boot-main{border:1px solid rgba(47,215,245,.24);background:linear-gradient(160deg,#0d1a24,#0b1520);border-radius:18px;box-shadow:0 18px 50px rgba(0,0,0,.28)}
+      .app-boot-sidebar{padding:20px;display:flex;flex-direction:column;gap:18px}.app-boot-brand{min-height:42px;border-bottom:1px solid rgba(47,215,245,.22);font-weight:800;font-size:18px;display:flex;align-items:center}.app-boot-nav{display:grid;gap:10px}.app-boot-nav i,.app-boot-row{display:block;height:38px;border-radius:10px;background:rgba(47,215,245,.06)}
+      .app-boot-main{background:#071019;padding:22px;display:grid;align-content:start;gap:18px}.app-boot-header{min-height:78px;border:1px solid rgba(47,215,245,.2);border-radius:14px;background:#0d1a24;padding:16px 18px;display:grid;gap:7px}.app-boot-header span{font-size:11px;letter-spacing:.12em;color:#6ff3ff;font-weight:800}.app-boot-header strong{font-size:20px}.app-boot-content{display:grid;gap:12px}.app-boot-row{height:76px;background:rgba(47,215,245,.05)}.app-boot-row.short{height:44px;width:62%}.app-boot-status{display:flex;align-items:center;gap:9px;color:#9fb8c4;font-size:13px}.app-boot-status:before{content:"";width:8px;height:8px;border-radius:50%;background:#ff9a3c;box-shadow:0 0 0 5px rgba(255,154,60,.14)}
+      @media(max-width:800px){.app-boot-shell{grid-template-columns:1fr;padding:10px}.app-boot-sidebar{min-height:64px;padding:14px;display:block}.app-boot-brand{border:0}.app-boot-nav{display:none}.app-boot-main{padding:14px}.app-boot-row.short{width:100%}}
+    </style>
+    <script src="../../shared/config/version.js?v=20261105-0804"></script>
+    <script src="../../shared/config/template-release.js?v=20260915-1707"></script>
+    <script src="../../labs/taskflow/cli-sso.js?v=20261105-0804"></script>
+    <script>
+      window.ZhugeTaskFlowCliSSO?.startLoginReturnMonitor(window);
+    </script>
+    <script>
+      (() => {
+        const view = new URLSearchParams(window.location.search).get("templateView");
+        if (["navigation", "workspace"].includes(view)) document.documentElement.dataset.templateView = view;
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="app">
+      <header class="public-header">
+        <a class="brand" href="./" aria-label="Tron home">
+          <svg class="brand-mark" viewBox="0 0 128 128" role="img" aria-label="Tron logo">
+            <rect width="128" height="128" rx="30" fill="#060b12"/>
+            <g transform="translate(9.6 9.6) scale(0.4533)">
+
+
+  <defs>
+    <filter id="glow5" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="3.2" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <g filter="url(#glow5)" fill="none" stroke-linecap="round">
+    <!-- segmented outer ring: cyan arcs with gaps at 12/3/6/9-ish -->
+    <g stroke="#3fdcf7" stroke-width="7">
+      <path d="M120 26 a94 94 0 0 1 78 40"/>
+      <path d="M214 96 a94 94 0 0 1 -18 84"/>
+      <path d="M186 196 a94 94 0 0 1 -96 12"/>
+      <path d="M62 196 a94 94 0 0 1 -34 -70"/>
+      <path d="M30 96 a94 94 0 0 1 52 -64"/>
+    </g>
+    <!-- yellow tick accents in two gaps -->
+    <g stroke="#ffd76a" stroke-width="7">
+      <path d="M120 26 a94 94 0 0 1 14 1.5" opacity=".95"/>
+      <path d="M186 196 a94 94 0 0 1 -12 6" opacity=".95"/>
+    </g>
+    <!-- orange mid ring, broken arc -->
+    <path d="M120 52 a68 68 0 1 1 -48 20" stroke="#ff9a3c" stroke-width="3.2" opacity=".9"/>
+    <!-- center inverted rounded triangle, layered hollow: orange trace / yellow / blue / dark core -->
+    <g stroke-linejoin="round">
+      <path d="M84 92 H156 L120 158 Z" stroke="#ff9a3c" stroke-width="15" opacity=".95"/>
+      <path d="M84 92 H156 L120 158 Z" stroke="#ffd76a" stroke-width="11" opacity=".95"/>
+      <path d="M84 92 H156 L120 158 Z" stroke="#3fdcf7" stroke-width="6.5"/>
+      <path d="M84 92 H156 L120 158 Z" stroke="#071019" stroke-width="2.6"/>
+    </g>
+    <!-- small dot below triangle tip -->
+    <circle cx="120" cy="176" r="3.4" stroke="#3fdcf7" stroke-width="2.6"/>
+  </g>
+</g>
+          </svg>
+          <span><strong>Tron</strong><small>by Mr. KM</small></span>
+        </a>
+        <a class="header-link" href="?app=1&amp;workspace=dashboard">Open Dashboard</a>
+      </header>
+
+      <main>
+        <section class="hero" aria-labelledby="hero-title">
+          <div class="hero-copy">
+            <p class="eyebrow">個人工作管理 · AI 知識工作空間</p>
+            <h1 id="hero-title"><img src="../../shared/assets/logo/tron-wordmark.svg" alt="Tron" style="height:76px;display:block"></h1>
+            <p class="hero-lead">Tron 是一套 AI 工作管理平台，整合 WorkLog、Google Drive 與 AI 知識管理。</p>
+            <p class="hero-body">使用 Google 帳號安全登入，在 WorkLog 記錄工作，並只在授權後匯入你明確選取的 Google Drive 文件，進行 AI 分析與知識整理。</p>
+            <p class="hero-local">專為個人工作管理與 AI 協作設計，讓 Google 登入、工時紀錄、文件理解與知識整理在同一個安全工作空間中自然銜接。</p>
+            <div class="hero-actions">
+              <a class="button primary" href="?app=1&amp;workspace=dashboard">使用 Google 登入</a>
+              <a class="button secondary" href="#features">View features</a>
+            </div>
+          </div>
+          <div class="hero-logo-card" aria-label="Tron product logo">
+            <svg class="hero-logo" viewBox="0 0 128 128" aria-hidden="true">
+            <rect width="128" height="128" rx="30" fill="#060b12"/>
+            <g transform="translate(9.6 9.6) scale(0.4533)">
+
+
+  <defs>
+    <filter id="glow5" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="3.2" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <g filter="url(#glow5)" fill="none" stroke-linecap="round">
+    <!-- segmented outer ring: cyan arcs with gaps at 12/3/6/9-ish -->
+    <g stroke="#3fdcf7" stroke-width="7">
+      <path d="M120 26 a94 94 0 0 1 78 40"/>
+      <path d="M214 96 a94 94 0 0 1 -18 84"/>
+      <path d="M186 196 a94 94 0 0 1 -96 12"/>
+      <path d="M62 196 a94 94 0 0 1 -34 -70"/>
+      <path d="M30 96 a94 94 0 0 1 52 -64"/>
+    </g>
+    <!-- yellow tick accents in two gaps -->
+    <g stroke="#ffd76a" stroke-width="7">
+      <path d="M120 26 a94 94 0 0 1 14 1.5" opacity=".95"/>
+      <path d="M186 196 a94 94 0 0 1 -12 6" opacity=".95"/>
+    </g>
+    <!-- orange mid ring, broken arc -->
+    <path d="M120 52 a68 68 0 1 1 -48 20" stroke="#ff9a3c" stroke-width="3.2" opacity=".9"/>
+    <!-- center inverted rounded triangle, layered hollow: orange trace / yellow / blue / dark core -->
+    <g stroke-linejoin="round">
+      <path d="M84 92 H156 L120 158 Z" stroke="#ff9a3c" stroke-width="15" opacity=".95"/>
+      <path d="M84 92 H156 L120 158 Z" stroke="#ffd76a" stroke-width="11" opacity=".95"/>
+      <path d="M84 92 H156 L120 158 Z" stroke="#3fdcf7" stroke-width="6.5"/>
+      <path d="M84 92 H156 L120 158 Z" stroke="#071019" stroke-width="2.6"/>
+    </g>
+    <!-- small dot below triangle tip -->
+    <circle cx="120" cy="176" r="3.4" stroke="#3fdcf7" stroke-width="2.6"/>
+  </g>
+</g>
+            </svg>
+            <strong>讓 Mr. KM 陪你更有效率地工作</strong>
+            <span>理解工作、整理知識、持續前進。</span>
+          </div>
+        </section>
+
+        <section class="section" id="features" aria-labelledby="features-title">
+          <div class="section-heading"><p class="eyebrow">功能</p><h2 id="features-title">一個安全的日常工作空間。</h2></div>
+          <div class="feature-grid">
+            <article class="feature-card"><span class="feature-icon">W</span><h3>WorkLog</h3><p>在同一個工作空間記錄每日工作、工時、進度與結案結果。</p></article>
+            <article class="feature-card"><span class="feature-icon">G</span><h3>Google Login</h3><p>使用單一 Google 身分安全進入 Tron。</p></article>
+            <article class="feature-card"><span class="feature-icon">D</span><h3>Google Drive</h3><p>授權後，只匯入使用者明確選取的單一文件。</p></article>
+            <article class="feature-card"><span class="feature-icon">AI</span><h3>AI Knowledge</h3><p>Mr. KM 分析確認後的工作內容，整理成可重複使用的知識。</p></article>
+            <article class="feature-card"><span class="feature-icon">S</span><h3>安全工作空間</h3><p>在清楚的存取邊界下管理工作紀錄與指定的知識來源。</p></article>
+          </div>
+        </section>
+
+        <section class="section trust-section" aria-labelledby="trust-title">
+          <div class="section-heading"><p class="eyebrow">Designed for trust</p><h2 id="trust-title">Your data, your choices.</h2></div>
+          <div class="trust-grid">
+            <div><strong>Selected files only</strong><p>After you authorize Google Drive, access is limited to files you explicitly choose through Google Picker.</p></div>
+            <div><strong>Read-only Drive access</strong><p>Drive files are read for analysis; Tron does not modify, delete, or share them.</p></div>
+            <div><strong>Personal productivity</strong><p>Built for individual work management and AI-assisted knowledge organization.</p></div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="public-footer">
+        <div class="footer-brand"><strong>Tron</strong><span>AI 工作管理與知識整理平台。</span></div>
+        <nav aria-label="Legal and support links">
+          <a href="../../product/">Product</a>
+          <a href="../../privacy/">Privacy Policy</a>
+          <a href="../../terms/">Terms of Service</a>
+          <a href="../../support/">Support</a>
+          <a href="../../contact/">Contact</a>
+          <a href="../../google-data/">How Google Data Is Used</a>
+        </nav>
+      </footer>
+    </div>
+
+    <noscript>
+      <p class="noscript-message">Tron is an AI-powered productivity platform. JavaScript is required to open WorkLog after you choose to sign in.</p>
+    </noscript>
+
+    <script>
+      (() => {
+        const runtimeFiles = [
+          "../../shared/i18n/zh-TW.js", "../../shared/app-config.js", "../../shared/utils/shared-utils.js", "../../shared/storage/storage-migration.js", "../../shared/api/data-result.js", "../../shared/identity/identity-health.js", "../../shared/auth/session-lifecycle.js", "../../shared/core/repository-bootstrap.js", "../../shared/api/sync-queue.js", "../../shared/foundation/index.js", "../../shared/app-state.js",
+          "../../shared/utils/render-engine.js", "../../shared/app-router.js", "../../shared/components/index.js", "../../shared/components/task-card.js", "../../shared/components/activity-text-renderer.js", "../../shared/components/task-card-summary.js", "../../shared/components/task-drawer.js", "../../shared/components/task-board.js", "../../shared/components/golden-master.js", "../../shared/components/system-template-catalog.js", "../../shared/components/template-management-center.js", "components/worktodo-task-adapter.js",
+          "../../shared/components/workspaces.js", "../../shared/identity/creator-resolver.js", "../../shared/services/template-adoption-policy.js", "../../shared/components/zhuge-navigation.js", "../../shared/components/zhuge-shell.js", "../../shared/components/zhuge-functional-tabs.js", "../../shared/auth/auth-service.js", "../../app/dashboard/zhuge-dashboard.js",
+          "../../shared/utils/priority-engine.js", "ai-daily-brief.js", "../../shared/api/repositories.js",
+          "../../shared/api/data-service.js", "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.55.0/dist/umd/supabase.min.js", "../../shared/supabase/supabase-gateway.js", "../../shared/auth/app-access-service.js", "../../shared/auth/app-access-gate.js", "../../shared/components/global-floating-hub.js", "../../shared/components/user-access-management.js", "../../shared/services/template-release-service.js", "../../shared/board/board-read-service.js", "components/worktodo-dashboard-adapter.js",
+          "../../shared/api/realtime-service.js", "../../shared/api/services.js", "work-intelligence.js",
+          "suggestion-intelligence.js", "knowledge-intelligence.js", "knowledge-engine.js", "../../shared/attachments/attachment-context.js", "../../shared/ai/attachment-reader.js",
+          "knowledge-repository-service.js", "../../shared/api/knowledge-api.js",
+          "../../shared/google/google-drive-service.js", "knowledge-ingestion-service.js", "worktodo-ordering.js", "../../labs/taskflow/taskflow-post-login.js", "worklog-app.js"
+        ];
+        const appStyles = [
+          "../../shared/theme/zhuge-shell.css?v=20261105-0804",
+          "../../shared/theme/task-card.css?v=20261105-0804",
+          "../../shared/theme/task-drawer.css?v=20261105-0804",
+          "../../shared/theme/task-board.css?v=20261105-0804",
+          "./worklog.css?v=20261105-0804",
+          "../../shared/theme/golden-master.css?v=20261105-0804",
+          "../../shared/theme/zhuge-os.css?v=20261105-0804",
+          "../../shared/theme/ai-product.css?v=20261105-0804",
+          "../../shared/theme/zhuge-workspace.css?v=20261105-0804",
+          "../../shared/theme/zhuge-navigation.css?v=20261105-0804",
+          "../../shared/theme/app-access.css?v=20261105-0804",
+          "../../shared/theme/global-floating-hub.css?v=20261105-0804",
+          "../../shared/theme/user-access-management.css?v=20261105-0804",
+          "../../shared/theme/desktop-modernization.css?v=20261105-0804",
+          "../../shared/theme/responsive-modernization.css?v=20261105-0804",
+          "../../shared/theme/zhuge-functional-tabs.css?v=20261105-0804"
+        ];
+        const appearanceScript = document.createElement("script");
+        appearanceScript.src = "../../shared/theme/zhuge-appearance.js?v=20261105-0804";
+        appearanceScript.onload = () => window.ZhugeAppearance?.apply(window.ZhugeAppearance.read());
+        document.body.appendChild(appearanceScript);
+        const params = new URLSearchParams(window.location.search);
+        const hasOAuthCallback = params.has("code") || params.has("error") || window.location.hash.includes("access_token");
+        const hasSession = (() => {
+          try { return Boolean(localStorage.getItem("zhuge_ai_os_google_auth_session_v1") || localStorage.getItem("zhuge_ai_os_session_v1")); }
+          catch { return false; }
+        })();
+        const shouldOpenApp = params.get("app") === "1" || hasOAuthCallback || hasSession;
+        if (!shouldOpenApp) return;
+
+        // Shared Navigation passes a workspace query when opening an internal
+        // WorkLog destination. This is a routing adapter only; the WorkLog
+        // runtime remains the owner of workspace rendering and business logic.
+        const requestedWorkspace = params.get("workspace");
+        const allowedWorkspaces = new Set(["dashboard", "worklog", "library", "sync", "management", "settings"]);
+        const isTemplateView = ["navigation", "workspace"].includes(params.get("templateView"));
+        if (!isTemplateView && allowedWorkspaces.has(requestedWorkspace)) {
+          try {
+            // Explicit shared-navigation intent opens exactly that WorkLog
+            // workspace even when this browser has no prior shell tabs.
+            // Dashboard is the shell landing surface, so it deliberately has
+            // no child workspace tab. Other destinations open one tab.
+            localStorage.setItem("zhuge_os_open_tabs_v1", JSON.stringify(requestedWorkspace === "dashboard" ? [] : [requestedWorkspace]));
+            localStorage.setItem("zhuge_os_active_workspace_v1", requestedWorkspace);
+            // Opening the shell dashboard must not erase the user's recent
+            // workspace history.  An explicit child destination is still
+            // recorded as the most recent workspace.
+            if (requestedWorkspace !== "dashboard") {
+              localStorage.setItem("zhuge_os_recent_workspaces_v1", JSON.stringify([requestedWorkspace]));
+            }
+          } catch {}
+        }
+
+        const root = document.getElementById("app");
+        const renderBootState = (title, message, links = true) => {
+          root.innerHTML = `<main class="app-boot-shell" aria-live="polite"><aside class="app-boot-sidebar"><div class="app-boot-brand"><img src="../../shared/assets/logo/tron-wordmark.svg" alt="Tron" style="height:26px;display:block"></div><div class="app-boot-nav" aria-hidden="true"><i></i><i></i><i></i><i></i></div></aside><section class="app-boot-main"><header class="app-boot-header"><span>Tron</span><strong>${title}</strong></header><div class="app-boot-content"><div class="app-boot-status">${message}</div><div class="app-boot-row"></div><div class="app-boot-row short"></div>${links ? '<a href="./?app=1&amp;workspace=dashboard">回到 Dashboard</a>' : ''}</div></section></main>`;
+        };
+        document.getElementById("public-home-styles")?.remove();
+        renderBootState("正在開啟工作空間…", "正在準備共用工作區與登入狀態", false);
+        const phase1CacheVersion = "20261105-0804";
+        const runtimeUrl = file => file.includes("://") ? file : `${file}?v=${phase1CacheVersion}`;
+        const loadStyles = () => Promise.all(appStyles.map(href => new Promise((resolve, reject) => {
+          const link = document.createElement("link");
+          link.rel = "stylesheet";
+          link.href = href;
+          link.onload = resolve;
+          link.onerror = () => {
+            const error = new Error(`Unable to load App stylesheet: ${href}`);
+            error.resourceKind = "stylesheet";
+            reject(error);
+          };
+          // Append in the existing order. CSS cascade order follows document
+          // order even when the browser finishes downloading a later file first.
+          document.head.appendChild(link);
+        })));
+        const preloadRuntime = () => {
+          const probe = document.createElement("link");
+          if (!probe.relList?.supports?.("preload")) return Promise.resolve();
+          return Promise.all(runtimeFiles.map(file => new Promise((resolve, reject) => {
+            const href = runtimeUrl(file);
+            const link = document.createElement("link");
+            link.rel = "preload";
+            link.as = "script";
+            link.href = href;
+            link.onload = resolve;
+            link.onerror = () => {
+              const error = new Error(`Unable to preload App script: ${href}`);
+              error.resourceKind = "script";
+              reject(error);
+            };
+            document.head.appendChild(link);
+          })));
+        };
+        const load = async () => {
+          // Fetch in parallel above, but append each executable script only
+          // after its predecessor has loaded and run. If a script fails, later
+          // application code is never executed, matching the previous fail-closed
+          // loader while removing the network round-trip chain.
+          for (const file of runtimeFiles) {
+            await new Promise((resolve, reject) => {
+              const script = document.createElement("script");
+              script.src = runtimeUrl(file);
+              script.async = false;
+              script.onload = resolve;
+              script.onerror = () => {
+                const error = new Error(`Unable to execute App script: ${script.src}`);
+                error.resourceKind = "script";
+                reject(error);
+              };
+              document.body.appendChild(script);
+            });
+          }
+        };
+        Promise.all([loadStyles(), preloadRuntime()]).then(load).catch(error => {
+          if (error.resourceKind === "stylesheet") {
+            console.error("Tron App stylesheet load failed", error);
+            renderBootState("工作空間暫時無法開啟", "版面資源載入失敗，請重新整理後再試。", true);
+            return;
+          }
+          console.error("Tron App script load failed", error);
+          renderBootState("工作空間暫時無法開啟", "部分共用資源載入失敗，請重新整理後再試。", true);
+        });
+      })();
+    </script>
+    <script type="module">
+      // One-time explicit Pages TaskFlow login handoff. Existing WorkLog/OAuth
+      // continues to own authentication and the storage on this exact origin.
+      import {startReturnMonitor} from "../../labs/taskflow/pages-client/login-return.mjs";
+      startReturnMonitor();
+    </script>
+  </body>
+</html>
