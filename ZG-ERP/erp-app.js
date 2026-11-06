@@ -612,7 +612,7 @@
     setTimeout(refreshSyncBadge, 0); /* 整頁重繪會重建徽章（預設隱藏），重繪後立刻補上內容 */
     return '<div id="erp-sync-badge" class="syncbadge" style="display:none"></div><div id="erp-version-badge" class="versionbadge" style="display:none"></div>';
   }
-  const LOADED_BUILD = { id: "2026-11-06.26" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
+  const LOADED_BUILD = { id: "2026-11-06.27" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
   async function checkAppVersion() {
     if (D.isMock) return;
     try {
@@ -1223,7 +1223,7 @@
     const legacy = store.legacyRows ? store.legacyRows() : [];
     const lerr = store.legacyError ? store.legacyError() : "";
     const coded = legacy.filter((r) => r.code);
-    const noCode = legacy.length - coded.length;
+    const noCode = legacy.filter((r) => !r.code && (!S.legLead || r.siteLead === S.legLead) && (!S.legProj || r.project === S.legProj)).length; // 隨出處/專案篩選，與下方清單一致
     if (!legacy.length) {
       return '<h3 class="ptitle">舊帳比對</h3><p class="psub">' +
         (lerr ? "舊帳暫時讀不到（" + esc(lerr) + "）。新帳功能不受影響，修好後這裡會顯示比對。" : "舊帳還沒有可比對的資料。") + "</p>";
