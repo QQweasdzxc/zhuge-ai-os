@@ -43,7 +43,7 @@ test("OAuth callback is not redirected to Render and is not leaked",()=>{
  }
 });
 test("classic status page loads native Pages TaskFlow dashboard instead of Render redirect or iframe",()=>{
- assert.match(classicSource, /<title>經典報表（TaskFlow Dashboard） · Zhuge AI OS<\/title>/);
+ assert.match(classicSource, /<title>經典報表（TaskFlow Dashboard） · Tron<\/title>/);
  assert.match(classicSource, /id="tf-workspace"/);
  assert.match(classicSource, /id="tf-issues"/);
  assert.match(classicSource, /src="labs\/taskflow\/pages-client\/app\.mjs/);
