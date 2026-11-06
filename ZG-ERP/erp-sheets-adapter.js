@@ -79,6 +79,9 @@
   }
   /* 舊帳（59 整合工作簿，唯讀比對）：依「欄名」對應，不倚賴欄位順序；
    * 記錄鍵逐字採用（永不以列位置推導）；出處＝來源工作表＋來源列；髒值欄不作篩選維度 */
+  function rowToNote(row) {
+    return { key: String((row && row[0]) || ""), at: String((row && row[1]) || ""), recordKey: String((row && row[2]) || ""), source: String((row && row[3]) || ""), code: String((row && row[4]) || ""), condition: String((row && row[5]) || ""), disposition: String((row && row[6]) || ""), note: String((row && row[7]) || ""), actor: String((row && row[8]) || ""), status: String((row && row[9]) || "") };
+  }
   function rowToLegacy(header, row, i) {
     const ix = {};
     (header || []).forEach((h, n) => { const k = String(h == null ? "" : h).trim(); if (k && ix[k] == null) ix[k] = n; });
@@ -276,6 +279,8 @@
       this._legacyFlows = [];
       this._legacyQuestions = [];
       this._legacyAuxError = "";
+      this._legacyNotes = [];
+      this._legacyNotesError = "";
       try {
         const lm = await this._readFull("\u6574\u5408-\u4e3b\u6a94");
         this._legacyRows = lm.rows.map((row, i) => rowToLegacy(lm.header, row, i)).filter((r) => r.recordKey);
@@ -294,6 +299,13 @@
         this._legacyQuestions = lq.rows.map((row, i) => rowToQuestion(lq.header, row, i)).filter((q) => q.itemKey || q.summary);
       } catch (e) {
         this._legacyAuxError = this._legacyAuxError || String((e && e.message) || e);
+      }
+      /* \u73fe\u5834\u8a3b\u8a18\uff1a\u820a\u5e33 append-only \u5206\u9801\uff1b\u5c1a\u672a\u5efa\u7acb\u6216\u8b80\u53d6\u5931\u6557\u6642\u9694\u96e2\u6210\u7a7a\u6e05\u55ae\uff0c\u4e0d\u62d6\u57ae\u5176\u4ed6\u5340\u584a */
+      try {
+        await this._reloadLegacyNotes();
+      } catch (e) {
+        this._legacyNotes = [];
+        this._legacyNotesError = String((e && e.message) || e);
       }
       let maxSeq = 0;
       this.db.assets.forEach((a) => {
@@ -323,7 +335,7 @@
       await fresh.init();await fresh.loadSeatMap();if(!fresh.seatReady)throw Error('共同座位資料未能讀取，保留目前畫面');
       if(!safe()||generation!==(this._writeGeneration||0))throw new Error("更新期間有本機操作，保留目前輸入；請稍後再更新");
       this.db=fresh.db;this.seatRows=fresh.seatRows;this.seatReady=fresh.seatReady;this.seatError=fresh.seatError;
-      for(const k of ['_originalRows','_headers','departmentReady','_siteQrRows','_legacyRows','_legacyError','_legacyFlows','_legacyQuestions','_legacyAuxError'])this[k]=fresh[k];
+      for(const k of ['_originalRows','_headers','departmentReady','_siteQrRows','_legacyRows','_legacyError','_legacyFlows','_legacyQuestions','_legacyAuxError','_legacyNotes','_legacyNotesError'])this[k]=fresh[k];
       this.lastSharedReadAt=new Date().toISOString();
       return this.db;
     }
@@ -690,6 +702,30 @@
     legacyFlows() { return this._legacyFlows || []; }
     legacyQuestions() { return this._legacyQuestions || []; }
     legacyAuxError() { return this._legacyAuxError || ""; }
+    legacyNotes() { return this._legacyNotes || []; }
+    newOperationId() { return operationId(); } /* 同一張註記表單的重送共用同一 operationId，bridge 據此去重 */
+    legacyNoteError() { return this._legacyNotesError || ""; }
+    async _reloadLegacyNotes() {
+      const ln = await this._readFull("\u73fe\u5834\u8a3b\u8a18");
+      this._legacyNotes = ln.rows.map((row) => rowToNote(row)).filter((n) => n.recordKey);
+      this._legacyNotesError = "";
+    }
+    /* \u820a\u5eab\u8a3b\u8a18\uff1a\u5beb\u5165\u820a\u5e33\u300c\u73fe\u5834\u8a3b\u8a18\u300d\u5206\u9801\uff08bridge legacy-note\uff09\u3002operationId/reservationToken \u7531 _fetchAuth \u6ce8\u5165\u3002 */
+    async addLegacyNote(input) {
+      const res = await this._fetchAuth(this._url("legacy-note", "\u73fe\u5834\u8a3b\u8a18"), { method: "POST", headers: this._authHeaders({ "content-type": "application/json" }), body: JSON.stringify(input || {}) });
+      const body = await res.json().catch(() => null);
+      if (!res || !res.ok) { const err = new Error((body && body.error && body.error.message) || ("\u73fe\u5834\u8a3b\u8a18\u5beb\u5165\u5931\u6557\uff08HTTP " + (res ? res.status : "?") + "\uff09")); err.code = (body && body.error && body.error.code) || ""; throw err; }
+      await this._reloadLegacyNotes().catch((e) => {
+        this._legacyNotesError = "\u8a3b\u8a18\u5df2\u9001\u51fa\uff0c\u4f46\u6e05\u55ae\u8b80\u56de\u5931\u6557\uff08" + String((e && e.message) || e) + "\uff09\uff1b\u8a3b\u8a18\u72c0\u614b\u672a\u78ba\u8a8d\uff0c\u8acb\u91cd\u65b0\u6574\u7406\u5f8c\u6838\u5c0d\u3002";
+      });
+      return body;
+    }
+    /* 以原 operationId 查證註記是否已落地：讀到=已寫入；讀不到不代表未寫入（請求可能仍在途），呼叫方必須保留未確認狀態；讀取失敗擲錯，同樣不可當未寫入 */
+    async verifyLegacyNote(operationId) {
+      if (!operationId) return null;
+      await this._reloadLegacyNotes();
+      return (this._legacyNotes || []).find((n) => n.key === operationId) || null;
+    }
     async loadSeatMap() {
       try { const b = await this._readFull("座位圖");
         const headers = ["事件鍵","類型","圖版本","據點","區域","座位編號","資產編號","內容JSON","時間","經手人"];
