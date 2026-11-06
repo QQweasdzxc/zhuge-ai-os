@@ -3284,7 +3284,7 @@ function worklogInitializationLoadingScreen() {
         <img class="worklog-brand-logo worklog-brand-logo-base" src="./assets/zgkm-loading-logo.png" alt="">
         <div class="worklog-brand-fill"><img class="worklog-brand-logo" src="./assets/zgkm-loading-logo.png" alt=""></div>
       </div>
-      <div class="worklog-brand-wordmark">ZHU<span>GE AI OS</span></div>
+      <div class="worklog-brand-wordmark">TR<span>ON</span></div>
       <div class="worklog-brand-progress" aria-hidden="true"><span></span></div>
       <h1>正在準備工作空間…</h1>
       <p>正在確認登入、雲端設定與工作身分。<br>確認完成後即進入 WorkLog。</p>
