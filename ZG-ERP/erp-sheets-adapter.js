@@ -90,6 +90,8 @@
       return "";
     };
     const src = g("來源工作表"), srcRow = g("來源列");
+    /* 來源工作表原始值（不 trim）：「10F機房 」等頁名尾空白是實際頁名，trim 會對不上白名單 */
+    const srcTabRaw = (() => { const n = ix["來源工作表"]; return n != null ? String(row[n] == null ? "" : row[n]) : ""; })();
     return {
       __row: i + 2,
       recordKey: g("記錄鍵"),
@@ -97,6 +99,8 @@
       purchase: g("採購日期"),
       name: g("名稱"), model: g("型號規格", "型號"),
       siteLead: src,
+      sourceTab: srcTabRaw,
+      srcRow,
       zone: g("區域", "地點位置", "位置"),
       place: g("地點位置"),
       owner: g("保管人", "使用人"),
@@ -693,6 +697,71 @@
       const result = this.legacyMetadata(code);
       if (Object.keys(result.patch).length) this.saveAsset(code, result.patch);
       return { asset: a, issue: result.issue, changed: Object.keys(result.patch).length > 0 };
+    }
+    /* 出處分頁整筆補存（.28）：唯一對碼且主檔記有出處時，唯讀讀回來源分頁原始列，
+     * 以編號或欄結構（項目/型號/位置）核對確為同一筆才併入快照；只補缺不覆寫已存內容。
+     * 列內容對不上（移列/排序）→拒絕錯綁，快照標「來源未補齊」可見狀態；
+     * 來源讀取失敗→保留既有快照並同樣標記；同碼多候選不猜。 */
+    async enrichLegacySnapshotFromSource(code) {
+      const a = this._db().assets.find((x) => x.code === code);
+      if (!a) return { done: false, reason: "新帳無此編號" };
+      const matches = this.legacyRows().filter((r) => r.code === code);
+      if (matches.length > 1) return { done: false, reason: "舊帳同編號多筆，未自動補" };
+      if (!matches.length) return { done: false, reason: "舊帳無對碼" };
+      const r = matches[0];
+      const tab = r.sourceTab || r.siteLead || "";
+      const rowNo = Number(r.srcRow) || 0;
+      if (!tab || !rowNo) return { done: false, reason: "主檔未記出處" };
+      let snap = null;
+      try { snap = a.legacySnapshot ? JSON.parse(a.legacySnapshot) : null; } catch (e) { snap = null; }
+      if (snap && snap.sources && snap.sources[tab] && Object.keys(snap.sources[tab]).length > 1) return { done: true, skipped: true };
+      const markIncomplete = (reason) => {
+        const next = snap && typeof snap === "object" && !Array.isArray(snap) ? Object.assign({}, snap) : { code: r.code, recordKey: r.recordKey, provenance: r.provenance, sources: {} };
+        next.sources = next.sources && typeof next.sources === "object" ? next.sources : {};
+        const cur = next["來源未補齊"] && typeof next["來源未補齊"] === "object" ? Object.assign({}, next["來源未補齊"]) : {};
+        if (cur[tab] && cur[tab]["原因"] === reason) return; /* 已標同因，不重寫 */
+        cur[tab] = { "列": rowNo, "原因": reason, "時間": new Date().toISOString() };
+        next["來源未補齊"] = cur;
+        this.saveAsset(code, { legacySnapshot: JSON.stringify(next) });
+      };
+      let src;
+      try { src = await this._readFull(tab); }
+      catch (e) { markIncomplete("來源分頁讀取失敗：" + String((e && e.message) || e)); return { done: false, incomplete: "讀取失敗" }; }
+      /* 來源列＝試算表實際列號（含表頭列）：bridge rows 自第 2 列起 */
+      const row = src.rows[rowNo - 2];
+      if (!row) { markIncomplete("來源列不存在（可能已刪列），拒絕錯綁"); return { done: false, incomplete: "列不存在" }; }
+      const h = (src.header || []).map((x) => String(x == null ? "" : x).trim());
+      const gv = (...names) => { for (const nm of names) { const n = h.indexOf(nm); if (n !== -1 && String(row[n] || "").trim()) return String(row[n]).trim(); } return ""; };
+      const masterRaw = {};
+      (r.header || []).forEach((hh, n) => { if (hh) masterRaw[hh] = String((r.raw || [])[n] == null ? "" : r.raw[n]).trim(); });
+      const srcCode = gv("編號", "資產編號"), masterCode = masterRaw["編號"] || masterRaw["資產編號"] || "";
+      let verified = false;
+      if (srcCode) {
+        /* 來源列載有編號：須與主檔記載編號一致；主檔記無編號而來源有→身分出入了，退回結構核對也不綁 */
+        verified = !!(masterCode && srcCode === masterCode);
+      } else {
+        const pairs = [
+          [gv("項目", "名稱", "資產名稱"), r.name],
+          [gv("型號", "型號規格"), r.model],
+          [gv("位置", "地點位置", "區域"), r.zone || r.place || ""]
+        ];
+        const checked = pairs.filter(([sv, mv]) => sv && mv);
+        verified = checked.length >= 2 && checked.every(([sv, mv]) => String(sv).trim() === String(mv).trim());
+      }
+      if (!verified) { markIncomplete("來源列內容與主檔記載不符（可能移列或排序），拒絕錯綁"); return { done: false, incomplete: "核對不符" }; }
+      const srcRowObj = {};
+      h.forEach((hh, n) => { if (hh && String(row[n] || "").trim()) srcRowObj[hh] = String(row[n]).trim(); });
+      const next = snap && typeof snap === "object" && !Array.isArray(snap) ? Object.assign({}, snap) : {};
+      next.code = r.code; next.recordKey = r.recordKey; next.provenance = r.provenance;
+      next.sources = next.sources && typeof next.sources === "object" ? Object.assign({}, next.sources) : {};
+      const curSrc = next.sources[tab] && typeof next.sources[tab] === "object" ? next.sources[tab] : {};
+      const add = Object.assign({ "列": rowNo }, srcRowObj);
+      const merged = Object.assign({}, curSrc);
+      Object.keys(add).forEach((k) => { if (!(k in merged) || !String(merged[k] || "").trim()) merged[k] = add[k]; });
+      next.sources[tab] = merged;
+      if (next["來源未補齊"] && next["來源未補齊"][tab]) { const c = Object.assign({}, next["來源未補齊"]); delete c[tab]; next["來源未補齊"] = c; }
+      this.saveAsset(code, { legacySnapshot: JSON.stringify(next) });
+      return { done: true };
     }
     observeAsset(sess, code, zone, occupantName) {
       const rawProject = String(sess.project || "").trim();
