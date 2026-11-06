@@ -1,4 +1,4 @@
-/* Zhuge AI OS — Canonical Engineering Memory Resolver.
+/* Tron — Canonical Engineering Memory Resolver.
  *
  * The resolver is intentionally a narrow Cloud boundary. Approved Principle
  * content is returned only by the engineering_knowledge RPC; knowledge_sources

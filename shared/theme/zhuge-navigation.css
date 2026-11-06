@@ -415,3 +415,11 @@ html[data-theme="system"] .zhuge-module-shell .sidebar-build-summary { color: va
 .zhuge-module-shell .side-section h3{color:var(--zhuge-text,#e2e8f0)}
 .zhuge-module-shell :is(.brand-companion,.sidebar-sync-summary strong){color:var(--zhuge-text,#e2e8f0)}
 .zhuge-module-shell :is(.sidebar-sync-summary span,.sidebar-build-summary span){color:var(--zhuge-muted,#94a3b8)}
+
+/* Tron 候選：Pixel Office 返回連結深淺可讀 */
+.shared-office-return{color:#6ff3ff}
+html[data-theme="light"] .shared-office-return{color:#0b7a94}
+
+@media (prefers-color-scheme: light) {
+  html[data-theme="system"] .shared-office-return{color:#0b7a94}
+}

@@ -105,7 +105,7 @@
   }
 
   function renderText(intent, options = {}) {
-    const label = text(options.label || "Zhuge AI OS 工作提醒", 80);
+    const label = text(options.label || "Tron 工作提醒", 80);
     const title = text(intent.title || "未命名工作", 180);
     const state = text(intent.state || "", 40);
     const progress = intent.progress == null ? "" : `｜進度 ${Number(intent.progress)}%`;
@@ -134,7 +134,7 @@
         const type = text(message.type, 40);
         if (type !== "text" && type !== "flex") fail("LINE_REPLY_MESSAGE_UNSUPPORTED", 415);
         if (type === "text") return { type, text: text(message.text, MAX_MESSAGE_CHARS) };
-        return { type, altText: text(message.altText || "Zhuge AI OS 工作卡片", 120), contents: message.contents && typeof message.contents === "object" ? message.contents : {} };
+        return { type, altText: text(message.altText || "Tron 工作卡片", 120), contents: message.contents && typeof message.contents === "object" ? message.contents : {} };
       });
     if (!values.length) fail("LINE_REPLY_MESSAGE_REQUIRED", 400);
     return Object.freeze({ replyToken: token, messages: Object.freeze(values) });

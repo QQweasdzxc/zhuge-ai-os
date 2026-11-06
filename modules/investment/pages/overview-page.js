@@ -72,7 +72,7 @@
       if (state.intelligence?.status === "error") {
         return `<div class="investment-panel-empty zhuge-state" data-investment-state="error" data-zhuge-state="error" data-zhuge-state-action="請按重新整理；若持續失敗，保留錯誤訊息交給管理者。"><strong data-zhuge-state-status>今日重點暫時無法讀取</strong><small data-zhuge-state-detail>${escape(String(state.intelligence?.error || "目前沒有可用的今日 Evidence，請稍後再試。"))}</small></div>`;
       }
-      return `<div class="investment-panel-empty zhuge-state" data-investment-state="pending" data-zhuge-state="unavailable" data-zhuge-state-action="目前不產生推測結論；可先查看持股或稍後重新整理。"><strong data-zhuge-state-status>目前沒有可驗證的今日重點</strong><small data-zhuge-state-detail>目前資料還不夠，諸葛暫時不判斷；你可以先查看持股。</small></div>`;
+      return `<div class="investment-panel-empty zhuge-state" data-investment-state="pending" data-zhuge-state="unavailable" data-zhuge-state-action="目前不產生推測結論；可先查看持股或稍後重新整理。"><strong data-zhuge-state-status>目前沒有可驗證的今日重點</strong><small data-zhuge-state-detail>目前資料還不夠，Tron 暫時不判斷；你可以先查看持股。</small></div>`;
     }
     return `<div class="investment-focus-list">${items.map(item => `<article><span>${escape(String(item.type || "投資事項"))}</span><strong>${escape(feedText(item.title || "未命名事項"))}</strong><p>${escape(feedText(item.summary || "尚無說明"))}</p></article>`).join("")}</div>`;
   }
@@ -273,7 +273,7 @@
       const section = analysis?.[key] || {};
       const status = sectionStatus(section);
       const label = ANALYSIS_SECTION_LABELS[key];
-      const detail = section.summary || (status === "INSUFFICIENT_EVIDENCE" ? "目前資料還不夠，諸葛暫時不判斷。" : "狀態已回報，但沒有額外說明。");
+      const detail = section.summary || (status === "INSUFFICIENT_EVIDENCE" ? "目前資料還不夠，Tron 暫時不判斷。" : "狀態已回報，但沒有額外說明。");
       return `<div class="investment-analysis-detail-row"><span>${escape(label)}</span><strong class="is-${escape(analysisStatusClass(status))}">${escape(analysisStatusLabel(status))}</strong><p>${escape(detail)}</p></div>`;
     }).join("");
     const missing = uniqueStrings([
@@ -315,14 +315,14 @@
         ...(Array.isArray(analysis.limitations) && sectionStatus(analysis) === "INSUFFICIENT_EVIDENCE" ? ["additional_evidence"] : [])
       ]);
       const observe = missing.length
-        ? `接下來觀察${missing.map(missingLabel).join("、")}是否補齊；目前資料還不夠，諸葛暫時不判斷。`
+        ? `接下來觀察${missing.map(missingLabel).join("、")}是否補齊；目前資料還不夠，Tron 暫時不判斷。`
         : news.length
           ? `接下來觀察行情與${news.length}筆消息 Evidence 是否持續更新；目前不自動產生買賣建議。`
           : "接下來觀察行情與資料更新；目前不自動產生買賣建議。";
       const status = String(analysis.status || "UNKNOWN");
       return `<article class="investment-analysis-card" data-investment-analysis-symbol="${escape(symbol)}"><header><div><span class="investment-analysis-market">${escape(analysis.market || context.market || "")}</span><h3>${escape(symbolName(state, symbol))} <small>${escape(symbol)}</small></h3></div><span class="investment-analysis-status is-${escape(analysisStatusClass(status))}">${escape(analysisStatusLabel(status))}</span></header><div class="investment-analysis-summary"><div><strong>發生什麼？</strong><p>${escape(happenedWithPhase)}</p></div><div><strong>對我有什麼影響？</strong><p>${escape(impact)}</p></div><div><strong>接下來觀察什麼？</strong><p>${escape(observe)}</p></div></div><details class="investment-analysis-why"><summary>為什麼？<span>查看資料來源與限制</span></summary>${renderAnalysisDetail(analysis, context, escape)}</details></article>`;
     }).join("");
-    return `<div class="investment-analysis-consumer" data-investment-analysis-consumer><div class="investment-analysis-consumer-heading"><div><strong>${escape(heading)}</strong><small>諸葛只整理已取得的 Evidence；資料不足時不補猜。</small></div><span>${analyses.length} 個標的</span></div><div class="investment-analysis-card-list">${cards}</div></div>`;
+    return `<div class="investment-analysis-consumer" data-investment-analysis-consumer><div class="investment-analysis-consumer-heading"><div><strong>${escape(heading)}</strong><small>Tron 只整理已取得的 Evidence；資料不足時不補猜。</small></div><span>${analyses.length} 個標的</span></div><div class="investment-analysis-card-list">${cards}</div></div>`;
   }
 
   function renderResearchMeta(result, escape) {
@@ -375,10 +375,10 @@
     const emptyMarkup = liveMarkup || recordsMarkup
       ? ""
       : intelligenceStatus === "loading"
-        ? `<div class="investment-panel-empty zhuge-state" data-investment-state="loading" data-zhuge-state="loading" data-zhuge-state-action="請等待 Evidence 整理完成；不需要手動補寫策略。"><strong data-zhuge-state-status>諸葛正在整理 Evidence</strong><small data-zhuge-state-detail>正在讀取行情、基本面、ETF／產業／相關標的與分析結果；完成前不補猜結論。</small></div>`
+        ? `<div class="investment-panel-empty zhuge-state" data-investment-state="loading" data-zhuge-state="loading" data-zhuge-state-action="請等待 Evidence 整理完成；不需要手動補寫策略。"><strong data-zhuge-state-status>Tron 正在整理 Evidence</strong><small data-zhuge-state-detail>正在讀取行情、基本面、ETF／產業／相關標的與分析結果；完成前不補猜結論。</small></div>`
         : intelligenceStatus === "error"
           ? `<div class="investment-panel-empty zhuge-state" data-investment-state="error" data-zhuge-state="error" data-zhuge-state-action="請重新整理；若持續失敗，先使用個股研究查詢並保留錯誤訊息。"><strong data-zhuge-state-status>軍師分析暫時無法讀取</strong><small data-zhuge-state-detail>${escape(String(state.intelligence?.error || "目前沒有可用的分析結果，請稍後再試。"))}</small></div>`
-          : `<div class="investment-panel-empty zhuge-state" data-investment-state="pending" data-zhuge-state="insufficient-evidence" data-zhuge-state-action="目前不替你下結論；可輸入標的開始研究，或稍後再試。"><strong data-zhuge-state-status>目前沒有可供分析的 Evidence</strong><small data-zhuge-state-detail>沒有可信資料時，諸葛先生不產生 Recommendation；User Decision 永遠保留給使用者。</small></div>`;
+          : `<div class="investment-panel-empty zhuge-state" data-investment-state="pending" data-zhuge-state="insufficient-evidence" data-zhuge-state-action="目前不替你下結論；可輸入標的開始研究，或稍後再試。"><strong data-zhuge-state-status>目前沒有可供分析的 Evidence</strong><small data-zhuge-state-detail>沒有可信資料時，Tron 不產生 Recommendation；User Decision 永遠保留給使用者。</small></div>`;
     return `<div class="investment-advisor-flow">${flow.map(([title, description], index) => `<div class="investment-advisor-step"><b>${index + 1}</b><span><strong>${title}</strong><small>${description}</small></span></div>`).join("")}</div>${liveMarkup}${recordsMarkup}${emptyMarkup}`;
   }
 
@@ -473,7 +473,7 @@
       </div><p class="investment-boundary-note" data-investment-state="blocked"><strong>富邦 Read-only 尚未接通</strong><span>目前持股、交易與損益仍使用既有 canonical Investment source；不把未接通的券商資料當成持倉結果。</span></p></section></div></details>
 
       <details class="investment-secondary-layer" data-investment-layer="watchlist-market"><summary><span><strong>觀察股與市場情報</strong><small>觀察變化、行情、新聞與事件</small></span><b aria-hidden="true">⌄</b></summary><div class="investment-secondary-layer-content"><div class="investment-command-grid investment-command-grid-bottom">
-        <article id="investment-section-watchlist" class="investment-command-panel investment-watchlist-preview-panel" data-investment-section="watchlist"><header class="investment-panel-heading"><div><p class="investment-eyebrow">04 · 諸葛觀察股</p><h2>與持股分開追蹤</h2><p>顯示觀察原因與已取得的近期變化。</p></div><button type="button" data-investment-route="portfolio" data-investment-focus="watchlist">查看全部 →</button></header>${renderWatchlistPreview(state, dependencies)}</article>
+        <article id="investment-section-watchlist" class="investment-command-panel investment-watchlist-preview-panel" data-investment-section="watchlist"><header class="investment-panel-heading"><div><p class="investment-eyebrow">04 · Tron 觀察股</p><h2>與持股分開追蹤</h2><p>顯示觀察原因與已取得的近期變化。</p></div><button type="button" data-investment-route="portfolio" data-investment-focus="watchlist">查看全部 →</button></header>${renderWatchlistPreview(state, dependencies)}</article>
         <article id="investment-section-realtime" class="investment-command-panel investment-realtime-panel" data-investment-section="realtime"><header class="investment-panel-heading"><div><p class="investment-eyebrow">05 · 市場情報</p><h2>市場與事件</h2><p>行情、新聞與事件接通後才會呈現。</p></div><span class="investment-panel-status ${intelligenceLoading ? "is-pending" : hasRealtime ? "is-ready" : "is-pending"}">${intelligenceLoading ? "讀取中" : hasRealtime ? "已有可用資料" : "待接通"}</span></header>${renderRealtime(state, escape)}</article>
       </div></div></details>
 

@@ -95,3 +95,10 @@ code { color: #b8d9ff; }
   .scope-table { font-size: .92rem; }
   .scope-table th, .scope-table td { padding: 10px; }
 }
+
+/* Tron 覆蓋（候選）：視覺色調，政策正文不動 */
+:root{ --bg:#050b12; --panel:#0b1520; --line:#173242; --accent:#2fd7f5; }
+a:hover{ color:#9df3ff; }
+.eyebrow{ color:#6ff3ff; }
+.button{ background:#2a1503; border:2px solid #ff9a3c; color:#ffc58f; border-radius:6px; clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px); box-shadow:inset 0 0 0 3px #050b12, inset 0 0 0 4.5px #2fd7f5; }
+.button.secondary{ background:transparent; border:1px solid #173242; color:#9fb8c4; clip-path:none; box-shadow:none; }

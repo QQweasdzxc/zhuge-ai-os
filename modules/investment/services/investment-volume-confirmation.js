@@ -289,7 +289,7 @@
       title: "量價確認／量進價弱",
       summary: sampleCount
         ? `依可驗證 OHLCV 歷史資料找到 ${sampleCount} 個完成樣本；這是研究 Evidence，不是買賣建議。`
-        : "目前沒有足夠可驗證 OHLCV 樣本完成量價確認；諸葛暫時不判斷。",
+        : "目前沒有足夠可驗證 OHLCV 樣本完成量價確認；Tron 暫時不判斷。",
       source,
       sourceUrl: text(history?.sourceUrl || history?.source_url, 500),
       observedAt: text(history?.asOf || history?.as_of, 80),
@@ -306,7 +306,7 @@
         `slippage_bps=${config.slippageBps}`
       ],
       limitations: [
-        "量縮／量增門檻是 Zhuge 可設定研究參數，不宣稱為外部研究原始定義。",
+        "量縮／量增門檻是 Tron 可設定研究參數，不宣稱為外部研究原始定義。",
         "訊號在第二根 K 棒收盤後才成立，進場使用其後下一根 K 棒開盤。",
         ...(history?.stale === true ? ["歷史資料已超過 freshness window。"] : []),
         ...(sampleCount ? [] : ["INSUFFICIENT_EVIDENCE：沒有完成且可合法計算的樣本。"])
@@ -349,7 +349,7 @@
         costs: Object.freeze({ feeBps: config.feeBps, slippageBps: config.slippageBps }),
         lookaheadGuard: "confirmation bar close is never used as entry; entry starts at the following bar open",
         overlap: config.allowOverlap ? "allowed" : "non_overlapping_samples",
-        thresholdAuthority: "configurable Zhuge research parameter; external source did not define a canonical threshold"
+        thresholdAuthority: "configurable Tron research parameter; external source did not define a canonical threshold"
       }),
       patternCounts: Object.freeze({ candidates: 0, bullish: 0, bearish: 0, flat: 0, incomplete: 0 }),
       metrics: emptyMetrics(),

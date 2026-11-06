@@ -1,5 +1,5 @@
 /*
- * Zhuge AI OS Empty Golden Master
+ * Tron Empty Golden Master
  *
  * This is the extracted AI Board presentation contract. It owns only the
  * empty Shell/Header/Toolbar/Board/Card/Drawer composition and shared

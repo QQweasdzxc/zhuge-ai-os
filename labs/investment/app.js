@@ -153,7 +153,7 @@ function applyNav() {
 }
 
 function pageHead(title, description, controls = "") {
-  return `<header class="page-head"><div><p class="eyebrow">Zhuge AI OS · Lab_投資</p><h1>${esc(title)}</h1><p>${esc(description)}</p></div>${controls ? `<div class="head-actions">${controls}</div>` : ""}</header>`;
+  return `<header class="page-head"><div><p class="eyebrow">Tron · Lab_投資</p><h1>${esc(title)}</h1><p>${esc(description)}</p></div>${controls ? `<div class="head-actions">${controls}</div>` : ""}</header>`;
 }
 
 function portfolioErrorStatus(error) {

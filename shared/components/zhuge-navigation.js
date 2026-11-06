@@ -1,4 +1,4 @@
-/* Zhuge AI OS canonical Shared App Shell navigation.
+/* Tron canonical Shared App Shell navigation.
  *
  * Every Workspace mounts this component.  The hierarchy is intentionally
  * defined here (rather than copied by a module) so the shell, labels, active
@@ -12,7 +12,7 @@
   const GENERAL_USER_VISIBLE_ITEMS = Object.freeze(["taskflow", "worklog", "tasks-new", "library", "settings", "skyeye"]);
   const GENERAL_USER_HIDDEN_ITEMS = Object.freeze(["procurement", "investment", "sync", "management", "labs"]);
   const DEFAULT_REGISTRY = Object.freeze({
-    dashboard: { icon: "🪶", label: "Zhuge AI OS", group: "root", enabled: true, hidden: true, root: true },
+    dashboard: { icon: "▽", label: "Tron", group: "root", enabled: true, hidden: true, root: true },
     taskflow: { icon: "🧭", label: "TaskFlow", group: "camp", enabled: true, visible: true },
     worklog: { icon: "✏️", label: "WorkLog", group: "camp", enabled: true, visible: true },
     // The new WorkTodo consumer is the sole WorkTodo presentation entry.
@@ -187,8 +187,8 @@
     const officeRoot = root || (document.querySelector?.('script[src*="shared/components/zhuge-navigation.js"]')?.src || "").split("shared/components/")[0] || "/zhuge-ai-os/";
     const officeLink = `<a class="shared-office-return" href="${esc(officeRoot)}" aria-label="返回 Pixel Office">⌂ Pixel Office</a>`;
     const brand = root
-      ? `<a class="brand-stack" href="${destination("dashboard", root)}" data-shared-nav-item="dashboard" aria-label="返回 Zhuge AI OS 首頁"><h1><span class="brand-mark" aria-hidden="true">🪶</span><span class="brand-name"> Zhuge AI OS</span></h1><span class="brand-companion">by Mr. KM</span></a>`
-      : `<div class="brand-stack" data-open-workspace="dashboard" role="button" tabindex="0" aria-label="返回 Zhuge AI OS 首頁"><h1><span class="brand-mark" aria-hidden="true">🪶</span><span class="brand-name"> Zhuge AI OS</span></h1><span class="brand-companion">by Mr. KM</span></div>`;
+      ? `<a class="brand-stack" href="${destination("dashboard", root)}" data-shared-nav-item="dashboard" aria-label="返回 Tron 首頁"><h1><span class="brand-mark" aria-hidden="true"><img src="${esc(officeRoot)}shared/assets/logo/tron-icon.svg" alt="" style="width:22px;height:22px;border-radius:6px;vertical-align:-4px"></span><span class="brand-name"><img src="${esc(officeRoot)}shared/assets/logo/tron-wordmark.svg" alt="Tron" style="height:17px;vertical-align:-3px"></span></h1><span class="brand-companion">by Mr. KM</span></a>`
+      : `<div class="brand-stack" data-open-workspace="dashboard" role="button" tabindex="0" aria-label="返回 Tron 首頁"><h1><span class="brand-mark" aria-hidden="true"><img src="${esc(officeRoot)}shared/assets/logo/tron-icon.svg" alt="" style="width:22px;height:22px;border-radius:6px;vertical-align:-4px"></span><span class="brand-name"><img src="${esc(officeRoot)}shared/assets/logo/tron-wordmark.svg" alt="Tron" style="height:17px;vertical-align:-3px"></span></h1><span class="brand-companion">by Mr. KM</span></div>`;
     const worklogConsumers = isVisible(registry.worklog) ? consumerItems.filter(item => item.group === "worklog").map(item => item.id) : [];
     const investmentConsumers = isCreator ? consumerItems.filter(item => item.group === "investment").map(item => item.id) : [];
     const campIds = ["taskflow", "worklog", "tasks-new", "procurement", ...worklogConsumers, "investment"];
@@ -324,7 +324,7 @@
     button.type = "button";
     button.className = "mini adaptive-menu zhuge-shared-menu";
     button.dataset.toggleSidebar = "1";
-    button.setAttribute("aria-label", "開啟 Zhuge AI OS 導覽");
+    button.setAttribute("aria-label", "開啟 Tron 導覽");
     button.setAttribute("aria-expanded", "false");
     button.setAttribute("aria-controls", "zhugeSharedNavigationPanel");
     button.textContent = "☰";

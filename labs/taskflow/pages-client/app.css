@@ -26,3 +26,9 @@
 @media(max-width:820px){.tf-shell{display:block}.tf-nav{position:relative;height:auto;padding:12px 16px;border-right:0;border-bottom:1px solid var(--line);display:grid;grid-template-columns:1fr minmax(155px,.55fr);align-items:center;gap:8px}.tf-brand{margin:0;font-size:18px}.tf-nav-label,.tf-nav-bottom,#tf-projects,.tf-field-label{display:none}.tf-main{padding:22px 14px}.tf-toolbar{align-items:flex-start}.tf-panel,.tf-detail,.tf-login{padding:16px}.tf-filter{flex-wrap:wrap}.tf-search{width:100%}.tf-issue-main{display:block}.tf-issue-main small{margin-right:10px}.tf-issue{align-items:flex-start}.tf-status-tag{margin-top:2px}.tf-inbox-item{grid-template-columns:1fr}.tf-inbox-item>.tf-status-tag{justify-self:start}.tf-dispatch-cards{grid-template-columns:1fr}}
 @media(max-width:600px){.tf-create-form,.tf-create-grid,.tf-evidence-form{grid-template-columns:1fr}.tf-form-wide,.tf-optional-evidence,.tf-evidence-form>button{grid-column:auto}.tf-header-actions{width:100%;justify-content:stretch}.tf-header-actions button{flex:1}.tf-evidence-grid{grid-template-columns:1fr}.tf-inline-form{display:grid;grid-template-columns:1fr;width:100%}.tf-inline-form select{min-width:0}.tf-native-pr{grid-template-columns:1fr}.tf-subpanel{padding:12px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+
+/* Tron 覆蓋（候選） */
+:root{ --bg:#050b12; --panel:#0b1520; --card:#0d1a24; --line:#173242; --accent:#2fd7f5; }
+.tf-login a{ background:#2a1503; border:1px solid #ff9a3c; color:#ffc58f; border-radius:6px; }
+.tf-brand>span:first-child{ background:#0e2230; border:1px solid #2fd7f5; }
+.tf-inbox-link{ color:#6ff3ff; }

@@ -115,7 +115,7 @@
     const recentKnowledge = briefRecentKnowledgeCount(today);
     const mode = briefMode(today, todayHours);
     const displayName = String((typeof session !== "undefined" && session?.name) || (typeof session !== "undefined" && session?.email) || "夥伴").split(" ")[0];
-    const title = mode === "morning" ? `👋 早安，${displayName}！` : mode === "closing" ? "🌙 今天即將結束" : "🪶 Mr. KM 今日簡報";
+    const title = mode === "morning" ? `👋 早安，${displayName}！` : mode === "closing" ? "🌙 今天即將結束" : "▽ Mr. KM 今日簡報";
     const lead = mode === "closing"
       ? `今天已記錄 ${briefDuration(todayHours)}，我已整理好收尾資訊。`
       : mode === "morning"

@@ -1,4 +1,4 @@
-/* Zhuge AI OS Shared Security Gate
+/* Tron Shared Security Gate
  *
  * Centralizes module level, session, assurance, lock, and capability checks.
  * It returns a decision only; MFA/OAuth challenges remain root responsibilities.

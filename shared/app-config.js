@@ -102,7 +102,7 @@ const KNOWLEDGE_SOURCE_TYPES = ["file", "pdf", "word", "excel", "powerpoint", "m
 const KNOWLEDGE_ROLE_OPTIONS = ["PROCUREMENT", "HR", "IT", "ADMIN", "FINANCE", "SALES", "MARKETING", "CUSTOM"];
 const WORK_PROFILE_SCHEMA_SQL = "docs/supabase/20260712_p4_5_user_work_profile_schema.sql";
 const workspaceRegistry = {
-  dashboard: { icon: "🪶", label: "Zhuge AI OS", group: "system", enabled: true, hidden: true, root: true },
+  dashboard: { icon: "▽", label: "Tron", group: "system", enabled: true, hidden: true, root: true },
   // Keep the WorkLog icon aligned with the canonical AI Board navigation.
   // Active state is the only per-workspace visual delta in the shared rail.
   worklog: { icon: "✏️", label: "WorkLog", group: "camp", enabled: true },
@@ -117,12 +117,12 @@ const workspaceRegistry = {
   hr: { icon: "🚧", label: "施工中", group: "construction", comingSoon: true },
   travel: { icon: "🚧", label: "施工中", group: "construction", comingSoon: true },
   library: { icon: "📚", label: "Knowledge", group: "system", enabled: true },
-  aiSuggestions: { icon: "🪶", label: "AI 建議", group: "system", enabled: true, hidden: true },
+  aiSuggestions: { icon: "▽", label: "AI 建議", group: "system", enabled: true, hidden: true },
   sync: { icon: "🔗", label: "控制台", group: "system", enabled: true },
   management: { icon: "🛠️", label: "管理功能", group: "system", enabled: true },
   settings: { icon: "⚙️", label: "設定", group: "system", enabled: true }
 };
 const agentStatuses = [
-  ["🪶", "工時 Agent", "🟢 在線"],
+  ["▽", "工時 Agent", "🟢 在線"],
   ["📈", "投資 Agent", "🟡 SIT"]
 ];

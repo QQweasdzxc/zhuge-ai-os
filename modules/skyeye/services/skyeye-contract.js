@@ -176,7 +176,7 @@
     if (!selected.length) {
       return Object.freeze({
         status: INSUFFICIENT,
-        text: `${location}目前沒有已載入的可驗證資料，諸葛暫時不做判斷。`,
+        text: `${location}目前沒有已載入的可驗證資料，Tron 暫時不做判斷。`,
         layers: Object.freeze([])
       });
     }

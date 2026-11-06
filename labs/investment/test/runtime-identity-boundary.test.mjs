@@ -46,6 +46,6 @@ test("Lab shipped runtime has no Genspark author account or license-worker depen
 
 test("Lab user-facing title identifies the Zhuge product surface rather than a sandbox label", async () => {
   const source = await readFile(path.join(labRoot, "index.html"), "utf8");
-  assert.match(source, /<title>Lab_投資｜Zhuge AI OS<\/title>/);
+  assert.match(source, /<title>Lab_投資｜Tron<\/title>/);
   assert.doesNotMatch(source, /Zhuge Investment Sandbox/i);
 });

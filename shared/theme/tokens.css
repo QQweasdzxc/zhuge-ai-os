@@ -1,5 +1,5 @@
 /*
- * Zhuge AI OS Shared Foundation — token SSOT.
+ * Tron Shared Foundation — token SSOT.
  *
  * Consumers may add local aliases for domain-specific presentation, but the
  * product-wide palette, semantic surfaces, typography, spacing, radii,
@@ -9,27 +9,27 @@
  */
 :root {
   /* Stable palette primitives retained for legacy/module compatibility. */
-  --zhuge-color-bg: #06101e;
-  --zhuge-color-panel: #0c1b2e;
-  --zhuge-color-line: #29425f;
-  --zhuge-color-text: #f5f8fc;
-  --zhuge-color-muted: #a9bbce;
-  --zhuge-color-accent: #6db8ff;
+  --zhuge-color-bg: #060b12;
+  --zhuge-color-panel: #0b1520;
+  --zhuge-color-line: #173242;
+  --zhuge-color-text: #e8f6fb;
+  --zhuge-color-muted: #9fb8c4;
+  --zhuge-color-accent: #2fd7f5;
   --zhuge-color-success: #43d392;
   --zhuge-color-warning: #f5b942;
   --zhuge-color-danger: #ff6b6b;
 
   /* Canonical semantic surfaces used by the Shared Shell and components. */
-  --zhuge-page-bg: #0b0f16;
-  --zhuge-surface: #141a23;
-  --zhuge-surface-raised: #1b2330;
-  --zhuge-surface-soft: rgba(20, 26, 35, .76);
-  --zhuge-border: rgba(148, 163, 184, .18);
-  --zhuge-text: #f5f7fb;
-  --zhuge-muted: #a5afbf;
+  --zhuge-page-bg: #060b12;
+  --zhuge-surface: #0b1520;
+  --zhuge-surface-raised: #0d1a24;
+  --zhuge-surface-soft: rgba(11, 21, 32, .78);
+  --zhuge-border: rgba(47, 215, 245, .16);
+  --zhuge-text: #e8f6fb;
+  --zhuge-muted: #9fb8c4;
   --zhuge-text-muted: var(--zhuge-muted);
-  --zhuge-accent: #79aefc;
-  --zhuge-accent-strong: #4d8df4;
+  --zhuge-accent: #2fd7f5;
+  --zhuge-accent-strong: #ff9a3c;
   --zhuge-success: #55d39a;
   --zhuge-warning: #e9bb63;
   --zhuge-danger: #ef8d98;
@@ -97,8 +97,8 @@ html[data-theme="light"] {
   --zhuge-text: #1d2430;
   --zhuge-muted: #687386;
   --zhuge-text-muted: var(--zhuge-muted);
-  --zhuge-accent: #2878e8;
-  --zhuge-accent-strong: #1769d2;
+  --zhuge-accent: #0888a8;
+  --zhuge-accent-strong: #c2410c;
   --zhuge-success: #138a5d;
   --zhuge-warning: #9a6a00;
   --zhuge-danger: #bd3848;
@@ -116,8 +116,8 @@ html[data-theme="light"] {
     --zhuge-text: #1d2430;
     --zhuge-muted: #687386;
     --zhuge-text-muted: var(--zhuge-muted);
-    --zhuge-accent: #2878e8;
-    --zhuge-accent-strong: #1769d2;
+    --zhuge-accent: #0888a8;
+    --zhuge-accent-strong: #c2410c;
     --zhuge-success: #138a5d;
     --zhuge-warning: #9a6a00;
     --zhuge-danger: #bd3848;

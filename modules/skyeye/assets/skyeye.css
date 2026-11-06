@@ -60,7 +60,7 @@ body.skyeye-page .skyeye-app { min-width: 0; }
 .skyeye-status-pill[data-state="error"] { border-color: #fb7185; }
 .skyeye-status-pill[data-state="loading"] { border-color: #f5c451; }
 
-.skyeye-map { position: absolute; inset: 0; z-index: 1; background: #9bc6dc; }
+.skyeye-map { position: absolute; inset: 0; z-index: 1; background: #0b1520; }
 .skyeye-map .leaflet-control-zoom { margin-top: 76px; margin-right: 8px; }
 .skyeye-map .leaflet-control-zoom a { min-width: 40px; min-height: 40px; line-height: 38px; font-size: 1.2rem; }
 .skyeye-map .leaflet-control-attribution { font-size: .62rem; }

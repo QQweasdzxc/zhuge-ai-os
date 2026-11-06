@@ -352,9 +352,9 @@ button.geo-kpi:hover{border-color:var(--ds-teal,#0a7)}
 /* 2026-11-06.30：淺/深色切換（記住選擇；座位辨識色不隨主題改變） */
 :root { --ds-surface: #fff; --ds-teal-soft: #e3f2ef; --ds-canvas: #fafafa; }
 :root[data-theme="dark"] {
-  --ds-page: #171413; --ds-ink: #ede8e6; --ds-ink-2: #b8afb1; --ds-ink-4: #8a8284;
-  --ds-hairline: #3c3637; --ds-raised: #292322; --ds-teal: #3aa897; --ds-red: #e07d68;
-  --ds-surface: #211c1b; --ds-teal-soft: #173b35; --ds-canvas: #1c1817;
+  --ds-page: #060b12; --ds-ink: #e8f6fb; --ds-ink-2: #9fb8c4; --ds-ink-4: #5f7684;
+  --ds-hairline: #173242; --ds-raised: #0d1a24; --ds-teal: #2fd7f5; --ds-red: #ff7d6a;
+  --ds-surface: #0b1520; --ds-teal-soft: #0d2836; --ds-canvas: #08101a;
 }
 :root[data-theme="dark"] :is(.card,.pill,.btn.secondary,.zonebtn,.toast,.item,.tile,.goal-th,.tabbar,.tabbar button,.drill,.mb,.phone,.desktop,button.arow,.zcard,.shead,.inp,.acard,.scard,.ptable,.prow,.scope,.workspace-more,.workspace-nav,.seat-modal,.seat-edit-panel,.seat-layout-scroll,.dnav.on,.prow:hover,.prow.sel) { background: var(--ds-surface); }
 :root[data-theme="dark"] :is(.pill.on,.mb.on,.btn) { background: var(--ds-ink); color: #171413; border-color: var(--ds-ink); }
@@ -372,3 +372,37 @@ button.geo-kpi:hover{border-color:var(--ds-teal,#0a7)}
 :root[data-theme="dark"] .seat-name { border-color: var(--ds-hairline); }
 :root[data-theme="dark"] .seat-anchor { border-color: #6a6264; }
 :root[data-theme="dark"] ::placeholder { color: var(--ds-ink-4); }
+
+/* Tron 深色主題覆蓋（候選 v4）：切角、藍橘雙重框線（主按鈕橘外框＋黑隙＋青內線）、純 CSS 無動畫 */
+:root[data-theme="dark"] .zhugebar { border-bottom:1px solid #173242; box-shadow:0 1px 0 rgba(47,215,245,.35); }
+:root[data-theme="dark"] .zhugebar b { color:#6ff3ff; letter-spacing:1px; text-transform:uppercase; text-shadow:0 0 8px rgba(47,215,245,.6); white-space:nowrap; }
+:root[data-theme="dark"] a { color:#6ff3ff; }
+:root[data-theme="dark"] .card { border:1px solid #173242; box-shadow:inset 0 1px 0 rgba(47,215,245,.12); }
+/* 導覽/已選態 = 藍光（切角） */
+:root[data-theme="dark"] :is(.pill.on,.mb.on) { background:#0e2230; color:#6ff3ff; border:1px solid #2fd7f5; border-radius:4px; clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px); filter:drop-shadow(0 0 5px rgba(47,215,245,.35)); }
+/* 主操作 = 橘光（切角） */
+:root[data-theme="dark"] .btn.btn { background:#2a1503; color:#ffc58f; border:2px solid #ff9a3c; border-radius:6px; clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px); box-shadow:inset 0 0 0 3px #060b12, inset 0 0 0 4.5px #2fd7f5; letter-spacing:1px; }
+:root[data-theme="dark"] .pill.em { background:#2a1503; color:#ffc58f; border:1.5px solid #ff9a3c; border-radius:6px; }
+:root[data-theme="dark"] .btn:disabled { background:var(--ds-raised); color:var(--ds-ink-4); border-color:var(--ds-hairline); filter:none; }
+:root[data-theme="dark"] .seat-anchor { border-color:#ff9a3c; box-shadow:0 0 6px rgba(255,154,60,.3); }
+:root[data-theme="dark"] :is(.inp,select,textarea) { border-radius:4px; }
+:root[data-theme="dark"] :is(.inp,select,textarea):focus { outline:2px solid #ff9a3c; outline-offset:-1px; }
+:root[data-theme="dark"] .tabbar button.on { color:#6ff3ff; }
+:root[data-theme="dark"] h2,:root[data-theme="dark"] .ptitle { letter-spacing:1px; }
+:root[data-theme="dark"] .zhugebar img.brandmark, .zhugebar img.brandmark { height:22px; width:22px; border-radius:6px; align-self:center; }
+.zhugebar span { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
+
+/* Tron 淺色主題覆蓋（候選 v4）：淺底可讀＋同設計語言（切角、雙重框主操作、青光導覽、深色品牌帶） */
+:root:not([data-theme="dark"]) .zhugebar { background:#0b1520; border:1px solid #173242; border-radius:10px; padding:10px 12px; box-shadow:0 1px 0 rgba(47,215,245,.28); }
+:root:not([data-theme="dark"]) .zhugebar b { color:#6ff3ff; letter-spacing:1px; text-transform:uppercase; text-shadow:0 0 8px rgba(47,215,245,.45); white-space:nowrap; }
+:root:not([data-theme="dark"]) .zhugebar > span { color:#9fb8c4; }
+:root:not([data-theme="dark"]) .zhugebar .pill.sm { background:transparent; border:1px solid #173242; color:#cfe8f0; }
+:root:not([data-theme="dark"]) .zhugebar a.pill.sm { color:#6ff3ff; }
+:root:not([data-theme="dark"]) a { color:#0b7a94; }
+:root:not([data-theme="dark"]) .card { border:1px solid #cfdfe5; box-shadow:inset 0 1px 0 rgba(8,136,168,.08); }
+:root:not([data-theme="dark"]) :is(.pill.on,.mb.on) { background:#0e2230; color:#6ff3ff; border:1px solid #0891b2; border-radius:4px; clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px); }
+:root:not([data-theme="dark"]) .btn.btn { background:#171413; color:#ffe7d1; border:2px solid #c2410c; border-radius:6px; clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px); box-shadow:inset 0 0 0 3px #171413, inset 0 0 0 4.5px #2fd7f5; letter-spacing:1px; }
+:root:not([data-theme="dark"]) .pill.em { background:#fff7ed; color:#9a3412; border:1.5px solid #c2410c; border-radius:6px; }
+:root:not([data-theme="dark"]) .btn:disabled { background:var(--ds-raised); color:var(--ds-ink-4); border-color:var(--ds-hairline); }
+:root:not([data-theme="dark"]) :is(.inp,select,textarea):focus { outline:2px solid #c2410c; outline-offset:-1px; }
+:root:not([data-theme="dark"]) h2, :root:not([data-theme="dark"]) .ptitle { letter-spacing:1px; }

@@ -190,7 +190,7 @@
         const { error: removeError } = await client.auth.mfa.unenroll({ factorId: factor.id });
         if (removeError) throw removeError;
       }
-      const { data, error } = await client.auth.mfa.enroll({ factorType: "totp", friendlyName: "Zhuge AI OS Protected Module" });
+      const { data, error } = await client.auth.mfa.enroll({ factorType: "totp", friendlyName: "Tron Protected Module" });
       if (error) throw error;
       return Object.freeze({
         mode: "enroll",
