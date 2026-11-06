@@ -34,3 +34,8 @@
   .lab-actions a { width: 100%; }
   .lab-details { grid-column: 1; }
 }
+
+/* Tron 覆蓋（候選）：頁底與主行動統一 */
+body { background:#060b12; }
+.lab-actions a { background:#2a1503; border:2px solid #ff9a3c; color:#ffc58f; border-radius:6px; clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px); box-shadow:inset 0 0 0 3px #060b12, inset 0 0 0 4.5px #2fd7f5; }
+.lab-actions a[aria-disabled="true"] { background:#1a2530; border:1px solid #173242; color:#5f7684; clip-path:none; box-shadow:none; }
