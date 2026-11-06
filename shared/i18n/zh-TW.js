@@ -1,4 +1,4 @@
-/* Zhuge AI OS Foundation v1.0: the default product locale contract. */
+/* Tron Foundation v1.0: the default product locale contract. */
 (function (global) {
   const locale = "zh-TW";
   const timezone = "Asia/Taipei";
