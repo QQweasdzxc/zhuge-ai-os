@@ -612,7 +612,7 @@
     setTimeout(refreshSyncBadge, 0); /* 整頁重繪會重建徽章（預設隱藏），重繪後立刻補上內容 */
     return '<div id="erp-sync-badge" class="syncbadge" style="display:none"></div><div id="erp-version-badge" class="versionbadge" style="display:none"></div>';
   }
-  const LOADED_BUILD = { id: "2026-11-06.24" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
+  const LOADED_BUILD = { id: "2026-11-06.25" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
   async function checkAppVersion() {
     if (D.isMock) return;
     try {
@@ -941,7 +941,7 @@
   function pcDash() {
     const rows = siteRows();
     const sum = rows.reduce((a, r) => ({ t: a.t + r.t, d: a.d + r.done, g: a.g + r.reg, n: a.n + r.left, z: a.z + r.z }), { t: 0, d: 0, g: 0, n: 0, z: 0 });
-    const sorted = [...rows].sort((a, b) => S.metric === "reg" ? b.reg - a.reg : metric === "todo" ? b.left - a.left : S.metric === "zone" ? b.z - a.z : S.metric === "done" ? b.pct - a.pct : b.t - a.t);
+    const sorted = [...rows].sort((a, b) => S.metric === "reg" ? b.reg - a.reg : S.metric === "todo" ? b.left - a.left : S.metric === "zone" ? b.z - a.z : S.metric === "done" ? b.pct - a.pct : b.t - a.t);
     return '<h3 class="ptitle">總覽儀表板</h3><p class="psub">' + (D.isMock ? "由本頁測試資料即時計算，不是公司實際資料。" : "由現存資料庫即時計算。") + '</p>' + goalPanel() + '<details class="goal-more-stats"><summary>其他統計與地圖總覽</summary><div class="chips"><button class="pill" data-a="dtab" data-v="geo">地圖總覽</button></div>' + dashBody(rows, sum, sorted, false) + '</details>';
   }
   function pcAssets() {
@@ -1186,11 +1186,37 @@
       btn('第一頁', 0, page === 0) + btn('上一頁', page - 1, page === 0) + btn('下一頁', page + 1, page === last) + btn('最後一頁', last, page === last) + '</span></div>';
     return nav + list.slice(start, end).map(renderOne).join('') + (list.length > LEGACY_PAGE ? nav : '');
   }
+  function noteStatusLine(row) {
+    if (typeof store.legacyNotes !== "function") return "";
+    const notes = store.legacyNotes().filter((n) => n.recordKey === row.recordKey);
+    if (!notes.length) return "";
+    const latest = notes[notes.length - 1];
+    const at = latest.at ? String(latest.at).slice(0, 16).replace("T", " ") : "";
+    return '<br><span class="small">已註記舊庫 ' + notes.length + ' 筆 · 最新：' + esc(latest.disposition || "") + ' · ' + esc(latest.status || "待行政處理") + (at ? " · " + esc(at) : "") + (latest.note ? " · " + esc(latest.note) : "") + '</span>';
+  }
+  function noteForm(row) {
+    if (typeof store.addLegacyNote !== "function") return "";
+    if (S.noteOpen !== row.recordKey) return '<button class="pill sm" data-a="noteopen" data-v="' + esc(row.recordKey) + '">註記舊庫</button>';
+    const d = S.noteDraft || {};
+    return '<div class="drawer">' +
+      '<div class="small">註記舊庫：寫入舊帳「現場註記」分頁（append-only，既有原始列不變）。</div>' +
+      '<select class="inp sm" data-f="note_condition">' +
+        ["帳上有現場無", "帳上無現場有", "資料不符", "其他"].map((c) => '<option value="' + esc(c) + '"' + ((d.condition || "帳上有現場無") === c ? " selected" : "") + '>' + esc(c) + '</option>').join("") + '</select>' +
+      '<select class="inp sm" data-f="note_disposition">' +
+        ["交行政查報修", "待行政確認", "疑似淘汰", "其他"].map((c) => '<option value="' + esc(c) + '"' + ((d.disposition || "交行政查報修") === c ? " selected" : "") + '>' + esc(c) + '</option>').join("") + '</select>' +
+      '<input class="inp sm" data-f="note_note" placeholder="備註（必填：現場狀況、位置或線索）" value="' + esc(d.note || "") + '">' +
+      (S.noteErr ? '<div class="warn">' + esc(S.noteErr) + '</div>' : "") +
+      '<div class="frow">' + (S.noteNeedVerify
+        ? '<button class="btn mini" data-a="noteverify" data-v="' + esc(row.recordKey) + '"' + (S.noteBusy ? " disabled" : "") + '>' + (S.noteBusy ? "正在查證…" : "查證註記") + '</button>'
+        : '<button class="btn mini" data-a="notesub" data-v="' + esc(row.recordKey) + '"' + (S.noteBusy ? " disabled" : "") + '>' + (S.noteBusy ? "正在寫入註記…" : "送出註記") + '</button>') +
+      '<button class="pill sm" data-a="notecancel"' + (S.noteBusy ? " disabled" : "") + '>取消</button></div>' +
+      '</div>';
+  }
   function legacyLine(row, extra, withForm, flowText) {
     return '<div class="zrow"><span><b>' + esc(row.code || "（無編號）") + "</b> " + esc(row.name || "") + (row.model ? " · " + esc(row.model) : "") +
       '<br><span class="small">出處 ' + esc(row.provenance || row.siteLead || "?") + (row.zone ? " · " + esc(row.zone) : "") + (row.place ? " · " + esc(row.place) : "") + (row.scopeStatus ? " · " + esc(row.scopeStatus) : "") + "</span>" +
       (flowText ? '<br><span class="small">' + flowText + "</span>" : "") +
-      (extra ? '<br><span class="small">' + extra + "</span>" : "") + "</span>" + (withForm ? annForm(row)+(differenceUI?differenceUI.html(row):"") : "") + "</div>";
+      (extra ? '<br><span class="small">' + extra + "</span>" : "") + noteStatusLine(row) + "</span>" + (withForm ? annForm(row) + noteForm(row) + (differenceUI?differenceUI.html(row):"") : "") + "</div>";
   }
   function pcLegacy() {
     const R = window.ZgErpReconcile;
@@ -1237,6 +1263,10 @@
     }
     if (auxErr) {
       out += '<div class="warn">舊帳的關係／待確認資料暫時讀不到（' + esc(auxErr) + "）；主檔比對不受影響。</div>";
+    }
+    const noteErr = store.legacyNoteError ? store.legacyNoteError() : "";
+    if (noteErr) {
+      out += '<div class="warn">現場註記清單暫時讀不到（' + esc(noteErr) + '）；註記狀態未確認——沒顯示「已註記」不代表尚未註記，請勿依畫面補送重複註記。主檔比對不受影響。</div>';
     }
     const inScopeKeys = new Set(legacy.filter((r) => (!S.legLead || r.siteLead === S.legLead) && (!S.legProj || r.project === S.legProj)).map((r) => r.recordKey));
     const qShown = questions.filter((q) => {
@@ -1596,6 +1626,53 @@
         S.annOpen = ""; S.annDraft = {}; S.annErr = "";
       }
     }
+    else if (a === "noteopen") { S.noteOpen = v; S.noteDraft = bagGet('legacy-note', v) || { condition: "帳上有現場無", disposition: "交行政查報修", note: "" }; if (!S.noteDraft.operationId) S.noteDraft.operationId = (typeof store.newOperationId === "function" ? store.newOperationId() : ""); S.noteErr = ""; S.noteCancelAsk = false; S.noteNeedVerify = false; }
+    else if (a === "notecancel") {
+      const hasNote = String((S.noteDraft || {}).note || "").trim();
+      if (hasNote && !S.noteCancelAsk) { S.noteCancelAsk = true; S.noteErr = "取消會刪除已輸入的備註。再按一次「取消」確定刪除，或繼續填寫。"; }
+      else { bagDiscard('legacy-note', S.noteOpen); S.noteCancelAsk = false; S.noteOpen = ""; S.noteDraft = {}; S.noteErr = ""; }
+    }
+    else if (a === "notesub") {
+      const row = (store.legacyRows ? store.legacyRows() : []).find((x) => x.recordKey === v);
+      const d = S.noteDraft || {};
+      const condition = String(d.condition || "").trim();
+      const disposition = String(d.disposition || "").trim();
+      const note = String(d.note || "").trim();
+      if (!row) { S.noteErr = "找不到這筆舊帳列，請重新整理後再試。"; }
+      else if (!condition || !disposition || !note) { S.noteErr = "現況、處置與備註都要填寫，註記才會送出。"; }
+      else if (S.noteBusy) { return; }
+      else {
+        S.noteBusy = true; S.noteErr = ""; render();
+        Promise.resolve().then(() => store.addLegacyNote({ recordKey: v, source: row.source || row.provenance || "", assetCode: row.code || "", condition, disposition, note, operationId: d.operationId || "" }))
+          .then(() => { bagDiscard('legacy-note', v); S.noteOpen = ""; S.noteDraft = {}; S.noteErr = ""; S.noteCancelAsk = false; })
+          .catch((e) => {
+            const msg = String((e && e.message) || e);
+            const code = (e && e.code) || "";
+            const SAFE_RETRY = ["BAD_REQUEST", "LEGACY_KEY_AMBIGUOUS", "LEGACY_KEY_MISMATCH", "SCHEMA_NOT_READY", "CUSTODY_REQUIRED", "RECORD_BUSY", "TAB_UNKNOWN", "RANGE_TAB_MISMATCH", "TARGET_READ_ONLY", "ACTION_UNKNOWN"];
+            if (SAFE_RETRY.includes(code)) {
+              if (typeof store.newOperationId === "function") d.operationId = store.newOperationId();
+              S.noteNeedVerify = false;
+              S.noteErr = "註記未送出：" + msg + "（已確定未寫入，修正後可直接重送）";
+            } else {
+              S.noteNeedVerify = true;
+              S.noteErr = "送出結果未確認：" + msg + "。這筆註記可能已寫入；請先按「查證註記」核對，確認未寫入後才會換新識別重送，避免重複註記。";
+            }
+          })
+          .finally(() => { S.noteBusy = false; render(); });
+        return;
+      }
+    }
+    else if (a === "noteverify") {
+      const opId = (S.noteDraft || {}).operationId || "";
+      if (!opId || S.noteBusy || typeof store.verifyLegacyNote !== "function") return;
+      S.noteBusy = true; S.noteErr = ""; render();
+      Promise.resolve().then(() => store.verifyLegacyNote(opId)).then((found) => {
+        if (found) { bagDiscard('legacy-note', v); S.noteOpen = ""; S.noteDraft = {}; S.noteErr = ""; S.noteNeedVerify = false; S.noteCancelAsk = false; }
+        else { S.noteNeedVerify = true; S.noteErr = "查證未找到這筆註記，但無法排除先前請求仍在處理，狀態仍未確認。請隔一段時間再按「查證註記」；若持續查不到，請回報行政或系統處理——不會自動重送，以免重複。"; }
+      }).catch((e) => { S.noteErr = "查證失敗：" + String((e && e.message) || e) + "；狀態仍未確認，請稍後再按「查證註記」，勿直接重送。"; })
+        .finally(() => { S.noteBusy = false; render(); });
+      return;
+    }
     else if (a === "geo") { if (geoUI) geoUI.act(v); }
     else if (a === "asset-seat-pick") { S.editSeat = v; }
     else if (a === "asset-seat-custodian") { if (S.editDraft && Object.prototype.hasOwnProperty.call(S.editDraft, "owner")) { S.editDraft.owner = v; noteControlledActivity(); } }
@@ -1612,6 +1689,7 @@
     if (f === "manualCode") { S.manualCode = e.target.value; return; }
     if (f === "scanProjectInput") { S.scanProjectInput = e.target.value; putSetup(); return; }
     if (f.indexOf("ann_") === 0) { S.annDraft = S.annDraft || {}; S.annDraft[f.slice(4)] = e.target.value; if (S.annOpen) bagPut('annotation', S.annOpen, S.annDraft); return; }
+    if (f.indexOf("note_") === 0) { S.noteDraft = S.noteDraft || {}; S.noteDraft[f.slice(5)] = e.target.value; if (S.noteOpen) bagPut('legacy-note', S.noteOpen, S.noteDraft); return; }
     if (f.indexOf("nz_") === 0) { S.newZone[f.slice(3)] = e.target.value; bagPut('zone-new', f.slice(3), { v: e.target.value }); return; }
     if (f.indexOf("ns_") === 0) { S.newSite[f.slice(3)] = e.target.value; bagPut('site-new', 'new', S.newSite); return; }
     if (f.indexOf("nb_") === 0) { S.nb = S.nb || {}; S.nb[f.slice(3)] = e.target.value; bagPut('inbound-batch', 'new', S.nb); return; }
