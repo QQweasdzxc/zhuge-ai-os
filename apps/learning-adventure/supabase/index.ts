@@ -89,9 +89,16 @@ async function buildQuestions(family,hero){
  if(nVocab){
   const b=await db("learning_adventure_family_bindings","world=eq.vocab&adventure_family_id=eq."+family.adventureFamilyId+"&select=source_family_id&limit=1");
   if(!b.length)throw new Error("尚未開通英文學習島");
-  const units=await db("vocab_family_units","family_id=eq."+b[0].source_family_id+"&select=words&limit=150");
+  const [units,playerLinks]=await Promise.all([
+   db("vocab_family_units","family_id=eq."+b[0].source_family_id+"&select=id,words&limit=150"),
+   db("learning_adventure_hero_links","hero_id=eq."+hero.id+"&world=eq.vocab&select=source_learner_id&limit=1")
+  ]);
+  const studied=playerLinks.length?await db("vocab_family_attempts","learner_id=eq."+playerLinks[0].source_learner_id+"&select=unit_id&limit=300"):[];
+  const seenUnitIds=new Set(studied.map(a=>a.unit_id).filter(Boolean));
+  const didGeneralReview=studied.some(a=>a.unit_id==null);
+  const studiedUnits=didGeneralReview||!seenUnitIds.size?units:units.filter(u=>seenUnitIds.has(u.id));
   const seen=new Set(),words=[];
-  for(const unit of units)for(const item of Array.isArray(unit.words)?unit.words:[]){
+  for(const unit of studiedUnits)for(const item of Array.isArray(unit.words)?unit.words:[]){
    const en=safe(item.en,50),zh=safe(item.zh,150);
    if(!en||!zh||seen.has(en.toLowerCase()))continue;
    seen.add(en.toLowerCase());words.push({en,zh});
