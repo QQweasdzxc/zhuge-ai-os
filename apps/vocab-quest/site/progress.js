@@ -28,11 +28,11 @@ function render(){
  }
  const medals=modes.map(([mode,label])=>'<span class="'+(done.has(mode)?'':'locked')+'">'+(done.has(mode)?'🏅 ':'🔒 ')+label+'</span>').join('');
  board.hidden=false;
- board.innerHTML='<div class="vocab-xp-head"><strong>⚔️ Lv. '+lv+'｜'+title(lv)+'</strong><span class="xp-count">'+xp+' XP</span></div>'+
- '<div class="vocab-xp-sub">'+esc(p.name)+'，再獲得 '+Math.max(0,to-xp)+' XP 升級！</div>'+
+ board.innerHTML='<div class="vocab-xp-head"><strong>🔤 英文島｜練習成長值</strong><span class="xp-count">'+xp+' XP</span></div>'+ 
+ '<div class="vocab-xp-sub">'+esc(p.name)+' 的英文學習經驗。正式總 Lv. 請看「共用冒險者」卡片。</div>'+ 
  '<div class="vocab-xp-track"><span style="width:'+percent+'%"></span></div>'+
  '<div class="vocab-xp-awards">'+medals+'</div>'+
- '<div class="vocab-xp-note">🎯 每題答對 +10 XP，通關 +20 XP；單關答對率達 80% 就取得徽章。成績與 XP 都儲存在家庭雲端。</div>';
+ '<div class="vocab-xp-note">🎯 每題答對 +10 XP，通關 +20 XP；單關答對率達 80% 取得徽章。正式升級須通過 10 題綜合試煉。</div>';
 }
 window.vocabProgressRefresh=render;
 render();
