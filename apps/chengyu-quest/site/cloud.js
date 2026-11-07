@@ -64,7 +64,7 @@ function selectPlayer(id){
  state.learnerId=id;
  renderNames();setGate(false);
  if(el('screen-report').classList.contains('active'))show('home');
- status('☁️ '+p.name+' 的成績會自動儲存在雲端');
+ status('☁️ '+p.name+' 的成績會自動儲存在雲端');window.chengyuProgressRefresh?.();
 }
 function showPlayerAdd(){
  if(!state.connected){el('playerGateStatus').textContent='⚠️ 雲端尚未連線，請重新整理後再試。';return}
@@ -111,7 +111,7 @@ async function sync(){
   state.connected=true;state.learners=response.learners||[];state.attempts=response.attempts||[];
   if(state.learnerId&&!state.learners.some(function(l){return l.id===state.learnerId}))state.learnerId='';
   renderNames();
-  if(gateOpen)renderGate();
+  if(gateOpen)renderGate();window.chengyuProgressRefresh?.();
   status('✅ 雲端已連線・'+state.learners.length+' 位測驗者・'+state.attempts.length+' 筆歷史成績');
   if(el('screen-report').classList.contains('active'))renderReport();
  }catch(error){state.connected=false;status('⚠️ '+error.message+'。請重新整理後再試。');if(gateOpen){el('playerGateStatus').textContent='⚠️ 雲端連線失敗，請按重試。';el('playerPicks').innerHTML='<button type="button" id="playerReload">↻ 重試連線</button>'}}
@@ -145,15 +145,18 @@ window.chengyuCloudAnswer=function(g,q,selected,correct){
  if(!Array.isArray(g.cloudAnswers))return;
  g.cloudAnswers.push({word:q.word.word,kind:q.kind,correct:correct,selected:String(q.choices[selected]),expected:String(q.choices[q.answer])});
 };
+window.chengyuProgressState=function(){return {connected:state.connected,selectedId:state.learnerId,learners:state.learners.slice(),attempts:state.attempts.slice()}};
 var saving=null;
 async function save(snapshot){
  if(!snapshot)return;
  var box=el('cloudSaveStatus');
  if(saving)return saving;
  box.textContent='☁️ 正在將本回合成績儲存至 Supabase…';
- saving=call('saveAttempt',snapshot).then(async function(){
-  box.textContent='✅ 成績已儲存雲端！可以在家長報表查看。';
+ saving=call('saveAttempt',snapshot).then(async function(response){
+  var gained=Number(response.attempt&&response.attempt.xp_earned)||0;
+  box.textContent='✅ 成績已儲存雲端！⚔️ +'+gained+' XP';
   await sync();
+  window.chengyuAdventureAfterFinish?.(snapshot,box);
  }).catch(function(err){
   box.innerHTML='⚠️ 儲存失敗：'+escapeHtml(err.message)+'　<button type="button" id="cloudRetry">重新儲存</button>';
   el('cloudRetry').addEventListener('click',function(){save(snapshot)});
@@ -163,7 +166,7 @@ async function save(snapshot){
 window.chengyuCloudFinish=function(g){
  var box=el('cloudSaveStatus');
  if(!g.cloudLearnerId||!state.token){box.textContent='⚠️ 這回合是試玩，沒有儲存成績。';return}
- var snap={clientRunId:g.cloudRunId,learnerId:g.cloudLearnerId,level:g.cloudLevel||config.level,mode:g.cloudMode||config.mode,plannedCount:g.items.length,resultStatus:g.hearts===0?'game_over':'completed',answers:g.cloudAnswers||[]};
+ var snap={clientRunId:g.cloudRunId,learnerId:g.cloudLearnerId,level:g.cloudLevel||config.level,mode:g.cloudMode||config.mode,plannedCount:g.items.length,resultStatus:g.hearts===0?'game_over':'completed',zone:g.cloudZone??null,answers:g.cloudAnswers||[]};
  save(snap);
 };
 function fmtDate(v){try{return new Date(v).toLocaleString('zh-TW',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false})}catch(e){return String(v)}}
@@ -193,6 +196,6 @@ el('cloudReport').addEventListener('click',function(){if(!state.connected){alert
 el('reportBack').addEventListener('click',function(){show('home')});
 el('refreshReport').addEventListener('click',sync);
 el('reportWho').addEventListener('change',function(e){state.filter=e.target.value;renderReport()});
-var foot=document.querySelector('.footer');if(foot)foot.insertAdjacentHTML('beforeend','<div>成語闖關王 V1.3.1 · 2026/11/07 · 玩家快速加入・自然語音・雲端成績</div>');
+var foot=document.querySelector('.footer');if(foot)foot.insertAdjacentHTML('beforeend','<div>成語闖關王 V1.4.0 · 2026/11/07 · 勇士升級・冒險闖關・雲端成績</div>');
 sync();
 })();
