@@ -427,28 +427,34 @@ h1{font-size:clamp(30px,4.3vw,49px);letter-spacing:.03em;line-height:1.23;margin
  .profile .hero-name{font-size:19px}
  .profile .profile-head strong{font-size:12px}
 }
+
+/* Returning adventurer: no repeated sign-up/share actions on the hero dashboard. */
+.profile .profile-head{display:flex;gap:12px;align-items:center;justify-content:space-between}
+.profile-switch{background:#e5eaf8;color:#445579;border:2px solid #8193b7;border-radius:6px;padding:6px 9px;font-size:11px;font-weight:850;white-space:nowrap;cursor:pointer}
+.profile-switch:hover{background:#d8e3fb}
+.profile-switch:focus-visible{outline:3px solid #f2c96f;outline-offset:3px}
+.hero-intro .intro{max-width:550px;margin-bottom:16px}
+.hero-intro .actions .btn{background:#ffd27a}
+@media(max-width:690px){.hero-intro{padding:19px 20px}.hero-intro h1{font-size:30px;line-height:1.22;margin-top:9px}.hero-intro .intro{font-size:14px;line-height:1.65;margin-bottom:13px}.profile-switch{font-size:10px;padding:6px 7px}}
 </style>
 </head>
 <body>
 <div class="site"><div class="wrap">
 <header class="topbar">
   <a class="brand" href="#" aria-label="學習冒險群島首頁"><span class="brand-gem">💎</span><span><strong>學習冒險群島</strong><small class="pixel">LEARNING ARCHIPELAGO</small></span></a>
-  <span class="pill pixel">FAMILY RPG · V1.5.2</span>
+  <span class="pill pixel">FAMILY RPG · V1.6.0</span>
 </header>
 <main>
 <section class="hero" aria-label="冒險總部">
  <div class="hero-intro pixel-panel">
   <span class="kicker pixel">WELCOME TO YOUR NEXT ADVENTURE</span>
   <h1>知識就是<br>你的冒險力量！</h1>
-  <p class="intro">帶上你的角色，從成語森林航向英文沙漠。每一次練習都能累積經驗值；通過晉級試煉，才會正式升級！</p>
-  <div class="actions">
-   <button class="btn" id="changePlayer" type="button">🧭 選擇冒險者</button>
-   <button class="btn secondary" id="copyLink" type="button">🔗 複製家庭入口</button>
-  </div>
+  <p class="intro" id="welcomeMessage">來到學習冒險群島，挑選自己的冒險者，準備乘船出發！</p>
+  <div class="actions"><button class="btn" id="goExplore" type="button">🎮 開始冒險</button></div>
   <p id="connect" role="status">☁️ 準備連接家庭冒險雲端…</p>
  </div>
  <div class="profile pixel-panel" aria-live="polite">
-  <div class="profile-head"><strong>⭐ MY HERO / 冒險者檔案</strong><span class="pixel">PROFILE 01</span></div>
+  <div class="profile-head"><strong>⭐ MY HERO / 冒險者檔案</strong><button class="profile-switch" id="changePlayer" type="button" hidden>👥 切換玩家</button></div>
   <div class="profile-main"><div class="avatar" id="avatar" aria-hidden="true">🧙</div><div><div class="hero-name" id="heroName">等待勇士加入</div><div class="hero-rank" id="heroRole">選擇玩家後開始冒險</div><button class="btn small secondary" id="roleButton" type="button" hidden>🎭 選擇職業</button></div></div>
   <div class="lv-box"><div class="level-line"><strong id="heroLv">LV. 1｜見習冒險者</strong><span id="heroXP">0 XP</span></div><div class="bar" aria-label="升級經驗進度"><span id="xpBar"></span></div><p id="heroHint">選好角色後，所有島嶼的 XP 都會累積在一起。</p><button class="btn small mint" id="examButton" type="button" hidden>🏰 前往晉級試煉</button></div>
  </div>
@@ -480,7 +486,7 @@ h1{font-size:clamp(30px,4.3vw,49px);letter-spacing:.03em;line-height:1.23;margin
   </div>
  </section>
 </main>
-<footer class="footer">學習冒險群島 · BUILD 2026.11.08.03 · 家庭雲端紀錄由 Supabase 保存<br>本網站不要求登入；家庭專用網址含私人存取金鑰，請只分享給家人。</footer>
+<footer class="footer">學習冒險群島 · BUILD 2026.11.08.04 · 家庭雲端紀錄由 Supabase 保存<br>本網站不要求登入；家庭專用網址含私人存取金鑰，請只分享給家人。</footer>
 </div></div>
 <div class="overlay" id="overlay" hidden><section class="dialog" id="dialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle"></section></div>
 <script src="./role-portraits.js?v=1.0.1"></script>
@@ -533,6 +539,7 @@ function childLink(world){
 function setLinks(){
  $('islandChengyu').href=childLink('chengyu');
  $('islandEnglish').href=childLink('vocab');
+ document.querySelectorAll('.isometric-index a[data-world]').forEach(a=>{a.href=childLink(a.dataset.world)});
  $('parentChengyuLink').href=childLink('chengyu');
  $('parentEnglishLink').href=childLink('vocab');
 }
@@ -572,6 +579,8 @@ function render(){
   $('avatar').textContent='🧭';$('heroLv').textContent='LV. 1｜見習冒險者';$('heroXP').textContent='0 XP';
   $('heroHint').textContent='選好角色後，所有島嶼的 XP 都會累積在一起。';
   $('xpBar').style.width='0%';$('roleButton').hidden=true;$('examButton').hidden=true;
+  $('welcomeMessage').textContent=player?'正在準備你的冒險檔案，馬上就能出航！':'先選擇自己的玩家名字，今天的冒險就從這裡開始。';
+  $('goExplore').textContent='🎮 開始冒險';$('changePlayer').hidden=true;
   $('idiomXP').textContent='— XP';$('englishXP').textContent='— XP';$('examWins').textContent='— 次';
   return;
  }
@@ -579,6 +588,8 @@ function render(){
  const lv=Number(hero.level)||1,xp=Number(hero.totalXP)||0;
  const goal=Number(hero.nextXP)||100,base=50*(lv-1)*lv;
  $('heroName').textContent=hero.name;
+ $('welcomeMessage').textContent=hero.name+'，歡迎回到冒險總部！你的職業與經驗值都已準備好。選一座島，繼續今天的知識旅程吧。';
+ $('goExplore').textContent='⛵ 前往群島冒險';$('changePlayer').hidden=false;
  $('heroRole').textContent=role?(hero.avatarStyle==='boy'?'男生造型 · ':hero.avatarStyle==='girl'?'女生造型 · ':'造型待選 · ')+role.title+' · '+title(lv):'尚未選擇冒險職業';
  $('avatar').innerHTML=role&&hero.avatarStyle?'<span class="profile-portrait '+hero.profession+' '+hero.avatarStyle+'" role="img" aria-label="'+(hero.avatarStyle==='boy'?'男':'女')+role.title+'角色插畫"></span>':'🎒';
  $('heroLv').textContent='LV. '+lv+'｜'+title(lv);$('heroXP').textContent=xp+' XP';
@@ -797,16 +808,12 @@ async function submitExam(){
  finally{busy=false}
 }
 $('changePlayer').onclick=()=>{if(!isFamily())return loadPlayers();choosePlayer()};
+$('goExplore').onclick=()=>{if(!hero){if(isFamily())choosePlayer();else loadPlayers();return;}document.getElementById('worldMap')?.scrollIntoView({behavior:'smooth',block:'start'});};
 $('roleButton').onclick=()=>{if(!hero?.avatarStyle||hero?.profession)chooseAvatarStyle();else chooseRole()};
 $('examButton').onclick=startExam;
-$('copyLink').onclick=async()=>{
- if(!isFamily()){alert('請先使用家庭專用連結');return}
- const url=location.origin+location.pathname+'#f='+encodeURIComponent(token);
- try{await navigator.clipboard.writeText(url);status('✅ 已複製家庭冒險入口！只要分享這一個網址給孩子。')}
- catch(e){prompt('請複製以下家庭專用連結：',url)}
-};
 window.addEventListener('pageshow',()=>{if(player&&!$('overlay').hidden)return;if(player)refresh()});
 render();loadPlayers();
 })();
 </script>
+<script src="./island-world.js?v=2.0.0"></script>
 </body></html>
