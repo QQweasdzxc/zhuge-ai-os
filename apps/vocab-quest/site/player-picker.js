@@ -6,6 +6,8 @@ if(!bridge)return;
 const esc=v=>String(v==null?"":v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&#39;"}[c]));
 const avatars=["🦊","🐨","🐼","🐰","🐬","🦁","🐯","🐻"];
 let active=false,busy=false,preOverflow="";
+const params=new URLSearchParams(location.hash.slice(1));
+let arrivalName=params.get("p")||"";
 const styles=document.createElement("style");
 styles.textContent=".vpg[hidden],.vpg-form[hidden],.vpg-options[hidden]{display:none!important}.vpg{position:fixed;inset:0;z-index:9999;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;background:rgba(14,24,51,.88);padding:20px 13px 30px;overscroll-behavior:contain}.vpg-card{background:white;border-radius:27px;padding:27px 23px 23px;box-shadow:0 20px 70px #11132f66;width:min(100%,510px);margin:auto;text-align:center;color:#283658}.vpg-icon{font-size:43px}.vpg-eyebrow{color:#705ac1;font-weight:900;font-size:13px;margin:7px 0}.vpg-title{font-size:clamp(25px,6vw,33px);line-height:1.32;margin:10px 0}.vpg-intro{font-size:15px;color:#6a7692;line-height:1.7;margin:0}.vpg-status{color:#698178;font-size:13px;margin:13px 0 17px;min-height:19px}.vpg-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.vpg-choice{min-height:122px;padding:10px 6px;border:2px solid #e1daf9;background:#f8f6fe;border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;font-weight:900;font-size:18px;color:#364665;cursor:pointer;overflow-wrap:anywhere}.vpg-choice .avatar{font-size:30px}.vpg-choice small{color:#77849c;font-weight:600;font-size:12px}.vpg-choice:hover,.vpg-choice:focus-visible{background:#f1ecff;border-color:#8876e2}.vpg-choice.add{background:#effaf8;border:2px dashed #86c2b7;color:#2b7565}.vpg-choice.add small{color:#668c83}.vpg-form{text-align:left;padding:16px;margin-top:16px;background:#f7f8fe;border-radius:16px}.vpg-form label{display:block;font-weight:800;margin-bottom:9px}.vpg-form input{width:100%;border:2px solid #bec7e5;border-radius:13px;padding:12px;font-size:18px;background:white}.vpg-form .join{border:0;border-radius:13px;min-height:52px;background:#6756d6;color:white;font-weight:900;font-size:16px;width:100%;margin-top:12px;cursor:pointer}.vpg-form .join:disabled{opacity:.55}.vpg-form .back{border:0;background:transparent;color:#63718e;text-decoration:underline;display:block;margin:6px auto 0;padding:10px}.vpg-error{color:#bc405c;font-size:13px;margin:5px 0}.vpg-foot{color:#7a8398;font-size:12px;line-height:1.8;margin:18px 0 0}@media(max-width:490px){.vpg{padding:13px 11px 25px}.vpg-card{padding:22px 16px 18px;border-radius:21px}.vpg-options{gap:9px}.vpg-choice{min-height:111px;font-size:17px;padding:8px 4px}.vpg-choice .avatar{font-size:27px}}";
 document.head.append(styles);
@@ -35,6 +37,7 @@ function formMode(show){
 function render(){
  if(!active)return;
  const state=bridge.snapshot(),options=$("vpgOptions"),msg=$("vpgStatus");
+ if(state.connected&&arrivalName){const arriving=state.learners.find(x=>x.name===arrivalName);arrivalName="";if(arriving){select(arriving.id);return}}
  if(!state.connected){
   const loading=(state.status||"").includes("正在載入")||!state.status;
   msg.textContent=loading?"☁️ 正在載入家庭雲端…":"⚠️ "+(state.status||"無法連接雲端");
@@ -63,7 +66,7 @@ async function select(id){
  try{
   await bridge.select(person.name);
   const next=bridge.snapshot();
-  if(next.selectedId===id)close();
+  if(next.selectedId===id){try{const token=new URLSearchParams(location.hash.slice(1)).get("f");if(token)history.replaceState(null,"",location.pathname+location.search+"#f="+encodeURIComponent(token)+"&p="+encodeURIComponent(person.name))}catch(e){}close()}
   else $("vpgStatus").textContent="⚠️ 無法選擇玩家，請再試一次";
  }catch(err){$("vpgStatus").textContent="⚠️ 雲端選人失敗，請再試一次"}
  finally{busy=false}
@@ -78,7 +81,7 @@ async function add(){
  try{
   await bridge.select(name);
   const next=bridge.snapshot();
-  if(next.selectedName===name&&next.selectedId)close();
+  if(next.selectedName===name&&next.selectedId){try{const token=new URLSearchParams(location.hash.slice(1)).get("f");if(token)history.replaceState(null,"",location.pathname+location.search+"#f="+encodeURIComponent(token)+"&p="+encodeURIComponent(name))}catch(e){}close()}
   else $("vpgError").textContent="沒有成功加入，請再試一次";
  }catch(err){$("vpgError").textContent="新增失敗，請再試一次"}
  finally{busy=false;$("vpgJoin").disabled=false;$("vpgJoin").textContent="✨ 加入並開始闖關"}
