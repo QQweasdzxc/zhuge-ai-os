@@ -341,13 +341,99 @@ h1{font-size:clamp(30px,4.3vw,49px);letter-spacing:.03em;line-height:1.23;margin
 .shared-role-preview.mage .shared-preview-image{left:-113.59%;top:-172.37%}
 .shared-role-preview.ranger .shared-preview-image{left:-9.23%;top:-277.18%}
 .shared-role-preview.guardian .shared-preview-image{left:-113.59%;top:-277.18%}
+
+/* Hero profile redesign · A: enlarged original character art, no vertical stretch. */
+.hero .profile{
+  flex-direction:column;
+  flex-wrap:nowrap;
+  align-items:stretch;
+  justify-content:flex-start;
+  align-self:start;
+  height:auto;
+  min-height:0;
+  max-height:none;
+  gap:13px;
+  padding:17px;
+}
+.profile .profile-head{flex:0 0 auto;margin:0}
+.profile .profile-main{
+  display:grid;
+  grid-template-columns:minmax(0,1.18fr) minmax(0,.82fr);
+  align-items:center;
+  gap:15px;
+  flex:none;
+  flex-shrink:0;
+  min-width:0;
+  height:auto;
+  min-height:0;
+  margin:2px 0;
+}
+.profile .profile-main>div:last-child{min-width:0;max-width:100%}
+.profile .avatar{
+  display:block;
+  position:relative;
+  width:100%;
+  height:auto;
+  aspect-ratio:384/227;
+  overflow:hidden;
+  flex:none;
+  border:3px solid #586ca1;
+  border-radius:9px;
+  box-shadow:4px 5px 0 #283c62, inset 0 0 0 2px #fff0c5;
+  background:#d5e2ff;
+  image-rendering:auto;
+}
+.profile .avatar::before{display:none}
+.profile .avatar .profile-portrait{
+  display:block;
+  width:100%;
+  height:100%;
+  aspect-ratio:384/227;
+  border:0;
+  background-color:#dce7f4;
+  background-size:225% 676.65%;
+  background-repeat:no-repeat;
+  background-position:var(--portrait-x) var(--portrait-y);
+}
+.profile .avatar .profile-portrait.boy{background-image:var(--hero-profile-master)}
+.profile .avatar .profile-portrait.girl{background-image:var(--hero-profile-layer),var(--hero-profile-master)}
+.profile .avatar .profile-portrait.warrior{--portrait-x:8.33%;--portrait-y:43.55%}
+.profile .avatar .profile-portrait.mage{--portrait-x:92.30%;--portrait-y:43.55%}
+.profile .avatar .profile-portrait.ranger{--portrait-x:8.33%;--portrait-y:70.51%}
+.profile .avatar .profile-portrait.guardian{--portrait-x:92.30%;--portrait-y:70.51%}
+.profile .hero-name{font-size:clamp(19px,2.5vw,26px);line-height:1.25}
+.profile .hero-rank{font-size:12px;line-height:1.6;margin:6px 0 9px}
+.profile .lv-box{
+  flex:none;
+  flex-grow:0;
+  flex-basis:auto;
+  min-height:0;
+  height:auto;
+  width:100%;
+  padding:12px 13px;
+}
+.profile #heroHint{margin:8px 0 10px}
+.profile #examButton{margin:0}
+@media(max-width:690px){
+ .hero .profile{padding:14px;gap:11px}
+ .profile .profile-main{grid-template-columns:minmax(0,1.12fr) minmax(0,.88fr);gap:12px}
+ .profile .avatar{width:100%;height:auto;aspect-ratio:384/227}
+ .profile .hero-rank{font-size:11px;line-height:1.45}
+ .profile .hero-name{font-size:22px}
+ .profile .btn.small{padding:8px 9px;min-height:37px;font-size:12px}
+}
+@media(max-width:370px){
+ .profile .profile-main{grid-template-columns:minmax(0,1.07fr) minmax(0,.93fr);gap:9px}
+ .profile .hero-name{font-size:19px}
+ .profile .profile-head strong{font-size:12px}
+}
 </style>
 </head>
 <body>
 <div class="site"><div class="wrap">
 <header class="topbar">
   <a class="brand" href="#" aria-label="學習冒險群島首頁"><span class="brand-gem">💎</span><span><strong>學習冒險群島</strong><small class="pixel">LEARNING ARCHIPELAGO</small></span></a>
-  <span class="pill pixel">FAMILY RPG · V1.5.1</span>
+  <span class="pill pixel">FAMILY RPG · V1.5.2</span>
 </header>
 <main>
 <section class="hero" aria-label="冒險總部">
@@ -394,7 +480,7 @@ h1{font-size:clamp(30px,4.3vw,49px);letter-spacing:.03em;line-height:1.23;margin
   </div>
  </section>
 </main>
-<footer class="footer">學習冒險群島 · BUILD 2026.11.08.02 · 家庭雲端紀錄由 Supabase 保存<br>本網站不要求登入；家庭專用網址含私人存取金鑰，請只分享給家人。</footer>
+<footer class="footer">學習冒險群島 · BUILD 2026.11.08.03 · 家庭雲端紀錄由 Supabase 保存<br>本網站不要求登入；家庭專用網址含私人存取金鑰，請只分享給家人。</footer>
 </div></div>
 <div class="overlay" id="overlay" hidden><section class="dialog" id="dialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle"></section></div>
 <script src="./role-portraits.js?v=1.0.1"></script>
@@ -414,6 +500,12 @@ const ROLES={
  guardian:{icon:'🛡️',title:'守護者',desc:'堅持練習、守護學習成果'}
 };
 const $=id=>document.getElementById(id);
+if(window.ARCHIPELAGO_SHARED_MASTER){
+ document.documentElement.style.setProperty('--hero-profile-master','url("'+window.ARCHIPELAGO_SHARED_MASTER+'")');
+}
+if(window.ARCHIPELAGO_SHARED_GIRL_LAYER){
+ document.documentElement.style.setProperty('--hero-profile-layer','url("'+window.ARCHIPELAGO_SHARED_GIRL_LAYER+'")');
+}
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let token='',players=[],player=null,hero=null,stats=null,exam=null,examIndex=0,examAnswers=[],busy=false,lastMode='',originalOverflow='';
 try{token=new URLSearchParams(location.hash.slice(1)).get('f')||''}catch(e){}
@@ -488,7 +580,7 @@ function render(){
  const goal=Number(hero.nextXP)||100,base=50*(lv-1)*lv;
  $('heroName').textContent=hero.name;
  $('heroRole').textContent=role?(hero.avatarStyle==='boy'?'男生造型 · ':hero.avatarStyle==='girl'?'女生造型 · ':'造型待選 · ')+role.title+' · '+title(lv):'尚未選擇冒險職業';
- $('avatar').innerHTML=role&&hero.avatarStyle?'<span class="class-art class-art-'+hero.profession+' '+hero.avatarStyle+' profile-art" role="img" aria-label="'+(hero.avatarStyle==='boy'?'男':'女')+role.title+'角色插畫"></span>':'🎒';
+ $('avatar').innerHTML=role&&hero.avatarStyle?'<span class="profile-portrait '+hero.profession+' '+hero.avatarStyle+'" role="img" aria-label="'+(hero.avatarStyle==='boy'?'男':'女')+role.title+'角色插畫"></span>':'🎒';
  $('heroLv').textContent='LV. '+lv+'｜'+title(lv);$('heroXP').textContent=xp+' XP';
  $('xpBar').style.width=Math.max(0,Math.min(100,(xp-base)/(goal-base)*100))+'%';
  $('heroHint').textContent=hero.eligible?'🏰 經驗已達標！通過 10 題晉級試煉，才能正式升級。':'還差 '+Math.max(0,goal-xp)+' XP 開啟下一次晉級試煉。';
