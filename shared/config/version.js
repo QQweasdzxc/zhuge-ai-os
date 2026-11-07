@@ -5,7 +5,7 @@
     version: "0.9.0-alpha.9.181",
     build: "20261107-1246",
     foundation: "1.0",
-    module: "Tron",
+    module: "Tron OS",
     moduleVersion: "0.9",
     modules: Object.freeze({ worklog: "0.9", investment: "0.2.0-sit.2" }),
     shared: "1.0",

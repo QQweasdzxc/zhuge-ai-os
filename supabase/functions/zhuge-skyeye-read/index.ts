@@ -85,14 +85,14 @@ function json(value: JsonObject, status = 200, origin = "") {
 
 async function requireAuth(request: Request) {
   const authorization = text(request.headers.get("authorization"), 4096);
-  if (!/^Bearer\s+\S+$/i.test(authorization)) throw new ReadError("AUTH_REQUIRED", "Authenticated Zhuge AI OS session is required.", 401);
+  if (!/^Bearer\s+\S+$/i.test(authorization)) throw new ReadError("AUTH_REQUIRED", "Authenticated Tron OS session is required.", 401);
   const supabaseUrl = text(Deno.env.get("SUPABASE_URL"), 240).replace(/\/$/, "");
   const anonKey = text(Deno.env.get("SUPABASE_ANON_KEY"), 512);
   if (!supabaseUrl || !anonKey) throw new ReadError("AUTH_VALIDATION_UNAVAILABLE", "Auth validation is not configured.", 503);
   const response = await fetch(`${supabaseUrl}/auth/v1/user`, { headers: { apikey: anonKey, authorization } });
-  if (!response.ok) throw new ReadError("AUTH_REQUIRED", "Authenticated Zhuge AI OS session is required.", 401);
+  if (!response.ok) throw new ReadError("AUTH_REQUIRED", "Authenticated Tron OS session is required.", 401);
   const user = await response.json().catch(() => ({})) as JsonObject;
-  if (!text(user.id, 120)) throw new ReadError("AUTH_REQUIRED", "Authenticated Zhuge AI OS session is required.", 401);
+  if (!text(user.id, 120)) throw new ReadError("AUTH_REQUIRED", "Authenticated Tron OS session is required.", 401);
 }
 
 async function fetchJson(url: string, init: RequestInit = {}) {

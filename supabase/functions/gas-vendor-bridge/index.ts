@@ -471,14 +471,14 @@ async function createVendor(accessToken: string, input: JsonObject) {
 async function requireUser(request: Request, supabaseUrl: string, anonKey: string) {
   const authorization = asText(request.headers.get("authorization"));
   if (!/^Bearer\s+\S+$/i.test(authorization)) {
-    throw new HttpError("Authenticated Zhuge AI OS session is required.", 401, "AUTH_REQUIRED");
+    throw new HttpError("Authenticated Tron OS session is required.", 401, "AUTH_REQUIRED");
   }
   const caller = createClient(supabaseUrl, anonKey, {
     global: { headers: { Authorization: authorization } },
     auth: { persistSession: false, autoRefreshToken: false }
   });
   const { data: { user }, error } = await caller.auth.getUser();
-  if (error || !user) throw new HttpError("Authenticated Zhuge AI OS session is required.", 401, "AUTH_REQUIRED");
+  if (error || !user) throw new HttpError("Authenticated Tron OS session is required.", 401, "AUTH_REQUIRED");
   return user;
 }
 Deno.serve(async request => {

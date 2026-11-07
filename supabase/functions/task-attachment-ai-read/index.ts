@@ -80,7 +80,7 @@ function base64UrlDecode(value: string) {
 function requireAuthenticated(request: Request) {
   const token = bearer(request);
   const parts = token.split(".");
-  if (parts.length !== 3) throw new HttpError("Authenticated Zhuge AI OS session is required.", 401, "AUTH_SESSION_REQUIRED");
+  if (parts.length !== 3) throw new HttpError("Authenticated Tron OS session is required.", 401, "AUTH_SESSION_REQUIRED");
   let claims: JsonObject;
   try {
     claims = JSON.parse(new TextDecoder().decode(Uint8Array.from(base64UrlDecode(parts[1]), character => character.charCodeAt(0))));
