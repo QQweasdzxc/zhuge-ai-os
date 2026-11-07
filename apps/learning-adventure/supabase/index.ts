@@ -20,7 +20,7 @@ async function db(table,qs="",method="GET",body=undefined){
 }
 const shuffled=a=>{const arr=[...a];for(let i=arr.length-1;i>0;i--){const n=crypto.getRandomValues(new Uint32Array(1))[0]%(i+1);[arr[i],arr[n]]=[arr[n],arr[i]]}return arr};
 const threshold=level=>50*level*(level+1);
-function publicHero(h){return {id:h.id,name:h.display_name,profession:h.profession,totalXP:h.total_xp,level:h.verified_level,nextXP:threshold(h.verified_level),eligible:!!h.profession&&h.total_xp>=threshold(h.verified_level)&&h.verified_level<100}}
+function publicHero(h){return {id:h.id,name:h.display_name,profession:h.profession,avatarStyle:h.avatar_style||null,totalXP:h.total_xp,level:h.verified_level,nextXP:threshold(h.verified_level),eligible:!!h.profession&&h.total_xp>=threshold(h.verified_level)&&h.verified_level<100}}
 function visibleExam(e){if(!e)return null;return {id:e.id,fromLevel:e.level_before,count:(e.questions||[]).length,questions:(e.questions||[]).map((q,i)=>({index:i,kind:q.kind,stem:q.stem,choices:q.choices})),startedAt:e.started_at}}
 function choiceSet(correct,others){const candidates=[...new Set(others.filter(x=>x&&x!==correct))];const vals=shuffled([correct,...shuffled(candidates).slice(0,3)]);if(vals.length<4)throw new Error("題庫可用選項不足");return {choices:vals,answerIndex:vals.indexOf(correct)}}
 function idiomQuiz(pool,count){
@@ -69,7 +69,7 @@ async function heroFor(family,learnerId){
  if(!learners.length)return null;
  const links=await db("learning_adventure_hero_links","world=eq."+family.world+"&source_learner_id=eq."+learnerId+"&select=hero_id&limit=1");
  if(!links.length)return null;
- const heroes=await db("learning_adventure_heroes","id=eq."+links[0].hero_id+"&adventure_family_id=eq."+family.adventureFamilyId+"&select=id,adventure_family_id,display_name,profession,total_xp,verified_level&limit=1");
+ const heroes=await db("learning_adventure_heroes","id=eq."+links[0].hero_id+"&adventure_family_id=eq."+family.adventureFamilyId+"&select=id,adventure_family_id,display_name,profession,avatar_style,total_xp,verified_level&limit=1");
  return heroes[0]||null;
 }
 async function activeExam(heroId,level){
@@ -160,9 +160,17 @@ Deno.serve(async req=>{
    const pending=await activeExam(hero.id,hero.verified_level);
    return respond(req,{ok:true,hero:publicHero(hero),islandXP,exams,pendingExam:visibleExam(pending)});
   }
+  if(action==="setAvatarStyle"){
+   const style=input?.avatarStyle;
+   if(!["boy","girl"].includes(style))return fail(req,"請選擇男生或女生角色造型");
+   const rows=await db("learning_adventure_heroes","id=eq."+hero.id+"&adventure_family_id=eq."+family.adventureFamilyId,"PATCH",{avatar_style:style});
+   if(!rows.length)return fail(req,"無法更新角色造型",409);
+   return respond(req,{ok:true,hero:publicHero(rows[0])});
+  }
   if(action==="chooseProfession"){
    const role=input?.profession;
    if(!["warrior","mage","ranger","guardian"].includes(role))return fail(req,"請選擇職業");
+   if(!hero.avatar_style)return fail(req,"請先選擇角色造型");
    const rows=await db("learning_adventure_heroes","id=eq."+hero.id+"&adventure_family_id=eq."+family.adventureFamilyId+"&profession=is.null","PATCH",{profession:role});
    if(!rows.length){
     const fresh=await heroFor(family,learnerId);
