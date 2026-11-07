@@ -79,3 +79,11 @@ test('pixel office HUD chrome uses canonical Tron tokens, preserves semantic col
   for (const semantic of ['#9f2834', '#22c55e', '#eab308', '#ef4444'])
     assert.ok(hud.includes(semantic), 'semantic status color must be preserved: ' + semantic);
 });
+test('pixel office HUD displays Tron as product name without touching backend identifier', () => {
+  const hud = text('integrations/habblaud/overrides/client/src/ui/zhuge-hud.ts');
+  assert.match(hud, /function displayProjectName\(/, 'display-layer mapping must exist');
+  assert.match(hud, /displayProjectName\(status\.project_name\)/, 'HUD title must go through the display mapping');
+  assert.match(hud, /projectName === 'Zhuge AI OS'\) return 'Tron'/, 'mapping must render the approved Tron name');
+  const status = JSON.parse(text('docs/status/project-status.json'));
+  assert.equal(status.project_name, 'Zhuge AI OS', 'backend project identifier stays unchanged');
+});
