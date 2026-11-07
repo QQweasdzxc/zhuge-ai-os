@@ -17,8 +17,8 @@
   display: flex; align-items: center; justify-content: space-between;
   gap: var(--shell-header-gap);
   padding: var(--shell-header-padding-block) var(--shell-header-padding-inline);
-  border: 1px solid #334155; border-radius: var(--shell-radius);
-  background: #1e293b; color: #f8fafc; box-shadow: 0 10px 30px rgba(2,6,23,.14);
+  border: 1px solid #173242; border-radius: var(--shell-radius);
+  background: #0b1520; color: #f8fafc; box-shadow: 0 10px 30px rgba(2,6,23,.14);
   box-sizing: border-box;
   font: 16px -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",Arial,sans-serif;
   line-height: normal;
@@ -29,7 +29,7 @@
 .zhuge-shared-header h1 { color: inherit; margin: 0; font-size: 1.25rem; line-height: 1.25; }
 .zhuge-shared-header-copy > p:last-child { margin: 2px 0 0; color: #cbd5e1; font-size: .75rem; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .zhuge-shared-header-right { display: flex; align-items: center; justify-content: flex-end; gap: var(--shell-header-gap); min-width: 0; }
-.zhuge-shared-identity { display: flex; align-items: center; gap: 6px; min-width: 0; max-width: 180px; border: 1px solid #334155; border-radius: 10px; background: #111827; padding: 5px 8px; }
+.zhuge-shared-identity { display: flex; align-items: center; gap: 6px; min-width: 0; max-width: 180px; border: 1px solid #173242; border-radius: 10px; background: #0d1a24; padding: 5px 8px; }
 .zhuge-shared-identity-dot { width: 8px; height: 8px; border-radius: 50%; background: #f59e0b; flex: 0 0 auto; }
 .zhuge-shared-identity-dot.is-authenticated { background: #22c55e; }
 .zhuge-shared-identity-copy { display: flex; flex-direction: column; min-width: 0; }

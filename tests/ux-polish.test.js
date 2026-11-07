@@ -14,7 +14,7 @@ test("WorkLog Quick Add keeps one primary add flow and compact suggestions", () 
   assert.match(source, /function suggestionBatchSize\(viewportWidth = window\.innerWidth\)/);
   assert.match(source, /Number\(viewportWidth\) >= 768 \? 8 : 6/);
   assert.match(source, /data-accept/);
-  assert.match(read("modules/worklog/worklog.css"), /data-accept\].*background:linear-gradient/);
+  assert.match(read("modules/worklog/worklog.css"), /data-accept\]\{background:#2a1503;border:2px solid #ff9a3c/);
   assert.doesNotMatch(source, /Mr\. KM 建議/);
 });
 

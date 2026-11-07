@@ -134,7 +134,7 @@
  * this compact context bar keeps the workspace menu reachable without
  * repeating the product-level brand block. */
 .workspace-context-bar { display: none; max-width: 1520px; margin: 0 auto 10px; }
-.workspace-context-inner { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 8px 10px; border: 1px solid #334155; border-radius: 16px; background: linear-gradient(180deg,#0b1728,#091422); }
+.workspace-context-inner { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 8px 10px; border: 1px solid #173242; border-radius: 16px; background: linear-gradient(180deg,#0b1728,#091422); }
 .workspace-context-title { display: flex; align-items: center; gap: 7px; min-width: 0; color: #f8fafc; font-weight: 900; }
 .workspace-breadcrumb { display: inline-flex; align-items: center; gap: 7px; min-width: 0; }
 .workspace-breadcrumb-root { color: #8fc2ff; }
