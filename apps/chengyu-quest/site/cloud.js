@@ -4,6 +4,7 @@
 var endpoint='https://lenpbbhwxyyfwgvjcozf.supabase.co/functions/v1/chengyu-family-cloud';
 var params=new URLSearchParams((location.hash||'').replace(/^#/,''));
 var state={token:params.get('f')||'',connected:false,learners:[],attempts:[],learnerId:'',filter:'all',busy:false};
+var arrivalName=params.get('p')||'';
 var el=function(id){return document.getElementById(id)};
 var escapeHtml=function(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})};
 var labelMode={mixed:'綜合隨機',meaning:'成語選解釋',context:'情境填空',reverse:'解釋選成語'};
@@ -62,6 +63,7 @@ function selectPlayer(id){
  var p=state.learners.find(function(l){return l.id===id});
  if(!p)return;
  state.learnerId=id;
+ try{history.replaceState(null,'',location.pathname+location.search+'#f='+encodeURIComponent(state.token)+'&p='+encodeURIComponent(p.name))}catch(e){}
  renderNames();setGate(false);
  if(el('screen-report').classList.contains('active'))show('home');
  status('☁️ '+p.name+' 的成績會自動儲存在雲端');window.chengyuProgressRefresh?.();window.adventureProfileRefresh?.('chengyu',state.learnerId);
@@ -111,7 +113,7 @@ async function sync(){
   state.connected=true;state.learners=response.learners||[];state.attempts=response.attempts||[];
   if(state.learnerId&&!state.learners.some(function(l){return l.id===state.learnerId}))state.learnerId='';
   renderNames();
-  if(gateOpen)renderGate();window.chengyuProgressRefresh?.();if(state.learnerId)window.adventureProfileRefresh?.('chengyu',state.learnerId);
+  if(gateOpen){var arriving=arrivalName&&state.learners.find(function(x){return x.name===arrivalName});arrivalName='';if(arriving)selectPlayer(arriving.id);else renderGate()};window.chengyuProgressRefresh?.();if(state.learnerId)window.adventureProfileRefresh?.('chengyu',state.learnerId);
   status('✅ 雲端已連線・'+state.learners.length+' 位測驗者・'+state.attempts.length+' 筆歷史成績');
   if(el('screen-report').classList.contains('active'))renderReport();
  }catch(error){state.connected=false;status('⚠️ '+error.message+'。請重新整理後再試。');if(gateOpen){el('playerGateStatus').textContent='⚠️ 雲端連線失敗，請按重試。';el('playerPicks').innerHTML='<button type="button" id="playerReload">↻ 重試連線</button>'}}
