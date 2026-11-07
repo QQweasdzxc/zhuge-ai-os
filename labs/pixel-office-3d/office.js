@@ -96,10 +96,10 @@
 
   function skyColor(d = new Date()) {
     const h = d.getHours() + d.getMinutes() / 60;
-    if (h >= 7 && h < 17) return { sky: '#a9d4f2', night: false };
-    if (h >= 5 && h < 7) return { sky: '#f3c9a8', night: false };
-    if (h >= 17 && h < 19) return { sky: '#f0a679', night: false };
-    return { sky: '#1d2747', night: true };
+    if (h >= 7 && h < 17) return { sky: '#0c4a63', night: false };
+    if (h >= 5 && h < 7) return { sky: '#1a3550', night: false };
+    if (h >= 17 && h < 19) return { sky: '#12324a', night: false };
+    return { sky: '#060b12', night: true };
   }
 
   // ---------------------------------------------------------------- A* grid
