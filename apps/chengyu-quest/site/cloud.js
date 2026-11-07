@@ -198,6 +198,6 @@ el('cloudReport').addEventListener('click',function(){if(!state.connected){alert
 el('reportBack').addEventListener('click',function(){show('home')});
 el('refreshReport').addEventListener('click',sync);
 el('reportWho').addEventListener('change',function(e){state.filter=e.target.value;renderReport()});
-var foot=document.querySelector('.footer');if(foot)foot.insertAdjacentHTML('beforeend','<div>成語闖關王 V1.6.1 · 2026/11/07 · 四職業角色插畫・像素島嶼・雲端成績</div>');
+var foot=document.querySelector('.footer');if(foot)foot.insertAdjacentHTML('beforeend','<div>成語闖關王 V1.7.0 · 2026/11/07 · 男／女雙造型・四職業・跨島雲端角色</div>');
 sync();
 })();
