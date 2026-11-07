@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#152347">
+<meta name="description" content="學習冒險群島：同一位勇士，航向英文、成語與更多知識島嶼。">
+<title>學習冒險群島｜冒險者總部</title>
+<style>
+:root{--ink:#182448;--paper:#f7f4e8;--sea:#4aa8bb;--sea-dark:#247f9e;--blue:#18274d;--sun:#ffcc66;--violet:#8464d7;--mint:#95e3c4;--shadow:#0c183c;--border:#273759}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:#0f1c37;color:var(--ink);font-family:"PingFang TC","Microsoft JhengHei",system-ui,sans-serif;min-height:100vh}
+button,a{font:inherit}button{cursor:pointer}
+button:focus-visible,a:focus-visible{outline:3px solid #ffdf75;outline-offset:4px}
+[hidden]{display:none!important}
+.site{position:relative;min-height:100vh;overflow:hidden;background:linear-gradient(180deg,#162248 0,#253a72 40%,#101d3a 100%)}
+.site:before{content:"";position:absolute;pointer-events:none;inset:0;background-image:radial-gradient(#fff7dc88 1.7px,transparent 1.7px);background-size:57px 57px;opacity:.26;mask-image:linear-gradient(#000,transparent 55%)}
+.wrap{position:relative;max-width:1180px;padding:0 20px;margin:0 auto}
+.pixel{font-family:ui-monospace,"Courier New",monospace;font-weight:900;letter-spacing:.06em}
+.pixel-panel{border:3px solid var(--border);box-shadow:6px 6px 0 var(--shadow);border-radius:10px}
+.topbar{position:relative;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:17px 0;color:white}
+.brand{display:flex;align-items:center;gap:12px;text-decoration:none;color:#fff}
+.brand-gem{font-size:33px;line-height:1;filter:drop-shadow(3px 4px 0 #0c1339)}
+.brand strong{display:block;font-size:18px;letter-spacing:.06em}.brand small{font-size:10px;color:#bccff2;letter-spacing:.13em}
+.pill{border:2px solid #7895bb;border-radius:7px;color:#d7e6fe;font-size:11px;padding:7px 10px;background:#192a54;text-align:center;white-space:nowrap}
+.hero{display:grid;grid-template-columns:1.12fr .88fr;align-items:stretch;gap:19px;margin-top:20px}
+.hero-intro{padding:28px 28px 25px;background:#fff7e7;position:relative;overflow:hidden}
+.hero-intro:before{content:"";position:absolute;right:-20px;top:-16px;width:180px;height:180px;background:radial-gradient(circle,#ffcf7e88 0 40%,transparent 41%);pointer-events:none}
+.kicker{color:#7558b7;font-size:12px;letter-spacing:.15em}
+h1{font-size:clamp(30px,4.3vw,49px);letter-spacing:.03em;line-height:1.23;margin:14px 0 10px;color:#293460;text-shadow:2px 2px 0 #e9dfd3}
+.intro{color:#576582;font-size:15px;line-height:1.85;max-width:480px;margin-bottom:24px}
+.actions{display:flex;gap:10px;flex-wrap:wrap}
+.btn{background:#f9c66d;color:#243453;border:3px solid #2b3b5a;border-radius:6px;box-shadow:4px 4px 0 #223053;padding:11px 17px;font-weight:900;font-size:15px;min-height:47px;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:7px;transition:transform .12s,box-shadow .12s}
+.btn:hover:not(:disabled){transform:translate(2px,2px);box-shadow:2px 2px 0 #223053}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.btn.secondary{background:#e8e3f8}.btn.mint{background:#9cebcf}.btn.small{padding:8px 10px;font-size:12px;min-height:38px}
+#connect{font-size:12px;color:#7c7096;margin:16px 0 0;line-height:1.6}
+.profile{padding:19px;background:#e7f2ee;display:flex;flex-direction:column;gap:12px}
+.profile-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.profile-head strong{font-size:14px;color:#4e6393}.profile-head span{color:#7688a1;font-size:11px}
+.profile-main{display:flex;align-items:center;gap:17px}
+.avatar{width:98px;height:104px;background:#bacdf0;border:3px solid #3c4b7a;box-shadow:inset -7px -8px 0 #8eaae0,5px 5px 0 #253656;flex:none;display:flex;align-items:center;justify-content:center;font-size:51px;image-rendering:pixelated}
+.avatar:before{content:"";width:8px;height:8px;position:absolute;transform:translate(-23px,-36px);background:#fff4b1;box-shadow:55px 23px #fff4b1,21px 73px #fff4b1}
+.hero-name{font-weight:900;font-size:clamp(21px,2.3vw,27px);overflow-wrap:anywhere}
+.hero-rank{font-size:13px;color:#626b91;margin:6px 0}
+.lv-box{border:2px solid #7784a1;background:#f9fcf8;padding:10px 13px;border-radius:6px}
+.level-line{display:flex;justify-content:space-between;align-items:center;gap:10px;font-weight:900;font-size:13px}
+.bar{height:15px;background:#b9c8d4;border:3px solid #556581;margin-top:9px;position:relative;overflow:hidden}
+.bar>span{display:block;height:100%;width:0;background:repeating-linear-gradient(90deg,#df9a40 0 13px,#f1c368 13px 18px);transition:width .3s}
+#heroHint{font-size:12px;color:#64718d;line-height:1.5}
+.world{margin:33px 0 0}
+.section-label{display:flex;justify-content:space-between;align-items:end;gap:12px;margin:0 2px 15px;color:#fff}
+.section-label h2{font-size:25px;margin:0 0 3px;letter-spacing:.04em}.section-label p{font-size:12px;color:#c3d6f2;margin:0}
+.world-map{border:4px solid #33466c;box-shadow:7px 7px 0 #101931;background:linear-gradient(180deg,#65c3d6 0,#378db7 100%);position:relative;overflow:hidden;border-radius:10px;padding:17px}
+.world-map:before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.20;background:repeating-linear-gradient(0deg,transparent 0 22px,#c7ffff 22px 24px),repeating-linear-gradient(90deg,transparent 0 30px,#b5f8ff 30px 32px);animation:wave 12s linear infinite}
+@keyframes wave{to{background-position:0 22px,30px 0}}
+.map-head{position:relative;display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 0 16px;color:#133c60;font-size:12px;font-weight:900}
+.map-head strong{background:#fff8d6;border:2px solid #315f84;padding:6px 9px;box-shadow:3px 3px 0 #21577b}
+.map-head .compass{font-size:28px;text-shadow:2px 2px #fff8d6}
+.islands{position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:17px}
+.island{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:7px;min-height:235px;padding:10px 10px 16px;text-decoration:none;color:#24365b;background:#ffffff70;border:3px solid #ffffff77;border-radius:9px;box-shadow:inset 0 0 0 2px #174b7750;transition:transform .16s,box-shadow .16s;overflow:hidden}
+.island:not(.closed):hover{transform:translateY(-6px);box-shadow:0 12px 0 #17668a77}
+.island-scene{position:relative;width:100%;height:126px;isolation:isolate}
+.island-scene:before{content:"";position:absolute;bottom:10px;left:12%;width:76%;height:51px;background:var(--land,#8acf82);clip-path:polygon(5% 25%,22% 10%,43% 0,66% 10%,84% 5%,100% 35%,90% 80%,68% 100%,38% 90%,12% 82%,0 56%);box-shadow:inset 0 -16px 0 var(--shore,#d7d08a)}
+.island-scene:after{content:"";position:absolute;bottom:0;left:10%;width:80%;height:7px;background:#dcfaff;opacity:.8;clip-path:polygon(0 0,96% 0,100% 100%,9% 100%)}
+.pixel-building{position:absolute;left:50%;bottom:46px;transform:translateX(-50%);font-size:65px;line-height:1;filter:drop-shadow(4px 5px 0 #1f4a64);image-rendering:pixelated}
+.island-label{position:relative;font-size:19px;font-weight:1000;background:#fff6e4;border:2px solid #35516c;border-radius:5px;padding:5px 13px;box-shadow:3px 4px 0 #28567b;color:#233455}
+.island-desc{font-size:12px;color:#23445f;font-weight:800;text-align:center}
+.island-badge{font-family:monospace;font-size:10px;padding:4px 9px;border-radius:4px;background:#24765e;color:#e9fff4;font-weight:900;letter-spacing:.1em}
+.island.closed{cursor:not-allowed;opacity:.77;filter:saturate(.62);background:#dce5eb77}
+.island.closed .island-badge{background:#556a82}
+.island.chengyu{--land:#71be79;--shore:#ded386}
+.island.english{--land:#d6b27b;--shore:#f8d693}
+.island.chinese{--land:#bba1d5;--shore:#dcd3c9}
+.island.math{--land:#dfa36d;--shore:#efd38b}
+.island.nature{--land:#8acaad;--shore:#b7d799}
+.island.reading{--land:#dbb0b5;--shore:#e3d2ae}
+.island .quest-spark{position:absolute;top:13px;right:13px;color:#fff;font-size:16px;text-shadow:2px 2px #256086;animation:shine 2s infinite alternate}
+@keyframes shine{to{opacity:.35;transform:translateY(-5px)}}
+.map-footer{position:relative;display:flex;align-items:center;justify-content:space-between;gap:15px;color:#174868;font-size:12px;margin-top:16px;font-weight:900}
+.map-footer span{background:#dcf6f7bd;border:2px solid #4c94a7;padding:7px 10px;border-radius:4px}
+.bottom{display:grid;grid-template-columns:1fr 1fr;gap:19px;margin:28px 0 43px}
+.bottom-card{background:#f5f1e6;padding:19px;border-radius:8px}
+.bottom-card h3{font-size:17px;margin:0 0 11px}.bottom-card p{font-size:13px;color:#576586;line-height:1.7;margin:5px 0}
+.stat-row{display:flex;justify-content:space-between;align-items:center;padding:10px 2px;border-bottom:1px dashed #aab3c4;font-size:14px;gap:12px}
+.stat-row:last-child{border-bottom:none}.stat-row strong{font-size:17px}
+.chip{display:inline-block;background:#e3d8fa;border:2px solid #b0a0d2;color:#5a4aa1;border-radius:4px;font-size:11px;padding:4px 8px;font-weight:900}
+.footer{color:#a7b4d3;text-align:center;font-size:11px;padding:12px 0 34px;line-height:1.9}
+.overlay{position:fixed;z-index:50;inset:0;background:#0b1334e8;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 12px}
+.dialog{width:min(100%,590px);margin:auto;background:#fff8e8;padding:23px 21px 22px;border:4px solid #314468;border-radius:8px;box-shadow:10px 10px 0 #080f28;color:#273652}
+.dialog h2{font-size:clamp(23px,5vw,29px);margin:10px 0}.dialog p{color:#66718b;line-height:1.7;font-size:14px}
+.dialog .dialog-eyebrow{font-size:12px;color:#8061bd;font-weight:900;letter-spacing:.1em}
+.dialog .dialog-icon{font-size:45px}
+.player-grid,.role-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:20px 0}
+.select-card{border:3px solid #545c96;box-shadow:4px 4px 0 #414b7e;background:#f2edff;min-height:112px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:6px;padding:10px;color:#303d6b;font-weight:900;font-size:16px;text-align:center;border-radius:5px}
+.select-card:hover{background:#e4d8ff}.select-card .card-icon{font-size:38px}.select-card small{font-size:11px;color:#747e95;font-weight:600}
+.select-card.add{background:#e1fae8;border-color:#459a8b}.select-card.selected{background:#ffe5b3;border-color:#dc9d41}
+.select-card:disabled{opacity:.48;cursor:wait}
+.form-label{display:block;font-weight:900;margin:16px 0 8px}
+.text-input{width:100%;padding:13px;border:3px solid #6b739a;border-radius:5px;font-size:18px;background:#fff}
+.dialog-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:15px}.dialog-actions .btn{flex:1}
+.error{color:#aa3555!important;font-weight:800}.success{color:#257655!important;font-weight:800}
+.exam-choice{width:100%;display:block;background:#f4f2ff;border:3px solid #7c7ba1;border-radius:5px;padding:12px;text-align:left;color:#273659;font-weight:800;margin:9px 0}
+.exam-choice:hover{background:#e8d9ff}
+.exam-progress{font-size:12px;font-weight:900;color:#735bb5}
+.review{max-height:250px;overflow:auto;text-align:left;font-size:13px}.review article{padding:8px;border-bottom:1px dashed #bbbed0}
+@media(max-width:960px){.hero{grid-template-columns:1fr}.profile{flex-direction:row;flex-wrap:wrap;align-items:center}.profile .lv-box{flex:1 1 240px}.profile-main{flex:1 1 250px}.islands{gap:11px}.island{min-height:218px}}
+@media(max-width:690px){.wrap{padding:0 13px}.topbar{padding:14px 0}.brand strong{font-size:15px}.brand small{font-size:9px}.hero-intro{padding:23px 20px}.hero{gap:14px;margin-top:9px}.profile{flex-direction:column;align-items:stretch}.islands{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.island{min-height:196px;padding:8px 7px 11px}.island-scene{height:109px}.pixel-building{font-size:53px;bottom:40px}.island-label{font-size:16px;padding:5px 9px}.island-desc{font-size:11px}.bottom{grid-template-columns:1fr;gap:14px}.world{margin-top:25px}.section-label h2{font-size:21px}.world-map{padding:12px}.map-footer{flex-wrap:wrap}.select-card{min-height:108px}.dialog{padding:20px 15px}.player-grid,.role-grid{gap:9px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="site"><div class="wrap">
+<header class="topbar">
+  <a class="brand" href="#" aria-label="學習冒險群島首頁"><span class="brand-gem">💎</span><span><strong>學習冒險群島</strong><small class="pixel">LEARNING ARCHIPELAGO</small></span></a>
+  <span class="pill pixel">FAMILY RPG · V1.0</span>
+</header>
+<main>
+<section class="hero" aria-label="冒險總部">
+ <div class="hero-intro pixel-panel">
+  <span class="kicker pixel">WELCOME TO YOUR NEXT ADVENTURE</span>
+  <h1>知識就是<br>你的冒險力量！</h1>
+  <p class="intro">帶上你的角色，從成語森林航向英文沙漠。每一次練習都能累積經驗值；通過晉級試煉，才會正式升級！</p>
+  <div class="actions">
+   <button class="btn" id="changePlayer" type="button">🧭 選擇冒險者</button>
+   <button class="btn secondary" id="copyLink" type="button">🔗 複製家庭入口</button>
+  </div>
+  <p id="connect" role="status">☁️ 準備連接家庭冒險雲端…</p>
+ </div>
+ <div class="profile pixel-panel" aria-live="polite">
+  <div class="profile-head"><strong>⭐ MY HERO / 冒險者檔案</strong><span class="pixel">PROFILE 01</span></div>
+  <div class="profile-main"><div class="avatar" id="avatar" aria-hidden="true">🧙</div><div><div class="hero-name" id="heroName">等待勇士加入</div><div class="hero-rank" id="heroRole">選擇玩家後開始冒險</div><button class="btn small secondary" id="roleButton" type="button" hidden>🎭 選擇職業</button></div></div>
+  <div class="lv-box"><div class="level-line"><strong id="heroLv">LV. 1｜見習冒險者</strong><span id="heroXP">0 XP</span></div><div class="bar" aria-label="升級經驗進度"><span id="xpBar"></span></div><p id="heroHint">選好角色後，所有島嶼的 XP 都會累積在一起。</p><button class="btn small mint" id="examButton" type="button" hidden>🏰 前往晉級試煉</button></div>
+ </div>
+</section>
+<section class="world" aria-label="世界地圖">
+ <div class="section-label"><div><h2>🗺️ 冒險群島世界地圖</h2><p>選一座島嶼，開始今天的知識冒險</p></div><span class="pixel pill">CHAPTER 01 · FIRST VOYAGE</span></div>
+ <div class="world-map">
+  <div class="map-head"><strong>🌊 夢想之海 · 01 區域</strong><span class="compass" aria-hidden="true">✧ N ✧</span></div>
+  <div class="islands">
+   <a class="island chengyu" id="islandChengyu" href="https://chengyu-quest-family.onrender.com/" aria-label="前往成語島"><span class="quest-spark">✦</span><div class="island-scene"><span class="pixel-building" aria-hidden="true">🏯</span></div><span class="island-label">📖 成語島</span><span class="island-desc">探索典故・解開語意謎題</span><span class="island-badge">NOW OPEN · 出航</span></a>
+   <div class="island chinese closed" aria-disabled="true"><div class="island-scene"><span class="pixel-building" aria-hidden="true">📝</span></div><span class="island-label">✍️ 國語島</span><span class="island-desc">部首・注音・改錯字</span><span class="island-badge">🔒 研發中</span></div>
+   <a class="island english" id="islandEnglish" href="https://vocab-quest-family.onrender.com/" aria-label="前往英文島"><span class="quest-spark">✦</span><div class="island-scene"><span class="pixel-building" aria-hidden="true">🏰</span></div><span class="island-label">🔤 英文島</span><span class="island-desc">魔法單字・拼字試煉</span><span class="island-badge">NOW OPEN · 出航</span></a>
+   <div class="island math closed" aria-disabled="true"><div class="island-scene"><span class="pixel-building" aria-hidden="true">⛰️</span></div><span class="island-label">🔢 數學島</span><span class="island-desc">算術迷宮・幾何洞窟</span><span class="island-badge">🔒 即將開放</span></div>
+   <div class="island nature closed" aria-disabled="true"><div class="island-scene"><span class="pixel-building" aria-hidden="true">🌲</span></div><span class="island-label">🌿 自然島</span><span class="island-desc">植物世界・科學探險</span><span class="island-badge">🔒 即將開放</span></div>
+   <div class="island reading closed" aria-disabled="true"><div class="island-scene"><span class="pixel-building" aria-hidden="true">📚</span></div><span class="island-label">📚 閱讀島</span><span class="island-desc">閱讀秘境・推理尋寶</span><span class="island-badge">🔒 即將開放</span></div>
+  </div>
+  <div class="map-footer"><span>⛵ 已開放 2 / 6 座學習島</span><span>✨ 同一位冒險者，所有島嶼共用總 XP</span></div>
+ </div>
+</section>
+<section class="bottom" aria-label="冒險資訊">
+ <div class="bottom-card pixel-panel"><h3>🎒 今日冒險指南</h3><p>先到任一島嶼完成練習，收集成語知識或英文單字。想升級時，記得回總部參加綜合試煉。</p><p><span class="chip">XP 每答對 +10</span> <span class="chip">完成回合 +20</span> <span class="chip">晉級試煉需 8/10</span></p></div>
+ <div class="bottom-card pixel-panel"><h3>📜 冒險歷程</h3><div class="stat-row"><span>📖 成語島累積</span><strong id="idiomXP">— XP</strong></div><div class="stat-row"><span>🔤 英文島累積</span><strong id="englishXP">— XP</strong></div><div class="stat-row"><span>🏆 已通過晉級試煉</span><strong id="examWins">— 次</strong></div></div>
+</section>
+</main>
+<footer class="footer">學習冒險群島 · BUILD 2026.11.07.1 · 家庭雲端紀錄由 Supabase 保存<br>本網站不要求登入；家庭專用網址含私人存取金鑰，請只分享給家人。</footer>
+</div></div>
+<div class="overlay" id="overlay" hidden><section class="dialog" id="dialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle"></section></div>
+<script>
+(function(){
+'use strict';
+const API='https://lenpbbhwxyyfwgvjcozf.supabase.co/functions/v1/learning-adventure-cloud';
+const ROLES={
+ warrior:{icon:'⚔️',title:'勇士',desc:'勇敢挑戰、絕不輕言放棄'},
+ mage:{icon:'🪄',title:'法師',desc:'聰明解謎、善用知識魔法'},
+ ranger:{icon:'🏹',title:'弓箭手',desc:'細心觀察、做出精準判斷'},
+ guardian:{icon:'🛡️',title:'守護者',desc:'堅持練習、守護學習成果'}
+};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let token='',players=[],player=null,hero=null,stats=null,exam=null,examIndex=0,examAnswers=[],busy=false,lastMode='',originalOverflow='';
+try{token=new URLSearchParams(location.hash.slice(1)).get('f')||''}catch(e){}
+function isFamily(){return /^[A-Za-z0-9_-]{40,128}$/.test(token)}
+function show(html,mode){
+ lastMode=mode||'';
+ if($('overlay').hidden)originalOverflow=document.body.style.overflow;
+ $('dialog').innerHTML=html;
+ $('overlay').hidden=false;
+ document.body.style.overflow='hidden';
+}
+function close(){if(!$('overlay').hidden){$('overlay').hidden=true;document.body.style.overflow=originalOverflow}}
+function status(s){$('connect').textContent=s}
+async function call(action,more={}){
+ const response=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',body:JSON.stringify(Object.assign({action,world:'chengyu',token,learnerId:player?.id},more))});
+ const data=await response.json().catch(()=>null);
+ if(!response.ok||!data?.ok)throw Error(data?.error||'雲端連線暫時失敗');
+ return data;
+}
+function childLink(world){
+ const domain=world==='chengyu'?'https://chengyu-quest-family.onrender.com/':'https://vocab-quest-family.onrender.com/';
+ return domain+(isFamily()?'#f='+encodeURIComponent(token):'');
+}
+function setLinks(){
+ $('islandChengyu').href=childLink('chengyu');
+ $('islandEnglish').href=childLink('vocab');
+}
+function title(lv){return lv>=30?'傳說冒險王':lv>=20?'神話冒險家':lv>=12?'冒險大師':lv>=8?'黃金冒險者':lv>=5?'白銀冒險者':lv>=3?'青銅冒險者':lv>=2?'正式冒險者':'見習冒險者'}
+function render(){
+ setLinks();
+ if(!hero){
+  $('heroName').textContent=player?.name||'等待勇士加入';
+  $('heroRole').textContent=player?'正在讀取共用冒險者…':'請先選擇自己的玩家';
+  $('avatar').textContent='🧭';$('heroLv').textContent='LV. 1｜見習冒險者';$('heroXP').textContent='0 XP';
+  $('heroHint').textContent='選好角色後，所有島嶼的 XP 都會累積在一起。';
+  $('xpBar').style.width='0%';$('roleButton').hidden=true;$('examButton').hidden=true;
+  $('idiomXP').textContent='— XP';$('englishXP').textContent='— XP';$('examWins').textContent='— 次';
+  return;
+ }
+ const role=ROLES[hero.profession];
+ const lv=Number(hero.level)||1,xp=Number(hero.totalXP)||0;
+ const goal=Number(hero.nextXP)||100,base=50*(lv-1)*lv;
+ $('heroName').textContent=hero.name;
+ $('heroRole').textContent=role?role.title+' · '+title(lv):'尚未選擇冒險職業';
+ $('avatar').textContent=role?.icon||'🎒';
+ $('heroLv').textContent='LV. '+lv+'｜'+title(lv);$('heroXP').textContent=xp+' XP';
+ $('xpBar').style.width=Math.max(0,Math.min(100,(xp-base)/(goal-base)*100))+'%';
+ $('heroHint').textContent=hero.eligible?'🏰 經驗已達標！通過 10 題晉級試煉，才能正式升級。':'還差 '+Math.max(0,goal-xp)+' XP 開啟下一次晉級試煉。';
+ $('roleButton').hidden=!!role;$('examButton').hidden=!hero.eligible;
+ $('idiomXP').textContent=Number(stats?.islandXP?.chengyu||0)+' XP';
+ $('englishXP').textContent=Number(stats?.islandXP?.vocab||0)+' XP';
+ $('examWins').textContent=(stats?.exams||[]).filter(x=>x.passed===true).length+' 次';
+}
+async function loadPlayers(){
+ if(!isFamily()){status('⚠️ 請使用包含 #f= 的家庭專用網址，才能讀取雲端玩家與成績。');show('<div class="dialog-icon">🧭</div><h2 id="dialogTitle">歡迎來到學習冒險群島</h2><p>這是世界地圖的公開預覽。請使用原本成語或英文闖關王的完整家庭網址，由學習總部進入，才能保存玩家與經驗值。</p><div class="dialog-actions"><button class="btn secondary" id="previewClose" type="button">先看看地圖</button></div>','preview');$('previewClose').onclick=close;return}
+ status('☁️ 正在連接 Supabase 家庭冒險資料…');
+ show('<div class="dialog-icon">☁️</div><h2 id="dialogTitle">正在開啟冒險世界</h2><p>努力載入家庭冒險者名單中…</p>','loading');
+ try{const data=await call('listPlayers');players=data.players||[];status('✅ 家庭冒險雲端已連線，選自己的名字就可以出航！');choosePlayer()}
+ catch(e){status('⚠️ 雲端連線失敗：'+e.message);show('<div class="dialog-icon">🌧️</div><h2 id="dialogTitle">暫時無法進入冒險總部</h2><p>'+esc(e.message)+'</p><div class="dialog-actions"><button class="btn" id="retry" type="button">↻ 重新連接</button></div>','error');$('retry').onclick=loadPlayers}
+}
+function choosePlayer(){
+ const avatars=['🦊','🐨','🐼','🐰','🐬','🦁','🐯','🐻'];
+ let choices=players.map((p,i)=>'<button type="button" class="select-card" data-player="'+esc(p.id)+'"><span class="card-icon">'+avatars[i%avatars.length]+'</span>'+esc(p.name)+'<small>我是 '+esc(p.name)+'</small></button>').join('');
+ choices+='<button type="button" class="select-card add" id="newPlayer"><span class="card-icon">➕</span>我是第一次玩<small>新增我的冒險者名字</small></button>';
+ show('<div class="dialog-icon">🎮</div><div class="dialog-eyebrow pixel">SELECT YOUR ADVENTURER</div><h2 id="dialogTitle">今天是誰來冒險？</h2><p>選自己的名字，跨島 XP 就不會記錯人！</p><div class="player-grid">'+choices+'</div>','players');
+ $('dialog').querySelectorAll('[data-player]').forEach(b=>b.addEventListener('click',()=>selectPlayer(b.dataset.player)));
+ $('newPlayer').onclick=addPlayerForm;
+}
+function addPlayerForm(){
+ show('<div class="dialog-icon">✨</div><h2 id="dialogTitle">建立你的冒險者</h2><p>取一個孩子容易認得的名字。往後所有島嶼都會使用同一個身分。</p><form id="addForm"><label class="form-label" for="playerName">我的名字</label><input class="text-input" id="playerName" maxlength="24" autocomplete="off" required placeholder="例如：安安、卡卡"><p id="addError" class="error" role="alert"></p><div class="dialog-actions"><button class="btn" type="submit" id="addSubmit">✨ 加入冒險</button><button class="btn secondary" type="button" id="addBack">返回選玩家</button></div></form>','add');
+ $('addBack').onclick=choosePlayer;
+ $('addForm').onsubmit=async e=>{
+  e.preventDefault();if(busy)return;const name=$('playerName').value.trim();if(!name)return;
+  busy=true;$('addSubmit').disabled=true;$('addSubmit').textContent='☁️ 建立中…';
+  try{const data=await call('addPlayer',{name});const p=data.player;if(!players.some(x=>x.id===p.id))players.push(p);await selectPlayer(p.id)}
+  catch(err){$('addError').textContent='⚠️ '+err.message}
+  finally{busy=false;if($('addSubmit')){$('addSubmit').disabled=false;$('addSubmit').textContent='✨ 加入冒險'}}
+ };
+ $('playerName').focus();
+}
+async function selectPlayer(id){
+ const found=players.find(p=>p.id===id);if(!found)return;
+ player=found;hero=null;stats=null;render();
+ show('<div class="dialog-icon">⚔️</div><h2 id="dialogTitle">正在召喚冒險者…</h2><p>讀取 '+esc(found.name)+' 的職業、總 XP 與晉級記錄。</p>','loading');
+ try{
+  stats=await call('load');hero=stats.hero;render();status('✅ '+found.name+' 已進入冒險總部 · XP 跨島同步');
+  if(!hero.profession)chooseRole();
+  else close();
+ }catch(err){hero=null;render();show('<h2 id="dialogTitle">角色同步失敗</h2><p class="error">'+esc(err.message)+'</p><div class="dialog-actions"><button class="btn secondary" id="playerRetry">返回選玩家</button></div>','error');$('playerRetry').onclick=choosePlayer}
+}
+function chooseRole(){
+ const cards=Object.entries(ROLES).map(([key,r])=>'<button type="button" class="select-card" data-role="'+key+'"><span class="card-icon">'+r.icon+'</span>'+r.title+'<small>'+r.desc+'</small></button>').join('');
+ show('<div class="dialog-icon">🧙</div><div class="dialog-eyebrow pixel">CHOOSE YOUR CLASS</div><h2 id="dialogTitle">選擇冒險職業</h2><p>四種職業公平、能力相同，只影響稱號與角色風格。第一次選擇後就會成為你的固定職業。</p><div class="role-grid">'+cards+'</div><div class="dialog-actions"><button type="button" class="btn secondary" id="roleLater">稍後再決定</button></div>','role');
+ $('dialog').querySelectorAll('[data-role]').forEach(b=>b.onclick=()=>confirmRole(b.dataset.role));
+ $('roleLater').onclick=close;
+}
+function confirmRole(code){
+ const r=ROLES[code];if(!r)return;
+ show('<div class="dialog-icon">'+r.icon+'</div><h2 id="dialogTitle">確定成為「'+r.title+'」嗎？</h2><p>'+r.desc+'。職業會同步到英文島、成語島。確認後暫時不提供更換功能。</p><p class="error" id="roleError"></p><div class="dialog-actions"><button class="btn mint" type="button" id="roleConfirm">✅ 確認職業</button><button class="btn secondary" type="button" id="roleBack">返回選擇</button></div>','confirmRole');
+ $('roleBack').onclick=chooseRole;
+ $('roleConfirm').onclick=async()=>{
+  if(busy)return;busy=true;$('roleConfirm').disabled=true;
+  try{const data=await call('chooseProfession',{profession:code});hero=data.hero;close();await refresh();render()}
+  catch(e){$('roleError').textContent='⚠️ '+e.message}
+  finally{busy=false;if($('roleConfirm'))$('roleConfirm').disabled=false}
+ };
+}
+async function refresh(){
+ if(!player||!isFamily())return;
+ try{stats=await call('load');hero=stats.hero;render()}
+ catch(e){status('⚠️ 重新讀取失敗：'+e.message)}
+}
+async function startExam(){
+ if(!hero?.eligible||busy)return;busy=true;
+ show('<div class="dialog-icon">🏰</div><h2 id="dialogTitle">晉級試煉準備中</h2><p>正在從你學過的內容挑選 10 道題目…</p>','loadingExam');
+ try{const data=await call('startExam');exam=data.exam;examIndex=0;examAnswers=[];renderExam()}
+ catch(e){show('<h2 id="dialogTitle">尚無法開啟試煉</h2><p class="error">'+esc(e.message)+'</p><div class="dialog-actions"><button class="btn secondary" id="examExit">返回地圖</button></div>','error');$('examExit').onclick=close}
+ finally{busy=false}
+}
+function renderExam(){
+ const q=exam?.questions?.[examIndex];if(!q)return;
+ const options=(q.choices||[]).map((c,i)=>'<button class="exam-choice" type="button" data-answer="'+i+'">'+String.fromCharCode(65+i)+'．'+esc(c)+'</button>').join('');
+ show('<div class="dialog-icon">🏰</div><h2 id="dialogTitle">Lv. '+exam.fromLevel+' → '+(exam.fromLevel+1)+' 晉級試煉</h2><div class="exam-progress pixel">QUESTION '+(examIndex+1)+' / 10 · PASS 8 / 10</div><p style="color:#293a5a;font-weight:900;font-size:18px">'+esc(q.stem)+'</p><div>'+options+'</div>','exam');
+ $('dialog').querySelectorAll('[data-answer]').forEach(b=>b.onclick=()=>{
+  if(busy)return;
+  examAnswers.push(Number(b.dataset.answer));examIndex++;
+  if(examIndex<exam.questions.length)renderExam();else submitExam();
+ });
+}
+async function submitExam(){
+ busy=true;show('<div class="dialog-icon">📜</div><h2 id="dialogTitle">勇士試煉批改中…</h2><p>正在雲端確認你的正式等級。</p>','grading');
+ try{
+  const data=await call('submitExam',{examId:exam.id,answers:examAnswers});
+  hero=data.hero;
+  const wrong=(data.review||[]).filter(x=>!x.correct);
+  const detail=wrong.length?wrong.map(x=>'<article>❌ '+esc(x.stem)+'<p>你選：'+esc(x.chosen)+'<br>正解：'+esc(x.expected)+'</p></article>').join(''):'<article>✨ 十題全部正確！</article>';
+  show('<div class="dialog-icon">'+(data.passed?'🏆':'💪')+'</div><h2 id="dialogTitle">'+(data.passed?'恭喜！正式升級成功':'這次再接再厲！')+'</h2><p><strong>'+data.correct+' / 10 題正確</strong><br>'+(data.passed?'已正式晉升 Lv. '+hero.level+'！':'至少答對 8 題才能升級。XP 保留，可再挑戰。')+'</p><div class="review">'+detail+'</div><div class="dialog-actions"><button class="btn" id="examDone">返回群島</button>'+(data.passed?'':'<button class="btn secondary" id="examAgain">重新挑戰</button>')+'</div>','examResult');
+  $('examDone').onclick=()=>{close();refresh()};
+  if(!data.passed)$('examAgain').onclick=startExam;
+  render();
+ }catch(e){show('<h2 id="dialogTitle">交卷暫時失敗</h2><p class="error">'+esc(e.message)+'</p><p>請重新整理，若試煉已提交，系統會保留記錄。</p><button class="btn secondary" id="examClose">返回群島</button>','error');$('examClose').onclick=close}
+ finally{busy=false}
+}
+$('changePlayer').onclick=()=>{if(!isFamily())return loadPlayers();choosePlayer()};
+$('roleButton').onclick=chooseRole;
+$('examButton').onclick=startExam;
+$('copyLink').onclick=async()=>{
+ if(!isFamily()){alert('請先使用家庭專用連結');return}
+ const url=location.origin+location.pathname+'#f='+encodeURIComponent(token);
+ try{await navigator.clipboard.writeText(url);status('✅ 已複製家庭冒險入口！只要分享這一個網址給孩子。')}
+ catch(e){prompt('請複製以下家庭專用連結：',url)}
+};
+window.addEventListener('pageshow',()=>{if(player&&!$('overlay').hidden)return;if(player)refresh()});
+render();loadPlayers();
+})();
+</script>
+</body></html>
