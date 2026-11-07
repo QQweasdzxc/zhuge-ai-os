@@ -45,8 +45,9 @@ if(gateOpen)document.body.style.overflow='hidden';
 function setGate(open){
  gateOpen=open;playerGate.hidden=!open;
  document.body.style.overflow=open?'hidden':previousBodyOverflow;
+ el('playerPicks').hidden=false;el('playerAddForm').hidden=true;
+ el('playerFormError').textContent='';
  if(open){renderGate();setTimeout(function(){var first=el('playerPicks').querySelector('button');if(first)first.focus()},0)}
- else {el('playerAddForm').hidden=true;el('playerFormError').textContent=''}
 }
 function renderGate(){
  if(!state.token)return;
@@ -62,6 +63,7 @@ function selectPlayer(id){
  if(!p)return;
  state.learnerId=id;
  renderNames();setGate(false);
+ if(el('screen-report').classList.contains('active'))show('home');
  status('☁️ '+p.name+' 的成績會自動儲存在雲端');
 }
 function showPlayerAdd(){
@@ -191,6 +193,6 @@ el('cloudReport').addEventListener('click',function(){if(!state.connected){alert
 el('reportBack').addEventListener('click',function(){show('home')});
 el('refreshReport').addEventListener('click',sync);
 el('reportWho').addEventListener('change',function(e){state.filter=e.target.value;renderReport()});
-var foot=document.querySelector('.footer');if(foot)foot.insertAdjacentHTML('beforeend','<div>成語闖關王 V1.3.0 · 2026/11/07 · 玩家快速加入・自然語音・雲端成績</div>');
+var foot=document.querySelector('.footer');if(foot)foot.insertAdjacentHTML('beforeend','<div>成語闖關王 V1.3.1 · 2026/11/07 · 玩家快速加入・自然語音・雲端成績</div>');
 sync();
 })();
