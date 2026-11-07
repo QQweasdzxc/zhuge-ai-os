@@ -63,3 +63,27 @@ test('OAuth callbacks are routed before Pixel iframe loads', () => {
   }
   assert.ok(text('docs/status-classic.html').includes('const root = new URL("..", current.href);'));
 });
+test('pixel office HUD chrome uses canonical Tron tokens, preserves semantic colors', () => {
+  const hud = text('integrations/habblaud/overrides/client/src/ui/zhuge-hud.css');
+  const tokens = text('shared/theme/tokens.css');
+  const dark = tokens.match(/:root\s*\{[\s\S]*?color-scheme:\s*dark/);
+  assert.ok(dark, 'canonical dark token block must exist');
+  for (const hex of ['#2fd7f5', '#ff9a3c']) {
+    assert.ok(dark[0].includes(hex), 'canonical dark tokens must define ' + hex);
+    assert.ok(hud.includes(hex), 'pixel office HUD chrome must use canonical Tron accent ' + hex);
+  }
+  for (const surface of ['#0b1520', '#0d1a24'])
+    assert.ok(hud.includes(surface), 'pixel office HUD chrome must use Tron surface ' + surface);
+  assert.ok(hud.includes('rgba(47,215,245,'), 'pixel office HUD borders must use Tron border rgba');
+  assert.doesNotMatch(hud, /#38bdf8/i, 'legacy slate-blue accent must not remain in pixel office HUD chrome');
+  for (const semantic of ['#9f2834', '#22c55e', '#eab308', '#ef4444'])
+    assert.ok(hud.includes(semantic), 'semantic status color must be preserved: ' + semantic);
+});
+test('pixel office HUD displays Tron as product name without touching backend identifier', () => {
+  const hud = text('integrations/habblaud/overrides/client/src/ui/zhuge-hud.ts');
+  assert.match(hud, /function displayProjectName\(/, 'display-layer mapping must exist');
+  assert.match(hud, /displayProjectName\(status\.project_name\)/, 'HUD title must go through the display mapping');
+  assert.match(hud, /projectName === 'Zhuge AI OS'\) return 'Tron'/, 'mapping must render the approved Tron name');
+  const status = JSON.parse(text('docs/status/project-status.json'));
+  assert.equal(status.project_name, 'Zhuge AI OS', 'backend project identifier stays unchanged');
+});
