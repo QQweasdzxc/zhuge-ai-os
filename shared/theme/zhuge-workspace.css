@@ -203,7 +203,7 @@
   border-radius: var(--zhuge-radius-sm);
   background: var(--zhuge-surface);
 }
-.zhuge-module-shell .template-management-card[data-template-management-template="navigation"] { border-color: color-mix(in srgb, #60a5fa 42%, var(--zhuge-border)); }
+.zhuge-module-shell .template-management-card[data-template-management-template="navigation"] { border-color: color-mix(in srgb, #2fd7f5 42%, var(--zhuge-border)); }
 .zhuge-module-shell .template-management-card[data-template-management-template="workspace"] { border-color: color-mix(in srgb, #4ade80 42%, var(--zhuge-border)); }
 .zhuge-module-shell .template-management-card[data-template-management-template="board"] { border-color: color-mix(in srgb, #c084fc 42%, var(--zhuge-border)); }
 .zhuge-module-shell .template-management-card-header {
@@ -274,9 +274,9 @@
   display: grid;
   gap: 10px;
   padding: 11px;
-  border: 1px solid color-mix(in srgb, #60a5fa 30%, var(--zhuge-border));
+  border: 1px solid color-mix(in srgb, #2fd7f5 30%, var(--zhuge-border));
   border-radius: 10px;
-  background: color-mix(in srgb, #60a5fa 4%, var(--zhuge-surface-raised));
+  background: color-mix(in srgb, #2fd7f5 4%, var(--zhuge-surface-raised));
 }
 .zhuge-module-shell .template-runtime-observability-heading {
   display: flex;

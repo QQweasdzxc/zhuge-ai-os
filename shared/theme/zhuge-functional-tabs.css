@@ -86,7 +86,7 @@
   min-height: var(--zhuge-functional-tabs-row-height);
   padding: 0;
   border: 0;
-  border-bottom: var(--zhuge-functional-tabs-divider-width) solid var(--zhuge-border, #334155);
+  border-bottom: var(--zhuge-functional-tabs-divider-width) solid var(--zhuge-border, #173242);
   border-radius: 0;
   background: transparent;
   overflow-x: auto;
@@ -140,13 +140,13 @@
 .zhuge-functional-tabs .zhuge-functional-tab.is-active,
 .zhuge-functional-tabs .zhuge-functional-tab[aria-selected="true"],
 .zhuge-functional-tabs .zhuge-functional-tab[aria-current="page"] {
-  border-color: var(--zhuge-border, #334155);
-  border-bottom-color: var(--zhuge-accent, #60a5fa);
-  background: var(--zhuge-surface-raised, #1e293b);
+  border-color: var(--zhuge-border, #173242);
+  border-bottom-color: var(--zhuge-accent, #2fd7f5);
+  background: var(--zhuge-surface-raised, #0b1520);
   color: var(--zhuge-text, #f8fafc);
 }
 .zhuge-functional-tabs .zhuge-functional-tab:focus-visible {
-  outline: 2px solid var(--zhuge-accent, #60a5fa);
+  outline: 2px solid var(--zhuge-accent, #2fd7f5);
   outline-offset: -3px;
 }
 .zhuge-functional-tabs .zhuge-functional-tab:disabled,
