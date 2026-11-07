@@ -1,0 +1,109 @@
+/* TaskFlow Tron theme overlay.
+   Appended to the vendored Multica web app at image build time by
+   patches/apply-taskflow-tron-theme.py. The vendored tokens.css is never
+   edited: this file loads after it in globals.css, so these token values win
+   by cascade order and upstream parity (vendor SHA) is preserved.
+
+   Both modes carry the Tron vocabulary, mirroring the site-wide canonical
+   tokens in shared/theme/tokens.css. The vendored ThemeProvider default
+   (system) and the in-app theme toggle are left untouched.
+
+   Dark: deep-space surfaces (#060b12 / #0b1520 / #0d1a24), cyan hairlines,
+   cyan primary #2fd7f5, orange highlight #ff9a3c.
+   Light: the canonical Tron light set (#f2f4f7 / #f8fafc / #ffffff, deep cyan
+   accent #0888a8, deep orange accent-strong #c2410c). */
+
+:root {
+    --app-shell: #e9edf3;
+    --page-canvas: #f2f4f7;
+    --surface: #f8fafc;
+    --surface-foreground: #1d2430;
+    --surface-raised: #ffffff;
+    --surface-hover: #eef2f6;
+    --surface-selected: #e3eaf1;
+    --surface-selected-foreground: #1d2430;
+    --surface-border: rgba(51, 65, 85, .12);
+    --foreground: #1d2430;
+    --card-foreground: #1d2430;
+    --popover-foreground: #1d2430;
+    --primary: #0888a8;
+    --primary-foreground: #ffffff;
+    --secondary: #eef2f6;
+    --secondary-foreground: #1d2430;
+    --muted: #eef2f6;
+    --muted-foreground: #687386;
+    --faint-foreground: #8a94a3;
+    --accent: #e3eaf1;
+    --accent-foreground: #1d2430;
+    --border: rgba(51, 65, 85, .12);
+    --input: rgba(51, 65, 85, .24);
+    --ring: #0888a8;
+    --chart-1: #0888a8;
+    --chart-2: #c2410c;
+    --chart-3: #0fa3c7;
+    --chart-4: #d97706;
+    --chart-5: #67b8cb;
+    --sidebar: #f8fafc;
+    --sidebar-foreground: #1d2430;
+    --sidebar-primary: #0888a8;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #eef2f6;
+    --sidebar-accent-foreground: #1d2430;
+    --sidebar-border: rgba(51, 65, 85, .12);
+    --sidebar-ring: #0888a8;
+    --brand: #0888a8;
+    --brand-foreground: #ffffff;
+    --success: #138a5d;
+    --warning: #9a6a00;
+    --info: #0888a8;
+    --destructive: #bd3848;
+    --scrollbar-thumb: rgba(51, 65, 85, .18);
+    --scrollbar-thumb-hover: rgba(51, 65, 85, .3);
+}
+
+.dark {
+    --app-shell: #060b12;
+    --page-canvas: #081019;
+    --surface: #0b1520;
+    --surface-foreground: #e8f6fb;
+    --surface-raised: #0d1a24;
+    --surface-hover: #12222e;
+    --surface-selected: #16303f;
+    --surface-selected-foreground: #e8f6fb;
+    --surface-border: rgba(47, 215, 245, .16);
+    --foreground: #e8f6fb;
+    --card-foreground: #e8f6fb;
+    --popover-foreground: #e8f6fb;
+    --primary: #2fd7f5;
+    --primary-foreground: #04121a;
+    --secondary: #12222e;
+    --secondary-foreground: #e8f6fb;
+    --muted: #12222e;
+    --muted-foreground: #9fb8c4;
+    --faint-foreground: #6d8a99;
+    --accent: #16303f;
+    --accent-foreground: #e8f6fb;
+    --border: rgba(47, 215, 245, .16);
+    --input: rgba(47, 215, 245, .3);
+    --ring: #2fd7f5;
+    --chart-1: #2fd7f5;
+    --chart-2: #ff9a3c;
+    --chart-3: #1fa8c4;
+    --chart-4: #c4702a;
+    --chart-5: #7fd7ea;
+    --sidebar: #060b12;
+    --sidebar-foreground: #e8f6fb;
+    --sidebar-primary: #2fd7f5;
+    --sidebar-primary-foreground: #04121a;
+    --sidebar-accent: #12222e;
+    --sidebar-accent-foreground: #e8f6fb;
+    --sidebar-border: rgba(47, 215, 245, .16);
+    --sidebar-ring: #2fd7f5;
+    --brand: #2fd7f5;
+    --brand-foreground: #04121a;
+    --success: #55d39a;
+    --warning: #e9bb63;
+    --info: #2fd7f5;
+    --scrollbar-thumb: rgba(47, 215, 245, .16);
+    --scrollbar-thumb-hover: rgba(47, 215, 245, .3);
+}

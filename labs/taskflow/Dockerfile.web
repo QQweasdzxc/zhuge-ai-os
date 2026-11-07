@@ -152,6 +152,16 @@ RUN python3 /tmp/apply-taskflow-workspace-groups.py --root /src --overlays /task
  && grep -q 'projectPartition="human"' /src/packages/views/issues/components/issues-page.tsx \
  && grep -q 'projectPartition="ai"' /src/packages/views/common/taskflow-ai-tasks-page.tsx
 
+# Tron theme: dual-mode (:root + .dark) token override css, installed only into the copied source tree. ThemeProvider default and user theme choice are left untouched.
+COPY labs/taskflow/patches/apply-taskflow-tron-theme.py /tmp/apply-taskflow-tron-theme.py
+COPY labs/taskflow/tests/test_taskflow_tron_theme_overlay.py /tmp/test_taskflow_tron_theme_overlay.py
+COPY labs/taskflow/overrides/taskflow-tron-theme.css /tmp/taskflow-tron-theme.css
+RUN TASKFLOW_TRON_THEME_PATCH=/tmp/apply-taskflow-tron-theme.py \
+    TASKFLOW_TRON_THEME_CSS=/tmp/taskflow-tron-theme.css \
+    TASKFLOW_VENDOR_SOURCE_ROOT=/src \
+    python3 /tmp/test_taskflow_tron_theme_overlay.py \
+ && python3 /tmp/apply-taskflow-tron-theme.py --root /src --css /tmp/taskflow-tron-theme.css
+
 FROM node:22-alpine AS deps
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1 \

@@ -51,6 +51,9 @@ function htmlFiles(directory, prefix = "") {
 test("curated Pages publishes Pixel homepage and retained authenticated TaskFlow classic route", () => {
   const required = [
     "index.html", "version.json", ".nojekyll", "googlea760c88b64a73d97.html",
+    "manifest.webmanifest", "shared/assets/icons/tron-app-icon-32.png",
+    "shared/assets/icons/tron-app-icon-180.png", "shared/assets/icons/tron-app-icon-192.png",
+    "shared/assets/icons/tron-app-icon-512.png",
     "labs/taskflow/index.html", "labs/taskflow/runtime-config.js", "labs/taskflow/cli-sso.js",
     "modules/worklog/index.html", "modules/investment/index.html", "app/dashboard/index.html",
     "app/Board/ai/index.html", "app/Board/worktodo/index.html",

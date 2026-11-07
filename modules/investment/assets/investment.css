@@ -6,10 +6,24 @@
   --investment-line: var(--zhuge-color-line);
   --investment-text: var(--zhuge-text);
   --investment-muted: var(--zhuge-muted);
-  --investment-accent: var(--zhuge-color-accent);
+  --investment-accent: var(--zhuge-accent);
+  --investment-accent-text: var(--zhuge-accent);
   --investment-gain: #ff6b78;
   --investment-loss: #43d392;
   --investment-warning: var(--zhuge-color-warning);
+}
+
+/* Light mode: eyebrow and small accent text need a deeper cyan than the
+   canonical light accent (#0888a8, 3.9:1 on #f8fafc). #077a96 measures
+   4.7:1 on #f8fafc, clearing 4.5:1 for .68rem bold labels. */
+html[data-theme="light"] {
+  --investment-accent-text: #077a96;
+}
+
+@media (prefers-color-scheme: light) {
+  html[data-theme="system"] {
+    --investment-accent-text: #077a96;
+  }
 }
 
 * { box-sizing: border-box; }
@@ -63,7 +77,7 @@ button { color: inherit; }
 .investment-page-heading h1, .investment-section-heading h2 { margin: 4px 0 6px; letter-spacing: -.025em; }
 .investment-page-heading h1 { font-size: clamp(1.75rem, 3vw, 2.35rem); }
 .investment-page-heading p, .investment-section-heading p { margin: 0; color: var(--investment-muted); }
-.investment-eyebrow { color: var(--investment-accent) !important; font-size: .68rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+.investment-eyebrow { color: var(--investment-accent-text) !important; font-size: .68rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
 .investment-refresh, .investment-section-heading button { min-height: 44px; border: 1px solid var(--investment-line); border-radius: 10px; background: var(--investment-panel-soft); padding: 8px 12px; cursor: pointer; }
 
 .investment-kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
