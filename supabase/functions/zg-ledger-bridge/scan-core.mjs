@@ -41,4 +41,3 @@ export function scanBatch(ids,plan){
  if(plan.assetRow)for(const[c,v]of Object.entries(plan.changes))requests.push(put('資產',plan.assetRow,Number(c),v));else requests.push(append('資產',plan.asset));
  if(plan.recordRow)requests.push(put('盤點紀錄',plan.recordRow,6,plan.record[6]));else requests.push(append('盤點紀錄',plan.record));if(plan.binding)requests.push(append('座位圖',plan.binding));return{requests};
 }
-

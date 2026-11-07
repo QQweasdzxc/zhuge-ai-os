@@ -519,4 +519,3 @@ function json(body: unknown, status: number, origin: string) {
     status, headers: { "content-type": "application/json", ...corsHeaders(origin) }
   });
 }
-
