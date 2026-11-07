@@ -50,9 +50,9 @@ function render(){
  if((p.player?.id||'')!==lastPlayer){lastPlayer=p.player?.id||'';config.zone=available}
  if(config.zone>available)config.zone=available;
  config.level=zones[config.zone-1][3];
- const xp=Number(p.player?.xp)||0,lv=lvOf(xp),base=50*(lv-1)*lv,goal=50*lv*(lv+1);
- const percentage=Math.max(0,Math.min(100,Math.round((xp-base)/(goal-base)*100)));
- $('adventureHero').innerHTML='<strong>📖 成語島｜'+xp+' XP</strong><p>'+escapeHtml(p.player?.name||'先選自己的名字')+' 的成語探索累積經驗。總 Lv. 請看「共用冒險者」卡片。</p><div class="adventure-xp"><span style="width:'+percentage+'%"></span></div>';
+ const xp=Number(p.player?.xp)||0;
+ const percentage=Math.round((available-1)/6*100);
+ $('adventureHero').innerHTML='<strong>📖 成語島｜'+xp+' XP</strong><p>'+escapeHtml(p.player?.name||'先選自己的名字')+' 的成語探索累積經驗。已開放到第 '+available+' 關；總 Lv. 請看「共用冒險者」卡片。</p><div class="adventure-xp"><span style="width:'+percentage+'%"></span></div>';
  const passed=new Set(p.attempts.filter(x=>x.result_status==='completed'&&x.question_count>=5&&x.correct_count/x.question_count>=.8).map(x=>Number(x.zone)));
  $('adventureStages').innerHTML=zones.map((z,i)=>{
   const n=i+1,locked=n>available,status=passed.has(n)?'✅ 已破關':locked?'🔒 未解鎖':n===config.zone?'🎯 挑戰中':'▶ 前往挑戰';
