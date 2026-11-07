@@ -156,7 +156,7 @@ function chooseQuestion(word,index){
 }
 function startGame(onlyWords){
   if(window.chengyuCloudReady && !window.chengyuCloudReady())return;
-  window.speechSynthesis?.cancel();
+  window.chengyuStopSpeaking?.();
   let pool=onlyWords?DATA.filter(v=>onlyWords.includes(v.word)):(config.level==='全部'?DATA:DATA.filter(v=>v.level===config.level));
   const questions=shuffle(pool).slice(0,onlyWords?pool.length:Math.min(config.count,pool.length));
   if(!questions.length)return;
@@ -216,7 +216,7 @@ function answer(i){
   $('feedback').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 function nextQuestion(){
-  window.speechSynthesis?.cancel();
+  window.chengyuStopSpeaking?.();
   if(game.hearts===0||game.index>=game.items.length-1){showResults();return;}
   game.index++;renderQuestion();
   $('questionTitle').scrollIntoView({behavior:'smooth',block:'start'});
@@ -254,8 +254,8 @@ $('speedBtn').addEventListener('click',()=>{const list=[0.9,1.0,1.15,0.75];confi
 $('startBtn').addEventListener('click',()=>startGame());
 $('playAgain').addEventListener('click',()=>startGame());
 $('reviewWrong').addEventListener('click',()=>{if(lastWrong.length)startGame(lastWrong);});
-$('homeBtn').addEventListener('click',()=>{window.speechSynthesis?.cancel();show('home');});
-$('quitBtn').addEventListener('click',()=>{window.speechSynthesis?.cancel();show('home');});
+$('homeBtn').addEventListener('click',()=>{window.chengyuStopSpeaking?.();show('home');});
+$('quitBtn').addEventListener('click',()=>{window.chengyuStopSpeaking?.();show('home');});
 $('resultHome').addEventListener('click',()=>show('home'));
 $('libraryBtn').addEventListener('click',()=>show('library'));
 $('libHome').addEventListener('click',()=>show('home'));
@@ -278,5 +278,6 @@ document.addEventListener('keydown',e=>{
 });
 </script>
 <script src="./cloud.js"></script>
+<script src="./voice.js"></script>
 </body>
 </html>
