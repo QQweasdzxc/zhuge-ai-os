@@ -110,10 +110,10 @@ h1{font-size:clamp(30px,4.3vw,49px);letter-spacing:.03em;line-height:1.23;margin
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}
 
 /* Original illustrated RPG role artwork — cropped from the approved design. */
-.class-pick{position:relative;display:flex;flex-direction:column;gap:4px;align-items:center;justify-content:flex-start;overflow:hidden;padding:6px 6px 12px;min-height:224px;border-color:#515a9a;box-shadow:5px 5px 0 #3a437d;background:linear-gradient(180deg,#e3defc,#fff8ef);transition:transform .16s,border-color .16s,box-shadow .16s}
+.class-pick{position:relative;display:flex;flex-direction:column;gap:4px;align-items:center;justify-content:flex-start;overflow:visible;padding:9px 9px 14px;min-height:224px;border-color:#515a9a;box-shadow:5px 5px 0 #3a437d;background:linear-gradient(180deg,#e3defc,#fff8ef);transition:transform .16s,border-color .16s,box-shadow .16s}
 .class-pick:hover,.class-pick:focus-visible{transform:translateY(-4px);box-shadow:5px 9px 0 #3a437d;border-color:#d6a64f;background:#fff3d9}
 .class-pick:active{transform:translateY(1px);box-shadow:2px 2px 0 #3a437d}
-.class-art{background-image:var(--arch-role-art-boy,var(--arch-role-art));background-repeat:no-repeat;background-size:400% 100%;background-color:#d5d9f4;display:block;flex:none;position:relative}
+.class-art{background-image:var(--arch-role-art-boy,var(--arch-role-art));background-repeat:no-repeat;background-size:400% 100%;background-color:#d5d9f4;display:block;flex:none;position:relative;background-origin:padding-box}
 .class-art-warrior{background-position-x:0%}
 .class-art-mage{background-position-x:33.333%}
 .class-art-ranger{background-position-x:66.666%}
@@ -130,15 +130,15 @@ h1{font-size:clamp(30px,4.3vw,49px);letter-spacing:.03em;line-height:1.23;margin
 .avatar-style-choice strong{font-size:21px}
 .avatar-style-choice small{font-size:11px;color:#707e9b;line-height:1.5}
 @media(max-width:470px){.avatar-style-choice{min-height:135px;padding:6px 5px 9px}.avatar-style-choice strong{font-size:17px}.avatar-style-grid{gap:9px}}
-.class-pick>.class-art{width:100%;height:auto;aspect-ratio:96 / 61;border:2px solid #aaa0d6;outline:1px solid #f9edb8;outline-offset:-6px;border-radius:4px}
+.class-pick>.class-art{width:100%;height:auto;aspect-ratio:256 / 180;border:2px solid #aaa0d6;outline:1px solid #f9edb8;outline-offset:-6px;border-radius:4px;image-rendering:auto}
 .class-pick .class-name{font-size:20px;font-weight:1000;color:#26385f;line-height:1.4;margin-top:7px;display:flex;align-items:center;gap:5px}
 .class-pick .class-name .class-weapon{font-size:16px}
 .class-pick small{display:block;max-width:98%;font-size:12px;line-height:1.45;font-weight:650;color:#62708a}
 .class-banner{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px;padding:8px 10px;background:#e5dafb;border:2px solid #b29bdc;border-radius:5px;box-shadow:3px 3px 0 #b8a1dc;color:#684d9c;font-weight:900;font-size:12px;letter-spacing:.08em}
 .class-banner .spark{font-size:20px}
 .role-grid{align-items:stretch}
-.role-preview{width:min(100%,285px);margin:10px auto 14px;aspect-ratio:96 / 61;border:4px solid #7364a4;border-radius:7px;box-shadow:5px 6px 0 #394369;background-color:#e6e6f1}
-.avatar{width:150px;height:105px;overflow:hidden;padding:0}
+.role-preview{width:min(100%,360px);margin:10px auto 14px;aspect-ratio:256 / 180;border:4px solid #7364a4;border-radius:7px;box-shadow:5px 6px 0 #394369;background-color:#e6e6f1}
+.avatar{width:150px;height:auto;aspect-ratio:256 / 180;overflow:hidden;padding:0}
 .avatar .profile-art{width:100%;height:100%;border:0;display:block}
 .class-pick.selected{border-color:#d6a03e;background:#fff0ce;box-shadow:0 0 0 3px #fff2b7,5px 5px 0 #b17d31}
 .class-notice{display:block;font-size:11px;color:#7b6097;text-align:center;line-height:1.65}
@@ -149,13 +149,24 @@ h1{font-size:clamp(30px,4.3vw,49px);letter-spacing:.03em;line-height:1.23;margin
  .class-pick small{font-size:10px;line-height:1.35}
  .class-pick>.class-art{outline-offset:-4px}
  .class-banner{font-size:11px}
- .avatar{width:135px;height:97px}
+ .avatar{width:135px;height:auto;aspect-ratio:256 / 180}
+}
+@media(max-width:690px){
+ /* Wide role cards display the entire existing 256x180 illustration. */
+ .dialog{max-width:460px}
+ .role-grid{grid-template-columns:minmax(0,1fr)!important;gap:14px!important;margin:17px 0!important}
+ .class-pick{width:100%;min-height:auto;padding:11px 11px 17px;gap:8px;overflow:visible}
+ .class-pick>.class-art{aspect-ratio:256 / 180;max-width:100%;height:auto;background-size:400% 100%}
+ .class-pick .class-name{font-size:20px}
+ .class-pick .class-name .class-weapon{font-size:20px}
+ .class-pick small{font-size:13px;line-height:1.55}
+ .role-preview{aspect-ratio:256 / 180;width:min(100%,350px)}
+ .class-banner{font-size:12px;line-height:1.6}
 }
 @media(max-width:390px){
- .role-grid{gap:7px}
- .class-pick{min-height:170px;padding:4px}
- .class-pick .class-name{font-size:15px}
- .class-pick small{font-size:10px}
+ .class-pick{padding:9px 9px 13px}
+ .class-pick .class-name{font-size:19px}
+ .class-pick small{font-size:12px}
 }
 </style>
 </head>
@@ -210,7 +221,7 @@ h1{font-size:clamp(30px,4.3vw,49px);letter-spacing:.03em;line-height:1.23;margin
   </div>
  </section>
 </main>
-<footer class="footer">學習冒險群島 · BUILD 2026.11.07.6 · 家庭雲端紀錄由 Supabase 保存<br>本網站不要求登入；家庭專用網址含私人存取金鑰，請只分享給家人。</footer>
+<footer class="footer">學習冒險群島 · BUILD 2026.11.07.7 · 家庭雲端紀錄由 Supabase 保存<br>本網站不要求登入；家庭專用網址含私人存取金鑰，請只分享給家人。</footer>
 </div></div>
 <div class="overlay" id="overlay" hidden><section class="dialog" id="dialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle"></section></div>
 <script src="./role-portraits.js?v=1.0.1"></script>
