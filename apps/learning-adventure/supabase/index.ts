@@ -22,7 +22,7 @@ const shuffled=a=>{const arr=[...a];for(let i=arr.length-1;i>0;i--){const n=cryp
 const threshold=level=>50*level*(level+1);
 function publicHero(h){return {id:h.id,name:h.display_name,profession:h.profession,totalXP:h.total_xp,level:h.verified_level,nextXP:threshold(h.verified_level),eligible:!!h.profession&&h.total_xp>=threshold(h.verified_level)&&h.verified_level<100}}
 function visibleExam(e){if(!e)return null;return {id:e.id,fromLevel:e.level_before,count:(e.questions||[]).length,questions:(e.questions||[]).map((q,i)=>({index:i,kind:q.kind,stem:q.stem,choices:q.choices})),startedAt:e.started_at}}
-function choiceSet(correct,others){const vals=shuffled([correct,...shuffled(others.filter(x=>x&&x!==correct)).slice(0,3)]);if(vals.length<4)throw new Error("題庫可用選項不足");return {choices:vals,answerIndex:vals.indexOf(correct)}}
+function choiceSet(correct,others){const candidates=[...new Set(others.filter(x=>x&&x!==correct))];const vals=shuffled([correct,...shuffled(candidates).slice(0,3)]);if(vals.length<4)throw new Error("題庫可用選項不足");return {choices:vals,answerIndex:vals.indexOf(correct)}}
 function idiomQuiz(pool,count){
  if(pool.length<count+3)throw new Error("成語題庫不足");
  const picked=shuffled(pool).slice(0,count);
