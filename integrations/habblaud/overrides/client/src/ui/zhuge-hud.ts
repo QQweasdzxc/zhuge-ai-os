@@ -14,6 +14,13 @@ let weatherAdapter: {
   subscribe(listener: (state: WeatherState) => void): () => void;
 } | null = null;
 let stopWeatherSubscription: (() => void) | null = null;
+
+/** Maps backend project identifiers to the approved public product name. */
+function displayProjectName(projectName) {
+  if (!projectName || projectName === 'Zhuge AI OS') return 'Tron';
+  return projectName;
+}
+
 function el(tag: string, value = ''): HTMLElement {
   const e = document.createElement(tag);
   e.textContent = value;
@@ -250,7 +257,10 @@ export function mountZhugeHud(status: ZhugeProjectStatus, live = false): void {
   const fresh = isFreshStatus(status);
   const dot = el('span', '●');
   dot.className = 'zhuge-hud-dot zhuge-light-' + (fresh ? status.overall_status : 'stale');
-  const title = el('strong', status.project_name || 'AI OS');
+  // Display layer only: the approved product name is Tron. The backend
+  // project_name identifier ('Zhuge AI OS') stays untouched in
+  // docs/status/project-status.json and its contract test.
+  const title = el('strong', displayProjectName(status.project_name));
   title.className = 'zhuge-hud-title';
   const phase = el('span', '階段：' + status.current_phase);
   const milestone = el('span', '里程碑：' + status.current_milestone);
