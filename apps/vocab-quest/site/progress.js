@@ -17,22 +17,23 @@ function render(){
  const p=data.learners.find(x=>x.id===data.selectedId);
  if(!p){board.hidden=true;return}
  const attempts=data.attempts.filter(x=>x.learner_id===p.id);
- const xp=Number(p.xp)||0,lv=getLevel(xp);
- const from=50*(lv-1)*lv,to=50*lv*(lv+1);
- const percent=Math.max(0,Math.min(100,Math.round((xp-from)/(to-from)*100)));
+ const xp=Number(p.xp)||0;
  const modes=[['meaning','中英配對'],['spelling','英文拼字'],['sentence','句子填空']];
  const done=new Set();
  for(const a of attempts){
-  if(a.result_status!=='completed'||!a.question_count||a.correct_count/a.question_count<.8)continue;
-  if(a.mode==='all')modes.forEach(x=>done.add(x[0]));else done.add(a.mode);
+  if(a.result_status!=='completed'||!a.question_count)continue;
+  if(a.mode==='all'&&Array.isArray(a.answers)){
+   modes.forEach(([mode],i)=>{const questions=a.answers.filter(x=>Number(x.stage)===i);if(questions.length&&questions.filter(x=>x.correct===true).length/questions.length>=.8)done.add(mode)});
+  }else if(a.correct_count/a.question_count>=.8)done.add(a.mode);
  }
+ const percent=Math.round(done.size/3*100);
  const medals=modes.map(([mode,label])=>'<span class="'+(done.has(mode)?'':'locked')+'">'+(done.has(mode)?'🏅 ':'🔒 ')+label+'</span>').join('');
  board.hidden=false;
  board.innerHTML='<div class="vocab-xp-head"><strong>🔤 英文島｜練習成長值</strong><span class="xp-count">'+xp+' XP</span></div>'+ 
  '<div class="vocab-xp-sub">'+esc(p.name)+' 的英文學習經驗。正式總 Lv. 請看「共用冒險者」卡片。</div>'+ 
  '<div class="vocab-xp-track"><span style="width:'+percent+'%"></span></div>'+
  '<div class="vocab-xp-awards">'+medals+'</div>'+
- '<div class="vocab-xp-note">🎯 每題答對 +10 XP，通關 +20 XP；單關答對率達 80% 取得徽章。正式升級須通過 10 題綜合試煉。</div>';
+ '<div class="vocab-xp-note">🎯 每題答對 +10 XP，通關 +20 XP；單關答對率達 80% 取得徽章。進度條代表三種技能徽章，不是正式 Lv.；正式升級須通過 10 題綜合試煉。</div>';
 }
 window.vocabProgressRefresh=render;
 render();
