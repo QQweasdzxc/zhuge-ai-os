@@ -37,8 +37,8 @@ Deno.serve(async req=>{
   const familyId=family[0].id, f="eq."+familyId, action=data.action;
   if(action==="load"){
    const [learners,attempts]=await Promise.all([
-    rest("chengyu_family_learners","family_id="+f+"&select=id,name,created_at&order=created_at.asc&limit=40"),
-    rest("chengyu_family_attempts","family_id="+f+"&select=id,learner_id,level,mode,planned_count,question_count,correct_count,result_status,answers,created_at&order=created_at.desc&limit=300")
+    rest("chengyu_family_learners","family_id="+f+"&select=id,name,xp,created_at&order=created_at.asc&limit=40"),
+    rest("chengyu_family_attempts","family_id="+f+"&select=id,learner_id,level,zone,mode,planned_count,question_count,correct_count,result_status,xp_earned,answers,created_at&order=created_at.desc&limit=300")
    ]);
    return reply({ok:true,learners,attempts});
   }
@@ -58,6 +58,8 @@ Deno.serve(async req=>{
    const learner=await rest("chengyu_family_learners","family_id="+f+"&id=eq."+learnerId+"&select=id&limit=1");
    if(!learner.length)return fail("找不到此測驗者",403);
    const level=clean(data.level,10),mode=clean(data.mode,20);
+   const zone=data.zone==null?null:Number(data.zone);
+   if(zone!==null&&(!Number.isInteger(zone)||zone<1||zone>7))return fail("冒險關卡不正確");
    if(!["國小","國中","進階","全部"].includes(level)||!["meaning","context","reverse","mixed"].includes(mode))return fail("題目設定不正確");
    const answers=Array.isArray(data.answers)?data.answers:[];
    const planned=Number(data.plannedCount),status=data.resultStatus;
@@ -72,11 +74,11 @@ Deno.serve(async req=>{
    const previous=await rest("chengyu_family_attempts","family_id="+f+"&client_run_id=eq."+runId+"&select=id,created_at&limit=1");
    if(previous.length)return reply({ok:true,attempt:previous[0],duplicate:true});
    const rows=await rest("chengyu_family_attempts","","POST",{
-    family_id:familyId,learner_id:learnerId,client_run_id:runId,level,mode,
+    family_id:familyId,learner_id:learnerId,client_run_id:runId,level,zone,mode,
     planned_count:planned,question_count:answers.length,correct_count:correct,result_status:status,
     answers:answers.map(a=>({word:a.word,kind:a.kind,correct:a.correct,selected:a.selected,expected:a.expected}))
    });
-   return reply({ok:true,attempt:{id:rows[0].id,created_at:rows[0].created_at,correct_count:correct,question_count:answers.length}});
+   return reply({ok:true,attempt:{id:rows[0].id,created_at:rows[0].created_at,correct_count:correct,question_count:answers.length,xp_earned:rows[0].xp_earned,zone}});
   }
   return fail("不支援的操作");
  } catch(error){console.error("chengyu operation",String(error?.message||error));return fail("雲端操作未完成，請稍後再試",503)}
