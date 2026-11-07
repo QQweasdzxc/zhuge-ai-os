@@ -1,7 +1,7 @@
 // Family Learning Archipelago API V1 — capability-token family scope, server-authoritative class/XP/promotion.
 const BASE=Deno.env.get("SUPABASE_URL")||"";
 const KEY=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")||"";
-const ORIGINS=["https://chengyu-quest-family.onrender.com","https://vocab-quest-family.onrender.com"];
+const ORIGINS=["https://chengyu-quest-family.onrender.com","https://vocab-quest-family.onrender.com","https://learning-archipelago-family.onrender.com"];
 function originFor(req){const o=req.headers.get("Origin");return ORIGINS.includes(o)?o:ORIGINS[0]}
 function cors(req){return {"Access-Control-Allow-Origin":originFor(req),"Access-Control-Allow-Methods":"POST,OPTIONS","Access-Control-Allow-Headers":"content-type,apikey,authorization","Vary":"Origin","Cache-Control":"no-store"}}
 function respond(req,value,status=200){return new Response(JSON.stringify(value),{status,headers:{...cors(req),"Content-Type":"application/json"}})}
@@ -46,9 +46,19 @@ function englishQuiz(pool,count){
 async function familyFor(world,token){
  const hash=await sha(token);
  const table=world==="chengyu"?"chengyu_family_spaces":"vocab_family_spaces";
- const fs=await db(table,"secret_hash=eq."+hash+"&select=id&limit=1");
- if(!fs.length)return null;
- const sourceFamilyId=fs[0].id;
+ let fs=await db(table,"secret_hash=eq."+hash+"&select=id&limit=1");
+ let sourceFamilyId=fs[0]?.id;
+ if(!sourceFamilyId){
+  // A family member may enter any island using the single hub link.
+  const other=world==="chengyu"?"vocab":"chengyu";
+  const siblings=await db(other+"_family_spaces","secret_hash=eq."+hash+"&select=id&limit=1");
+  if(!siblings.length)return null;
+  const mapped=await db("learning_adventure_family_bindings","world=eq."+other+"&source_family_id=eq."+siblings[0].id+"&select=adventure_family_id&limit=1");
+  if(!mapped.length)return null;
+  const target=await db("learning_adventure_family_bindings","world=eq."+world+"&adventure_family_id=eq."+mapped[0].adventure_family_id+"&select=source_family_id&limit=1");
+  sourceFamilyId=target[0]?.source_family_id;
+  if(!sourceFamilyId)return null;
+ }
  const bindings=await db("learning_adventure_family_bindings","world=eq."+world+"&source_family_id=eq."+sourceFamilyId+"&select=adventure_family_id&limit=1");
  if(!bindings.length)return null;
  return {world,sourceFamilyId,adventureFamilyId:bindings[0].adventure_family_id};
@@ -116,10 +126,28 @@ Deno.serve(async req=>{
  if(!BASE||!KEY)return fail(req,"服務尚未設定",503);
  let input;try{input=await req.json()}catch{return fail(req,"請提供正確的資料")}
  const token=safe(input?.token,150),world=input?.world,learnerId=input?.learnerId,action=input?.action;
- if(!/^[A-Za-z0-9_-]{40,128}$/.test(token)||!["chengyu","vocab"].includes(world)||!uuid(learnerId))return fail(req,"請使用正確的家庭連結及玩家",403);
+ if(!/^[A-Za-z0-9_-]{40,128}$/.test(token)||!["chengyu","vocab"].includes(world))return fail(req,"請使用正確的家庭連結及玩家",403);
+ if(!["listPlayers","addPlayer"].includes(action)&&!uuid(learnerId))return fail(req,"請選擇玩家",403);
  try {
   const family=await familyFor(world,token);
   if(!family)return fail(req,"找不到家庭冒險檔案",403);
+  if(action==="listPlayers"){
+   const t=world==="chengyu"?"chengyu_family_learners":"vocab_family_learners";
+   const players=await db(t,"family_id=eq."+family.sourceFamilyId+"&select=id,name,created_at&order=created_at.asc&limit=100");
+   return respond(req,{ok:true,players});
+  }
+  if(action==="addPlayer"){
+   const name=safe(input?.name,24);
+   if(!name||name.length>24||/[<>\r\n]/.test(name))return fail(req,"請輸入 1 至 24 個字的玩家名字");
+   const t=world==="chengyu"?"chengyu_family_learners":"vocab_family_learners";
+   let rows=await db(t,"family_id=eq."+family.sourceFamilyId+"&name=eq."+encodeURIComponent(name)+"&select=id,name&limit=1");
+   if(!rows.length){
+    const existing=await db(t,"family_id=eq."+family.sourceFamilyId+"&select=id&limit=101");
+    if(existing.length>=100)return fail(req,"家庭玩家已達人數上限");
+    rows=await db(t,"","POST",{family_id:family.sourceFamilyId,name});
+   }
+   return respond(req,{ok:true,player:{id:rows[0].id,name:rows[0].name}});
+  }
   const hero=await heroFor(family,learnerId);
   if(!hero)return fail(req,"找不到對應的冒險者",403);
   if(action==="load"){
