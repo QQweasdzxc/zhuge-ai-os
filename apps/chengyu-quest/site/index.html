@@ -155,11 +155,13 @@ function chooseQuestion(word,index){
   return {kind,word,title:'哪一個成語最適合填入這句話？',prompt:word.example.replace(word.word,'＿＿＿＿'),choices:candidates.map(v=>v.word),answer:selected,voice:'請選出最適合填入句子的成語。'+word.example.replace(word.word,'空格')};
 }
 function startGame(onlyWords){
+  if(window.chengyuCloudReady && !window.chengyuCloudReady())return;
   window.speechSynthesis?.cancel();
   let pool=onlyWords?DATA.filter(v=>onlyWords.includes(v.word)):(config.level==='全部'?DATA:DATA.filter(v=>v.level===config.level));
   const questions=shuffle(pool).slice(0,onlyWords?pool.length:Math.min(config.count,pool.length));
   if(!questions.length)return;
   game={items:questions,index:0,correct:0,wrong:[],hearts:3,answered:false};lastWrong=[];
+  if(window.chengyuCloudStart){window.chengyuCloudStart(game);game.cloudLevel=config.level;game.cloudMode=config.mode;}
   show('quiz');renderQuestion();
 }
 function renderQuestion(){
@@ -191,6 +193,7 @@ function renderQuestion(){
 function answer(i){
   if(!game||game.answered)return;
   game.answered=true;const ok=i===current.answer;
+  if(window.chengyuCloudAnswer)window.chengyuCloudAnswer(game,current,i,ok);
   if(ok)game.correct++;else{game.hearts=Math.max(0,game.hearts-1);game.wrong.push(current.word.word);}
   $('score').textContent=game.correct;
   $('hearts').textContent='❤️'.repeat(game.hearts)+'🩶'.repeat(3-game.hearts);
@@ -219,6 +222,7 @@ function nextQuestion(){
   $('questionTitle').scrollIntoView({behavior:'smooth',block:'start'});
 }
 function showResults(){
+  if(game.cloudFinished)return;game.cloudFinished=true;
   lastWrong=[...game.wrong];
   const done=game.correct+game.wrong.length, accuracy=Math.round(game.correct/done*100);
   const lost=game.hearts===0;
@@ -230,6 +234,7 @@ function showResults(){
   $('resultWrong').textContent=game.wrong.length;
   $('reviewWrong').hidden=!lastWrong.length;
   show('result');
+  if(window.chengyuCloudFinish)window.chengyuCloudFinish(game);
 }
 function speak(text){
   if(!('speechSynthesis' in window)||!('SpeechSynthesisUtterance' in window)){alert('目前瀏覽器未提供語音朗讀。請使用 Safari、Chrome 或 Edge 的較新版本，並確認裝置已安裝中文語音。');return;}
@@ -272,5 +277,6 @@ document.addEventListener('keydown',e=>{
   if(game.answered&&e.key==='Enter'&&document.activeElement.tagName!=='BUTTON')nextQuestion();
 });
 </script>
+<script src="./cloud.js"></script>
 </body>
 </html>
