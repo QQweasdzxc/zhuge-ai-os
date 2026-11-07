@@ -125,7 +125,7 @@
       <button type="button" class="btn-secondary load-more" id="loadMore" hidden>查看更多成語</button>
     </section>
   </main>
-  <footer class="footer"><strong>成語闖關王・2026.11 試玩版</strong><br>語音使用裝置的繁體中文語音合成，需要在瀏覽器中按下喇叭播放。題庫與作答均不會上傳至伺服器，本版不提供跨裝置雲端成績紀錄。</footer>
+  <footer class="footer"><strong>成語闖關王・2026.11 試玩版</strong><br>語音使用裝置的繁體中文語音合成，需要在瀏覽器中按下喇叭播放。遊戲成績會經由家庭專用連結儲存至 Supabase 雲端；學習解釋與例句為自編內容。</footer>
 </div>
 <script>
 'use strict';
@@ -156,12 +156,13 @@ function chooseQuestion(word,index){
 }
 function startGame(onlyWords){
   if(window.chengyuCloudReady && !window.chengyuCloudReady())return;
+  if(window.chengyuAdventureCanStart && !window.chengyuAdventureCanStart(onlyWords))return;
   window.chengyuStopSpeaking?.();
-  let pool=onlyWords?DATA.filter(v=>onlyWords.includes(v.word)):(config.level==='全部'?DATA:DATA.filter(v=>v.level===config.level));
+  let pool=onlyWords?DATA.filter(v=>onlyWords.includes(v.word)):(window.chengyuAdventurePool?window.chengyuAdventurePool(DATA,config.zone):(config.level==='全部'?DATA:DATA.filter(v=>v.level===config.level)));
   const questions=shuffle(pool).slice(0,onlyWords?pool.length:Math.min(config.count,pool.length));
   if(!questions.length)return;
   game={items:questions,index:0,correct:0,wrong:[],hearts:3,answered:false};lastWrong=[];
-  if(window.chengyuCloudStart){window.chengyuCloudStart(game);game.cloudLevel=config.level;game.cloudMode=config.mode;}
+  if(window.chengyuCloudStart){window.chengyuCloudStart(game);game.cloudLevel=config.level;game.cloudMode=config.mode;game.cloudZone=onlyWords?null:(config.zone||null);}
   show('quiz');renderQuestion();
 }
 function renderQuestion(){
@@ -277,7 +278,8 @@ document.addEventListener('keydown',e=>{
   if(game.answered&&e.key==='Enter'&&document.activeElement.tagName!=='BUTTON')nextQuestion();
 });
 </script>
-<script src="./cloud.js?v=1.3.1"></script>
+<script src="./cloud.js?v=1.4.0"></script>
 <script src="./voice.js"></script>
+<script src="./adventure.js?v=1.4.0"></script>
 </body>
 </html>
