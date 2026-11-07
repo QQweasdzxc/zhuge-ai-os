@@ -20,7 +20,7 @@ document.head.append(style);
 const card=document.createElement('section');card.className='universal-hero';card.id='universalHero';card.hidden=true;
 const host=world==='chengyu'?document.querySelector('#adventureArea'):document.querySelector('main.shell header.top');
 if(!host)return;
-host.before(card);
+if(world==='vocab')host.after(card);else host.before(card);
 const modal=document.createElement('div');modal.className='adventure-modal';modal.id='adventureModal';modal.hidden=true;
 modal.innerHTML='<div class="adventure-modal-card" role="dialog" aria-modal="true" aria-labelledby="adventureModalTitle" id="adventureModalContent"></div>';
 document.body.append(modal);
