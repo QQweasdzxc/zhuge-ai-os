@@ -32,3 +32,34 @@
 .tf-login a{ background:#2a1503; border:1px solid #ff9a3c; color:#ffc58f; border-radius:6px; }
 .tf-brand>span:first-child{ background:#0e2230; border:1px solid #2fd7f5; }
 .tf-inbox-link{ color:#6ff3ff; }
+
+/* Tron 淺色語彙：與 tokens.css light 同源 */
+@media (prefers-color-scheme: light) {
+  :root{color-scheme:light;--bg:#f2f4f7;--panel:#ffffff;--card:#f8fafc;--line:rgba(51,65,85,.12);--ink:#1d2430;--secondary:#687386;--accent:#0888a8}
+  .tf-nav{background:#ffffff}
+  .tf-brand>span:first-child{background:#e6f7fb;border:1px solid #0888a8}
+  .tf-project{color:#2b3542}
+  .tf-project:hover,.tf-project:focus-visible{background:#eef2f6}
+  .tf-notice{background:#e8f4fb;border-color:#b9d8ea;color:#1d4e63}
+  .tf-notice[data-kind="error"]{background:#fdecef;border-color:#e5b3bd;color:#8f2436}
+  .tf-notice[data-kind="success"]{background:#e9f7f1;border-color:#a9d8c3;color:#0f5c40}
+  #tf-workspace,.tf-search input,.tf-form-field input,.tf-form-field select,.tf-form-field textarea,.tf-inline-form select,.tf-dispatch-card select{background:#ffffff;color:var(--ink)}
+  .tf-issue:hover{background:#f3f6f9}
+  .tf-status-tag,.tf-dispatch-card .tf-status-tag{color:#3c4858}
+  .tf-description{color:#2b3542}
+  .tf-issue-info span{background:#eef2f6}
+  .tf-login{border-color:#c2410c}
+  .tf-login a{background:#fff7ed;border:1px solid #c2410c;color:#9a3412}
+  .tf-primary{background:#0888a8!important;border-color:#0888a8!important}
+  .tf-form-actions button,.tf-inline-actions button,.tf-inline-form button,.tf-evidence-form button,.tf-create-form>button{background:#eef2f6}
+  .tf-subpanel{background:#f8fafc}
+  .tf-dispatch-status{background:#dde7f0}
+  .tf-evidence-row{border-top-color:var(--line)}
+  .tf-evidence-row dd{color:#2b3542}
+  .tf-evidence-link{color:#066a82}
+  .tf-optional-evidence summary,.tf-native-pr>span,.tf-dispatch-evidence-links code{color:#687386}
+  .tf-inbox-link{color:#0779a5}
+  .tf-error,.tf-create-status[data-kind="error"]{color:#bd3848}
+  .tf-dispatch-card-link:hover,.tf-dispatch-card-link:focus-visible{outline-color:#0888a8}
+  .tf-form-field input:focus,.tf-form-field select:focus,.tf-form-field textarea:focus{outline-color:#0888a8}
+}
