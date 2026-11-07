@@ -152,7 +152,14 @@ h1{font-size:clamp(30px,4.3vw,49px);letter-spacing:.03em;line-height:1.23;margin
 <section class="bottom" aria-label="冒險資訊">
  <div class="bottom-card pixel-panel"><h3>🎒 今日冒險指南</h3><p>先到任一島嶼完成練習，收集成語知識或英文單字。想升級時，記得回總部參加綜合試煉。</p><p><span class="chip">XP 每答對 +10</span> <span class="chip">完成回合 +20</span> <span class="chip">晉級試煉需 8/10</span></p></div>
  <div class="bottom-card pixel-panel"><h3>📜 冒險歷程</h3><div class="stat-row"><span>📖 成語島累積</span><strong id="idiomXP">— XP</strong></div><div class="stat-row"><span>🔤 英文島累積</span><strong id="englishXP">— XP</strong></div><div class="stat-row"><span>🏆 已通過晉級試煉</span><strong id="examWins">— 次</strong></div></div>
-</section>
+ <section class="bottom-card pixel-panel" aria-label="家長觀察室" style="margin-bottom:32px">
+  <h3 style="margin:0 0 8px">📊 家長觀察室</h3>
+  <p style="font-size:13px;line-height:1.8;color:#64718b;margin:7px 0 14px">原本的雲端歷史成績、正確率與錯題都保留在各學習島。前往島內的「家長成績」即可查看，玩家身分會由總部帶入。</p>
+  <div class="actions">
+   <a class="btn secondary" id="parentChengyuLink" href="https://chengyu-quest-family.onrender.com/">📖 成語成績</a>
+   <a class="btn secondary" id="parentEnglishLink" href="https://vocab-quest-family.onrender.com/">🔤 英文成績</a>
+  </div>
+ </section>
 </main>
 <footer class="footer">學習冒險群島 · BUILD 2026.11.07.1 · 家庭雲端紀錄由 Supabase 保存<br>本網站不要求登入；家庭專用網址含私人存取金鑰，請只分享給家人。</footer>
 </div></div>
@@ -194,6 +201,8 @@ function childLink(world){
 function setLinks(){
  $('islandChengyu').href=childLink('chengyu');
  $('islandEnglish').href=childLink('vocab');
+ $('parentChengyuLink').href=childLink('chengyu');
+ $('parentEnglishLink').href=childLink('vocab');
 }
 function title(lv){return lv>=30?'傳說冒險王':lv>=20?'神話冒險家':lv>=12?'冒險大師':lv>=8?'黃金冒險者':lv>=5?'白銀冒險者':lv>=3?'青銅冒險者':lv>=2?'正式冒險者':'見習冒險者'}
 function render(){
