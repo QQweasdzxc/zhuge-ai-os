@@ -333,13 +333,21 @@ h1{font-size:clamp(30px,4.3vw,49px);letter-spacing:.03em;line-height:1.23;margin
 .shared-role-scene .poster-hotspot.poster-accept{left:40.6%;top:84.8%;width:49%;height:8.4%}
 .shared-role-scene .poster-hotspot.poster-close{top:0.7%;right:0.7%;height:3%;width:7%}
 @media(max-width:430px){.shared-role-scene .poster-hotspot.role-picked{outline-width:2px}}
+
+/* Single source character card in the confirmation view too. */
+.shared-role-preview{display:block;position:relative;width:min(100%,365px);aspect-ratio:390/333;margin:8px auto 15px;border:3px solid #d4a84b;border-radius:9px;overflow:hidden;box-shadow:5px 6px 0 #404b75;background:#ffedca;isolation:isolate}
+.shared-role-preview .shared-preview-image{position:absolute;display:block;width:221.538%;max-width:none;height:auto;user-select:none;pointer-events:none}
+.shared-role-preview.warrior .shared-preview-image{left:-9.23%;top:-172.37%}
+.shared-role-preview.mage .shared-preview-image{left:-113.59%;top:-172.37%}
+.shared-role-preview.ranger .shared-preview-image{left:-9.23%;top:-277.18%}
+.shared-role-preview.guardian .shared-preview-image{left:-113.59%;top:-277.18%}
 </style>
 </head>
 <body>
 <div class="site"><div class="wrap">
 <header class="topbar">
   <a class="brand" href="#" aria-label="學習冒險群島首頁"><span class="brand-gem">💎</span><span><strong>學習冒險群島</strong><small class="pixel">LEARNING ARCHIPELAGO</small></span></a>
-  <span class="pill pixel">FAMILY RPG · V1.5.0</span>
+  <span class="pill pixel">FAMILY RPG · V1.5.1</span>
 </header>
 <main>
 <section class="hero" aria-label="冒險總部">
@@ -386,7 +394,7 @@ h1{font-size:clamp(30px,4.3vw,49px);letter-spacing:.03em;line-height:1.23;margin
   </div>
  </section>
 </main>
-<footer class="footer">學習冒險群島 · BUILD 2026.11.08.01 · 家庭雲端紀錄由 Supabase 保存<br>本網站不要求登入；家庭專用網址含私人存取金鑰，請只分享給家人。</footer>
+<footer class="footer">學習冒險群島 · BUILD 2026.11.08.02 · 家庭雲端紀錄由 Supabase 保存<br>本網站不要求登入；家庭專用網址含私人存取金鑰，請只分享給家人。</footer>
 </div></div>
 <div class="overlay" id="overlay" hidden><section class="dialog" id="dialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle"></section></div>
 <script src="./role-portraits.js?v=1.0.1"></script>
@@ -567,7 +575,7 @@ async function saveAvatarStyle(style){
 }
 function chooseRole(){
  if(!hero?.avatarStyle){chooseAvatarStyle();return;}
- const hasPoster=hero.avatarStyle==='girl'?window.ARCHIPELAGO_FAVORITE_POSTER:window.ARCHIPELAGO_BOY_POSTER;
+ const hasPoster=window.ARCHIPELAGO_SHARED_MASTER&&window.ARCHIPELAGO_SHARED_GIRL_LAYER;
  if(hasPoster){chooseRolePoster();return}
  chooseRoleClassic();
 }
@@ -644,9 +652,12 @@ function chooseRoleClassic(){
 }
 function confirmRole(code){
  const r=ROLES[code];if(!r)return;
- const poster=hero.avatarStyle==='boy'?window.ARCHIPELAGO_BOY_POSTER:window.ARCHIPELAGO_FAVORITE_POSTER;
- const preview=poster
-  ?'<div class="poster-confirm-art '+(hero.avatarStyle==='boy'?'boy ':'girl ')+code+'" style="--poster-confirm-url:url('+poster+')" role="img" aria-label="'+r.title+'的原畫精緻職業卡"></div>'
+ const master=window.ARCHIPELAGO_SHARED_MASTER;
+ const girl=window.ARCHIPELAGO_SHARED_GIRL_LAYER;
+ const preview=master&&girl
+  ?'<div class="shared-role-preview '+code+'" role="img" aria-label="'+(hero.avatarStyle==='girl'?'女':'男')+r.title+'完整職業卡">'+
+   '<img class="shared-preview-image" src="'+master+'" alt="" draggable="false">'+
+   (hero.avatarStyle==='girl'?'<img class="shared-preview-image" src="'+girl+'" alt="" draggable="false">':'')+'</div>'
   :'<div class="role-preview class-art class-art-'+code+' '+hero.avatarStyle+'" role="img" aria-label="'+r.title+'角色插畫"></div>';
  show(preview+'<h2 id="dialogTitle">確定成為「'+r.title+'」嗎？</h2><p>'+r.desc+'。職業會同步到英文島、成語島。確認後暫時不提供更換功能。</p><p class="error" id="roleError"></p><div class="dialog-actions"><button class="btn mint" type="button" id="roleConfirm">✅ 確認職業</button><button class="btn secondary" type="button" id="roleBack">返回選擇</button></div>','confirmRole');
  $('roleBack').onclick=chooseRole;
