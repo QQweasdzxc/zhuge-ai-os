@@ -10,7 +10,7 @@ import "./seat-map-core.js";
 import {scanPlan,scanBatch} from "./scan-core.mjs";
 import {repairPlan,repairBatch} from "./repair-core.mjs";
 import { RowCustody } from "./row-control-server.ts";
-import { logicalKeys, trackedAttempt,validOperationId } from "./row-control-core.mjs";
+import { logicalKeys, trackedAttempt,validOperationId, custodyErrorMapping } from "./row-control-core.mjs";
 
 
 type CanonicalMap={id:string;site:string;zone:string;seats:{number:number}[]};
@@ -499,7 +499,8 @@ Deno.serve(async (request) => {
     throw new HttpError("Unknown action.", 400, "ACTION_UNKNOWN");
   } catch (e) {
     if(custody&&beganWrite){try{await custody.quarantine()}catch{}}
-    const err = e instanceof HttpError ? e : new HttpError("Unexpected error.", 500, "INTERNAL");
+    const mapped = custodyErrorMapping(e instanceof Error ? e.message : '');
+    const err = e instanceof HttpError ? e : new HttpError(mapped.message, mapped.status, mapped.code);
     return json({ error: { code: err.code, message: err.message, details: err.details } }, err.status, origin);
   } finally {
     if(custody&&beganWrite){try{await custody.finish(retainKeys)}catch{ /* Durable WRITING remains quarantined; never guess unlock. */ }}

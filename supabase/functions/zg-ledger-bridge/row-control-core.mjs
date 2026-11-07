@@ -31,3 +31,13 @@ export async function trackedAttempt(custody,send){
 
 export function validOperationId(id,now=Date.now()){if(typeof id!=='string'||!/^[a-f0-9]{8}-[a-f0-9]{4}-7[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(id))return false;const at=parseInt(id.slice(0,8)+id.slice(9,13),16);return at<=now+60000&&at>=now-900000;}
 
+/* Error-to-contract mapping for write-path failures. Pure; index.ts owns HttpError construction.
+ * Scope: RECORD_BUSY contention (409), plus the two verified custody paths renew/begin_write: expiry (EDIT_PERMISSION_EXPIRED)
+ * and vanished lock row (P0002 "query returned no rows") both map to 409 CUSTODY_EXPIRED. Everything else stays 500 INTERNAL;
+ * release semantics unchanged; no global NO_DATA_FOUND catch (scoped to those two RPC prefixes only). */
+export function custodyErrorMapping(message){
+ const msg=String(message||'');
+ if(msg.includes('RECORD_BUSY'))return {status:409,code:'RECORD_BUSY',message:'這筆資料正由其他操作處理，尚未保存；輸入保留，可稍後再試。'};
+ if(/^CUSTODY_erp_(renew|begin_write):(EDIT_PERMISSION_EXPIRED|query returned no rows)/.test(msg))return {status:409,code:'CUSTODY_EXPIRED',message:'編輯權限已失效或已被其他操作取代，請重新讀取後核對。'};
+ return {status:500,code:'INTERNAL',message:'Unexpected error.'};
+}
