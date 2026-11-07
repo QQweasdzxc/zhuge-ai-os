@@ -6,10 +6,15 @@
 //   —— false / null / 錯誤 / 逾時一律 fail closed（403），任何路徑不得因錯誤處理放行。
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
 
+import "./seat-map-core.js";
 import {scanPlan,scanBatch} from "./scan-core.mjs";
 import {repairPlan,repairBatch} from "./repair-core.mjs";
 import { RowCustody } from "./row-control-server.ts";
-import { logicalKeys, trackedAttempt,validOperationId } from "./row-control-core.mjs";
+import { logicalKeys, trackedAttempt,validOperationId, custodyErrorMapping } from "./row-control-core.mjs";
+
+
+type CanonicalMap={id:string;site:string;zone:string;seats:{number:number}[]};
+const seatMaps=(globalThis as typeof globalThis & {ErpSeatMapCore:{reduce(rows:unknown[][]):CanonicalMap[];snapshot(rows:unknown[][]):{maps:CanonicalMap[];accepted:Set<string>}}}).ErpSeatMapCore;
 
 type JsonObject = Record<string, unknown>;
 
@@ -27,6 +32,10 @@ const DEFAULT_ORIGIN = "https://qqweasdzxc.github.io";
 // 新帳分頁（唯寫目標；釐清標示記錄每筆舊帳的核對進度與人工結論，不改寫舊帳原文）；舊帳僅整合-主檔/待確認/整合-流轉對應可比對讀取
 const LEDGER_TABS = ["資產", "盤點場次", "盤點紀錄", "流轉紀錄", "進貨批次", "位置表", "釐清標示", "座位圖"] as const;
 const LEGACY_READABLE_TABS = ["整合-主檔", "整合-待確認", "整合-流轉對應"] as const;
+/* 33 個已納整併的出處分頁：唯讀補存原始列（整筆來源完整性）。明列、不擴其他頁；總表_0331 依 11/4 決定維持排除。
+ * 注意「10F機房 」頁名尾端有空白，與 Sheets 實際頁名精確一致。 */
+const LEGACY_SOURCE_TABS = ["4F", "4F (115.下)", "4F機房", "4F其他資產", "8F", "8F走道", "8F機房", "8F其他資產", "9F", "9F其他資產", "10F", "10F機房 ", "10F其他資產", "內湖倉庫", "永春辦公室", "聯醫", "北9", "桃9", "勞保局", "住都中心", "機場(桃)", "航空城堡", "台北、新北、桃園1966", "郵局", "台水", "台中", "台中(客服)", "北台電", "中台電", "中油", "台南", "重北A(南港)", "高雄"] as const;
+const LEGACY_NOTE_TAB = "現場註記"; // 舊帳專用 append-only 註記分頁：僅 legacy-note 動作可寫，讀取不限
 
 class HttpError extends Error {
   status: number; code: string; details: JsonObject;
@@ -58,14 +67,14 @@ async function callerClient(request: Request, supabaseUrl: string, anonKey: stri
   });
 }
 
-async function requireUser(caller: ReturnType<typeof createClient>) {
+async function requireUser(caller: Awaited<ReturnType<typeof callerClient>>) {
   const { data: { user }, error } = await caller.auth.getUser();
   if (error || !user) throw new HttpError("Authenticated Zhuge AI OS session is required.", 401, "AUTH_REQUIRED");
   return user;
 }
 
 // 必要政策：伺服器端確認「已放行」。false/null/錯誤/逾時一律拒絕（fail closed）。
-async function requireApproved(caller: ReturnType<typeof createClient>) {
+async function requireApproved(caller: Awaited<ReturnType<typeof callerClient>>) {
   let result: { data: unknown; error: unknown };
   try {
     const pending = caller.rpc("is_app_access_approved");
@@ -117,7 +126,10 @@ async function googleAccessToken(email: string, privateKey: string): Promise<str
 
 /* --- Sheets 讀寫（寫入後讀回驗證） --- */
 function resolveTarget(tab: string): { spreadsheetId: string; readonly: boolean } {
-  if ((LEGACY_READABLE_TABS as readonly string[]).includes(tab)) {
+  if (tab === LEGACY_NOTE_TAB) {
+    return { spreadsheetId: LEGACY_SPREADSHEET_ID, readonly: false };
+  }
+  if ((LEGACY_READABLE_TABS as readonly string[]).includes(tab) || (LEGACY_SOURCE_TABS as readonly string[]).includes(tab)) {
     return { spreadsheetId: LEGACY_SPREADSHEET_ID, readonly: true };
   }
   if ((LEDGER_TABS as readonly string[]).includes(tab)) {
@@ -169,9 +181,9 @@ async function sheetsPatchCells(token:string, spreadsheetId:string, tab:string, 
 
 // Sheets append assigns a single row order. Reconcile after append so racing writes cannot silently supersede a winner.
 function canonicalSeatEvents(rows: unknown[][]) {
-  const occupants=new Map<string,string>(),bindings=new Map<string,{version:string;seat:string}>(),maps=new Map<string,string>(),accepted=new Set<string>();
-  for(const r of rows){try{const id=asText(r[0]),kind=r[1],version=asText(r[2]),place=JSON.stringify([r[3],r[4]]),seat=String(r[5]),data=JSON.parse(String(r[7]));if(accepted.has(id))continue;
-    if(kind==='map'){const prior=maps.get(place);if(prior&&prior!==version)continue;maps.set(place,version);}
+  const prefix:unknown[][]=[];const occupants=new Map<string,string>(),bindings=new Map<string,{version:string;seat:string}>(),maps=new Map<string,string>(),accepted=new Set<string>();
+  for(const r of rows){prefix.push(r);try{const id=asText(r[0]),kind=r[1],version=asText(r[2]),place=JSON.stringify([r[3],r[4]]),seat=String(r[5]),data=JSON.parse(String(r[7]));if(accepted.has(id))continue;
+    if(kind==='map'){const state=seatMaps.snapshot(prefix),current=state.maps.find(m=>m.site===r[3]&&m.zone===r[4]);if(!state.accepted.has(id)||!current||current.id!==version)continue;maps.set(place,current.id);}
     if(['occupant','binding','placement','check'].includes(String(kind))&&maps.get(place)!==version)continue;
     if(kind==='occupant'){const key=version+':'+seat;if((data.previous||'')!==(occupants.get(key)||''))continue;occupants.set(key,id);}
     if(kind==='binding'||kind==='placement'){const key=asText(r[6]),prior=bindings.get(key);if(prior&&(prior.version!==version||prior.seat!==seat))continue;bindings.set(key,{version,seat});}
@@ -204,7 +216,7 @@ Deno.serve(async (request) => {
 
     const url = new URL(request.url);
     const action = asText(url.searchParams.get("action") || "read");
-    const tab = asText(url.searchParams.get("tab"));
+    const tab = url.searchParams.get("tab") ?? ""; // 頁名精確比對：不可 trim（"10F機房 "尾空白是實際頁名）
     const target = resolveTarget(tab);
 
     if (action === "read") {
@@ -212,6 +224,9 @@ Deno.serve(async (request) => {
     }
     if (target.readonly) {
       throw new HttpError("Legacy workbook is comparison-only and read-only.", 400, "TARGET_READ_ONLY");
+    }
+    if (tab === LEGACY_NOTE_TAB && action !== "legacy-note") {
+      throw new HttpError("Note tab accepts only the legacy-note action.", 400, "BAD_REQUEST");
     }
     const payload = request.method==='POST' ? await request.json() : {};
     const uuid=(v:unknown)=>typeof v==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(v);
@@ -223,7 +238,7 @@ Deno.serve(async (request) => {
       const [assets,sessions,records,seats,legacy]=await Promise.all(['資產','盤點場次','盤點紀錄','座位圖','整合-主檔'].map(t=>sheetsRead(token,t==='整合-主檔'?LEGACY_SPREADSHEET_ID:target.spreadsheetId,t)));
       if([assets,sessions,records,seats].some(x=>x.rows.length>=9999))throw new HttpError('讀取範圍不足，未寫入。',409,'SCAN_LIMIT');
       if(assets.header[0]!=='資產編號'||assets.header[21]!=='使用部門'||sessions.header[12]!=='使用部門'||records.header[10]!=='經手人'||seats.header[0]!=='事件鍵')throw new HttpError('盤點欄位尚未就緒，未寫入。',503,'SCHEMA_NOT_READY');
-      const ix=(...names:string[])=>names.map(n=>legacy.header.indexOf(n)).find(i=>i>=0),get=(r:unknown[],...names:string[])=>String(r[ix(...names)]??'').trim();
+      const ix=(...names:string[])=>names.map(n=>legacy.header.indexOf(n)).find(i=>i>=0),get=(r:unknown[],...names:string[])=>String(r[ix(...names)??-1]??'').trim();
       const old=legacy.rows.map(r=>({code:get(r,'資產編號'),name:get(r,'名稱'),model:get(r,'型號規格','型號'),serial:get(r,'S-N','S/N','序號'),purchase:get(r,'採購日期'),recordKey:get(r,'記錄鍵'),provenance:get(r,'來源工作表')+' 第'+get(r,'來源列')+'列'}));
       return {assets:assets.rows,sessions:sessions.rows,records:records.rows,seats:seats.rows,legacy:old};
     }
@@ -247,6 +262,7 @@ Deno.serve(async (request) => {
       // Both original and resulting logical identities must be reserved. Asset code cannot change.
       keys=[...new Set([...logicalKeys(tab,prior),...logicalKeys(tab,payload.row,prior)])].sort();
     }else if(action==='append'||action==='seat-event')keys=logicalKeys(tab,payload.row);
+    else if(action==='legacy-note')keys=logicalKeys(tab,[payload.operationId]);
     else if(action==='intake-import'){
       if(tab!=="進貨批次"||!Array.isArray(payload.groups))throw new HttpError("Import invalid.",400,"BAD_REQUEST");
       for(const [i,g] of payload.groups.entries())for(const serial of g.serials||[])keys.push(...logicalKeys(tab,['明細',payload.id+'-'+i,'','','','','','','','','','pending',serial]));
@@ -279,22 +295,22 @@ Deno.serve(async (request) => {
       const freshKeys=[...logicalKeys('資產',plan.asset,plan.original||undefined),...logicalKeys('盤點紀錄',plan.record),...(plan.binding?logicalKeys('座位圖',plan.binding):[])];
       if(freshKeys.some(k=>!keys.includes(k)))throw new HttpError('設備資料已改變，未寫入，請重新核對。',409,'SCAN_CONFLICT');
       const metaRes=await fetch(`${GOOGLE_SHEETS_API}/${target.spreadsheetId}?fields=sheets(properties(sheetId,title))`,{headers:{authorization:`Bearer ${token}`},signal:AbortSignal.timeout(GOOGLE_REQUEST_TIMEOUT_MS)}),meta=await metaRes.json();if(!metaRes.ok)throw new HttpError('無法核對分頁，未寫入。',503,'SCAN_METADATA');
-      const ids:Record<string,number>={};for(const title of ['資產','盤點紀錄','座位圖']){const match=meta.sheets?.filter(x=>x.properties.title===title);if(match?.length!==1)throw new HttpError('分頁不唯一，未寫入。',503,'SCAN_METADATA');ids[title]=match[0].properties.sheetId;}
+      const ids:Record<string,number>={};for(const title of ['資產','盤點紀錄','座位圖']){const match=meta.sheets?.filter((x:{properties:{title:string;sheetId:number}})=>x.properties.title===title);if(match?.length!==1)throw new HttpError('分頁不唯一，未寫入。',503,'SCAN_METADATA');ids[title]=match[0].properties.sheetId;}
       const batch=scanBatch(ids,plan),result=await trackedAttempt(custody,()=>fetch(`${GOOGLE_SHEETS_API}/${target.spreadsheetId}:batchUpdate`,{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'application/json'},body:JSON.stringify(batch),signal:AbortSignal.timeout(GOOGLE_REQUEST_TIMEOUT_MS)})),body=await result.json();
       if(!result.ok||body.spreadsheetId!==target.spreadsheetId||body.replies?.length!==batch.requests.length)throw new HttpError('盤點保存結果待查，不可重送。',502,'SCAN_UNVERIFIED');
-      const after=await scanDatabase(),assets=after.assets.map((r,i)=>({r,i})).filter(x=>x.r[0]===plan.code),records=after.records.map((r,i)=>({r,i})).filter(x=>x.r[0]===payload.sessionId&&x.r[1]===plan.code),binding=plan.binding?after.seats.filter(r=>r[0]===plan.binding[0]):[];
+      const after=await scanDatabase(),assets=after.assets.map((r,i)=>({r,i})).filter(x=>x.r[0]===plan.code),records=after.records.map((r,i)=>({r,i})).filter(x=>x.r[0]===payload.sessionId&&x.r[1]===plan.code),binding=plan.binding?after.seats.filter(r=>r[0]===plan.binding![0]):[];
       if(assets.length!==1||records.length!==1||plan.asset.some((v,i)=>String(assets[0].r[i]??'')!==String(v??''))||plan.record.some((v,i)=>String(records[0].r[i]??'')!==String(v??''))||plan.binding&&(binding.length!==1||plan.binding.some((v,i)=>String(binding[0][i]??'')!==String(v??''))))throw new HttpError('盤點未能完整核對，不可重送。',409,'SCAN_UNVERIFIED');
-      return json({ok:true,asset:assets[0].r,assetRow:assets[0].i+2,record:records[0].r,recordRow:records[0].i+2,binding:binding[0]||null,exception:plan.exception,metadataIssue:plan.metadataIssue,assignedProject:plan.assignedProject,departmentMismatch:plan.departmentMismatch},200,origin);
+      return json({ok:true,asset:assets[0].r,assetRow:assets[0].i+2,record:records[0].r,recordRow:records[0].i+2,binding:binding[0]||null,bindingConflict:plan.bindingConflict||'',exception:plan.exception,metadataIssue:plan.metadataIssue,assignedProject:plan.assignedProject,departmentMismatch:plan.departmentMismatch},200,origin);
     }
     if(action==='repair-stage'){
       const assets=await sheetsRead(token,target.spreadsheetId,'資產'),movements=await sheetsRead(token,target.spreadsheetId,'流轉紀錄');
       if(assets.header[0]!=='資產編號'||assets.header[8]!=='狀態'||assets.header[20]!=='最後異動時間'||movements.header.join('|')!==['事件鍵','日期','事件類型','資產編號','來自地點','至地點','數量','經手人','備註','出處'].join('|'))throw new HttpError('維修欄位尚未就緒，未寫入。',503,'SCHEMA_NOT_READY');
       if(assets.rows.length>=9999||movements.rows.length>=9999)throw new HttpError('維修讀取範圍不足，未寫入。',409,'REPAIR_LIMIT');
       const hits=assets.rows.map((r,i)=>({r,i})).filter(x=>x.r[0]===payload.code);if(hits.length!==1)throw new HttpError('設備編號不是唯一記錄，未寫入。',409,'REPAIR_CONFLICT');
-      let plan;try{plan=repairPlan(hits[0].r,movements.rows,payload,user.id,new Date().toISOString())}catch(e){throw new HttpError(String(e.message),409,'REPAIR_CONFLICT')}
+      let plan;try{plan=repairPlan(hits[0].r,movements.rows,payload,user.id,new Date().toISOString())}catch(e){throw new HttpError(String(e instanceof Error?e.message:e),409,'REPAIR_CONFLICT')}
       const metaRes=await fetch(`${GOOGLE_SHEETS_API}/${target.spreadsheetId}?fields=sheets(properties(sheetId,title))`,{headers:{authorization:`Bearer ${token}`},signal:AbortSignal.timeout(GOOGLE_REQUEST_TIMEOUT_MS)});
       const meta=await metaRes.json();if(!metaRes.ok)throw new HttpError('無法核對分頁，未寫入。',503,'REPAIR_METADATA');
-      const sheet=(title:string)=>{const match=meta.sheets?.filter(x=>x.properties.title===title);if(match?.length!==1)throw new HttpError('分頁不唯一，未寫入。',503,'REPAIR_METADATA');return match[0].properties.sheetId};
+      const sheet=(title:string)=>{const match=meta.sheets?.filter((x:{properties:{title:string;sheetId:number}})=>x.properties.title===title);if(match?.length!==1)throw new HttpError('分頁不唯一，未寫入。',503,'REPAIR_METADATA');return match[0].properties.sheetId};
       const batch=repairBatch(sheet('資產'),sheet('流轉紀錄'),hits[0].i+1,plan);
       const result=await trackedAttempt(custody,()=>fetch(`${GOOGLE_SHEETS_API}/${target.spreadsheetId}:batchUpdate`,{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'application/json'},body:JSON.stringify(batch),signal:AbortSignal.timeout(GOOGLE_REQUEST_TIMEOUT_MS)}));
       const body=await result.json();if(!result.ok||body.spreadsheetId!==target.spreadsheetId||body.replies?.length!==batch.requests.length)throw new HttpError('維修保存結果待查，不可重送。',502,'REPAIR_UNVERIFIED');
@@ -317,10 +333,9 @@ Deno.serve(async (request) => {
       if (["occupant","binding","placement","check"].includes(row[1]) && (!Number.isInteger(Number(row[5])) || Number(row[5])<1 || Number(row[5])>500))throw new HttpError("Seat number invalid.",400,"BAD_REQUEST");
       if(row[1]==="occupant" && (typeof data.previous!=="string"||typeof data.name!=="string"||data.name.length>120))throw new HttpError("Name invalid.",400,"BAD_REQUEST");
       if (["occupant","binding","placement","check"].includes(row[1])) {
-        const commit=schema.rows.find(r=>r[1]==="map"&&r[2]===row[2]&&r[3]===row[3]&&r[4]===row[4]);
-        if(!commit)throw new HttpError("Saved map not found.",400,"SEAT_MAP_MISSING");
-        let map;try{const meta=JSON.parse(String(commit[7]));map=JSON.parse(meta.parts.map((id:string)=>{const part=schema.rows.find(r=>r[0]===id&&r[1]==="part"&&r[2]===row[2]);if(!part)throw Error();return JSON.parse(String(part[7])).text}).join(""));}catch{throw new HttpError("Saved map invalid.",400,"SEAT_MAP_INVALID");}
-        if(!Array.isArray(map.seats)||!map.seats.some((x:{number:number})=>x.number===Number(row[5])))throw new HttpError("Seat not in saved map.",400,"SEAT_UNKNOWN");
+        const map=seatMaps.reduce(schema.rows).find(m=>m.id===row[2]&&m.site===row[3]&&m.zone===row[4]);
+        if(!map)throw new HttpError("Saved map missing or invalid.",400,"SEAT_MAP_INVALID");
+        if(!map.seats.some(s=>s.number===Number(row[5])))throw new HttpError("Seat not in saved map.",400,"SEAT_UNKNOWN");
         if(row[1]==="placement") {
           if(data.confirmed!==true||data.source!=="asset-editor"||typeof row[6]!=="string"||!row[6]||data.sessionId)throw new HttpError("Explicit manual placement required.",400,"PLACEMENT_REQUIRED");
           const assets=await sheetsRead(token,target.spreadsheetId,"資產"),hits=assets.rows.filter(r=>r[0]===row[6]);
@@ -342,9 +357,8 @@ Deno.serve(async (request) => {
       }
       if(row[1]==="map") {
         if(schema.rows.some(r=>r[1]==="map"&&r[3]===row[3]&&r[4]===row[4]&&r[2]!==row[2]))throw new HttpError("Existing map preserved; replacement requires a migration.",409,"SEAT_CONFLICT");
-        if(!Array.isArray(data.parts)||!data.parts.length||data.parts.length>60)throw new HttpError("Map manifest invalid.",400,"BAD_REQUEST");
-        let map;try{map=JSON.parse(data.parts.map((id:string)=>{const part=schema.rows.find(r=>r[0]===id&&r[1]==="part"&&r[2]===row[2]&&r[3]===row[3]&&r[4]===row[4]);if(!part)throw Error();return JSON.parse(String(part[7])).text}).join(""));}catch{throw new HttpError("Map parts incomplete.",400,"SEAT_MAP_INCOMPLETE");}
-        if(!Array.isArray(map.seats)||!map.seats.length||map.seats.length>500||new Set(map.seats.map((x:{number:number})=>x.number)).size!==map.seats.length||map.seats.some((x:{number:number})=>!Number.isInteger(x.number)||x.number<1||x.number>500))throw new HttpError("Map seat numbers invalid.",400,"SEAT_MAP_INVALID");
+        if(!Array.isArray(data.parts)||!data.parts.length||data.parts.length>60||new Set(data.parts).size!==data.parts.length)throw new HttpError("Map manifest invalid.",400,"BAD_REQUEST");
+        if(!seatMaps.snapshot([...schema.rows,row]).accepted.has(asText(row[0])))throw new HttpError("Map invalid or parts incomplete.",400,"SEAT_MAP_INVALID");
       }
       if(row[1]==="part" && (typeof data.text!=="string" || data.text.length>12000))throw new HttpError("Map part invalid.",400,"BAD_REQUEST");
       row[8]=new Date().toISOString();row[9]=actor;
@@ -428,6 +442,35 @@ Deno.serve(async (request) => {
       if(!stored||row.some((v,i)=>String(stored[i]??'')!==String(v??'')))throw new HttpError('寫入後未能完整讀回，結果待查，不可重送。',409,'WRITE_VERIFY_FAILED');
       return json({ ok: true, updatedRange: range, actor }, 200, origin);
     }
+    if (action === "legacy-note") {
+      // 舊庫註記：append-only 寫入舊帳專用分頁「現場註記」。不覆寫任何既有列；同一 operationId 重送不複寫。
+      const { recordKey, source, assetCode, condition, disposition, note } = payload as Record<string, unknown>;
+      const txt=(v:unknown,max:number)=>{ if(typeof v!=="string"||!v.trim()||v.length>max) throw new HttpError("註記內容不符。",400,"BAD_REQUEST"); return v.trim(); };
+      const rk=txt(recordKey,200), src=txt(source,200);
+      const code=typeof assetCode==="string"?assetCode.trim().slice(0,200):"";
+      const COND=["帳上有現場無","帳上無現場有","資料不符","其他"], DISP=["交行政查報修","待行政確認","疑似淘汰","其他"];
+      if(!COND.includes(condition as string)||!DISP.includes(disposition as string)) throw new HttpError("註記分類不符。",400,"BAD_REQUEST");
+      const noteText=txt(note,2000);
+      // 記錄鍵必須在整合-主檔唯一命中；查無或多筆歧義一律拒絕，不把註記掛上錯誤的舊帳列
+      const master=await sheetsRead(token,LEGACY_SPREADSHEET_ID,"整合-主檔");
+      const keyCol=master.header.indexOf("記錄鍵");
+      if(keyCol<0) throw new HttpError("整合-主檔欄位尚未就緒，未寫入。",503,"SCHEMA_NOT_READY");
+      const keyHits=master.rows.filter(r=>String(r[keyCol]??"").trim()===rk);
+      if(keyHits.length!==1) throw new HttpError(keyHits.length?"這個記錄鍵在整合-主檔有多筆，未寫入；請先在 ERP 釐清重複。":"整合-主檔查無這個記錄鍵，未寫入。",409,"LEGACY_KEY_AMBIGUOUS");
+      if(code){const codeCol=master.header.indexOf("資產編號");if(codeCol>=0&&String(keyHits[0][codeCol]??"").trim()!==code) throw new HttpError("資產編號與記錄鍵對不上，未寫入。",409,"LEGACY_KEY_MISMATCH");}
+      const schema=await sheetsRead(token,target.spreadsheetId,tab);
+      const HEAD=["註記鍵","時間","記錄鍵","來源分頁","資產編號","現況","處置","備註","經手人","處理狀態"];
+      if(HEAD.some((h,i)=>schema.header[i]!==h)) throw new HttpError("註記分頁欄位尚未就緒，未寫入。",503,"SCHEMA_NOT_READY");
+      const dup=schema.rows.find(r=>String(r[0]??"")===operation);
+      if(dup) return json({ ok:true, deduped:true, row:dup },200,origin);
+      const row=[operation,new Date().toISOString(),rk,src,code,condition,disposition,noteText,actor,"待行政處理"];
+      const appended=await sheetsAppend(token,target.spreadsheetId,tab,row,custody);
+      const range=asText(appended?.updates?.updatedRange);
+      if(!range) throw new HttpError("Write verification failed.",502,"WRITE_VERIFY_FAILED");
+      const stored=(await sheetsRead(token,target.spreadsheetId,tab)).rows[Number(/!A([0-9]+):/.exec(range)?.[1])-2];
+      if(!stored||row.some((v,i)=>String(stored[i]??'')!==String(v??''))) throw new HttpError('寫入後未能完整讀回，結果待查，不可重送。',409,'WRITE_VERIFY_FAILED');
+      return json({ ok:true, updatedRange:range, actor },200,origin);
+    }
     if (action === "update") {
       const { range, row,expected } = payload as { range: string; row: unknown[];expected:unknown[] };
       const rng = asText(range);
@@ -456,8 +499,8 @@ Deno.serve(async (request) => {
     throw new HttpError("Unknown action.", 400, "ACTION_UNKNOWN");
   } catch (e) {
     if(custody&&beganWrite){try{await custody.quarantine()}catch{}}
-    const busy=String(e?.message||'').includes('RECORD_BUSY');
-    const err = e instanceof HttpError ? e : busy?new HttpError('這筆資料正由其他操作處理，尚未保存；輸入保留，可稍後再試。',409,'RECORD_BUSY'):new HttpError("Unexpected error.", 500, "INTERNAL");
+    const mapped = custodyErrorMapping(e instanceof Error ? e.message : '');
+    const err = e instanceof HttpError ? e : new HttpError(mapped.message, mapped.status, mapped.code);
     return json({ error: { code: err.code, message: err.message, details: err.details } }, err.status, origin);
   } finally {
     if(custody&&beganWrite){try{await custody.finish(retainKeys)}catch{ /* Durable WRITING remains quarantined; never guess unlock. */ }}
@@ -476,3 +519,4 @@ function json(body: unknown, status: number, origin: string) {
     status, headers: { "content-type": "application/json", ...corsHeaders(origin) }
   });
 }
+

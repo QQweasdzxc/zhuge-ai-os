@@ -12,6 +12,7 @@ export function logicalKeys(tab,row,prior){
  if(tab==='流轉紀錄')return [asset(row[3]),key('movement',row[0])].sort();
  if(tab==='釐清標示'){if(!text(row[0]))throw Error('LEGACY_KEY_REQUIRED');return [key('clarification',row[0]),...(text(row[1])?[asset(row[1])]:[]),...(text(row[10])?[asset(row[10])]:[])].sort()}
  if(tab==='進貨批次'){if(!text(row[1]))throw Error('BATCH_KEY_REQUIRED');return [key('batch',row[1]),...(text(row[12])?[key('serial',row[12])]:[]),...(text(row[14])?[asset(row[14])]:[])].sort()}
+ if(tab==='現場註記'){if(!text(row[0]))throw Error('NOTE_KEY_REQUIRED');return [key('legacynote',row[0])]}
  if(tab==='位置表'){if(!text(row[0]))throw Error('SITE_KEY_REQUIRED');return [key('site',row[0]),key('zone',row[0],row[1])].sort()}
  if(tab==='座位圖'){const kind=text(row[1]);if(!['part','map','occupant','binding','placement','check'].includes(kind))throw Error('SEAT_KIND_REQUIRED');if(!text(row[2])||!text(row[3])||!text(row[4]))throw Error('SEAT_KEY_REQUIRED');return [...new Set([...(kind==='map'?[key('seatmap',row[3],row[4])]:kind==='part'?[key('seatpart',row[2],row[0])]:[key('seat',row[2],row[5])]),...(kind==='binding'||kind==='placement'?[asset(row[6])]:[])])].sort()}
  throw Error('UNGUARDED_TAB');
@@ -29,3 +30,14 @@ export async function trackedAttempt(custody,send){
 }
 
 export function validOperationId(id,now=Date.now()){if(typeof id!=='string'||!/^[a-f0-9]{8}-[a-f0-9]{4}-7[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(id))return false;const at=parseInt(id.slice(0,8)+id.slice(9,13),16);return at<=now+60000&&at>=now-900000;}
+
+/* Error-to-contract mapping for write-path failures. Pure; index.ts owns HttpError construction.
+ * Scope: RECORD_BUSY contention (409), plus the two verified custody paths renew/begin_write: expiry (EDIT_PERMISSION_EXPIRED)
+ * and vanished lock row (P0002 "query returned no rows") both map to 409 CUSTODY_EXPIRED. Everything else stays 500 INTERNAL;
+ * release semantics unchanged; no global NO_DATA_FOUND catch (scoped to those two RPC prefixes only). */
+export function custodyErrorMapping(message){
+ const msg=String(message||'');
+ if(msg.includes('RECORD_BUSY'))return {status:409,code:'RECORD_BUSY',message:'這筆資料正由其他操作處理，尚未保存；輸入保留，可稍後再試。'};
+ if(/^CUSTODY_erp_(renew|begin_write):(EDIT_PERMISSION_EXPIRED|query returned no rows)/.test(msg))return {status:409,code:'CUSTODY_EXPIRED',message:'編輯權限已失效或已被其他操作取代，請重新讀取後核對。'};
+ return {status:500,code:'INTERNAL',message:'Unexpected error.'};
+}
