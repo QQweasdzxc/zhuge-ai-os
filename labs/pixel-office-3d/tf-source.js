@@ -324,7 +324,7 @@ async function pollTfOnce(fetchImpl, base, now, opts) {
   ]);
   if (stale()) return { state: 'stale', note: '授權已變更，捨棄本次讀取' };
   const sessions = normalizeTfIssues(issues, { projectsById, nativeByIssueId, commentsByIssue, agentsById, now });
-  return { state: 'ok', sessions, agents: Object.values(agentsById), note: opts.embeddedJwt ? '即時連線（內嵌授權）' : '即時連線（Zhuge 登入授權）', total: data.total, schema: data.schema };
+  return { state: 'ok', sessions, agents: Object.values(agentsById), note: opts.embeddedJwt ? '即時連線（內嵌授權）' : '即時連線（Tron 登入授權）', total: data.total, schema: data.schema };
 }
 
 // ZG-56: workspace agents directory. GET /api/agents resolves the assignee_id
