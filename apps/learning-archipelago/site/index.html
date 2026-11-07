@@ -224,13 +224,21 @@ h1{font-size:clamp(30px,4.3vw,49px);letter-spacing:.03em;line-height:1.23;margin
  .poster-hotspot.role-picked{outline-width:2px}
  .poster-hotspot.role-picked::after{width:18px;height:18px;font-size:13px}
 }
+
+.poster-confirm-art{display:block;width:min(100%,365px);aspect-ratio:463/356;margin:8px auto 15px;border:3px solid #d4a84b;
+ border-radius:9px;box-shadow:5px 5px 0 #354269;background-image:var(--poster-confirm-url);
+ background-repeat:no-repeat;background-size:234.6% 406.7%;image-rendering:auto}
+.poster-confirm-art.warrior{background-position:8.7% 43.2%}
+.poster-confirm-art.mage{background-position:88.5% 43.2%}
+.poster-confirm-art.ranger{background-position:8.7% 78.5%}
+.poster-confirm-art.guardian{background-position:88.5% 78.5%}
 </style>
 </head>
 <body>
 <div class="site"><div class="wrap">
 <header class="topbar">
   <a class="brand" href="#" aria-label="學習冒險群島首頁"><span class="brand-gem">💎</span><span><strong>學習冒險群島</strong><small class="pixel">LEARNING ARCHIPELAGO</small></span></a>
-  <span class="pill pixel">FAMILY RPG · V1.3.0</span>
+  <span class="pill pixel">FAMILY RPG · V1.3.1</span>
 </header>
 <main>
 <section class="hero" aria-label="冒險總部">
@@ -277,7 +285,7 @@ h1{font-size:clamp(30px,4.3vw,49px);letter-spacing:.03em;line-height:1.23;margin
   </div>
  </section>
 </main>
-<footer class="footer">學習冒險群島 · BUILD 2026.11.07.10 · 家庭雲端紀錄由 Supabase 保存<br>本網站不要求登入；家庭專用網址含私人存取金鑰，請只分享給家人。</footer>
+<footer class="footer">學習冒險群島 · BUILD 2026.11.07.11 · 家庭雲端紀錄由 Supabase 保存<br>本網站不要求登入；家庭專用網址含私人存取金鑰，請只分享給家人。</footer>
 </div></div>
 <div class="overlay" id="overlay" hidden><section class="dialog" id="dialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle"></section></div>
 <script src="./role-portraits.js?v=1.0.1"></script>
@@ -502,7 +510,10 @@ function chooseRoleClassic(){
 }
 function confirmRole(code){
  const r=ROLES[code];if(!r)return;
- show('<div class="role-preview class-art class-art-'+code+' '+hero.avatarStyle+'" role="img" aria-label="'+r.title+'角色插畫"></div><h2 id="dialogTitle">確定成為「'+r.title+'」嗎？</h2><p>'+r.desc+'。職業會同步到英文島、成語島。確認後暫時不提供更換功能。</p><p class="error" id="roleError"></p><div class="dialog-actions"><button class="btn mint" type="button" id="roleConfirm">✅ 確認職業</button><button class="btn secondary" type="button" id="roleBack">返回選擇</button></div>','confirmRole');
+ const preview=(hero.avatarStyle==='girl'&&window.ARCHIPELAGO_FAVORITE_POSTER)
+  ?'<div class="poster-confirm-art '+code+'" style="--poster-confirm-url:url('+window.ARCHIPELAGO_FAVORITE_POSTER+')" role="img" aria-label="'+r.title+'的原畫精緻職業卡"></div>'
+  :'<div class="role-preview class-art class-art-'+code+' '+hero.avatarStyle+'" role="img" aria-label="'+r.title+'角色插畫"></div>';
+ show(preview+'<h2 id="dialogTitle">確定成為「'+r.title+'」嗎？</h2><p>'+r.desc+'。職業會同步到英文島、成語島。確認後暫時不提供更換功能。</p><p class="error" id="roleError"></p><div class="dialog-actions"><button class="btn mint" type="button" id="roleConfirm">✅ 確認職業</button><button class="btn secondary" type="button" id="roleBack">返回選擇</button></div>','confirmRole');
  $('roleBack').onclick=chooseRole;
  $('roleConfirm').onclick=async()=>{
   if(busy)return;busy=true;$('roleConfirm').disabled=true;
