@@ -190,7 +190,7 @@
 .shared-task-drawer-header h2{color:#f4f8fd}
 .shared-task-drawer-kicker{color:#b5c9e0}
 .shared-task-drawer-close{color:#d7e5f4;min-width:44px;min-height:44px}
-.shared-task-drawer-close:hover,.shared-task-drawer-close:focus-visible{color:#fff;background:#294768;outline:2px solid #8bc1ff;outline-offset:2px}
+.shared-task-drawer-close:hover,.shared-task-drawer-close:focus-visible{color:#fff;background:#294768;outline:2px solid #6ff3ff;outline-offset:2px}
 .shared-task-drawer-meta-wrap{background:#162a43;border-bottom-color:#4b6685}
 .shared-task-drawer-meta-item{border-color:#587392;background:#23405f;color:#edf5fd}
 .shared-task-drawer-meta-item b{color:#b6cbe1}
@@ -206,13 +206,13 @@
 .shared-task-drawer-footer{background:#1d3553;border-top-color:#4b6685}
 .shared-task-drawer-progress-composer-body{background:#1b3451;border-color:#6b8bad;box-shadow:0 8px 28px rgba(0,0,0,.38)}
 .shared-task-progress-composer-trigger{background:#264665;border-color:#7da7d2;color:#f2f7fd}
-.shared-task-progress-composer-trigger:hover,.shared-task-progress-composer-trigger:focus-visible{background:#31577f;border-color:#b0d5ff;outline:2px solid #8bc1ff;outline-offset:2px}
+.shared-task-progress-composer-trigger:hover,.shared-task-progress-composer-trigger:focus-visible{background:#31577f;border-color:#b0d5ff;outline:2px solid #6ff3ff;outline-offset:2px}
 .shared-task-progress-composer-body textarea,.shared-task-progress-note-editor textarea,.shared-task-property-editor{background:#10233a;border-color:#6b8bad;color:#f1f6fb}
 .shared-task-progress-composer-body textarea:focus,.shared-task-progress-note-editor textarea:focus,.shared-task-property-editor:focus{outline:2px solid rgba(139,193,255,.55);outline-offset:1px}
 .shared-task-progress-composer-body label,.shared-task-progress-note-editor label{color:#e9f2fb}
 .shared-task-progress-composer-body small,.shared-task-progress-file-hint,.shared-task-progress-composer-actions small{color:#b5c9df}
 .shared-task-progress-submit{background:#2a5681;border-color:#8bb9e7;color:#fff}
-.shared-task-progress-submit:hover,.shared-task-progress-submit:focus-visible{background:#3672aa;border-color:#c1e0ff;outline:2px solid #8bc1ff;outline-offset:2px}
+.shared-task-progress-submit:hover,.shared-task-progress-submit:focus-visible{background:#3672aa;border-color:#c1e0ff;outline:2px solid #6ff3ff;outline-offset:2px}
 .shared-task-drawer-property{border-color:#587392;background:#213d5b;color:#ecf4fc}
 .shared-task-drawer-property-label,.shared-task-drawer-property-value{color:#e6f0fa}
 .shared-task-drawer-property-label{color:#b6cbe1}
@@ -274,7 +274,7 @@
   cursor: default;
 }
 .shared-task-drawer-panel:focus-visible {
-  outline: 3px solid var(--zhuge-accent, #60a5fa);
+  outline: 3px solid var(--zhuge-accent, #2fd7f5);
   outline-offset: 3px;
 }
 .shared-task-drawer-grid {
@@ -289,7 +289,7 @@
   overscroll-behavior: contain;
 }
 .shared-task-drawer :where(button,a,input,select,textarea):focus-visible {
-  outline: 3px solid var(--zhuge-accent, #60a5fa);
+  outline: 3px solid var(--zhuge-accent, #2fd7f5);
   outline-offset: 2px;
 }
 @media (prefers-reduced-motion: reduce) {
