@@ -198,6 +198,6 @@ el('cloudReport').addEventListener('click',function(){if(!state.connected){alert
 el('reportBack').addEventListener('click',function(){show('home')});
 el('refreshReport').addEventListener('click',sync);
 el('reportWho').addEventListener('change',function(e){state.filter=e.target.value;renderReport()});
-var foot=document.querySelector('.footer');if(foot)foot.insertAdjacentHTML('beforeend','<div>成語闖關王 V1.5.0 · 2026/11/07 · 四職業・共用勇士・綜合晉級試煉</div>');
+var foot=document.querySelector('.footer');if(foot)foot.insertAdjacentHTML('beforeend','<div>成語闖關王 V1.6.0 · 2026/11/07 · 像素島嶼・總部共用冒險者・雲端成績</div>');
 sync();
 })();
