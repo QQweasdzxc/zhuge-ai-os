@@ -583,3 +583,50 @@ html:has(.standalone-chat-page),body:has(.standalone-chat-page),#app:has(.standa
 .btn:not(.gray):not(.red):not(.amber):hover{filter:drop-shadow(0 0 8px rgba(255,154,60,.35))}
 .btn:disabled,.btn[disabled]{opacity:.5;cursor:not-allowed;filter:none}
 .btn2:hover{border-color:#2fd7f5;color:#6ff3ff}
+
+/* ZG-69 Tron 視覺統一：chat／assistant 元件與品牌載入畫面的淺色模式。
+   值對齊 shared/theme/tokens.css 的 light token（本檔在 chat standalone 下不載入 tokens，故用具體值）。*/
+html[data-theme="light"] body:has(.standalone-chat-page), html[data-theme="light"] body:has(.hub-chat-embed-page){background:#f2f4f7;color:#1d2430;color-scheme:light}
+html[data-theme="light"] .standalone-chat-page{background:radial-gradient(circle at top,#e3edf4 0,#eef2f6 42%,#f2f4f7 100%)}
+html[data-theme="light"] .hub-chat-embed-page, html[data-theme="light"] .hub-chat-embed-loading{background:#f2f4f7;color:#687386}
+html[data-theme="light"] .standalone-chat-page .panel, html[data-theme="light"] .hub-chat-embed-page .panel, html[data-theme="light"] .floating-assistant{background:#f8fafc;border-color:rgba(51,65,85,.12);color:#1d2430}
+html[data-theme="light"] .assistant-msg{background:#ffffff;border-color:rgba(51,65,85,.12);color:#1d2430}
+html[data-theme="light"] .assistant-msg.user{background:#e4f2f6;color:#0b5568}
+html[data-theme="light"] .assistant-command-card, html[data-theme="light"] .assistant-quick-card{background:#ffffff;border-color:rgba(51,65,85,.12);color:#1d2430}
+html[data-theme="light"] .assistant-icon-action{background:#ffffff;border-color:rgba(51,65,85,.16);color:#1d2430}
+html[data-theme="light"] .assistant-icon-action:hover{border-color:#0888a8;background:#eef7f9}
+html[data-theme="light"] .chat-composer{background:#ffffff;border-color:rgba(51,65,85,.16)}
+html[data-theme="light"] .chat-composer .input{color:#1d2430;background:transparent}
+html[data-theme="light"] .assistant-send{background:#dbe3ec;color:#5b6b7e}
+html[data-theme="light"] .assistant-send.ready:not(:disabled){background:#0888a8;color:#ffffff;box-shadow:0 8px 24px rgba(8,136,168,.25)}
+html[data-theme="light"] .standalone-chat-page .muted, html[data-theme="light"] .hub-chat-embed-page .muted, html[data-theme="light"] .floating-assistant-widget .muted, html[data-theme="light"] .welcome-panel p, html[data-theme="light"] .assistant-welcome p{color:#687386}
+html[data-theme="light"] .standalone-chat-page h2, html[data-theme="light"] .hub-chat-embed-page h2, html[data-theme="light"] .floating-assistant h2, html[data-theme="light"] .assistant-panel .panel-head{color:#1d2430}
+html[data-theme="light"] .standalone-chat-page .btn2, html[data-theme="light"] .hub-chat-embed-page .btn2, html[data-theme="light"] .floating-assistant-widget .btn2{background:#ffffff;border-color:rgba(51,65,85,.16);color:#1d2430}
+html[data-theme="light"] .toast-actions button{background:#ffffff;border-color:rgba(51,65,85,.2);color:#1d2430}
+html[data-theme="light"] .worklog-brand-loading{background:radial-gradient(circle at 50% 42%,rgba(8,136,168,.12),transparent 38%),linear-gradient(180deg,#eef3f8 0%,#f4f7fa 58%,#eef2f6 100%)}
+html[data-theme="light"] .worklog-brand-loader{color:#1d2430}
+html[data-theme="light"] .worklog-brand-loader p{color:#687386}
+html[data-theme="light"] .worklog-brand-wordmark{color:#1d2430}
+@media (prefers-color-scheme: light) {
+  html[data-theme="system"] body:has(.standalone-chat-page), html[data-theme="system"] body:has(.hub-chat-embed-page){background:#f2f4f7;color:#1d2430;color-scheme:light}
+  html[data-theme="system"] .standalone-chat-page{background:radial-gradient(circle at top,#e3edf4 0,#eef2f6 42%,#f2f4f7 100%)}
+  html[data-theme="system"] .hub-chat-embed-page, html[data-theme="system"] .hub-chat-embed-loading{background:#f2f4f7;color:#687386}
+  html[data-theme="system"] .standalone-chat-page .panel, html[data-theme="system"] .hub-chat-embed-page .panel, html[data-theme="system"] .floating-assistant{background:#f8fafc;border-color:rgba(51,65,85,.12);color:#1d2430}
+  html[data-theme="system"] .assistant-msg{background:#ffffff;border-color:rgba(51,65,85,.12);color:#1d2430}
+  html[data-theme="system"] .assistant-msg.user{background:#e4f2f6;color:#0b5568}
+  html[data-theme="system"] .assistant-command-card, html[data-theme="system"] .assistant-quick-card{background:#ffffff;border-color:rgba(51,65,85,.12);color:#1d2430}
+  html[data-theme="system"] .assistant-icon-action{background:#ffffff;border-color:rgba(51,65,85,.16);color:#1d2430}
+  html[data-theme="system"] .assistant-icon-action:hover{border-color:#0888a8;background:#eef7f9}
+  html[data-theme="system"] .chat-composer{background:#ffffff;border-color:rgba(51,65,85,.16)}
+  html[data-theme="system"] .chat-composer .input{color:#1d2430;background:transparent}
+  html[data-theme="system"] .assistant-send{background:#dbe3ec;color:#5b6b7e}
+  html[data-theme="system"] .assistant-send.ready:not(:disabled){background:#0888a8;color:#ffffff;box-shadow:0 8px 24px rgba(8,136,168,.25)}
+  html[data-theme="system"] .standalone-chat-page .muted, html[data-theme="system"] .hub-chat-embed-page .muted, html[data-theme="system"] .floating-assistant-widget .muted, html[data-theme="system"] .welcome-panel p, html[data-theme="system"] .assistant-welcome p{color:#687386}
+  html[data-theme="system"] .standalone-chat-page h2, html[data-theme="system"] .hub-chat-embed-page h2, html[data-theme="system"] .floating-assistant h2, html[data-theme="system"] .assistant-panel .panel-head{color:#1d2430}
+  html[data-theme="system"] .standalone-chat-page .btn2, html[data-theme="system"] .hub-chat-embed-page .btn2, html[data-theme="system"] .floating-assistant-widget .btn2{background:#ffffff;border-color:rgba(51,65,85,.16);color:#1d2430}
+  html[data-theme="system"] .toast-actions button{background:#ffffff;border-color:rgba(51,65,85,.2);color:#1d2430}
+  html[data-theme="system"] .worklog-brand-loading{background:radial-gradient(circle at 50% 42%,rgba(8,136,168,.12),transparent 38%),linear-gradient(180deg,#eef3f8 0%,#f4f7fa 58%,#eef2f6 100%)}
+  html[data-theme="system"] .worklog-brand-loader{color:#1d2430}
+  html[data-theme="system"] .worklog-brand-loader p{color:#687386}
+  html[data-theme="system"] .worklog-brand-wordmark{color:#1d2430}
+}
