@@ -24,7 +24,7 @@ function publicHero(h){return {id:h.id,name:h.display_name,profession:h.professi
 function visibleExam(e){if(!e)return null;return {id:e.id,fromLevel:e.level_before,count:(e.questions||[]).length,questions:(e.questions||[]).map((q,i)=>({index:i,kind:q.kind,stem:q.stem,choices:q.choices})),startedAt:e.started_at}}
 function choiceSet(correct,others){const candidates=[...new Set(others.filter(x=>x&&x!==correct))];const vals=shuffled([correct,...shuffled(candidates).slice(0,3)]);if(vals.length<4)throw new Error("題庫可用選項不足");return {choices:vals,answerIndex:vals.indexOf(correct)}}
 function idiomQuiz(pool,count){
- if(pool.length<count+3)throw new Error("成語題庫不足");
+ if(pool.length<Math.max(count,4))throw new Error("成語題庫不足");
  const picked=shuffled(pool).slice(0,count);
  return picked.map((p,i)=>{
   const kind=i%3,word=p.word;
@@ -36,7 +36,7 @@ function idiomQuiz(pool,count){
  });
 }
 function englishQuiz(pool,count){
- if(pool.length<count+3)throw new Error("英文題庫不足");
+ if(pool.length<Math.max(count,4))throw new Error("英文題庫不足");
  const picked=shuffled(pool).slice(0,count);
  return picked.map((p,i)=>{
   if(i%2===0){const s=choiceSet(p.zh,pool.filter(x=>x.en!==p.en).map(x=>x.zh));return {kind:"english-meaning",stem:"英文單字「"+p.en+"」的中文意思是什麼？",...s}}
