@@ -10,7 +10,8 @@ const ROOT_FILES = new Set([
   "index.html",
   "status-classic.html",
   "version.json",
-  "googlea760c88b64a73d97.html"
+  "googlea760c88b64a73d97.html",
+  "manifest.webmanifest"
 ]);
 const ROUTE_ROOTS = new Set([
   "app", "assets", "config", "contact", "google-data", "labs", "modules",
