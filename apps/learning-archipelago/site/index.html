@@ -263,13 +263,68 @@ h1{font-size:clamp(30px,4.3vw,49px);letter-spacing:.03em;line-height:1.23;margin
 .poster-gender-foot button{color:#4d3574;font-weight:900;border:2px solid #a788c4;background:#e8dcfc;border-radius:7px;padding:7px 12px;cursor:pointer}
 .poster-gender-foot .poster-gender-error{flex:1;color:#b43c4e;font-size:11px;font-weight:800;text-align:left;min-height:15px}
 @media(max-width:430px){.poster-gender-panel{padding:9px 9px 11px;border-width:3px}.poster-gender-grid{gap:7px}.poster-gender-choice{padding:4px 4px 6px}.poster-gender-foot{margin-top:7px}.poster-gender-panel p{margin-bottom:6px}}
+
+/* V1.4.2: actual two-stage RPG character creation. Posters are never used as contradictory static status displays. */
+.rpg-setup-scene{position:relative;width:100%;overflow:visible;filter:drop-shadow(0 7px 13px #071533a3)}
+.rpg-setup-top{position:relative;aspect-ratio:1086/218;overflow:hidden;background:#48a5d7}
+.rpg-setup-top>img,.rpg-setup-roles>img,.rpg-setup-bottom>img{position:absolute;width:100%;max-width:none;height:auto;left:0;pointer-events:none;user-select:none;-webkit-user-drag:none}
+.rpg-setup-top>img{top:0}
+.rpg-gender-board,.rpg-confirm-gender{background:linear-gradient(135deg,#fffdf2,#ffe9c9);border:5px ridge #c69751;box-shadow:inset 0 0 0 3px #fff8d9;color:#533658;text-align:center}
+.rpg-gender-board{padding:13px 18px 17px}
+.rpg-gender-board h3{font-size:clamp(19px,4.5vw,27px);margin:2px 0 7px;color:#5a3164}
+.rpg-gender-board p{font-size:clamp(12px,2.7vw,14px);margin:4px 0 10px;font-weight:700;color:#6f6b80}
+.rpg-gender-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:9px 0 11px}
+.rpg-gender-option{display:flex;flex-direction:column;align-items:center;gap:5px;border:3px solid #5970bc;box-shadow:3px 4px 0 #35436e;border-radius:9px;background:#e6f0ff;padding:7px;color:#284775;font-weight:950;cursor:pointer}
+.rpg-gender-option.girl{border-color:#c873a8;background:#ffe9f4;color:#9f417f}
+.rpg-gender-option:hover,.rpg-gender-option:focus-visible{outline:3px solid #ffd265;outline-offset:2px}
+.rpg-gender-option:disabled{opacity:.7}
+.rpg-gender-portrait{display:block;width:100%;aspect-ratio:380/125;background-image:var(--arch-rpg-boy-poster);background-repeat:no-repeat;background-size:285.8% 1158.4%;border:2px solid #fff5d9;border-radius:5px;filter:drop-shadow(0 1px 2px #52678060)}
+.rpg-gender-portrait.boy{background-position:20.3% 22.2%}
+.rpg-gender-portrait.girl{background-position:77.4% 22.2%}
+.rpg-gender-option strong{font-size:clamp(16px,4.2vw,22px)}
+.rpg-gender-option small{font-size:11px;font-weight:700;line-height:1.4}
+.rpg-gender-footer{background:linear-gradient(120deg,#ffeda3,#f0c29e);border:4px ridge #ba924f;padding:14px;text-align:center;font-size:13px;color:#69466d;font-weight:850}
+.rpg-confirm-gender{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:12px 14px;min-height:113px}
+.rpg-confirm-gender .rpg-confirm-main{display:flex;align-items:center;gap:10px;min-width:0;text-align:left}
+.rpg-confirm-gender .rpg-gender-portrait{width:92px;min-width:75px;aspect-ratio:380/125;flex:0 0 92px}
+.rpg-confirm-gender strong{font-size:clamp(17px,4.5vw,25px);color:#253c70}
+.rpg-confirm-gender small{display:block;font-size:clamp(10px,2.6vw,13px);font-weight:750;line-height:1.4;margin-top:3px}
+.rpg-gender-change{border:2px solid #d5a04e;border-radius:8px;background:#fff8db;color:#6b4166;padding:8px 9px;font-size:12px;font-weight:900;flex:none;cursor:pointer}
+.rpg-setup-roles{position:relative;aspect-ratio:1086/795;overflow:hidden}
+.rpg-setup-roles>img{top:-55.97%}
+.rpg-setup-roles .rpg-role-hotspot{position:absolute;border:3px solid transparent;background:transparent;cursor:pointer;border-radius:12px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;box-shadow:none}
+.rpg-setup-roles .rpg-role-hotspot.warrior{left:5.7%;top:15.5%;width:42.6%;height:39%}
+.rpg-setup-roles .rpg-role-hotspot.mage{left:49.6%;top:15.5%;width:42%;height:39%}
+.rpg-setup-roles .rpg-role-hotspot.ranger{left:5.7%;top:56.7%;width:42.6%;height:38.9%}
+.rpg-setup-roles .rpg-role-hotspot.guardian{left:49.6%;top:56.7%;width:42%;height:38.9%}
+.rpg-role-hotspot[aria-pressed=true]{border-color:#ffd145!important;box-shadow:0 0 14px #ffd145d9,inset 0 0 17px #ffe465a1!important}
+.rpg-role-hotspot[aria-pressed=true]::after{content:"✓";position:absolute;right:4px;top:4px;background:#eaa32f;color:white;border:2px solid #fff6c9;border-radius:50%;width:24px;height:24px;display:grid;place-items:center;font-size:17px;font-weight:950}
+.rpg-role-hotspot:focus-visible{outline:3px solid #fff6a6}
+.rpg-setup-bottom{position:relative;aspect-ratio:1086/213;overflow:hidden}
+.rpg-setup-bottom>img{top:-579.81%}
+.rpg-bottom-hit{position:absolute;display:block;background:transparent;border:0;cursor:pointer;touch-action:manipulation}
+.rpg-bottom-hit.back{left:13%;top:15%;width:26%;height:51%}
+.rpg-bottom-hit.accept{left:42%;top:13%;width:45%;height:55%}
+.rpg-bottom-hit:focus-visible{outline:4px solid #fff190;outline-offset:-4px}
+.rpg-validation-msg{min-height:14px;font-size:11px;font-weight:900;color:#a42b4c;text-align:center}
+@media(max-width:470px){
+ .rpg-gender-board{padding:9px 10px 11px}
+ .rpg-gender-options{gap:8px}
+ .rpg-gender-option{padding:5px 5px 8px}
+ .rpg-gender-option small{font-size:9px}
+ .rpg-gender-footer{padding:10px 6px;font-size:11px}
+ .rpg-confirm-gender{padding:7px 8px;min-height:79px;border-width:3px;gap:4px}
+ .rpg-confirm-gender .rpg-gender-portrait{flex:0 0 64px;width:64px;min-width:64px}
+ .rpg-gender-change{font-size:10px;padding:6px 7px}
+ .rpg-role-hotspot[aria-pressed=true]::after{width:18px;height:18px;font-size:13px;right:2px;top:2px}
+}
 </style>
 </head>
 <body>
 <div class="site"><div class="wrap">
 <header class="topbar">
   <a class="brand" href="#" aria-label="學習冒險群島首頁"><span class="brand-gem">💎</span><span><strong>學習冒險群島</strong><small class="pixel">LEARNING ARCHIPELAGO</small></span></a>
-  <span class="pill pixel">FAMILY RPG · V1.4.1</span>
+  <span class="pill pixel">FAMILY RPG · V1.4.2</span>
 </header>
 <main>
 <section class="hero" aria-label="冒險總部">
@@ -316,7 +371,7 @@ h1{font-size:clamp(30px,4.3vw,49px);letter-spacing:.03em;line-height:1.23;margin
   </div>
  </section>
 </main>
-<footer class="footer">學習冒險群島 · BUILD 2026.11.07.15 · 家庭雲端紀錄由 Supabase 保存<br>本網站不要求登入；家庭專用網址含私人存取金鑰，請只分享給家人。</footer>
+<footer class="footer">學習冒險群島 · BUILD 2026.11.07.16 · 家庭雲端紀錄由 Supabase 保存<br>本網站不要求登入；家庭專用網址含私人存取金鑰，請只分享給家人。</footer>
 </div></div>
 <div class="overlay" id="overlay" hidden><section class="dialog" id="dialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle"></section></div>
 <script src="./role-portraits.js?v=1.0.1"></script>
@@ -458,7 +513,7 @@ async function selectPlayer(id){
 function chooseAvatarStyle(){
  if(!hero)return;
  if(window.ARCHIPELAGO_BOY_POSTER && window.ARCHIPELAGO_FAVORITE_POSTER){
-  showGenderOnPoster();
+  showGenderStepOne();
   return;
  }
  const options=[
@@ -501,6 +556,7 @@ function chooseRole(){
 }
 let currentPosterRole='guardian';
 function chooseRolePoster(){
+ if(hero?.avatarStyle==='boy' && window.ARCHIPELAGO_BOY_POSTER){showBoyRoleStepTwo();return}
  const poster=hero?.avatarStyle==='girl'?window.ARCHIPELAGO_FAVORITE_POSTER:window.ARCHIPELAGO_BOY_POSTER;
  if(!poster){chooseRoleClassic();return}
  currentPosterRole=hero.avatarStyle==='girl'?'guardian':'warrior';
@@ -532,60 +588,72 @@ function chooseRolePoster(){
  $('dialog').querySelectorAll('[data-poster-role]').forEach(b=>b.onclick=()=>{
   currentPosterRole=b.dataset.posterRole;highlight();
  });
- $('posterBack').onclick=showGenderOnPoster;
- $('posterChangeStyle').onclick=showGenderOnPoster;
+ $('posterBack').onclick=showGenderStepOne;
+ $('posterChangeStyle').onclick=showGenderStepOne;
  $('posterAccept').onclick=()=>confirmRole(currentPosterRole);
  $('posterClose').onclick=close;
  highlight();
 }
-function showGenderOnPoster(){
- if(!hero)return;
- // The current poster stays behind the choice panel; never jump back to the old HTML wizard.
- chooseRolePoster();
- const scene=$('dialog').querySelector('.poster-scene');
- if(!scene)return;
- const layer=document.createElement('div');
- layer.className='poster-gender-layer';
- layer.innerHTML=
-  '<section class="poster-gender-panel" aria-label="選擇角色造型">'+
-  '<h3>✨ 選擇你的冒險造型 ✨</h3>'+
-  '<p>男生和女生都可以選四種職業，XP 與成績都會保留。</p>'+
-  '<div class="poster-gender-grid">'+
-  '<button class="poster-gender-choice boy" type="button" data-poster-style="boy" aria-pressed="'+(hero.avatarStyle==='boy'?'true':'false')+'">'+
-  '<span class="gender-thumb boy" aria-hidden="true"></span><strong>♂ 男生造型</strong><small>勇士・法師・弓箭手・守護者</small></button>'+
-  '<button class="poster-gender-choice girl" type="button" data-poster-style="girl" aria-pressed="'+(hero.avatarStyle==='girl'?'true':'false')+'">'+
-  '<span class="gender-thumb girl" aria-hidden="true"></span><strong>♀ 女生造型</strong><small>勇士・法師・弓箭手・守護者</small></button></div>'+
-  '<div class="poster-gender-foot"><span class="poster-gender-error" id="posterGenderError" role="alert"></span>'+
-  '<button type="button" id="posterGenderCancel">返回</button></div>'+
-  '</section>';
- scene.append(layer);
- layer.querySelectorAll('[data-poster-style]').forEach(btn=>btn.onclick=async()=>{
-  const style=btn.dataset.posterStyle;
-  if(busy)return;
-  if(style===hero.avatarStyle){
-   if(hero.profession)close();else chooseRolePoster();
-   return;
-  }
-  busy=true;
-  layer.querySelectorAll('[data-poster-style]').forEach(b=>b.disabled=true);
-  try{
-   const data=await call('setAvatarStyle',{avatarStyle:style});
-   hero=data.hero;render();
-   if(hero.profession){
-    close();
-    status('✅ 已更換為'+(style==='boy'?'男生':'女生')+'造型，原有職業、XP 和成績不變');
-   }else{
-    chooseRolePoster();
-   }
-  }catch(e){
-   const error=layer.querySelector('#posterGenderError');
-   if(error)error.textContent='⚠️ '+e.message;
-   layer.querySelectorAll('[data-poster-style]').forEach(b=>b.disabled=false);
-  }finally{busy=false}
+
+
+function showBoyRoleStepTwo(){
+ if(!hero||!window.ARCHIPELAGO_BOY_POSTER)return;
+ const boy=window.ARCHIPELAGO_BOY_POSTER;
+ const header=window.ARCHIPELAGO_FAVORITE_POSTER||boy;
+ document.documentElement.style.setProperty('--arch-rpg-boy-poster','url("'+boy+'")');
+ currentPosterRole=hero.profession||'warrior';
+ const roles=[['warrior','勇士'],['mage','法師'],['ranger','弓箭手'],['guardian','守護者']];
+ const buttons=roles.map(([key,name])=>
+  '<button type="button" class="rpg-role-hotspot '+key+'" data-boy-role="'+key+'" aria-label="選擇'+name+'" aria-pressed="false"></button>').join('');
+ const html=
+  '<h2 class="poster-sr-only" id="dialogTitle">步驟二：已選擇男生，請選擇冒險職業</h2>'+
+  '<div class="rpg-setup-scene">'+
+   '<div class="rpg-setup-top"><img src="'+header+'" alt="學習冒險群島，天空城堡，第二步選擇職業" draggable="false"></div>'+
+   '<section class="rpg-confirm-gender">'+
+    '<div class="rpg-confirm-main"><span class="rpg-gender-portrait boy" aria-hidden="true"></span>'+
+    '<div><strong>已選擇：男生 ♂</strong><small>接著選擇你喜歡的職業 · 目前選擇：<span id="boyCurrentRole">勇士</span></small></div></div>'+
+    '<button id="boyChangeGender" type="button" class="rpg-gender-change">↩ 上一步<br>更換造型</button>'+
+   '</section>'+
+   '<div class="rpg-setup-roles"><img src="'+boy+'" alt="步驟二，男勇士、男法師、男弓箭手、男守護者四張原畫職業卡" draggable="false">'+buttons+'</div>'+
+   '<div class="rpg-setup-bottom"><img src="'+boy+'" alt="返回上一步與確認並創建角色" draggable="false">'+
+    '<button class="rpg-bottom-hit back" type="button" id="boyRoleBack" aria-label="上一步：重新選擇男生或女生"></button>'+
+    '<button class="rpg-bottom-hit accept" type="button" id="boyRoleAccept" aria-label="確認職業選擇"></button></div>'+
+  '</div>';
+ show(html,'rolePoster');
+ function highlight(){
+  $('dialog').querySelectorAll('[data-boy-role]').forEach(b=>{
+   const selected=b.dataset.boyRole===currentPosterRole;
+   b.setAttribute('aria-pressed',selected?'true':'false');
+  });
+  $('boyCurrentRole').textContent=ROLES[currentPosterRole].title;
+  $('boyRoleAccept').setAttribute('aria-label','確認'+ROLES[currentPosterRole].title+'職業');
+ }
+ $('dialog').querySelectorAll('[data-boy-role]').forEach(b=>b.onclick=()=>{
+  currentPosterRole=b.dataset.boyRole;highlight();
  });
- layer.querySelector('#posterGenderCancel').onclick=()=>{
-  if(!hero.avatarStyle||hero.profession)close();else chooseRolePoster();
- };
+ $('boyChangeGender').onclick=showGenderStepOne;
+ $('boyRoleBack').onclick=showGenderStepOne;
+ $('boyRoleAccept').onclick=()=>confirmRole(currentPosterRole);
+ highlight();
+}
+function showGenderStepOne(){
+ if(!hero || !window.ARCHIPELAGO_BOY_POSTER)return;
+ document.documentElement.style.setProperty('--arch-rpg-boy-poster','url("'+window.ARCHIPELAGO_BOY_POSTER+'")');
+ const illustration=window.ARCHIPELAGO_BOY_POSTER;
+ const html=
+  '<h2 class="poster-sr-only" id="dialogTitle">步驟一：選擇男生或女生造型</h2>'+
+  '<div class="rpg-setup-scene">'+
+   '<div class="rpg-setup-top"><img src="'+illustration+'" alt="學習冒險群島，天空城堡與冒險貓咪" draggable="false"></div>'+
+   '<section class="rpg-gender-board"><h3>✨ 步驟 1：選擇角色造型 ✨</h3>'+
+    '<p>先選男生或女生，再挑選自己喜歡的職業。</p>'+
+    '<div class="rpg-gender-options">'+
+     '<button type="button" class="rpg-gender-option boy" data-avatar-style="boy"><span class="rpg-gender-portrait boy" aria-hidden="true"></span><strong>♂ 男生</strong><small>男勇士・男法師・男弓箭手・男守護者</small></button>'+
+     '<button type="button" class="rpg-gender-option girl" data-avatar-style="girl"><span class="rpg-gender-portrait girl" aria-hidden="true"></span><strong>♀ 女生</strong><small>女勇士・女法師・女弓箭手・女守護者</small></button>'+
+    '</div><div id="avatarStyleError" class="rpg-validation-msg" role="alert"></div></section>'+
+   '<div class="rpg-gender-footer">🌟 選擇後就會進入對應的 4 種職業；按「上一步」可回到這裡。</div>'+
+  '</div>';
+ show(html,'rolePoster');
+ $('dialog').querySelectorAll('[data-avatar-style]').forEach(btn=>btn.onclick=()=>saveAvatarStyle(btn.dataset.avatarStyle));
 }
 function chooseRoleClassic(){
  const cards=Object.entries(ROLES).map(([key,r])=>
