@@ -64,7 +64,7 @@ function selectPlayer(id){
  state.learnerId=id;
  renderNames();setGate(false);
  if(el('screen-report').classList.contains('active'))show('home');
- status('☁️ '+p.name+' 的成績會自動儲存在雲端');window.chengyuProgressRefresh?.();
+ status('☁️ '+p.name+' 的成績會自動儲存在雲端');window.chengyuProgressRefresh?.();window.adventureProfileRefresh?.('chengyu',state.learnerId);
 }
 function showPlayerAdd(){
  if(!state.connected){el('playerGateStatus').textContent='⚠️ 雲端尚未連線，請重新整理後再試。';return}
@@ -111,7 +111,7 @@ async function sync(){
   state.connected=true;state.learners=response.learners||[];state.attempts=response.attempts||[];
   if(state.learnerId&&!state.learners.some(function(l){return l.id===state.learnerId}))state.learnerId='';
   renderNames();
-  if(gateOpen)renderGate();window.chengyuProgressRefresh?.();
+  if(gateOpen)renderGate();window.chengyuProgressRefresh?.();if(state.learnerId)window.adventureProfileRefresh?.('chengyu',state.learnerId);
   status('✅ 雲端已連線・'+state.learners.length+' 位測驗者・'+state.attempts.length+' 筆歷史成績');
   if(el('screen-report').classList.contains('active'))renderReport();
  }catch(error){state.connected=false;status('⚠️ '+error.message+'。請重新整理後再試。');if(gateOpen){el('playerGateStatus').textContent='⚠️ 雲端連線失敗，請按重試。';el('playerPicks').innerHTML='<button type="button" id="playerReload">↻ 重試連線</button>'}}
@@ -196,6 +196,6 @@ el('cloudReport').addEventListener('click',function(){if(!state.connected){alert
 el('reportBack').addEventListener('click',function(){show('home')});
 el('refreshReport').addEventListener('click',sync);
 el('reportWho').addEventListener('change',function(e){state.filter=e.target.value;renderReport()});
-var foot=document.querySelector('.footer');if(foot)foot.insertAdjacentHTML('beforeend','<div>成語闖關王 V1.4.0 · 2026/11/07 · 勇士升級・冒險闖關・雲端成績</div>');
+var foot=document.querySelector('.footer');if(foot)foot.insertAdjacentHTML('beforeend','<div>成語闖關王 V1.5.0 · 2026/11/07 · 四職業・共用勇士・綜合晉級試煉</div>');
 sync();
 })();
