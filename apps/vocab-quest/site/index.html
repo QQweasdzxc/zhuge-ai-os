@@ -119,7 +119,7 @@ if(rawBank&&Array.isArray(rawBank.units)&&rawBank.units.length){
 if(!wordUnits.length)wordUnits=[{id:"unit-001",title:"本次 12 字（週次待設定）",category:"空中學英文",week:"",indices:words.map(function(_,i){return i})}];
 function allIndices(){return words.map(function(_,i){return i})}
 function currentPool(){return s.scope<0?allIndices():wordUnits[Math.min(s.scope,wordUnits.length-1)].indices.slice()}
-function weekLabel(u){if(!u.week)return "週次待設定";var w=String(u.week).trim();return w.indexOf("週")>=0?w:"第 "+w+" 週"}
+function weekLabel(u){if(!u.week)return "週次待設定";var w=String(u.week).trim();return w.indexOf("週")>=0?w:(/^\d+$/.test(w)?"第 "+w+" 週":w)}
 function seriesList(){return Array.from(new Set(wordUnits.map(function(u){return u.category||"一般單字"})))}
 function scopeName(){if(s.scope<0)return "全部單字總複習";var u=wordUnits[Math.min(s.scope,wordUnits.length-1)];return u.category+"｜"+weekLabel(u)+"｜"+u.title}
 function chooseWeek(i){if(i<0||!wordUnits[i])return;s.scope=i;s.lastScope=i;s.selectedCategory=wordUnits[i].category;render()}
@@ -138,8 +138,8 @@ function audioStatus(msg,error){
  var el=document.getElementById("audio-status");
  if(el){el.textContent=msg;el.style.color=error?"#bb3c55":"#237f66"}
 }
-function speechFallback(text){if(!("speechSynthesis" in window)){audioStatus("無法播放：請在 Safari 開啟這個網址",true);return}
-try{speechSynthesis.cancel();var u=new SpeechSynthesisUtterance(text);u.lang="en-US";u.rate=.82;u.volume=1;u.onstart=function(){audioStatus("🔊 正在用手機語音朗讀")};u.onerror=function(){audioStatus("此瀏覽器無法發聲，請試 Safari 並檢查手機靜音",true)};speechSynthesis.speak(u)}catch(e){audioStatus("無法播放音檔，請使用 Safari 測試",true)}}
+function speechFallback(text,slow){if(!("speechSynthesis" in window)){audioStatus("無法播放：請在 Safari 開啟這個網址",true);return}
+try{speechSynthesis.cancel();var u=new SpeechSynthesisUtterance(text);u.lang="en-US";u.rate=slow?.62:.84;u.volume=1;u.onstart=function(){audioStatus("🔊 正在用手機語音朗讀")};u.onerror=function(){audioStatus("此瀏覽器無法發聲，請試 Safari 並檢查手機靜音",true)};speechSynthesis.speak(u)}catch(e){audioStatus("無法播放音檔，請使用 Safari 測試",true)}}
 
 /* Warm up the small word-audio set on page load. Cached Audio instances
    are reused on every card so replay does not trigger a fresh request. */
@@ -163,7 +163,7 @@ function makeAudio(word,sourceIdx){
     if(sourceIdx+1<audioDomains.length){
        makeAudio(word,sourceIdx+1);
        if(item.playing)playAudio(word,item.slow);
-    }else if(item.playing){item.playing=false;speechFallback(word)}
+    }else if(item.playing){item.playing=false;speechFallback(word,item.slow)}
   };
   audio.onplaying=function(){audioStatus("🔊 正在播放英文發音"+(item.slow?"（慢速）":""));item.playing=false};
   audio.onended=function(){audioStatus("✓ 發音播放完成")};
@@ -188,13 +188,17 @@ function playAudio(word,slow){
   try{var p=audio.play();if(p&&typeof p.catch==="function")p.catch(function(){
     if(audioMap[word]!==item||item.audio!==audio)return;
     item.playing=false;
-    speechFallback(word);
-  })}catch(e){item.playing=false;speechFallback(word)}
+    speechFallback(word,item.slow);
+  })}catch(e){item.playing=false;speechFallback(word,item.slow)}
 }
 function say(text,slow){
-  text=String(text).toLowerCase().trim();
-  if(audioMap[text])playAudio(text,slow);
-  else playAudio(text,slow);
+ text=String(text).toLowerCase().trim();
+ if(/\s/.test(text)){
+  audioStatus(slow?"🔊 正在慢速朗讀英文片語":"🔊 正在朗讀英文片語");
+  speechFallback(text,slow);
+  return
+ }
+ playAudio(text,slow)
 }
 function fullSentence(w){return w[2].replace("____",w[0]);}
 var sentenceAudio=Object.create(null),sentenceActive=null;
@@ -260,7 +264,7 @@ function applyCloudUnits(units){
   var ids=[];
   (Array.isArray(u.words)?u.words:[]).forEach(function(w){
    if(!w||!w.en||!w.zh||!w.sentence||!w.sentence.includes("____"))return;
-   ids.push(all.length);all.push([w.en,w.zh,w.sentence,w.tip||"",w.ipa||""])
+   ids.push(all.length);all.push([w.en,w.zh,w.sentence,w.tip||"",w.ipa||"",Array.isArray(w.aliases)?w.aliases:[]])
   });
   if(ids.length)groups.push({id:u.id,category:u.category,title:u.title,week:String(u.week||""),indices:ids})
  });
@@ -498,6 +502,7 @@ function playGameEffect(success){
 }
 function assistedHint(wordIndex){
  var w=words[wordIndex],en=w[0],limit=Math.min(en.length,s.wrongCount>=2?2:1);
+ if(/\s/.test(en))return "片語提示：開頭 "+en.charAt(0).toUpperCase()+"，共 "+en.trim().split(/\s+/).length+" 個英文詞；請聽發音再拼寫。";
  var masked=en.slice(0,limit).toUpperCase()+" · "+"＿".repeat(Math.max(0,en.length-limit));
  if(s.stage===0&&!s.retry)return "字首提示："+masked+"。回想這個字的中文意思。";
  if(s.stage===1||s.retry)return "拼字提示："+masked+"（共 "+en.length+" 個字母）";
@@ -515,7 +520,7 @@ function opts(){
  s.choiceKey=key;s.choiceList=order;return order
 }
 function question(){var w=current(),spell=s.stage===1||s.retry;var prompt=s.retry||s.stage===1?safe(w[1]):s.stage===0?w[0]:safe(w[2]).replace("____","_____");var total=s.order.length;var hearts=s.retry?'<div class="lives">📖 錯字自由複習（不計命）</div>':'<div class="lives" role="status" aria-label="剩餘 '+s.lives+' 條命"><span class="hearts">'+Array.from({length:3},function(_,i){return '<span class="heart-unit '+(i>=s.lives&&i===s.lives?'lost':'')+'">'+(i<s.lives?'❤️':'🖤')+'</span>'}).join('')+'</span><small>剩餘 '+s.lives+' / 3 條命</small></div>';var h='<div class="row"><div><h1 class="title">'+stageName()+'</h1><div class="muted">第 '+(s.q+1)+' / '+total+' 題</div></div><strong>⭐ '+s.score+' 分</strong></div>'+hearts+'<div class="progress"><div class="bar" style="width:'+((s.q+(s.answered?1:0))/total*100)+'%"></div></div><div class="question"><div class="muted">'+(spell?"先看中文，再聽英文發音拼字":s.stage===0?"選出單字的中文意思":"先聽整句英文，再選出填空單字")+'</div><h2 class="'+(s.stage===2&&!s.retry?"sentence":"")+'">'+prompt+'</h2>'+(!spell?'<div><button class="pill" data-action="sound">'+(s.stage===2?"🔊 整句朗讀":"🔊 聽單字")+'</button> <button class="pill" data-action="slow">'+(s.stage===2?"🐢 整句慢速":"🐢 單字慢速")+'</button></div>':'')+'</div>';
-if(spell){h+='<section class="spelling-listen" aria-label="第二關英文聽力拼字"><div class="listen-label">🎧 聽英文發音，試著拼出單字</div><div class="listen-buttons"><button class="pill" data-action="sound" type="button" aria-label="聽英文單字發音">🔊 聽英文</button><button class="pill" data-action="slow" type="button" aria-label="用慢速聽英文單字發音">🐢 慢速聽</button></div><p class="listen-status" id="audio-status" role="status">可重複聆聽，不扣生命，也不顯示英文答案</p></section><input class="input" id="spelling" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="在這裡輸入英文" aria-label="輸入英文拼字" '+(s.answered?"disabled":"")+' value="'+safe(s.typed)+'"><div class="flex">'+btn("💡 提示","hint","outline",s.clue||s.answered?"disabled":"")+btn("確認拼字","submit","primary",s.answered?"disabled":"")+'</div>'+(s.clue?'<div class="help">提示：字首 '+w[0][0].toUpperCase()+'，共 '+w[0].length+' 個英文字母。</div>':'')}else{h+='<div class="grid2">'+opts().map(function(i){var c=s.answered?(i===s.order[s.q]?"good":s.selected===i?"bad":""):"";return '<button class="option '+c+'" data-action="choose" data-index="'+i+'" '+(s.answered?"disabled":"")+'>'+(s.stage===0?safe(words[i][1]):words[i][0])+'</button>'}).join("")+'</div>'}
+if(spell){h+='<section class="spelling-listen" aria-label="第二關英文聽力拼字"><div class="listen-label">🎧 聽英文發音，試著拼出單字</div><div class="listen-buttons"><button class="pill" data-action="sound" type="button" aria-label="聽英文單字或片語發音">🔊 聽英文</button><button class="pill" data-action="slow" type="button" aria-label="用慢速聽英文單字或片語發音">🐢 慢速聽</button></div><p class="listen-status" id="audio-status" role="status">可重複聆聽，不扣生命，也不顯示英文答案</p></section><input class="input" id="spelling" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="在這裡輸入英文" aria-label="輸入英文拼字" '+(s.answered?"disabled":"")+' value="'+safe(s.typed)+'"><div class="flex">'+btn("💡 提示","hint","outline",s.clue||s.answered?"disabled":"")+btn("確認拼字","submit","primary",s.answered?"disabled":"")+'</div>'+(s.clue?'<div class="help">提示：字首 '+w[0][0].toUpperCase()+'，共 '+w[0].length+' 個英文字母。</div>':'')}else{h+='<div class="grid2">'+opts().map(function(i){var c=s.answered?(i===s.order[s.q]?"good":s.selected===i?"bad":""):"";return '<button class="option '+c+'" data-action="choose" data-index="'+i+'" '+(s.answered?"disabled":"")+'>'+(s.stage===0?safe(words[i][1]):words[i][0])+'</button>'}).join("")+'</div>'}
 if(s.answered){
  var msg=s.correct?"太棒了！答對了！":s.retry?"🥺 小失誤，再記起來就好！":"🥺 哎呀～蹦！少一條命";
  var fx=s.correct?
@@ -570,7 +575,7 @@ if(!retry){s.runTesterId=s.testerId;s.runTesterName=s.testerName}
 s.view="game";s.retry=!!retry;s.challengeMode=retry?s.challengeMode:(typeof whichStage==="number"?"single":"all");if(!retry)s.selectedStage=s.challengeMode==="single"?whichStage:0;s.q=0;s.stage=retry?1:(s.challengeMode==="single"?s.selectedStage:0);s.pool=retry?s.pool.slice():currentPool();s.order=shuffled(retry?s.missed:s.pool);s.choiceKey="";s.choiceList=[];s.selected=null;s.typed="";s.answered=false;s.correct=false;s.clue=false;s.gameOver=false;s.wrongCount=0;if(!retry){s.score=0;s.attempts=[];s.missed=[];s.lastRecorded=false;s.gameOver=false;s.lastWrongIndex=-1;familyCloud.saving=""}s.lives=3;question()}
 function answer(val){
  if(s.answered||s.gameOver||s.view!=="game")return;
- var idx=s.order[s.q],correct=(s.retry||s.stage===1)?String(val).trim().toLowerCase()===words[idx][0]:Number(val)===idx;
+ var idx=s.order[s.q],correct=(s.retry||s.stage===1)?([words[idx][0]].concat(words[idx][5]||[])).some(function(v){return String(val).trim().toLowerCase().replace(/\s+/g," ")===String(v).trim().toLowerCase().replace(/\s+/g," ")}):Number(val)===idx;
  s.answered=true;s.correct=correct;s.selected=s.retry||s.stage===1?null:Number(val);
  s.score+=correct?(s.clue?7:10):0;
  if(s.retry){if(correct)s.missed=s.missed.filter(function(i){return i!==idx})}
