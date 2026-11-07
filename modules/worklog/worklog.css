@@ -592,6 +592,7 @@ html[data-theme="light"] .hub-chat-embed-page, html[data-theme="light"] .hub-cha
 html[data-theme="light"] .standalone-chat-page .panel, html[data-theme="light"] .hub-chat-embed-page .panel, html[data-theme="light"] .floating-assistant{background:#f8fafc;border-color:rgba(51,65,85,.12);color:#1d2430}
 html[data-theme="light"] .assistant-msg{background:#ffffff;border-color:rgba(51,65,85,.12);color:#1d2430}
 html[data-theme="light"] .assistant-msg.user{background:#e4f2f6;color:#0b5568}
+html[data-theme="light"] .assistant-msg.user .assistant-msg-time{color:#0b7a94}
 html[data-theme="light"] .assistant-command-card, html[data-theme="light"] .assistant-quick-card{background:#ffffff;border-color:rgba(51,65,85,.12);color:#1d2430}
 html[data-theme="light"] .assistant-icon-action{background:#ffffff;border-color:rgba(51,65,85,.16);color:#1d2430}
 html[data-theme="light"] .assistant-icon-action:hover{border-color:#0888a8;background:#eef7f9}
@@ -614,6 +615,7 @@ html[data-theme="light"] .worklog-brand-wordmark{color:#1d2430}
   html[data-theme="system"] .standalone-chat-page .panel, html[data-theme="system"] .hub-chat-embed-page .panel, html[data-theme="system"] .floating-assistant{background:#f8fafc;border-color:rgba(51,65,85,.12);color:#1d2430}
   html[data-theme="system"] .assistant-msg{background:#ffffff;border-color:rgba(51,65,85,.12);color:#1d2430}
   html[data-theme="system"] .assistant-msg.user{background:#e4f2f6;color:#0b5568}
+  html[data-theme="system"] .assistant-msg.user .assistant-msg-time{color:#0b7a94}
   html[data-theme="system"] .assistant-command-card, html[data-theme="system"] .assistant-quick-card{background:#ffffff;border-color:rgba(51,65,85,.12);color:#1d2430}
   html[data-theme="system"] .assistant-icon-action{background:#ffffff;border-color:rgba(51,65,85,.16);color:#1d2430}
   html[data-theme="system"] .assistant-icon-action:hover{border-color:#0888a8;background:#eef7f9}
