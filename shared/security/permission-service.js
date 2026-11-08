@@ -1,4 +1,4 @@
-/* Capability evaluation for Tron modules. Permission checks are local
+/* Capability evaluation for TRQN modules. Permission checks are local
  * policy decisions; they never request OAuth scopes or start authentication. */
 (function (root, factory) {
   const api = factory();
