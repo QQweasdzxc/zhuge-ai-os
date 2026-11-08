@@ -62,10 +62,10 @@
 | 現行（暫停 true） | 6 | 0 | 5 | 1 | — | — |
 | migration 單獨部署／不採 A／cutoff 未設 | 6 | 0 | 5 | 1 | 0 | 0 |
 | main 明確確認排除 1 個未證實身分後採 A（未執行） | 5 | 1 | 5 | 1 | 5 | 1 |
-| 新進者日後自行進入（仍無祖父，需 creator On） | — | — | — | — | 5 | — |
+| main 確認當下有效允許人數後採凍結快照（未執行） | 6 | 0 | 5 | 1 | 6 | 0 |
 
 現有事件：approved_bootstrap 4、application_approved 1；PENDING 0、REJECTED 0、disabled 0、NEW 1。以上新政策列是投影，並未對正式庫執行。
 
-不得把缺口帳號當作祖父。補充 7 的 164 個 App/TF/private 欄位來源均為 0 活動，但有 1–7 天前 Google 登入與 3 個未撤銷 refresh token，不能稱為停用／測試帳號。固定建議不納入祖父，main 明確接受 6→5 允許的資格變化後，以 owner-only activate_app_access_model(1) 啟用；若未證實身分計數改變則拒絕。不再依賴該帳號去登入，不從 Auth 列出名冊或補造 App membership。細節與唯讀來源見 gap-account-review.md。
+不把缺口帳號判定為非 App 使用者，也不替它補建 membership／名片。補充 7 的 164 個 App/TF/private 欄位來源均為 0 活動，但有 1–7 天前 Google 登入與 3 個未撤銷 refresh token，不能稱為停用／測試帳號。啟用時凍結當下有效允許者，使用 owner-only `activate_app_access_model(6)`；人數漂移則拒絕。結果 6→6 允許。細節見 gap-account-review.md。
 
-舊 profile 的 created_at 不作祖父授權判斷；啟用當刻的 private 快照封存 App 身分來源，cutoff 後修改／回填 profile 不會更新快照。migration 不執行 activation、不建立祖父資料、不批量修改使用者狀態。
+舊 profile 的 created_at 不作授權判斷；啟用當刻在內部 private 表凍結當下有效允許的身分集合，cutoff 後修改／回填 profile 不會更新。migration 不執行 activation、不建立凍結資料、不批量修改使用者狀態。
