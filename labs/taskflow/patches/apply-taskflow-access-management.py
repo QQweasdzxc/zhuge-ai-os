@@ -14,7 +14,7 @@ def patch(source):
     if "TaskFlowAccessManagement" in source:
         raise ValueError("access management already patched")
     source = replace_once(source, 'import { WorkspaceTab } from "./workspace-tab";', 'import { WorkspaceTab } from "./workspace-tab";\nimport { TaskFlowAccessManagement } from "./taskflow-access-management";')
-    return replace_once(source, '            entry("workspace",', '            entry("app-access", "全站存取管理", Lock, <TaskFlowAccessManagement />),\n            entry("workspace",')
+    return replace_once(source, '            entry("workspace",', '            ...((role === "owner" || role === "admin") ? [entry("app-access", "全站存取管理", Lock, <TaskFlowAccessManagement />, { adminOnly: true })] : []),\n            entry("workspace",')
 
 def apply(root, overlays):
     root = root.resolve()
@@ -26,7 +26,7 @@ def apply(root, overlays):
     test = (overlays / "taskflow-access-management.test.tsx").read_text()
     shell_test = target.parent / "settings-page.test.tsx"
     shell_source = shell_test.read_text()
-    if "TaskFlow access settings integration" in shell_source:
+    if "TaskFlow access settings workspace-role visibility" in shell_source:
         raise ValueError("access integration test already installed")
     integration_test = (overlays / "taskflow-access-settings-test-block.txt").read_text()
     target.write_text(source)

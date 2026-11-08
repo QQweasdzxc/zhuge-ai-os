@@ -1,13 +1,16 @@
 # TF global access management (ZG-70)
 
 Baseline main: `9476a22134a4abc66d30ce8ce919f30ace07c698`.
-Proposed release: `0.9.0-alpha.9.189`, Build `20261108-2121`.
+Proposed release: `0.9.0-alpha.9.189`, Build `20261108-2138`.
 
 ## Final behavior
 
 The workspace Settings entry 全站存取管理 sits at the same level as General.
-It is available to all TF workspace roles without querying global creator
-status. Its content is one fixed URL launch button and the explanation
+It is visible only to TF workspace owner/admin without querying global creator
+status. The new entry retains `{ adminOnly: true }`; because vendor currently
+uses that flag only for a member lock icon, this entry alone also checks the
+workspace role before joining the navigation, mobile selector and search index.
+Other settings entries are unchanged. Workspace admin is not global creator. Its content is one fixed URL launch button and the explanation
 需全站管理者登入，請另開管理頁進行設定。 The anchor uses `target="_blank"`
 and `rel="noopener noreferrer"` to open the top-level Pages route:
 `https://qqweasdzxc.github.io/zhuge-ai-os/labs/taskflow/access-management/`.
@@ -52,11 +55,12 @@ mask them. The local browser results do not imply the same outcome in the
 pinned CI browser environment. FullSource packaging must not claim full/local
 browser regression PASS while these failures remain.
 
-Passed local checks: 84 TF Python overlay tests; 21 React component/settings
+Passed local checks: 84 TF Python overlay tests; 23 React component/settings
 integration tests; standalone Pages Playwright with every network request
 intercepted locally. The latter exercises creator/non-creator/no-session,
 cancelled confirmation, both boolean setter parameters and RPC rejection.
-The settings integration proves the entry is offered to workspace members,
+The settings integration proves the entry is offered to workspace owner/admin
+and hidden from plain members (including direct-tab and search navigation),
 uses the fixed secure new-tab URL and mounts no iframe or switch in TF.
 No test invokes the production setter. Real Google OAuth completion and a
 production creator session are not claimed as tested. Latest CI results and

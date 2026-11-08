@@ -22,7 +22,8 @@ class AccessOverlayTest(unittest.TestCase):
             self.assertLess(result.index('entry("app-access"'), result.index('entry("workspace"'))
             self.assertNotIn("accessManagement.visible", result)
             self.assertNotIn("useTaskFlowAccessManagement", result)
-            self.assertIn("<TaskFlowAccessManagement />", result)
+            self.assertIn("<TaskFlowAccessManagement />, { adminOnly: true }", result)
+            self.assertIn('role === "owner" || role === "admin"', result)
             with self.assertRaises(ValueError):
                 overlay.apply(root, ROOT / "labs/taskflow/overrides")
         with self.assertRaises(ValueError):

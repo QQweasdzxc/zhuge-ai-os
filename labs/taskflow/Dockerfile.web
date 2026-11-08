@@ -162,7 +162,7 @@ RUN TASKFLOW_TRON_THEME_PATCH=/tmp/apply-taskflow-tron-theme.py \
     python3 /tmp/test_taskflow_tron_theme_overlay.py \
  && python3 /tmp/apply-taskflow-tron-theme.py --root /src --css /tmp/taskflow-tron-theme.css
 
-# Global access management: UI-only Pages iframe; no auth or DB changes.
+# Global access management: opens the Pages access panel in a new tab; no auth or DB changes
 COPY labs/taskflow/patches/apply-taskflow-access-management.py /tmp/apply-taskflow-access-management.py
 COPY labs/taskflow/overrides/taskflow-access-management.tsx /taskflow-access/taskflow-access-management.tsx
 COPY labs/taskflow/overrides/taskflow-access-management.test.tsx /taskflow-access/taskflow-access-management.test.tsx
