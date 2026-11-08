@@ -55,6 +55,7 @@ test('ZG-71 real SQL: transition, reversible access, legacy writers, permissions
  const app = await scalar(`select application_id from private.app_access_application_events where applicant_user_id='${id(3)}'`);
  const off = await set(3,false,'off1');
  assert.equal((await set(3,false,'off1')).idempotent,true);
+ await assert.rejects(scalar(`select review_app_access_application('${app}','approve',null,'legacy-after-off')`),/already been decided/);
  await assert.rejects(set(3,true,'off1'),/Idempotency/);
  await as(3); assert.equal(await scalar('select is_app_access_approved()'),false,'Off+pause denied');
  let access=await scalar('select resolve_app_access()');assert.equal(access.status,'REJECTED');assert.equal(access.access_disabled,true);assert.equal(access.review_note,'test note');
@@ -69,7 +70,9 @@ test('ZG-71 real SQL: transition, reversible access, legacy writers, permissions
  await as(1); const list=await scalar('select list_app_access_applications()');
  assert.equal(list.length,7);assert.equal(new Set(list.map(x=>x.applicant_user_id)).size,7);assert.ok(!list.some(x=>x.applicant_user_id===id(8)));
  assert.equal(list.find(x=>x.applicant_user_id===id(1)).submitted_at,null,'bootstrap not fake application');
- await db.exec("update private.app_access_settings set value='false'");await as(6); access=await scalar('select resolve_app_access()');assert.equal(access.status,'NEW');assert.equal(access.enabled,false);
+ await db.exec("update private.app_access_settings set value='false'");await as(3);
+ assert.equal(await scalar('select is_app_access_approved()'),true,'explicit On remains allowed after pause closes');
+ await as(6); access=await scalar('select resolve_app_access()');assert.equal(access.status,'NEW');assert.equal(access.enabled,false);
  await as(5); await scalar("select submit_app_access_request('TEST','Reason','pending-new')"); assert.equal((await scalar('select resolve_app_access()')).status,'PENDING');
  await assert.rejects(set(3,false,'noncreator'),/Creator/);await assert.rejects(scalar('select list_app_access_applications()'),/Creator/);
  await as(null);await assert.rejects(set(3,false,'anon'),/Creator/);
