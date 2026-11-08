@@ -20,12 +20,13 @@ class AccessOverlayTest(unittest.TestCase):
             overlay.apply(root, ROOT / "labs/taskflow/overrides")
             result = target.read_text()
             self.assertLess(result.index('entry("app-access"'), result.index('entry("workspace"'))
-            self.assertIn("accessManagement.visible", result)
-            self.assertIn("accessActive ? null : active.content", result)
+            self.assertNotIn("accessManagement.visible", result)
+            self.assertNotIn("useTaskFlowAccessManagement", result)
+            self.assertIn("<TaskFlowAccessManagement />", result)
             with self.assertRaises(ValueError):
                 overlay.apply(root, ROOT / "labs/taskflow/overrides")
         with self.assertRaises(ValueError):
-            overlay.patch(original.replace('  const pluginsEnabled =', '  const changed ='))
+            overlay.patch(original.replace('            entry("workspace",', '            entry("changed",'))
         self.assertEqual((ROOT / "third_party/multica" / overlay.TARGET).read_text(), original)
 
     def test_refuses_vendor(self):

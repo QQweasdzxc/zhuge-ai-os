@@ -11,15 +11,10 @@ def replace_once(source, old, new):
     return source.replace(old, new, 1)
 
 def patch(source):
-    if "useTaskFlowAccessManagement" in source:
+    if "TaskFlowAccessManagement" in source:
         raise ValueError("access management already patched")
-    source = replace_once(source, 'import { WorkspaceTab } from "./workspace-tab";', 'import { WorkspaceTab } from "./workspace-tab";\nimport { useTaskFlowAccessManagement } from "./taskflow-access-management";')
-    source = replace_once(source, '  const pluginsEnabled =', '  const accessActive = navigation.searchParams.get("tab") === "app-access";\n  const accessManagement = useTaskFlowAccessManagement(user?.id, accessActive);\n  const pluginsEnabled =')
-    source = replace_once(source, '            entry("workspace",', '            ...(accessManagement.visible ? [entry("app-access", "全站存取管理", Lock, null)] : []),\n            entry("workspace",')
-    # The iframe must survive tab navigation AND conditional entry changes.
-    source = replace_once(source, '        key={`${active.value}:${location.integration ?? ""}`}\n', '')
-    source = replace_once(source, '        <div\n          className={cn(\n            "mx-auto w-full', '        {accessManagement.frame}\n        <div\n          key={`${active.value}:${location.integration ?? ""}`}\n          className={cn(\n            "mx-auto w-full')
-    return replace_once(source, '          {active.content}', '          {accessActive ? null : active.content}')
+    source = replace_once(source, 'import { WorkspaceTab } from "./workspace-tab";', 'import { WorkspaceTab } from "./workspace-tab";\nimport { TaskFlowAccessManagement } from "./taskflow-access-management";')
+    return replace_once(source, '            entry("workspace",', '            entry("app-access", "全站存取管理", Lock, <TaskFlowAccessManagement />),\n            entry("workspace",')
 
 def apply(root, overlays):
     root = root.resolve()
@@ -31,7 +26,7 @@ def apply(root, overlays):
     test = (overlays / "taskflow-access-management.test.tsx").read_text()
     shell_test = target.parent / "settings-page.test.tsx"
     shell_source = shell_test.read_text()
-    if "TaskFlow access iframe integration" in shell_source:
+    if "TaskFlow access settings integration" in shell_source:
         raise ValueError("access integration test already installed")
     integration_test = (overlays / "taskflow-access-settings-test-block.txt").read_text()
     target.write_text(source)

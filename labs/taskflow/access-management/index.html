@@ -3,7 +3,7 @@
 <style>body{margin:0;padding:24px;font:16px/1.6 system-ui;background:#101820;color:#edf4fa}button,a{font:inherit;color:inherit}button{padding:8px 16px;border:1px solid #668899;border-radius:8px;background:#223744;cursor:pointer}button:disabled{opacity:.5;cursor:wait}[hidden]{display:none!important}main{max-width:760px;margin:auto}a{display:inline-block;margin:12px 0}#message{white-space:pre-wrap}label{display:flex;align-items:center;gap:12px}input{width:24px;height:24px}</style></head>
 <body><main><h1>全站存取管理</h1><p>TRQN OS 全站人工審核設定</p>
 <p id="message" role="status" aria-live="polite">正在確認權限…</p>
-<div id="login" hidden><a href="./" target="_blank" rel="noopener">使用 Google 登入</a><p>請在新分頁使用既有 Google 登入，完成後回來按「重新確認」。</p><button id="google" hidden>使用 Google 登入</button></div>
+<div id="login" hidden><button id="google" type="button">使用 Google 登入</button></div>
 <section id="controls" hidden><p id="state"></p><label><input id="paused" type="checkbox" role="switch">暫停人工審核</label></section>
 <button id="reload" type="button">重新確認</button>
 </main><script>var session = null;</script><script src="../../../shared/app-config.js"></script><script src="../../../shared/utils/shared-utils.js"></script><script src="../../../shared/auth/auth-service.js"></script><script src="panel.js"></script></body></html>

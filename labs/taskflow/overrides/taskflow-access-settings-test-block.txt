@@ -1,28 +1,14 @@
-describe("TaskFlow access iframe integration", () => {
-  it("keeps the same iframe across navigation, unknown, creator and denied updates", () => {
-    const { rerender } = renderWithI18n(<SettingsPage />);
-    const frame = screen.getByTitle("全站存取管理") as HTMLIFrameElement;
-    const source = frame.contentWindow;
-    const publish = (status: string) => fireEvent(window, new MessageEvent("message", {
-      origin: "https://qqweasdzxc.github.io", source,
-      data: { type: "trqn-access-status", status },
-    }));
-    expect(screen.queryByRole("link", { name: "全站存取管理" })).toBeNull();
-    publish("creator");
-    expect(screen.getByRole("link", { name: "全站存取管理" })).toBeInTheDocument();
+describe("TaskFlow access settings integration", () => {
+  it("offers the entry even to workspace members without checking global creator", () => {
+    shell.role = "member";
     navigationState.search = "tab=app-access";
-    rerender(<SettingsPage />);
-    expect(screen.getByTitle("全站存取管理")).toBe(frame);
-    for (const state of ["unknown", "creator", "login", "denied", "creator"]) {
-      publish(state);
-      expect(screen.getByTitle("全站存取管理")).toBe(frame);
-      expect(frame.contentWindow).toBe(source);
-    }
-    publish("denied");
-    expect(screen.queryByRole("link", { name: "全站存取管理" })).toBeNull();
-    navigationState.search = "tab=workspace";
-    rerender(<SettingsPage />);
-    expect(screen.getByTitle("全站存取管理")).toBe(frame);
-    expect(frame.hidden).toBe(true);
+    renderWithI18n(<SettingsPage />);
+    expect(screen.getByRole("link", { name: "全站存取管理" })).toBeInTheDocument();
+    const link = screen.getByRole("link", { name: "開啟全站存取管理" });
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    expect(link).toHaveAttribute("href", "https://qqweasdzxc.github.io/zhuge-ai-os/labs/taskflow/access-management/");
+    expect(document.querySelector("iframe")).toBeNull();
+    expect(screen.queryByRole("switch")).toBeNull();
   });
 });
