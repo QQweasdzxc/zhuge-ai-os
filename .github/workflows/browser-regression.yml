@@ -62,4 +62,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - run: node --test tests/zg71-edge-enforcement.test.cjs tests/zg71-taskflow-boundary.test.cjs
+      - run: node --test tests/zg71-edge-enforcement.test.cjs tests/zg71-taskflow-boundary.test.cjs tests/zg71-live-compat-gates.test.js
