@@ -160,22 +160,24 @@ function lightRoute(x1,y1,x2,y2){
  '</g>';
 }
 function balloon(x,y,scale,body){
- const rows=[2,4,6,8,8,8,8,6,4,2];
+ const rows=[4,6,8,9,8,6,4];
  let cells='';
  rows.forEach((w,i)=>{
-  const rowY=-104+i*8;
+  const rowY=-86+i*8;
   for(let c=0;c<w;c++){
-   const cx=(c-w/2)*8,col=cx/8,shade=col>0;
+   const cx=(c-w/2)*8,col=Math.round(cx/8),shade=col>0;
    const stripe=((col%2)+2)%2===0?(shade?'#e0703f':body):(shade?'#f2d5a8':'#ffe8c2');
    cells+='<rect x="'+cx+'" y="'+rowY+'" width="8" height="8" fill="'+stripe+'"/>';
   }
  });
  return '<g transform="translate('+x+' '+y+') scale('+scale+')">'+
   cells+
-  '<rect x="-11" y="-26" width="3" height="20" fill="#5a4030"/><rect x="8" y="-26" width="3" height="20" fill="#5a4030"/>'+
-  '<rect x="-13" y="-8" width="26" height="20" fill="#6b4a35" stroke="#402a1c" stroke-width="2.5"/>'+
-  '<rect x="-13" y="-2" width="26" height="5" fill="#37e6ff"/>'+
-  '<rect x="-3" y="8" width="6" height="4" fill="#37e6ff"/>'+
+  '<rect x="-13" y="-32" width="26" height="6" fill="#a8442f"/>'+
+  '<path d="M -10 -26 L -13 -4 M 10 -26 L 13 -4 M -4.5 -26 L -6 -4 M 4.5 -26 L 6 -4" stroke="#5a4030" stroke-width="1.8"/>'+
+  '<path d="M -14 -6 L 14 -6 L 11 12 L -11 12Z" fill="#6b4a35" stroke="#402a1c" stroke-width="2.5"/>'+
+  '<path d="M -14 -6 L 14 -6 L 13 0 L -13 0Z" fill="#8a5f42"/>'+
+  '<rect x="-12.5" y="2" width="25" height="4.5" fill="#37e6ff"/>'+
+  '<rect x="-2.5" y="9" width="5" height="3" fill="#37e6ff"/>'+
  '</g>';
 }
 function seaSVG(){
@@ -202,7 +204,7 @@ function seaSVG(){
  '<filter id="cloudBlur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="9"/></filter>'+
  '</defs><rect width="1200" height="790" fill="url(#voyageSea)"/><rect width="1200" height="790" fill="url(#voyageGlow)"/><rect width="1200" height="790" fill="url(#voyageGrid)"/>'+
  starSVG+clouds+
- '<g opacity=".95">'+balloon(390,112,1,'#ff8a5c')+balloon(950,138,.8,'#ffb64d')+balloon(122,470,.85,'#ff8a5c')+'</g>'+
+ '<g opacity=".95">'+balloon(390,152,1,'#ff8a5c')+balloon(950,150,.8,'#ffb64d')+balloon(122,470,.85,'#ff8a5c')+'</g>'+
  routes+all+
  '<g fill="#9fe8ff" opacity=".9"><path d="M 1002 60 L 1007 71 L 1018 76 L 1007 81 L 1002 92 L 997 81 L 986 76 L 997 71Z"/>'+
  '<path d="M 1102 60 L 1107 71 L 1118 76 L 1107 81 L 1102 92 L 1097 81 L 1086 76 L 1097 71Z"/></g>'+
