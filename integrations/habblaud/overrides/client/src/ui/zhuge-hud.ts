@@ -17,7 +17,7 @@ let stopWeatherSubscription: (() => void) | null = null;
 
 /** Maps backend project identifiers to the approved public product name. */
 function displayProjectName(projectName) {
-  if (!projectName || projectName === 'Zhuge AI OS') return 'Tron';
+  if (!projectName || projectName === 'Zhuge AI OS') return 'TRQN';
   return projectName;
 }
 
@@ -257,7 +257,7 @@ export function mountZhugeHud(status: ZhugeProjectStatus, live = false): void {
   const fresh = isFreshStatus(status);
   const dot = el('span', '●');
   dot.className = 'zhuge-hud-dot zhuge-light-' + (fresh ? status.overall_status : 'stale');
-  // Display layer only: the approved product name is Tron. The backend
+  // Display layer only: the approved product name is TRQN. The backend
   // project_name identifier ('Zhuge AI OS') stays untouched in
   // docs/status/project-status.json and its contract test.
   const title = el('strong', displayProjectName(status.project_name));
