@@ -313,30 +313,38 @@ grant execute on function public.is_app_access_approved(), public.resolve_app_ac
   public.set_app_access_user_enabled(uuid,boolean,text,text) to authenticated;
 -- Owner-only activation. Migration NEVER calls this function or sets cutoff.
 -- Snapshot membership, not user-controlled created_at. Existing events unchanged.
-create or replace function private.activate_app_access_model(p_expected_unproven integer)
+create or replace function private.activate_app_access_model(p_expected_allowed integer)
 returns jsonb language plpgsql security definer
 set search_path to pg_catalog, auth, private, public, pg_temp
 as $function$
-declare v_cutoff timestamptz; v_count integer; v_unproven integer;
+declare v_cutoff timestamptz; v_ids uuid[]; v_allowed integer; v_count integer;
 begin
  perform pg_advisory_xact_lock(hashtextextended('app_access_model_activation',0));
+ -- Serialization: block concurrent decisions/first-login events and pause changes
+ -- until this transaction commits. Writers waiting here insert their events after
+ -- commit with their own server clock_timestamp(), so they are after the cutoff;
+ -- anything committed before the lock is part of the frozen state. The cutoff is
+ -- read AFTER the locks, so server-clock order and commit order agree.
+ lock table private.app_access_application_events, private.app_access_settings in share row exclusive mode;
  v_cutoff := clock_timestamp();
  if exists(select 1 from private.app_access_settings where key='access_model_cutoff') then
   raise exception 'Access model already activated; do not recreate the snapshot';
  end if;
- -- Main explicitly acknowledges the aggregate loss of legacy pause-only
- -- eligibility. Unknown Auth identities are NOT imported or grandfathered.
- select count(*) into v_unproven from auth.users u
- where private.app_access_effective_allowed(u.id)
-   and not exists(select 1 from private.app_access_member_identities() m where m.user_id=u.id);
- if p_expected_unproven is null or p_expected_unproven<0 or v_unproven<>p_expected_unproven then
-  raise exception 'Activation blocked: unproven eligibility count changed; review aggregates';
+ -- One-time freeze of the people who are effectively allowed at this instant, so
+ -- activation changes nobody's current access. Explicit access_disabled is not
+ -- effectively allowed and is never captured. The identities are read inside the
+ -- database only; the result is a count, with no list, no member or card rows.
+ -- The set is read once; an Auth identity created after this read is neither
+ -- counted nor frozen, so it starts pending/Off like any later newcomer.
+ select coalesce(array_agg(u.id),'{}') into v_ids from auth.users u where private.app_access_effective_allowed(u.id);
+ v_allowed := cardinality(v_ids);
+ if p_expected_allowed is null or p_expected_allowed<0 or v_allowed<>p_expected_allowed then
+  raise exception 'Activation blocked: currently allowed count changed; review aggregates';
  end if;
- insert into private.app_access_grandfathers(user_id)
- select user_id from private.app_access_member_identities() on conflict do nothing;
+ insert into private.app_access_grandfathers(user_id) select unnest(v_ids) on conflict do nothing;
  get diagnostics v_count = row_count;
  insert into private.app_access_settings(key,value) values('access_model_cutoff',to_jsonb(v_cutoff));
- return jsonb_build_object('cutoff',v_cutoff,'grandfather_count',v_count,'excluded_unproven_count',v_unproven);
+ return jsonb_build_object('cutoff',v_cutoff,'grandfather_count',v_count,'currently_allowed_count',v_allowed);
 end;
 $function$;
 revoke all on function private.activate_app_access_model(integer) from public, anon, authenticated, service_role;
