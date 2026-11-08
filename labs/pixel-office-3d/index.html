@@ -27,7 +27,7 @@
     --omp: #a96926;
     --shadow: 0 1px 2px rgba(0,0,0,.04), 0 4px 16px rgba(0,0,0,.04);
   }
-  /* Tron 淺色語彙：與 shared/theme/tokens.css light 同源；僅 chrome 變數，語義色與房間場景不動 */
+  /* TRQN 淺色語彙：與 shared/theme/tokens.css light 同源；僅 chrome 變數，語義色與房間場景不動 */
   @media (prefers-color-scheme: light) {
     :root {
       --bg: #f2f4f7;
@@ -419,6 +419,7 @@
   .tfex { color: var(--ink); background: var(--line); border-radius: 6px; padding: 3px 7px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tfgap { color: var(--muted); font-style: italic; }
   .srcbanner { position: fixed; left: 50%; transform: translateX(-50%); bottom: 12px; z-index: 30; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 5px 14px; font-size: 12px; color: var(--muted); box-shadow: var(--shadow); }
+  @media (max-width: 520px) { .conn, .srcbanner { bottom: 116px; } } /* ZG-69: keep live-status pill above the landing intro chip on phone widths */
   .srcbanner b { color: var(--ink); }
   body.tf-mode #sceneMenu, body.tf-mode #newVer { display: none !important; }
   .ow-list { display: flex; flex-direction: column; gap: 4px; margin: 4px 0 10px; }
@@ -526,7 +527,7 @@
   <main id="main"></main>
 </div>
 <div class="conn" id="conn" data-t="disconnected"></div>
-<div id="tfAuth" hidden style="position:fixed;left:50%;transform:translateX(-50%);z-index:60;background:#7a2e2e;color:#fff;padding:8px 14px;border-radius:8px;font-size:13px">需要登入 Tron 才能讀取正式任務。<a style="color:#ffd9a0" target="_top" href="https://qqweasdzxc.github.io/zhuge-ai-os/modules/worklog/?app=1&amp;workspace=dashboard&amp;previewReturn=1">使用既有 Tron 登入</a></div>
+<div id="tfAuth" hidden style="position:fixed;left:50%;transform:translateX(-50%);z-index:60;background:#7a2e2e;color:#fff;padding:8px 14px;border-radius:8px;font-size:13px">需要登入 TRQN 才能讀取正式任務。<a style="color:#ffd9a0" target="_top" href="https://qqweasdzxc.github.io/zhuge-ai-os/modules/worklog/?app=1&amp;workspace=dashboard&amp;previewReturn=1">使用既有 TRQN 登入</a></div>
 <div class="tip" id="tip"></div>
 <div class="ver" id="ver"></div>
 <script src="i18n.js"></script>
