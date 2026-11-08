@@ -40,7 +40,7 @@ jobs:
         run: echo "BROWSER_EXECUTABLE=$(node -e 'process.stdout.write(require("playwright").chromium.executablePath())')" >> "$GITHUB_ENV"
 
       - name: Verify ZG-71 access migration on disposable PostgreSQL (no production calls)
-        run: node --test tests/zg71-app-access-sql.test.js tests/app-access-phase1.test.js
+        run: node --test tests/zg71-app-access-sql.test.js tests/zg71-rollback.test.cjs tests/app-access-phase1.test.js
 
       - name: Run all browser tests with no skip fallback
         run: npm run test:browser
@@ -53,3 +53,13 @@ jobs:
           path: tests/evidence/
           if-no-files-found: ignore
           retention-days: 14
+
+  edge-access:
+    name: User JWT Edge Access (isolated fake RPC)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node --test tests/zg71-edge-enforcement.test.cjs tests/zg71-taskflow-boundary.test.cjs

@@ -15,7 +15,7 @@ test('ZG-71 real SQL: transition, reversible access, legacy writers, permissions
  try {
  await db.exec(`create role anon; create role authenticated; create role service_role;
  create schema auth; create schema private;
- create table auth.users(id uuid primary key,email text);
+ create table auth.users(id uuid primary key,email text,raw_user_meta_data jsonb default '{}');
  create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.uid',true),'')::uuid$$;
  create table app_users(auth_user_id uuid,display_name text,email text,role text,created_at timestamptz default now());
  create table user_profiles(user_uuid uuid,display_name text,email text,created_at timestamptz default now());
@@ -34,7 +34,9 @@ test('ZG-71 real SQL: transition, reversible access, legacy writers, permissions
  }
  await db.exec(fn('submit_app_access_request'));
  await db.exec(fn('review_app_access_application'));
- for(let n=1;n<=8;n++) await db.exec(`insert into auth.users values('${id(n)}','test${n}@example.invalid')`);
+ // Test the replacement against exact live definitions, not inferred repo bodies.
+ for(const d of JSON.parse(read('tests/fixtures/zg71-live-function-definitions.json')).functions) await db.exec(d.definition+';');
+ for(let n=1;n<=8;n++) await db.exec(`insert into auth.users(id,email) values('${id(n)}','test${n}@example.invalid')`);
  await db.exec(`insert into app_users(auth_user_id,display_name,email,role) values('${id(1)}','Creator','test1@example.invalid','creator'),('${id(2)}','Owner','test2@example.invalid','owner'),('${id(7)}','App member','test7@example.invalid','member');
  insert into user_profiles(user_uuid,display_name,email) values('${id(6)}','Profile member','test6@example.invalid');
  insert into worklog_users(auth_user_id,display_name,email) values('${id(5)}','Worklog member','test5@example.invalid');`);
@@ -82,6 +84,12 @@ test('ZG-71 real SQL: transition, reversible access, legacy writers, permissions
  assert.equal(await scalar("select has_function_privilege('anon','public.set_app_access_user_enabled(uuid,boolean,text,text)','EXECUTE')"),false);
  assert.equal(await scalar("select has_function_privilege('authenticated','public.set_app_access_user_enabled(uuid,boolean,text,text)','EXECUTE')"),true);
  await db.exec(read('tests/fixtures/zg71-access-contract.sql'));
+ await require('./fixtures/zg71-matrix.cjs').verifyMatrix({db,as,q,scalar,id});
+ const replayBefore=await scalar('select jsonb_agg(to_jsonb(e) order by event_no) from private.app_access_application_events e');
+ const cutoffBefore=await scalar("select value from private.app_access_settings where key='access_model_cutoff'");
+ await db.exec(migration);
+ assert.deepEqual(await scalar('select jsonb_agg(to_jsonb(e) order by event_no) from private.app_access_application_events e'),replayBefore);
+ assert.deepEqual(await scalar("select value from private.app_access_settings where key='access_model_cutoff'"),cutoffBefore);
  console.log('TEST DATA SQL PASS: unchanged transition; REJECTED+paused allowed; Off+paused denied; creator protected; reversible; app identities scoped.');
  } finally { await db.close(); }
 });

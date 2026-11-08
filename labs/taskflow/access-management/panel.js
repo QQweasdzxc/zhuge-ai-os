@@ -3,7 +3,7 @@
   "use strict";
   const $ = id => document.getElementById(id);
   const message = $("message"), controls = $("controls"), login = $("login"), toggle = $("paused"), reload = $("reload"), cards = $("cards"), dialog = $("confirmation");
-  let status = "unknown", paused = null, busy = false, generation = 0, userId = null, rows = [], filter = "all", selected = null;
+  let status = "unknown", modelActive = false, paused = null, busy = false, generation = 0, userId = null, rows = [], filter = "all", selected = null;
   const node = (tag, text, cls) => { const el = document.createElement(tag); if (text != null) el.textContent = text; if (cls) el.className = cls; return el; };
   function deny(text, next = "denied") {
     status = next; paused = null; rows = []; cards.replaceChildren(); controls.hidden = true; login.hidden = next !== "login";
@@ -30,15 +30,16 @@
     if (typeof value !== "boolean") throw new Error("狀態回應格式錯誤，請重新確認。");
     paused = value; toggle.checked = value; toggle.setAttribute("aria-checked", String(value));
     $("state").textContent = `人工審核：${value ? "已暫停" : "啟用"}`;
-    $("pause-note").textContent = value ? "暫停中，已登入者可直接進入，不會產生新的等待審核申請；個別設為 Off 的人仍會被擋" : "人工審核啟用中，尚未通過的人需提出申請並等待管理者審核。";
+    $("pause-note").textContent = value ? (modelActive ? "既有成員保留使用；新加入者需你開啟。個別 Off 會被擋。" : "暫停審核中，登入者可直接使用；個別 Off 會被擋") : "人工審核啟用中，尚未通過的人需提出申請並等待管理者審核。";
   }
+  const errorText = error => error instanceof TypeError ? "網路連線失敗" : error.message;
   function failure(error) {
     if (error.status === 401) deny("請先使用既有 Google 帳號登入 TRQN OS。", "login");
     else if (error.status === 403 || error.code === "42501") deny("無權限");
-    else deny(`無法載入：${error.message}。請重新確認。`, "error");
+    else deny(`無法載入：${errorText(error)}。請重新確認。`, "error");
   }
-  const pending = row => !row.access_disabled && ["PENDING", "NEW"].includes(row.status);
-  const category = row => pending(row) ? "pending" : row.enabled ? "enabled" : "disabled";
+  const pending = row => !row.effective_allowed && !row.access_disabled && ["PENDING", "NEW"].includes(row.status);
+  const category = row => pending(row) ? "pending" : row.effective_allowed ? "enabled" : "disabled";
   const time = value => value ? new Date(value).toLocaleString("zh-TW", { timeZone: "Asia/Taipei" }) : "";
   function render() {
     cards.replaceChildren();
@@ -51,7 +52,7 @@
     if (!rows.length) { cards.append(node("p", "目前沒有申請紀錄")); return; }
     if (!visible.length) { cards.append(node("p", "此分類目前沒有紀錄")); return; }
     for (const row of visible) {
-      const state = pending(row) ? "待審核" : row.enabled ? "已允許" : "已禁止";
+      const state = pending(row) ? "待審核" : row.effective_allowed ? "已允許" : "已禁止";
       const card = node("article", null, `card${pending(row) ? " pending" : ""}`);
       const name = row.display_name || "尚未填寫姓名";
       card.setAttribute("aria-label", `${name}，${state}`);
@@ -62,11 +63,11 @@
       if (row.decided_at) card.append(node("p", `最近決定：${time(row.decided_at)}`, "meta"));
       if (row.review_note) card.append(node("p", `最近決定備註：${row.review_note}`, "note"));
       const self = row.applicant_user_id === userId || row.is_creator === true;
-      const line = node("div", null, "switch-line"), label = node("span", row.enabled ? "On · 允許使用" : "Off · 禁止使用 🚫");
-      const button = node("button", null, "apple-switch"); button.type = "button"; button.setAttribute("role", "switch"); button.setAttribute("aria-checked", String(row.enabled)); button.setAttribute("aria-label", `${name}：${row.enabled ? "允許使用" : "禁止使用"}${pending(row) ? "，待審核" : ""}`); button.disabled = busy || self;
+      const line = node("div", null, "switch-line"), label = node("span", row.effective_allowed ? "On · 允許使用" : "Off · 禁止使用 🚫");
+      const button = node("button", null, "apple-switch"); button.type = "button"; button.setAttribute("role", "switch"); button.setAttribute("aria-checked", String(row.effective_allowed)); button.setAttribute("aria-label", `${name}：${row.effective_allowed ? "允許使用" : "禁止使用"}${pending(row) ? "，待審核" : ""}`); button.disabled = busy || self;
       button.addEventListener("click", () => {
         if (busy || status !== "creator") return;
-        selected = { row, enabled: !row.enabled, key: crypto.randomUUID() };
+        selected = { row, enabled: !row.effective_allowed, key: crypto.randomUUID() };
         $("confirm-title").textContent = `確定${selected.enabled ? "允許" : "禁止"}${name}使用？`;
         $("review-note").value = ""; $("confirm-error").textContent = ""; dialog.showModal();
       });
@@ -78,12 +79,14 @@
   function lock(value) { busy = value; reload.disabled = value; toggle.disabled = value; $("confirm-submit").disabled = value; $("confirm-cancel").disabled = value; }
   async function refresh() {
     await creator();
+    const access = await rpc("resolve_app_access", {});
+    modelActive = access?.access_model_active === true;
     const value = await rpc("app_access_review_paused", {});
     const result = await rpc("list_app_access_applications", {});
     // Recheck canonical identity before exposing PII after asynchronous reads.
     await creator();
-    if (!Array.isArray(result) || result.some(r => typeof r.enabled !== "boolean")) throw new Error("名片服務尚未更新，請先部署 ZG-71 migration");
-    rows = result; showState(value); status = "creator"; controls.hidden = false; login.hidden = true;
+    if (!Array.isArray(result) || result.some(r => typeof r.effective_allowed !== "boolean")) throw new Error("名片服務尚未更新，請先部署 ZG-71 migration");
+    rows = result.map(row => ({ ...row, enabled: row.effective_allowed })); showState(value); status = "creator"; controls.hidden = false; login.hidden = true;
   }
   async function load() {
     if (busy || dialog.open) return;
@@ -116,7 +119,7 @@
       // The visual switch was never optimistically changed; recover by rereading on retry.
       selected = null; dialog.close();
       if (error.status === 401 || error.status === 403 || error.code === "42501") failure(error);
-      else message.textContent = `更新未確認：${error.message}。開關保留原狀，請重新確認後再試。`;
+      else message.textContent = `更新未確認：${errorText(error)}。開關保留原狀，請重新確認後再試。`;
     } finally { lock(false); if (status === "creator") render(); }
   });
   $("filters").addEventListener("click", event => { if (!busy && event.target.dataset.filter) { filter = event.target.dataset.filter; render(); } });

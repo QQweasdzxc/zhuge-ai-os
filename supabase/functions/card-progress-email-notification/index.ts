@@ -1,3 +1,4 @@
+import { requireAppAccess } from "../_shared/app-access.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
 const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type"};
 const emailRx=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -11,6 +12,7 @@ Deno.serve(async(req)=>{
  const auth=req.headers.get("Authorization")||"";
  const caller=createClient(url,anon,{global:{headers:{Authorization:auth}}});
  const {data:{user}}=await caller.auth.getUser(); if(!user) return json({code:"AUTH_REQUIRED"},401);
+ try { await requireAppAccess(req); } catch (e) { return json({code:"APP_ACCESS_REQUIRED"}, Number((e as {status?: number}).status)||403); }
  const body=await req.json().catch(()=>({})); const taskId=text(body.task_id), activityId=text(body.activity_id), cardUrl=text(body.card_url);
  if(!taskId||!activityId) return json({code:"INVALID_INPUT"},400);
  const admin=createClient(url,service,{auth:{persistSession:false}});

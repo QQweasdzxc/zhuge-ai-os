@@ -29,6 +29,7 @@ test("App Access service uses the canonical RPC contract", async () => {
   assert.equal(submitted.status, "PENDING");
   assert.deepEqual(calls, [
     { name: "resolve_app_access", args: {} },
+    { name: "ensure_app_member", args: {} },
     {
       name: "submit_app_access_request",
       args: { p_display_name: "New User", p_reason: "需要使用工作空間", p_idempotency_key: "request-1" }

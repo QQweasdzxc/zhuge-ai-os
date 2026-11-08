@@ -57,7 +57,9 @@
     const call = (name, args = {}) => gateway.rpc(name, args);
     return Object.freeze({
       async getCurrent() {
-        return normalizeAccess(await call("resolve_app_access", {}));
+        const current = normalizeAccess(await call("resolve_app_access", {}));
+        if (current.userId) await call("ensure_app_member", {});
+        return current;
       },
       async submit({ displayName, reason, idempotencyKey } = {}) {
         return normalizeAccess(await call("submit_app_access_request", {

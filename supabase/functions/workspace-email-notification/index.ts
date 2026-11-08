@@ -1,3 +1,4 @@
+import { requireAppAccess } from "../_shared/app-access.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
 
 const cors = {
@@ -59,6 +60,8 @@ Deno.serve(async (request) => {
   });
   const { data: { user }, error: userError } = await caller.auth.getUser();
   if (userError || !user) return json({ code: "AUTH_REQUIRED", message: "Authentication required" }, 401);
+
+  try { await requireAppAccess(request); } catch (e) { return json({ code: "APP_ACCESS_REQUIRED", message: "App access denied or unavailable" }, Number((e as {status?: number}).status) || 403); }
 
   const requestBody = await request.json().catch(() => ({}));
   const body = asObject(requestBody);

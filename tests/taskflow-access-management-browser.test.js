@@ -33,6 +33,7 @@ test("Pages panel: Google login, creator gate, confirmed RPC parameters and erro
       calls.push({ name, args });
       if (name === "resolve_creator_capability") return route.fulfill({ json: { user_id: "u1", is_creator: creator } });
       if (name === "list_app_access_applications") return route.fulfill({ json: [] });
+      if (name === "resolve_app_access") return route.fulfill({ json: { access_model_active: false } });
       if (name === "app_access_review_paused") return route.fulfill({ json: value });
       assert.equal(name, "set_app_access_review_paused");
       assert.equal(typeof args.paused, "boolean");

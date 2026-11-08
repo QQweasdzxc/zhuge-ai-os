@@ -15,18 +15,63 @@ alter table private.app_access_application_events
     event_type not in ('application_approved','application_rejected','access_disabled','access_enabled')
     or reviewer_user_id is not null);
 
+-- Server-owned membership and one-time App-scoped compatibility snapshot.
+create table if not exists private.app_access_members (
+ user_id uuid primary key references auth.users(id), email text not null,
+ display_name text, first_seen_at timestamptz not null default clock_timestamp()
+);
+create table if not exists private.app_access_grandfathers (
+ user_id uuid primary key references auth.users(id), captured_at timestamptz not null default clock_timestamp()
+);
+alter table private.app_access_members enable row level security;
+alter table private.app_access_grandfathers enable row level security;
+revoke all on private.app_access_members, private.app_access_grandfathers from public, anon, authenticated, service_role;
+
+create or replace function private.app_access_effective_allowed(p_user_id uuid)
+returns boolean language sql stable security definer
+set search_path to pg_catalog, auth, private, public, pg_temp
+as $function$
+ select p_user_id is not null and coalesce((
+  select case when e.event_type='access_disabled' then false
+   when e.event_type in ('approved_bootstrap','application_approved','access_enabled') then true
+   else public.app_access_review_paused() and (
+    not exists(select 1 from private.app_access_settings where key='access_model_cutoff')
+    or (exists(select 1 from private.app_access_grandfathers g where g.user_id=p_user_id)
+     and not (e.event_type in ('application_submitted','application_rejected') and e.created_at >=
+       (select (value #>> '{}')::timestamptz from private.app_access_settings where key='access_model_cutoff')))
+   ) end
+  from private.app_access_application_events e where e.applicant_user_id=p_user_id
+  order by e.event_no desc limit 1
+ ), public.app_access_review_paused() and (
+   not exists(select 1 from private.app_access_settings where key='access_model_cutoff')
+   or exists(select 1 from private.app_access_grandfathers g where g.user_id=p_user_id)
+ ));
+$function$;
+revoke all on function private.app_access_effective_allowed(uuid) from public, anon, authenticated, service_role;
 create or replace function public.is_app_access_approved()
 returns boolean language sql stable security definer
 set search_path to pg_catalog, auth, private, public, pg_temp
 as $function$
-  select auth.uid() is not null and coalesce((
-    select case when e.event_type = 'access_disabled' then false
-      else public.app_access_review_paused()
-        or e.event_type in ('approved_bootstrap','application_approved','access_enabled') end
-    from private.app_access_application_events e
-    where e.applicant_user_id = auth.uid() order by e.event_no desc limit 1
-  ), public.app_access_review_paused());
+ select private.app_access_effective_allowed(auth.uid());
 $function$;
+
+-- No parameters: callers cannot select a target or supply/backdate evidence.
+create or replace function public.ensure_app_member()
+returns jsonb language plpgsql security definer
+set search_path to pg_catalog, auth, private, public, pg_temp
+as $function$
+declare v_user uuid := auth.uid();
+begin
+ if v_user is null then raise exception using errcode='42501',message='Authenticated identity is required.'; end if;
+ perform pg_advisory_xact_lock(hashtextextended('app_access_model_activation',0));
+ insert into private.app_access_members(user_id,email,display_name)
+ select id,coalesce(email,''),coalesce(raw_user_meta_data->>'full_name',raw_user_meta_data->>'name','')
+ from auth.users where id=v_user on conflict(user_id) do nothing;
+ return jsonb_build_object('user_id',v_user);
+end;
+$function$;
+revoke all on function public.ensure_app_member() from public, anon, service_role;
+grant execute on function public.ensure_app_member() to authenticated;
 
 create or replace FUNCTION public.resolve_app_access()
  RETURNS jsonb
@@ -46,6 +91,8 @@ begin
   if v_user is null then
     return jsonb_build_object(
       'status', 'UNAUTHENTICATED',
+      'effective_allowed', false,
+      'enabled', false,
       'user_id', null,
       'email', null,
       'history', '[]'::jsonb,
@@ -77,7 +124,9 @@ begin
   end if;
 
   return jsonb_build_object(
-    'status', case when v_latest.event_type = 'access_disabled' then 'REJECTED' when v_paused then 'APPROVED' else v_status end,
+    'status', case when private.app_access_effective_allowed(v_user) then 'APPROVED' when v_latest.event_type='access_disabled' then 'REJECTED' else v_status end,
+    'effective_allowed', private.app_access_effective_allowed(v_user),
+    'access_model_active', exists(select 1 from private.app_access_settings where key='access_model_cutoff'),
     'access_disabled', coalesce(v_latest.event_type = 'access_disabled', false),
     'enabled', public.is_app_access_approved(),
     'original_status', v_status,
@@ -122,6 +171,7 @@ as $function$
     union all select user_uuid, display_name, email, created_at, 2 from public.user_profiles
     union all select auth_user_id, display_name, email, created_at, 3 from public.worklog_users
     union all select applicant_user_id, display_name, email_snapshot, created_at, 4 from private.app_access_application_events
+    union all select user_id, display_name, email, first_seen_at, 5 from private.app_access_members
   ) s where s.user_id is not null
   order by s.user_id, s.priority, s.member_since;
 $function$;
@@ -147,8 +197,8 @@ begin
         when 'application_rejected' then 'REJECTED' when 'access_disabled' then 'REJECTED'
         when 'access_enabled' then 'APPROVED' when 'application_approved' then 'APPROVED'
         when 'approved_bootstrap' then 'APPROVED' else 'NEW' end,
-      'enabled', case when e.event_type='access_disabled' then false
-        else public.app_access_review_paused() or coalesce(e.event_type in ('approved_bootstrap','application_approved','access_enabled'),false) end,
+      'effective_allowed', private.app_access_effective_allowed(m.user_id),
+      'enabled', private.app_access_effective_allowed(m.user_id),
       'access_disabled', coalesce(e.event_type='access_disabled',false),
       'submitted_at', (select min(h.created_at) from private.app_access_application_events h
         where h.application_id=e.application_id and h.event_type='application_submitted'),
@@ -251,6 +301,7 @@ begin
 end;
 $function$;
 revoke all on function private.guard_app_access_switch() from public, anon, authenticated, service_role;
+drop trigger if exists app_access_switch_guard on private.app_access_application_events;
 create trigger app_access_switch_guard before insert on private.app_access_application_events
 for each row execute function private.guard_app_access_switch();
 
@@ -260,4 +311,31 @@ revoke all on function public.list_app_access_applications() from public, anon;
 revoke all on function public.set_app_access_user_enabled(uuid,boolean,text,text) from public, anon, service_role;
 grant execute on function public.is_app_access_approved(), public.resolve_app_access(), public.list_app_access_applications(),
   public.set_app_access_user_enabled(uuid,boolean,text,text) to authenticated;
+-- Owner-only activation. Migration NEVER calls this function or sets cutoff.
+-- Snapshot membership, not user-controlled created_at. Existing events unchanged.
+create or replace function private.activate_app_access_model()
+returns jsonb language plpgsql security definer
+set search_path to pg_catalog, auth, private, public, pg_temp
+as $function$
+declare v_cutoff timestamptz; v_count integer;
+begin
+ perform pg_advisory_xact_lock(hashtextextended('app_access_model_activation',0));
+ v_cutoff := clock_timestamp();
+ if exists(select 1 from private.app_access_settings where key='access_model_cutoff') then
+  raise exception 'Access model already activated; do not recreate the snapshot';
+ end if;
+ -- Deployment gate: resolve unknown identities through self-entry during the
+ -- compatibility period, never import the Auth project as an App roster.
+ if exists(select 1 from auth.users u where private.app_access_effective_allowed(u.id)
+   and not exists(select 1 from private.app_access_member_identities() m where m.user_id=u.id)) then
+  raise exception 'Activation blocked: effective users lack App evidence';
+ end if;
+ insert into private.app_access_grandfathers(user_id)
+ select user_id from private.app_access_member_identities() on conflict do nothing;
+ get diagnostics v_count = row_count;
+ insert into private.app_access_settings(key,value) values('access_model_cutoff',to_jsonb(v_cutoff));
+ return jsonb_build_object('cutoff',v_cutoff,'grandfather_count',v_count);
+end;
+$function$;
+revoke all on function private.activate_app_access_model() from public, anon, authenticated, service_role;
 commit;

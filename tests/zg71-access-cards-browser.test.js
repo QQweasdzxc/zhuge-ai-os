@@ -24,8 +24,9 @@ test('TEST DATA: cards, keyboard, filters, confirmation, errors and identity rev
  if(u.pathname==='/auth/v1/user')return route.fulfill({json:{id:'u1',email:'creator@example.invalid'}});
  const name=u.pathname.split('/').pop();
  if(name==='resolve_creator_capability')return route.fulfill({json:{is_creator:creator,user_id:'u1'}});
+ if(name==='resolve_app_access')return route.fulfill({json:{access_model_active:true}});
  if(name==='app_access_review_paused')return route.fulfill({json:paused});
- if(name==='list_app_access_applications'){if(network)return route.abort();return route.fulfill({json:empty?[]:rows});}
+ if(name==='list_app_access_applications'){if(network)return route.abort();return route.fulfill({json:empty?[]:rows.map(r=>({...r,effective_allowed:r.enabled}))});}
  if(name==='set_app_access_user_enabled'){
  const args=route.request().postDataJSON();writes.push(args);
  if(fail)return route.fulfill({status:500,json:{message:'TEST DATA failure'}});
@@ -46,15 +47,16 @@ test('TEST DATA: cards, keyboard, filters, confirmation, errors and identity rev
  fail=false;await sw.click();await page.getByRole('button',{name:'確認變更',exact:true}).click();await page.getByText('存取設定已更新。',{exact:true}).waitFor();assert.equal(writes.at(-1).p_enabled,false);
  await sw.click();await page.getByRole('button',{name:'確認變更',exact:true}).click();await page.getByText('存取設定已更新。',{exact:true}).waitFor();assert.equal(await sw.getAttribute('aria-checked'),'true');
  // Reset fixture exclusively inside this test for readable desktop/mobile evidence.
- rows[1].status='PENDING';rows[1].enabled=false;rows[1].access_disabled=false;
+ paused=true;rows[1].status='PENDING';rows[1].enabled=false;rows[1].access_disabled=false;
  await page.getByRole('button',{name:'重新確認',exact:true}).click();await page.locator('.card.pending').waitFor();
+ await page.evaluate(()=>{const banner=document.createElement('p');banner.textContent='TEST DATA · 本地測試資料，非正式使用者';banner.style.cssText='background:#ffd588;color:#182632;padding:12px';document.body.prepend(banner);});
  const evidence=process.env.ZG71_EVIDENCE_DIR||path.join(root,'tests/evidence/zg71');fs.mkdirSync(evidence,{recursive:true});
  await page.setViewportSize({width:1440,height:1100});await page.screenshot({path:path.join(evidence,'TEST-DATA-desktop.png'),fullPage:true});
  await page.setViewportSize({width:390,height:844});await page.screenshot({path:path.join(evidence,'TEST-DATA-mobile.png'),fullPage:true});
  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
  await sw.click();creator=false;await page.getByRole('button',{name:'確認變更',exact:true}).click();await page.getByText('無權限',{exact:true}).waitFor();assert.equal(await page.locator('.card').count(),0);assert.equal(writes.length,4);
- creator=true;empty=true;await page.getByRole('button',{name:'重新確認',exact:true}).click();await page.getByText('目前沒有申請紀錄',{exact:true}).waitFor();
- empty=false;network=true;await page.getByRole('button',{name:'重新確認',exact:true}).click();await page.getByText(/無法載入/).waitFor();assert.equal(await page.locator('.card').count(),0);
+ creator=true;empty=true;await page.getByRole('button',{name:'重新確認',exact:true}).click();await page.getByText('目前沒有申請紀錄',{exact:true}).waitFor();await page.screenshot({path:path.join(evidence,'TEST-DATA-empty-mobile.png'),fullPage:true});await page.setViewportSize({width:1440,height:1000});await page.screenshot({path:path.join(evidence,'TEST-DATA-empty-desktop.png'),fullPage:true});
+ empty=false;network=true;await page.getByRole('button',{name:'重新確認',exact:true}).click();await page.getByText(/無法載入/).waitFor();assert.equal(await page.locator('.card').count(),0);await page.screenshot({path:path.join(evidence,'TEST-DATA-error-desktop.png'),fullPage:true});await page.setViewportSize({width:390,height:844});await page.screenshot({path:path.join(evidence,'TEST-DATA-error-mobile.png'),fullPage:true});
  assert.deepEqual(errors,[]);await context.close();
  } finally {await browser.close();}
 });

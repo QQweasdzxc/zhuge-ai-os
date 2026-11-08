@@ -1,3 +1,4 @@
+import { requireAppAccess } from "../_shared/app-access.ts";
 /*
  * Zhuge AI OS Investment Intelligence Read Adapter.
  *
@@ -1596,6 +1597,7 @@ Deno.serve(async request => {
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: responseHeaders(origin) });
     if (request.method !== "POST") throw new HttpError("POST is required.", 405, "METHOD_NOT_ALLOWED");
     await requireAuthenticatedSession(request);
+    await requireAppAccess(request);
     const input = validateInput(await request.json().catch(() => ({})));
     providerCache.clear();
     const now = Date.now();
@@ -1689,6 +1691,7 @@ Deno.serve(async request => {
       mutating_operations_invoked: false
     }, 200, origin);
   } catch (error) {
+    if ((error as {code?: string})?.code?.startsWith("APP_ACCESS") || (error as {code?: string})?.code === "ACCESS_CONFIG_MISSING") return json({ code: "APP_ACCESS_REQUIRED", message: "App access denied or unavailable" }, Number((error as {status?: number}).status) || 403, origin);
     if (error instanceof HttpError) return json({ code: error.code, message: error.message }, error.status, origin);
     return json({ code: "INVESTMENT_INTELLIGENCE_READ_FAILED", message: "Investment Intelligence read adapter failed." }, 500, origin);
   }
