@@ -1,4 +1,4 @@
-/* Tron Shared Identity
+/* TRQN Shared Identity
  *
  * Normalizes provider-specific user/session shapes into the only identity
  * contract visible to modules. Tokens and provider session details are never
