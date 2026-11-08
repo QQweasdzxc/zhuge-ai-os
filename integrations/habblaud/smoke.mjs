@@ -203,7 +203,7 @@ try {
   const frame = await waitForNativeReady(page);
   await waitForNativeViewport(page,1280,780);
   const hud = await frame.locator('#zhuge-aios-hud').innerText();
-  if (!hud.includes('Tron') || !hud.includes('待裁示')) throw new Error('HUD not rendered: ' + hud);
+  if (!hud.includes('TRQN') || !hud.includes('待裁示')) throw new Error('HUD not rendered: ' + hud);
   // Desktop gets one orientation window, then a compact pill; the decision count
   // must remain visible and the same control must still expand/collapse manually.
   const hudRoot = frame.locator('#zhuge-aios-hud');
