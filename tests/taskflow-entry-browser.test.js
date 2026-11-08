@@ -21,7 +21,7 @@ test("classic status route preserves authenticated TaskFlow Dashboard after pixe
   for(const viewport of [{width:1440,height:900},{width:390,height:844}]){
     const anonymous=await browser.newPage({viewport});
     await anonymous.goto(root,{waitUntil:"load"});
-    await anonymous.getByText("需要先登入 Tron").waitFor({timeout:7000});
+    await anonymous.getByText("需要先登入 TRQN").waitFor({timeout:7000});
     assert.equal(anonymous.url(),root,"anonymous homepage does not redirect");
     assert.equal(await anonymous.locator(".tf-issue").count(),0,"no fake tasks");
     await anonymous.close();
@@ -78,8 +78,8 @@ test("classic status wall gates data controls by auth state",async t=>{
     const anonymous=await browser.newPage();
     await anonymous.route(officialApi+"/**",route=>route.abort());
     await anonymous.goto(root,{waitUntil:"load"});
-    await anonymous.getByText("需要先登入 Tron").waitFor({timeout:7000});
-    assert.equal(await anonymous.locator("#tf-status").textContent(),"尚未登入：請使用既有 Tron 身分登入。");
+    await anonymous.getByText("需要先登入 TRQN").waitFor({timeout:7000});
+    assert.equal(await anonymous.locator("#tf-status").textContent(),"尚未登入：請使用既有 TRQN 身分登入。");
     assert.equal(await anonymous.locator("#tf-meta").textContent(),"登入後顯示正式任務，不顯示模擬資料。");
     assert.equal(await anonymous.locator("#tf-workspace").isDisabled(),true,"anonymous: workspace select disabled");
     assert.equal(await anonymous.locator("#tf-search").isDisabled(),true,"anonymous: search disabled");
@@ -94,7 +94,7 @@ test("classic status wall gates data controls by auth state",async t=>{
       return route.fulfill({status:401,headers:{...cors,"content-type":"application/json"},body:JSON.stringify({error:"invalid session"})});
     });
     await expired.goto(root,{waitUntil:"load"});
-    await expired.getByText("登入已失效，請先使用既有 Tron 身分登入。").waitFor({timeout:7000});
+    await expired.getByText("登入已失效，請先使用既有 TRQN 身分登入。").waitFor({timeout:7000});
     assert.equal(await expired.locator("#tf-login").isVisible(),true,"expired session keeps the login wall");
     assert.equal(await expired.locator("#tf-workspace").isDisabled(),true,"expired: workspace select disabled");
     assert.equal(await expired.locator("#tf-search").isDisabled(),true,"expired: search disabled");
@@ -263,13 +263,13 @@ test("unauthenticated CLI SSO preserves only short-lived callback intent on the 
     body: `<!doctype html><title>Zhuge Login</title><script src="/labs/taskflow/cli-sso.js?v=20261010-2022"></script><script>window.ZhugeTaskFlowCliSSO.startLoginReturnMonitor(window)</script>`
   }));
   await page.goto(entry + "#" + new URLSearchParams({ cli_callback: callback, cli_state: state }).toString(), { waitUntil: "load" });
-  await page.getByRole("button", { name: "前往 Tron 登入" }).waitFor({ timeout: 7000 });
+  await page.getByRole("button", { name: "前往 TRQN 登入" }).waitFor({ timeout: 7000 });
   assert.equal(apiCalls, 0, "no Zhuge session is sent to the TaskFlow API");
   assert.equal(new URL(page.url()).pathname, new URL(entry).pathname, "CLI visitor stays on the explanation card until they choose login");
   const pending = await page.evaluate(() => JSON.parse(sessionStorage.getItem("zhuge_taskflow_cli_intent_v1")));
   assert.deepEqual(pending, { callback, state, createdAt: pending.createdAt });
   assert.ok(Date.now() - pending.createdAt < 5000);
-  await page.getByRole("button", { name: "前往 Tron 登入" }).click();
+  await page.getByRole("button", { name: "前往 TRQN 登入" }).click();
   await page.waitForURL(url => url.origin === entryUrl.origin && url.pathname === "/modules/worklog/", { timeout: 10000 });
   const loginUrl = new URL(page.url());
   assert.equal(loginUrl.hash, "");
@@ -302,13 +302,13 @@ test("unauthenticated TaskFlow entry stays on the explanation card and leaves vi
       body: "<!doctype html><title>Zhuge Login</title>"
     }));
     await page.goto(entry, { waitUntil: "load" });
-    await page.getByRole("button", { name: "前往 Tron 登入" }).waitFor({ timeout: 7000 });
+    await page.getByRole("button", { name: "前往 TRQN 登入" }).waitFor({ timeout: 7000 });
     assert.equal(new URL(page.url()).pathname, new URL(entry).pathname, "signed-out visitor stays on the explanation card");
     assert.equal(apiCalls, 0, "no session must never be sent to TaskFlow");
-    assert.match(await page.getByRole("status").innerText(), /尚未登入 Tron/);
+    assert.match(await page.getByRole("status").innerText(), /尚未登入 TRQN/);
     const layout = await page.evaluate(() => ({ width: innerWidth, scrollWidth: document.documentElement.scrollWidth }));
     assert.ok(layout.scrollWidth <= layout.width, JSON.stringify(layout));
-    await page.getByRole("button", { name: "前往 Tron 登入" }).click();
+    await page.getByRole("button", { name: "前往 TRQN 登入" }).click();
     await page.waitForURL(url => url.pathname === "/modules/worklog/", { timeout: 10000 });
     const loginUrl = new URL(page.url());
     assert.equal(loginUrl.searchParams.get("app"), "1");
@@ -331,14 +331,14 @@ test("expired or forbidden Zhuge session is rejected and stays on the explanatio
       if (location.origin === origin) localStorage.setItem("zhuge_ai_os_session_v1", JSON.stringify({ access_token: "expired-test-session-token" }));
     }, { origin: entryOrigin });
     await page.goto(entry, { waitUntil: "load" });
-    await page.getByRole("button", { name: "前往 Tron 登入" }).waitFor({ timeout: 10000 });
+    await page.getByRole("button", { name: "前往 TRQN 登入" }).waitFor({ timeout: 10000 });
     const authRequest = readCaptured();
     assert.ok(authRequest);
     assert.equal(new URL(authRequest.url).search, "");
     assert.equal(JSON.parse(authRequest.body).access_token, "expired-test-session-token");
     assert.equal(new URL(page.url()).pathname, new URL(entry).pathname, "rejected session stays on the explanation card");
     assert.match(await page.getByRole("status").innerText(), /登入狀態已過期/);
-    await page.getByRole("button", { name: "前往 Tron 登入" }).click();
+    await page.getByRole("button", { name: "前往 TRQN 登入" }).click();
     await page.waitForURL(url => url.pathname === "/modules/worklog/", { timeout: 10000 });
     const loginUrl = new URL(page.url());
     assert.equal(loginUrl.search, "?app=1&workspace=dashboard&taskflowReturn=1");
