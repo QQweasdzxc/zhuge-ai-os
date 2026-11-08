@@ -42,6 +42,20 @@ for (const [name, allowed] of cases) {
     assert.ok(/APP_ACCESS_REQUIRED/.test(gated));
   });
 }
+test("investment-intelligence-read: hashes, gate-only diff, import-only repack", () => {
+  const n = "investment-intelligence-read";
+  for (const k of ["live", "gated", "gated-repack"]) assert.equal(sha(read(`${n}.${k}.ts`)), sums[`${n}.${k}.ts`]);
+  const live = read(`${n}.live.ts`).split("\n"), gated = read(`${n}.gated.ts`).split("\n");
+  const added = []; let i = 0;
+  for (const line of gated) { if (i < live.length && line === live[i]) { i++; continue; } added.push(line); }
+  assert.equal(i, live.length);
+  assert.equal(added.length, 3);
+  assert.match(added[0], /^import \{ requireAppAccess \} from "\.\.\/_shared\/app-access\.ts";$/);
+  assert.match(added[1], /^\s*await requireAppAccess\(request\);$/);
+  assert.match(added[2], /APP_ACCESS_REQUIRED/);
+  assert.equal(read(`${n}.gated-repack.ts`), read(`${n}.gated.ts`).split('"../../../labs/').join('"../_shared/labs/'));
+  assert.ok(!/\.\.\/\.\.\/\.\.\/labs\//.test(read(`${n}.gated-repack.ts`)));
+});
 test("shared gate source matches the deployed hash prefix", () => {
   const shared = fs.readFileSync(path.join(__dirname, "..", "supabase", "functions", "_shared", "app-access.ts"), "utf8");
   assert.ok(sha(shared).startsWith("67f1457dfd11201c"));
