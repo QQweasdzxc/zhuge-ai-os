@@ -49,3 +49,20 @@ CLI bundling 會帶入被 import 的 `_shared/app-access.ts`；Dashboard 部署�
 - 不回退事件 CHECK、不刪除／update append-only 事件。不得直接重部署缺少 gate 的舊 Edge（會使 Off 重新繞過）；需修復／回復最後有效 gate 的來源再部署。正式 Provider 連線、deploy 操作及 Dashboard UI 本次未測試。
 
 Compatibility 回復後完成修復及相同 head QA，再由 main 重新授予 setter 的 authenticated EXECUTE；不需要重新產生 cutoff、快照或改動任何事件。Forward migration 可重播，測試驗證不重寫事件與 cutoff；歷史 11/06 baseline 不得在有新決定後單獨重播，因其舊 reader 不識別 Off。
+
+## 實際部署紀錄（2026-11-09，production lenpbbhwxyyfwgvjcozf）
+
+狀態：**半部署，未 merge、未 activation、cutoff 未設定、內部 pause 仍為 true。**
+
+- 06:59 Stage 1：以 Dashboard SQL editor 只套用 reviewed 新 migration（SHA-256 `c100448d73312d072c581bbb5e06be8e4c83a710b8d0d554129f87b71a8b5d9`），未執行 db push 或 baseline。回讀：3 個函式依設計改變（resolve_app_access、is_app_access_approved、list_app_access_applications）、4 個不變；effective allowed 6／blocked 0／members 0／grandfathers 0／Off 事件 0；權限依設計（anon 不可執行新函式）。
+- Stage 2 以 Dashboard Edge Functions editor 部署，皆加入 `../_shared/app-access.ts`（sha256 前綴 `67f1457dfd11201c`），verify_jwt 部署前後皆開啟，部署後重新載入逐檔比對 SHA-256 前綴：
+  - task-attachment-ai-read：index `021fb1da79de9cf3`（以 PR head 內容部署）
+  - investment-screenshot-recognition：index `b26ce1460ce11d33`（head 內容）
+  - gas-vendor-bridge：index `bc1a4662804505da`（head 內容）
+  - zhuge-skyeye-read：index `6fafaad05d366d40`，**live 相容 gate-only 版本**（`docs/zg71/live-compat/zhuge-skyeye-read.gated.ts`；live 原始碼見 `.live.ts`，只多 3 行 gate；不含 main 的天氣快取）
+  - workspace-email-notification：index `4a7310ec7109cced`，**live 相容 gate-only 版本**（`docs/zg71/live-compat/workspace-email-notification.gated.ts`；不含 main 的 cc/bcc、card_url、From name 變更）
+  - 另四個函式的 live 版本與 main 只差品牌字串（Tron OS／TRQN OS）；部署 head 會把該字串換成 TRQN OS。
+- 尚未部署：investment-intelligence-read。Dashboard bundler 無法解析 `../../../labs/...` 相對依賴（Module not found，live 未變），需等價打包或 CLI／CI 部署路徑。**此函式尚無 gate，Off 使用者仍可用自己的 JWT 呼叫（消耗 provider 額度，無使用者資料）。**
+- card-progress-email-notification 未部署於 production，無需 gate。
+- Edge 部署不會自動回復；回復方式為重新部署 live 原始碼（`*.live.ts`）並刪除 `../_shared/app-access.ts`，但這會移除 gate，須先確認狀態。
+- 驗證限制：未用真實使用者 JWT 探測；匿名金鑰探測得到函式自身的 401。尚未啟用 cutoff，因此 gate 對現有 6 個可用帳號都放行。
