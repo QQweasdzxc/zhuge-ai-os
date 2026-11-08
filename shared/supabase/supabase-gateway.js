@@ -1,4 +1,4 @@
-/* Tron Shared Supabase Gateway
+/* TRQN Shared Supabase Gateway
  *
  * Modules receive a narrow data API through ModuleContext. They never receive
  * the Supabase client, access token, refresh token, or Auth implementation.
@@ -77,7 +77,7 @@
       ? await ensureFreshAuthSession(false)
       : (typeof getStoredAuthSession === "function" ? getStoredAuthSession() : null);
     if (!authSession?.access_token || !authSession?.refresh_token) {
-      throw new Error("Shared Session 尚未就緒，請重新登入 Tron。" );
+      throw new Error("Shared Session 尚未就緒，請重新登入 TRQN。" );
     }
     const { error } = await authClient.auth.setSession({
       access_token: authSession.access_token,
