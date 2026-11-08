@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Apply the TaskFlow Tron theme overlay to the vendored Multica web app.
+"""Apply the TaskFlow TRQN theme overlay to the vendored Multica web app.
 
 The overlay never edits the vendored token file (packages/ui/styles/tokens.css),
 any vendored component, or the ThemeProvider default: the vendored
@@ -8,7 +8,7 @@ upstream. It only:
   1. copies overrides/taskflow-tron-theme.css into apps/web/app/ inside the
      image-only source copy,
   2. appends its import right after the custom.css import in globals.css so
-     the Tron `:root` / `.dark` tokens win by cascade order in both modes.
+     the TRQN `:root` / `.dark` tokens win by cascade order in both modes.
 
 Fail-closed: any missing, ambiguous, or drifted marker aborts the image build
 instead of silently shipping a half-themed app.
@@ -33,7 +33,7 @@ def apply_tron_theme(root: Path, css_source: Path) -> None:
     if not provider_path.is_file():
         raise SystemExit("Multica theme-provider.tsx marker file not found")
     if not css_source.is_file():
-        raise SystemExit("Tron theme overlay css source not found")
+        raise SystemExit("TRQN theme overlay css source not found")
 
     provider_text = provider_path.read_text()
     if provider_text.count(SYSTEM_DEFAULT) != 1:
@@ -50,10 +50,10 @@ def apply_tron_theme(root: Path, css_source: Path) -> None:
 
     globals_text = globals_path.read_text()
     if globals_text.count(TRON_IMPORT) != 1:
-        raise SystemExit("Tron theme import postcondition failed")
+        raise SystemExit("TRQN theme import postcondition failed")
     provider_text = provider_path.read_text()
     if provider_text.count(SYSTEM_DEFAULT) != 1:
-        raise SystemExit("Tron theme overlay must leave defaultTheme=system untouched")
+        raise SystemExit("TRQN theme overlay must leave defaultTheme=system untouched")
 
 
 def main() -> None:
