@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-labelledby="t d">
-  <title id="t">Tron</title>
-  <desc id="d">Tron icon v5: segmented glowing identity-disc ring with gaps, inverted rounded triangle at center, orange/yellow/blue line language, hollow</desc>
+  <title id="t">TRQN</title>
+  <desc id="d">TRQN icon v5: segmented glowing identity-disc ring with gaps, inverted rounded triangle at center, orange/yellow/blue line language, hollow</desc>
   <defs>
     <filter id="glow5" x="-40%" y="-40%" width="180%" height="180%">
       <feGaussianBlur stdDeviation="3.2" result="b"/>
