@@ -1,4 +1,4 @@
-/* Tron Foundation v1.0: module contract. */
+/* TRQN Foundation v1.0: module contract. */
 (function (global) {
   const normalize = (id = "dashboard") => ({
     id,
