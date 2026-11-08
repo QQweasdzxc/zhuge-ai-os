@@ -13,10 +13,10 @@
 
 **未觀測到可驗證的 App 活動，但有近期 Google 登入與未撤銷 refresh token；不能宣稱帳號停用、已無效或肯定為測試／未使用帳號。** 這些資料不足以證明仍在使用 App，也不足以排除未留存的活動。不能把「查不到活動」等同「不會影響任何人」。
 
-目前沒有 App 範圍內既有證據可安全轉換成 membership，因此**不提供也不執行替它補建 membership 的 SQL**；不能拿 Auth 建立時間或 refresh token 當 App 成員證據。先前依賴它下次登入來補證據的啟用前提已撤回。
+目前沒有 App 範圍內既有證據可安全轉換成 membership，因此**不提供也不執行替它補建 membership 的 SQL**，也不建立名片；不能拿 Auth 建立時間或 refresh token 當 App 成員證據。不依賴它下次登入。
 
-固定建議：此帳號不納入祖父。migration 單獨部署仍 **6 允許／0 禁止**；main 明確批准並執行 A 後為 **5 允許／1 Off**，既有有 App 證據的 5 人不變。這會撤除 1 人目前因全站暫停而具有的資格；不能因沒有可查 App 活動就隱藏這項實際影響，且其 refresh token 尚未撤銷。啟用不會刪除 Auth 帳號／撤銷 token，但受新 gate 的路徑即使持有效 JWT 仍回 Off。
+固定建議：不判定此帳號是否屬於 App，也不讓啟用改變其現行存取。啟用時凍結「當下有效允許」的 6 人（含此帳號），啟用後為 **6 允許／0 Off**；migration 單獨部署也是 6／0。凍結只保存在內部 private 表，不建立 membership／名片。
 
-`activate-cutoff.sql` 固定使用 `select private.activate_app_access_model(1);`，由 main owner-only 操作，**明確確認「1 個未證實身分將失去暫停放行」**；只接受預期彙總數，不接受 UUID 或時間。若 live 缺口數已變動就原子拒絕，避免依舊計數誤啟用。快照仍只取 App 證據來源，絕不把缺口從 Auth 匯入；本 PR 未執行此操作。
+`activate-cutoff.sql` 固定使用 `select private.activate_app_access_model(6);`，由 main owner-only 操作；整數為核對過的當下有效允許人數（防漂移），不接受 UUID 或時間。函式在資料庫內讀取身分集合（不傳回身分、不建立名片），只回傳計數，人數不符整筆拒絕。啟用後新進入者不在集合內，為待審／Off；明確 Off 永遠優先。未證實身分仍受限於暫停保持 true；若日後關閉暫停，凍結者需有明確 On。
 
-本地 PGlite 已測：錯誤的預期數拒絕；明確確認 1 後該未證實帳號直接 Off，不需等待登入；之後 ensure_app_member 也不能回填祖父或自動解除 Off。creator 明確 On 才能允許。六種狀態的 48 組矩陣與回復測試維持。
+本地 PGlite 已測：錯誤人數拒絕且不留 cutoff；啟用後現行有效允許全數不變（僅刻意標到 cutoff 之後的夾具事件可變）；該未證實帳號 ensure_app_member 後仍允許；啟用後新建身分為 Off，首次登入仍 Off；明確 Off 優先；重複啟用被拒；server 預設事件時間晚於 cutoff。六種狀態的 48 組矩陣與回復測試維持。真正併發（兩個連線）未在 PGlite 單連線測，鎖序為讀碼與文件，未對正式庫驗證。
