@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="610" height="190" viewBox="0 0 610 190" role="img" aria-labelledby="t d">
+  <title id="t">TRQN</title>
+  <desc id="d">TRQN wordmark preview: v8 styling preserved, O gains a small Q tail (bottom-right), all else unchanged</desc>
+  <defs>
+    <filter id="wglow8q" x="-20%" y="-40%" width="140%" height="180%">
+      <feGaussianBlur stdDeviation="2.2" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <g transform="translate(34 0) skewX(-10)" filter="url(#wglow8q)">
+    <g id="letters8q" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="28" cy="36" r="7"/>
+      <path d="M52 42 H144 M98 42 Q98 42 98 50 V126 Q98 134 106 134"/>
+      <path d="M176 134 V50 Q176 42 184 42 H212 a26 26 0 0 1 0 52 H176 M206 94 L240 134"/>
+      <!-- O with a small breathing notch at top, like the disc -->
+      <path d="M332 46 A46 46 0 1 1 312 46"/>
+      <!-- Q tail: short flick from inside the ring at 4:30 position, ~12 units beyond r=46 -->
+      <path d="M351 121 L369 139"/>
+      <path d="M418 134 V50 Q418 42 426 44 L504 126 Q512 134 512 124 V42"/>
+    </g>
+    <use href="#letters8q" stroke="#ff9a3c" stroke-width="34" opacity=".95"/>
+    <use href="#letters8q" stroke="#ffd76a" stroke-width="29" opacity=".95"/>
+    <use href="#letters8q" stroke="#3fdcf7" stroke-width="22"/>
+    <use href="#letters8q" stroke="#071019" stroke-width="13"/>
+    <circle cx="28" cy="36" r="7" fill="none" stroke="#ff9a3c" stroke-width="3"/>
+  </g>
+  <g stroke="#2fd7f5" stroke-linecap="round" fill="none">
+    <path d="M6 56 H36" stroke-width="3.5" opacity=".55"/>
+    <path d="M12 118 H34" stroke-width="3" opacity=".35"/>
+  </g>
+</svg>

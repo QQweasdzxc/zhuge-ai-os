@@ -42,6 +42,13 @@
   // green TESTS poster in the same wall slot - an asset swap, not a redesign.
   const ERP_WALL_POSTER = { image: new Image() };
   ERP_WALL_POSTER.image.src = 'assets/erp-wall-poster.png';
+  // ZG-69: user-approved neon brand signs flanking the meeting whiteboard
+  // (TRQN wordmark left, icon B right). Local copies carry explicit
+  // width/height so canvas drawImage gets a reliable intrinsic size.
+  const NEON_WORDMARK = { image: new Image() };
+  NEON_WORDMARK.image.src = 'assets/neon-trqn-wordmark.svg';
+  const NEON_ICON = { image: new Image() };
+  NEON_ICON.image.src = 'assets/neon-trqn-icon-b.svg';
   const PANTS = ['#34405a', '#2c2c34', '#4a3f35', '#3b4a3f'];
   const PANEL = ['#7d93c4', '#d98b6a', '#7fb08a', '#c9a24c'];
 
@@ -841,6 +848,39 @@
       this.onWall('y0', OW + 0.5, 2.2, (c) => {
         c.font = '700 9px ui-sans-serif, system-ui, sans-serif'; c.fillStyle = this.shade(pal.trim, -60); c.fillText('MEETING', 0, 0);
       });
+      // ZG-69 neon brand signs: subtle wall spill, crisp sign outlines.
+      // Wordmark left of the whiteboard (wx = OW + 2.4), icon B right of it
+      // (whiteboard right edge OW + 5.0, wall ends W = OW + 7.2).
+      const neonGlow = (c, r) => {
+        const g = c.createRadialGradient(0, 0, 2, 0, 0, r);
+        const a = pal.dark ? 0.20 : 0.12;
+        g.addColorStop(0, 'rgba(111,243,255,' + a + ')');
+        g.addColorStop(1, 'rgba(111,243,255,0)');
+        c.fillStyle = g;
+        c.beginPath(); c.arc(0, 0, r, 0, Math.PI * 2); c.fill();
+      };
+      if (NEON_WORDMARK.image.complete && NEON_WORDMARK.image.naturalWidth > 0) {
+        this.onWall('y0', OW + 1.35, 1.35, (c) => {
+          neonGlow(c, 42);
+          c.imageSmoothingEnabled = true;
+          c.imageSmoothingQuality = 'high';
+          c.shadowColor = 'rgba(111,243,255,.55)';
+          c.shadowBlur = 4;
+          c.drawImage(NEON_WORDMARK.image, -33, -10.5, 66, 21);
+          c.shadowBlur = 0;
+        });
+      }
+      if (NEON_ICON.image.complete && NEON_ICON.image.naturalWidth > 0) {
+        this.onWall('y0', OW + 6.05, 1.4, (c) => {
+          neonGlow(c, 26);
+          c.imageSmoothingEnabled = true;
+          c.imageSmoothingQuality = 'high';
+          c.shadowColor = 'rgba(111,243,255,.55)';
+          c.shadowBlur = 4;
+          c.drawImage(NEON_ICON.image, -15, -15, 30, 30);
+          c.shadowBlur = 0;
+        });
+      }
       // left wall: posters, clock, door
       for (const ps of this.plan.posters) {
         if (ps.erpPoster) {
