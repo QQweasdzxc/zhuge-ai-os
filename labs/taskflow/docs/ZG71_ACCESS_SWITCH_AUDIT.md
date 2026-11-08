@@ -141,3 +141,7 @@ creator 專用清單取下列 **App 內已有身分證據**的聯集，以 auth 
 未驗證：正式 migration 部署（本次禁止）、正式帳號開關／真實 OAuth、Render TF rollout、
 所有未接 gate 路徑的實際 runtime 行為、完整成員涵蓋、真實網路效能與併發壓力；PGlite 為 PostgreSQL
 但非正式 Supabase 相同 server/extension 環境。沒有 merge 或部署授權。
+
+FullSource Review 包裝：BLOCKED。release-governance.js 要求 governance/checklist/full/browser
+等全部為實際 PASS；已知 baseline 仍 FAIL，不能產生正式 FullSource，未繞過 gate。
+新 fixture 的檔尾空白 CI 失敗已修正；新增 legacy review 在 Off 後不可覆寫的 SQL 測試通過。

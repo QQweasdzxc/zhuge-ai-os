@@ -257,7 +257,7 @@ contracts rather than creating a parallel foundation.
 
 ## ZG-71 review build — 2026-11-08
 
-Version `0.9.0-alpha.9.190` · Build `20261108-2356` (Asia/Taipei).
+Version `0.9.0-alpha.9.190` · Build `20261108-2359` (Asia/Taipei).
 Baseline main: `2ddf801287963f4909890e4ad6141202a85d24c8` (ZG-70 #246).
 Per-person reversible access cards, creator-only App identity union, append-only
 Off/On events and missing 11/06 pause baseline; no production SQL, merge or deploy.
@@ -301,3 +301,8 @@ Review artifact is required by this policy; its QA record must retain the known
 baseline failures: mobile-actions/compact-header 116.1875 and investment providers
 16 PASS / 1 FAIL. Focused access tests and 84 TF Python tests pass locally; this
 is not a full-regression PASS or a deployment approval. PR CI is reported separately.
+
+ZG-71 packaging status: BLOCKED. The existing packager requires real full/browser
+PASS; known baseline failures are retained, so no FullSource artifact is issued
+and no PASS evidence is fabricated. Earlier whitespace CI failure in the added
+SQL fixture is corrected; complete PR diff whitespace is checked.
