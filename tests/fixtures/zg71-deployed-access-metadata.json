@@ -1,0 +1,535 @@
+{
+  "capturedAt": "2026-11-08",
+  "projectRef": "lenpbbhwxyyfwgvjcozf",
+  "policies": [
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "app_users",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "assistant_conversation_states",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "assistant_conversations",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "assistant_messages",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "board_instance_workflow_state",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "board_instances",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "board_task_attachments",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "board_task_checklist_items",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "board_task_vendor_links",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "board_tasks",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "board_workflow_adoptions",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "board_workflow_definitions",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "board_workflow_evidence_requirements",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "board_workflow_gates",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "board_workflow_step_mappings",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "board_workflow_steps",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "board_workflow_transitions",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "board_workspace_notification_settings",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "board_workspaces",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "broker_position_reconciliation_items",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "broker_position_reconciliations",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "broker_position_snapshot_audits",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "broker_position_snapshot_items",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "broker_position_snapshots",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "decision_logs",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "engineering_activity_log",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "engineering_artifacts",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "engineering_checklist_items",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "engineering_features",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "engineering_governance_authorizations",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "engineering_knowledge",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "engineering_members",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "engineering_pending_artifacts",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "engineering_pm_accepted_baselines",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "engineering_project_checkpoints",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "engineering_project_configuration",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "engineering_qa",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "engineering_work_items",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "identity_claim_logs",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "investment_ivtk_card_links",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "knowledge_candidates",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "knowledge_recommendation_candidates",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "knowledge_sources",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "knowledge_suggested_skills",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "knowledge_units",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "module_release_history",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "module_releases",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "n8n_chat_histories",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "onboarding_state",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "opening_positions",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "portfolios",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "recommendation_feedback",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "strategies",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "sync_migrations",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "transactions",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "user_ecp_tasks",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "user_export_settings",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "user_profiles",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "user_settings",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "user_tasks",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "user_work_models",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "user_work_profiles",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "watchlists",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "work_entries",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "work_journal_entries",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "worklog_entries",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "worklog_settings",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "worklog_source_events",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "worklog_tasks",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "worklog_users",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "worktodo_attachments",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_access_approved_gate",
+      "qual": "( SELECT is_app_access_approved() AS is_app_access_approved)",
+      "table": "worktodo_checklist_items",
+      "schema": "public",
+      "with_check": "( SELECT is_app_access_approved() AS is_app_access_approved)"
+    },
+    {
+      "name": "zhuge_app_presence_read",
+      "qual": "(( SELECT is_app_access_approved() AS is_app_access_approved) AND (realtime.topic() = 'zhuge-app-presence-v1'::text) AND (extension = 'presence'::text))",
+      "table": "messages",
+      "schema": "realtime",
+      "with_check": null
+    },
+    {
+      "name": "zhuge_app_presence_track",
+      "qual": null,
+      "table": "messages",
+      "schema": "realtime",
+      "with_check": "(( SELECT is_app_access_approved() AS is_app_access_approved) AND (realtime.topic() = 'zhuge-app-presence-v1'::text) AND (extension = 'presence'::text))"
+    }
+  ],
+  "functions": [
+    "board_create_instance(text,text,text)",
+    "board_instance_can_read(uuid)",
+    "board_provision_c_consumer_v2(text,text,text,text,jsonb,jsonb,text,text)",
+    "get_app_access_application_history(uuid)",
+    "get_creator_user_notes()",
+    "list_app_access_applications()",
+    "review_app_access_application(uuid,text,text,text)",
+    "submit_app_access_request(text,text,text)",
+    "upsert_creator_user_note(uuid,text)"
+  ]
+}

@@ -39,7 +39,7 @@
       [STATUS.checking]: "正在確認 TRQN 使用權",
       [STATUS.unknown]: "目前無法確認使用權",
       [STATUS.new]: "申請使用 TRQN",
-      [STATUS.pending]: "申請已送出，等待審核",
+      [STATUS.pending]: "申請已送出，等待管理者審核",
       [STATUS.rejected]: "這次申請尚未通過",
       [STATUS.unauthenticated]: "請先登入 TRQN"
     })[status] || "TRQN 使用權";
@@ -80,7 +80,7 @@
     if (status === STATUS.approved) return "";
     const email = escape(options.email || normalized.email || "");
     let body = "";
-    if (status === STATUS.new || status === STATUS.rejected) body = formMarkup({ ...normalized, email }, status === STATUS.rejected);
+    if (status === STATUS.new || (status === STATUS.rejected && !normalized.access_disabled)) body = formMarkup({ ...normalized, email }, status === STATUS.rejected);
     if (status === STATUS.pending) {
       body = `<div class="app-access-status-card"><strong>等待 Creator／Owner 審核</strong><span>申請已保留；核准後重新整理即可進入工作空間。</span>${normalized.submitted_at ? `<time datetime="${escape(normalized.submitted_at)}">${escape(normalized.submitted_at)}</time>` : ""}</div>`;
     }
@@ -93,8 +93,8 @@
     return `<section class="app-access-gate" data-app-access-status="${escape(status)}" aria-labelledby="app-access-title">
       <div class="app-access-panel">
         <p class="app-access-eyebrow">TRQN · App Access</p>
-        <h1 id="app-access-title">${escape(titleFor(status))}</h1>
-        <p class="app-access-message">${escape(messageFor(normalized))}</p>
+        <h1 id="app-access-title">${escape(normalized.access_disabled ? "目前禁止使用" : titleFor(status))}</h1>
+        <p class="app-access-message">${escape(normalized.access_disabled ? "管理者已關閉您的使用權。請聯絡管理者確認；重新登入不會解除禁止。" : messageFor(normalized))}</p>
         ${email ? `<p class="app-access-identity"><span>目前登入身份</span><strong>${email}</strong></p>` : ""}
         ${review}${body}
       </div>

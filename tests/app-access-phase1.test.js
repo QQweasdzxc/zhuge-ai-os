@@ -50,6 +50,11 @@ test("App Access gate keeps identity read-only and distinguishes status", () => 
   const rejected = AppAccessGate.render({ status: "REJECTED", email: "new@example.com", review_note: "請補充用途" });
   assert.match(rejected, /重新送出申請/);
   assert.match(rejected, /請補充用途/);
+  const disabled = AppAccessGate.render({ status: "REJECTED", access_disabled: true, review_note: "請聯絡管理者" });
+  assert.match(disabled, /目前禁止使用/);
+  assert.match(disabled, /請聯絡管理者/);
+  assert.doesNotMatch(disabled, /data-app-access-form/);
+  assert.match(pending, /申請已送出，等待管理者審核/);
 });
 
 test("Phase 1 migration defines append-only history, canonical access, creator notes, and private presence", () => {

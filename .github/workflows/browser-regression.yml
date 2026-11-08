@@ -39,6 +39,9 @@ jobs:
       - name: Export CI Chromium path
         run: echo "BROWSER_EXECUTABLE=$(node -e 'process.stdout.write(require("playwright").chromium.executablePath())')" >> "$GITHUB_ENV"
 
+      - name: Verify ZG-71 access migration on disposable PostgreSQL (no production calls)
+        run: node --test tests/zg71-app-access-sql.test.js tests/app-access-phase1.test.js
+
       - name: Run all browser tests with no skip fallback
         run: npm run test:browser
 
