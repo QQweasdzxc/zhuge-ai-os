@@ -1,5 +1,5 @@
 // P5.2A-1 Foundation Split: configuration and static constants.
-const VERSION = "0.9.0-alpha.9.192";
+const VERSION = "0.9.0-alpha.9.194";
 const RELEASE_VERSION = VERSION;
 const BUILD_TIME = "20261109-0600";
 const DEPLOY_SOURCE = `worklog-app.js?v=${BUILD_TIME}`;
