@@ -27,6 +27,11 @@ docs/zg71/impact-counts.json
 docs/zg71/impact-readonly.sql
 docs/zg71/live-compat/README.md
 docs/zg71/live-compat/SHA256SUMS
+docs/zg71/live-compat/investment-intelligence-read.gated-repack.ts
+docs/zg71/live-compat/investment-intelligence-read.gated.ts
+docs/zg71/live-compat/investment-intelligence-read.live.ts
+docs/zg71/live-compat/investment-live-entry-hashes.txt
+docs/zg71/live-compat/investment-repack-check.sh
 docs/zg71/live-compat/workspace-email-notification.gated.ts
 docs/zg71/live-compat/workspace-email-notification.live.ts
 docs/zg71/live-compat/zhuge-skyeye-read.gated.ts
