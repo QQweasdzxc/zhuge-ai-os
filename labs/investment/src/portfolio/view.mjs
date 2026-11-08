@@ -1,5 +1,5 @@
-import { MiniMarketChart } from "../components/mini-market-chart.mjs?v=20261108-0710";
-import { portfolioHistoryForPosition } from "./history.mjs?v=20261108-0710";
+import { MiniMarketChart } from "../components/mini-market-chart.mjs?v=20261108-0722";
+import { portfolioHistoryForPosition } from "./history.mjs?v=20261108-0722";
 
 const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, char => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
@@ -41,7 +41,7 @@ function statusLabel(status) {
 function stateMessage(result = {}) {
   const states = {
     LOADING: ["正在讀取正式持股", "只讀取目前帳號可見的持股摘要；不會修改正式投資資料。", "讀取完成後會顯示持股卡。"],
-    SESSION_REQUIRED: ["需要先登入 Tron", "登入後才會依正式權限讀取持股。", "登入後重新整理此 Lab。"],
+    SESSION_REQUIRED: ["需要先登入 TRQN", "登入後才會依正式權限讀取持股。", "登入後重新整理此 Lab。"],
     APP_ACCESS_REQUIRED: ["目前帳號尚未取得 Investment 使用權", "Lab 不會自行提高權限或改用其他資料。", "請聯絡管理者確認目前帳號的使用權。"],
     MFA_REQUIRED: ["需要完成 Investment 安全驗證", "持股受到現有 MFA 門檻保護；Lab 不會繞過或自行解鎖。", "請完成既有安全驗證後重新讀取。"],
     ACCESS_UNAVAILABLE: ["目前無法確認 Investment 使用權", "為保護持股，尚未讀取 Portfolio。", "稍後重試；如持續發生，請聯絡管理者確認存取狀態。"],

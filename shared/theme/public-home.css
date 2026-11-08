@@ -62,7 +62,7 @@ a:hover { color: #a4d0ff; }
 @media (max-width: 860px) { .hero { grid-template-columns: 1fr; padding-top: 5rem; } .hero-logo-card { max-width: 380px; } .feature-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 600px) { .public-header, .hero, .section, .public-footer { width: min(100% - 1.35rem, 1160px); } .header-link { font-size: .84rem; } .hero h1 { font-size: clamp(3.2rem, 16vw, 5rem); } .feature-grid, .trust-grid { grid-template-columns: 1fr; } .public-footer { flex-direction: column; } .public-footer nav { justify-content: flex-start; } }
 
-/* Tron 覆蓋（候選） */
+/* TRQN 覆蓋（候選） */
 :root{ --bg:#050b12; --panel:#0b1520; --blue:#2fd7f5; --cyan:#6ff3ff; }
 a:hover{ color:#9df3ff; }
 .button.primary{ background:#2a1503; border:1px solid #ff9a3c; color:#ffc58f; border-radius:6px; clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px); filter:drop-shadow(0 0 8px rgba(255,154,60,.35)); box-shadow:none; }

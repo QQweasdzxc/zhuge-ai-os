@@ -1,16 +1,16 @@
-/* TaskFlow Tron theme overlay.
+/* TaskFlow TRQN theme overlay.
    Appended to the vendored Multica web app at image build time by
    patches/apply-taskflow-tron-theme.py. The vendored tokens.css is never
    edited: this file loads after it in globals.css, so these token values win
    by cascade order and upstream parity (vendor SHA) is preserved.
 
-   Both modes carry the Tron vocabulary, mirroring the site-wide canonical
+   Both modes carry the TRQN vocabulary, mirroring the site-wide canonical
    tokens in shared/theme/tokens.css. The vendored ThemeProvider default
    (system) and the in-app theme toggle are left untouched.
 
    Dark: deep-space surfaces (#060b12 / #0b1520 / #0d1a24), cyan hairlines,
    cyan primary #2fd7f5, orange highlight #ff9a3c.
-   Light: the canonical Tron light set (#f2f4f7 / #f8fafc / #ffffff, deep cyan
+   Light: the canonical TRQN light set (#f2f4f7 / #f8fafc / #ffffff, deep cyan
    accent #0888a8, deep orange accent-strong #c2410c). */
 
 :root {

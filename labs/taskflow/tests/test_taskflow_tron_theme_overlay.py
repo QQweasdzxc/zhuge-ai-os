@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail-closed tests for the TaskFlow Tron theme overlay."""
+"""Fail-closed tests for the TaskFlow TRQN theme overlay."""
 
 from __future__ import annotations
 

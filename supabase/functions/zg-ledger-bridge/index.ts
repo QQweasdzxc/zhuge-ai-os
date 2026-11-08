@@ -59,7 +59,7 @@ function allowedOrigin(request: Request) {
 async function callerClient(request: Request, supabaseUrl: string, anonKey: string) {
   const authorization = asText(request.headers.get("authorization"));
   if (!/^Bearer\s+\S+$/i.test(authorization)) {
-    throw new HttpError("Authenticated Tron OS session is required.", 401, "AUTH_REQUIRED");
+    throw new HttpError("Authenticated TRQN OS session is required.", 401, "AUTH_REQUIRED");
   }
   return createClient(supabaseUrl, anonKey, {
     global: { headers: { Authorization: authorization } },
@@ -69,7 +69,7 @@ async function callerClient(request: Request, supabaseUrl: string, anonKey: stri
 
 async function requireUser(caller: Awaited<ReturnType<typeof callerClient>>) {
   const { data: { user }, error } = await caller.auth.getUser();
-  if (error || !user) throw new HttpError("Authenticated Tron OS session is required.", 401, "AUTH_REQUIRED");
+  if (error || !user) throw new HttpError("Authenticated TRQN OS session is required.", 401, "AUTH_REQUIRED");
   return user;
 }
 

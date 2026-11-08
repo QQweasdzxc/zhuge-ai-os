@@ -250,7 +250,7 @@ async function pollTfOnce(fetchImpl, base, now, opts) {
   const stale = () => (typeof opts.isStale === 'function' ? opts.isStale() : false);
   if (stale()) return { state: 'stale', note: '授權已變更，捨棄本次讀取' };
   const supa = opts.embeddedJwt ? null : (opts.storageGet ? readSupabaseToken(opts.storageGet) : (opts.supabaseToken || null));
-  if (!supa && !opts.embeddedJwt) return { state: 'auth-required', note: opts.embedded ? '等待內嵌授權' : '需要登入 Tron' };
+  if (!supa && !opts.embeddedJwt) return { state: 'auth-required', note: opts.embedded ? '等待內嵌授權' : '需要登入 TRQN' };
   let ex;
   if (opts.embeddedJwt) {
     ex = { jwt: opts.embeddedJwt };
@@ -261,7 +261,7 @@ async function pollTfOnce(fetchImpl, base, now, opts) {
       return { state: 'error', note: `連線失敗：${e && e.message ? e.message : 'network'}` };
     }
   }
-  if (ex.error) return { state: 'auth-required', note: '登入狀態已失效，請重新登入 Tron', server: String(ex.error) };
+  if (ex.error) return { state: 'auth-required', note: '登入狀態已失效，請重新登入 TRQN', server: String(ex.error) };
   let res;
   try {
     res = await fetchImpl(`${apiBase}/api/issues?limit=200`, {
@@ -278,7 +278,7 @@ async function pollTfOnce(fetchImpl, base, now, opts) {
   if (cls !== 'ok') {
     let srvMsg = '';
     try { const j = await res.json(); if (j && j.error) srvMsg = String(j.error).slice(0, 120); } catch {}
-    if (cls === 'auth-required') return { state: cls, note: '登入狀態已失效，請重新登入 Tron', server: srvMsg };
+    if (cls === 'auth-required') return { state: cls, note: '登入狀態已失效，請重新登入 TRQN', server: srvMsg };
     if (cls === 'auth-forbidden') return { state: cls, note: '此帳號沒有此工作區權限', server: srvMsg };
     return { state: cls, note: `TaskFlow 暫時無法讀取（HTTP ${res.status}${srvMsg ? `：${srvMsg}` : ''}）`, server: srvMsg };
   }
@@ -324,7 +324,7 @@ async function pollTfOnce(fetchImpl, base, now, opts) {
   ]);
   if (stale()) return { state: 'stale', note: '授權已變更，捨棄本次讀取' };
   const sessions = normalizeTfIssues(issues, { projectsById, nativeByIssueId, commentsByIssue, agentsById, now });
-  return { state: 'ok', sessions, agents: Object.values(agentsById), note: opts.embeddedJwt ? '即時連線（內嵌授權）' : '即時連線（Tron 登入授權）', total: data.total, schema: data.schema };
+  return { state: 'ok', sessions, agents: Object.values(agentsById), note: opts.embeddedJwt ? '即時連線（內嵌授權）' : '即時連線（TRQN 登入授權）', total: data.total, schema: data.schema };
 }
 
 // ZG-56: workspace agents directory. GET /api/agents resolves the assignee_id

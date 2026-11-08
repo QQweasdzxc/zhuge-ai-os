@@ -187,7 +187,7 @@ function replyText(result: JsonObject) {
   const state = text(result.transportState || result.status, 80);
   const taskId = text(result.taskId, 120);
   const progress = Number.isInteger(result.progress) ? `｜進度 ${result.progress}%` : "";
-  return `Tron OS\n${operation || "工作更新"}\n狀態：${state || "已受理"}${progress}${taskId ? `\nTask：${taskId}` : ""}`.slice(0, 800);
+  return `TRQN OS\n${operation || "工作更新"}\n狀態：${state || "已受理"}${progress}${taskId ? `\nTask：${taskId}` : ""}`.slice(0, 800);
 }
 
 function taskDeepLink(taskId: string, baseUrl: string) {

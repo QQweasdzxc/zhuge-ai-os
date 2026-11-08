@@ -1,8 +1,8 @@
 {
-  "version": "0.9.0-alpha.9.185",
-  "build": "20261108-0710",
+  "version": "0.9.0-alpha.9.186",
+  "build": "20261108-0722",
   "foundation": "1.0",
-  "module": "Tron OS",
+  "module": "TRQN OS",
   "moduleVersion": "0.9",
   "modules": {
     "worklog": "0.9",

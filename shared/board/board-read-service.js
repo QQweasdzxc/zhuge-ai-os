@@ -1,4 +1,4 @@
-/* Tron AI Board — Shared Cloud adapter.
+/* TRQN AI Board — Shared Cloud adapter.
  *
  * The Board is a presentation module. It receives the current Shared
  * Identity and Shared Supabase Data Gateway; it never creates a second
@@ -791,7 +791,7 @@
   async function load(options = {}) {
     const identity = currentIdentity();
     if (!identity?.isAuthenticated) {
-      const error = new Error("請先登入 Tron，才能查看 AI Board。");
+      const error = new Error("請先登入 TRQN，才能查看 AI Board。");
       error.code = "BOARD_SESSION_REQUIRED";
       throw error;
     }

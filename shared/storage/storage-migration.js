@@ -1,4 +1,4 @@
-/* Tron Storage Migration (TASK-001)
+/* TRQN Storage Migration (TASK-001)
  *
  * Browser storage is an operational cache only.  Migrations are versioned,
  * scoped to approved key prefixes, and never call localStorage.clear().

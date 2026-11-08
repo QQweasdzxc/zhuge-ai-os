@@ -87,7 +87,7 @@
     async bridgeEnsureVendorId(rowNumber){return this.bridgeRequest({action:"ensure_vendor_id",rowNumber});}
     async list(options={}){
       const onProgress=typeof options.onProgress==="function"?options.onProgress:()=>{};
-      onProgress({phase:"auth",percent:5,message:"確認 Tron 登入…",loaded:0,total:0});
+      onProgress({phase:"auth",percent:5,message:"確認 TRQN 登入…",loaded:0,total:0});
       onProgress({phase:"read",percent:10,message:"正在取得廠商資料…",loaded:0,total:0});
       const data=await this.bridgeRead();
       const body=Array.isArray(data?.rows)?data.rows:[];

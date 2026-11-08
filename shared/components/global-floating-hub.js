@@ -66,7 +66,7 @@
     }
     if (typeof options.getUserLabel === "function") return String(options.getUserLabel() || "").trim();
     const stored = readStoredSession();
-    return String(stored.name || stored.display_name || access.displayName || access.email || "Tron User").trim();
+    return String(stored.name || stored.display_name || access.displayName || access.email || "TRQN User").trim();
   }
 
   function normalizePresenceRows(snapshot) {

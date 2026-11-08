@@ -170,7 +170,7 @@ try {
   pass("holdings authenticated-read gate", "anonymous browser shows SESSION_REQUIRED before owner mapping or protected view SELECT; valuation is labeled non-real-time");
 
   await nav.getByRole("tab", { name: "我的持股" }).click();
-  await page.getByText("需要先登入 Tron", { exact: true }).waitFor({ state: "visible" });
+  await page.getByText("需要先登入 TRQN", { exact: true }).waitFor({ state: "visible" });
   assert.equal(await page.locator(".portfolio-holding-card").count(), 0);
   await save(page, "lab-holdings-auth-gate-desktop-1440.png");
   pass("canonical holdings remain fail-closed without session", "SESSION_REQUIRED is explicit; no zero count or fixture holding is presented");

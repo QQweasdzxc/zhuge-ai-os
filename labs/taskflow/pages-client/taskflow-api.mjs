@@ -85,7 +85,7 @@ export function createTaskFlowPagesTransport({
     throw new TaskFlowPagesError("Unknown Pages caller origin", "INVALID_PAGES_ORIGIN");
   }
   if (typeof getAccessToken !== "function") {
-    throw new TaskFlowPagesError("Tron session source unavailable", "MISSING_AUTH_SOURCE");
+    throw new TaskFlowPagesError("TRQN session source unavailable", "MISSING_AUTH_SOURCE");
   }
   let bearer = null;
   async function jsonFetch(url, options = {}) {
@@ -128,7 +128,7 @@ export function createTaskFlowPagesTransport({
   }
   async function connect() {
     const zhugeToken = getAccessToken();
-    if (!zhugeToken) throw new TaskFlowPagesError("Sign in to Tron first","SIGN_IN_REQUIRED");
+    if (!zhugeToken) throw new TaskFlowPagesError("Sign in to TRQN first","SIGN_IN_REQUIRED");
     // Existing /auth/zhuge endpoint validates Zhuge identity server-side.
     const value = await jsonFetch(OFFICIAL_API+"/auth/zhuge",{
       method:"POST",

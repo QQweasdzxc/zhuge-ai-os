@@ -1,5 +1,5 @@
 /*
- * Tron System Template Catalog.
+ * TRQN System Template Catalog.
  *
  * C is the one operational motherboard. Board consumers apply this shared
  * presentation/runtime and retain only their own data and permission wiring.

@@ -700,7 +700,7 @@
     return {
       key: "system",
       label: "System",
-      detail: "Tron",
+      detail: "TRQN",
       status: "na",
       children: moduleNodes
     };

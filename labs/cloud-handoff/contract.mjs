@@ -1,5 +1,5 @@
 /**
- * Tron / Cloud Handoff v1
+ * TRQN / Cloud Handoff v1
  * Pure protocol; NO network calls, secrets, database mutations, or agent launch.
  * An authorized cloud dispatcher must enforce actor identity and atomic CAS.
  */

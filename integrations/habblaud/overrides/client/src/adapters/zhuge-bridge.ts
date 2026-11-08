@@ -57,7 +57,7 @@ export function convertStatusToPixelRooms(status: ZhugeProjectStatus, now = Date
 
 /** Fixed cast identity. These are scene roles, never provider/session/work evidence. */
 export const ZHUGE_CAST = [
-  { id: 'zhuge-crew-pm', name: 'Jackal', duty: 'PM／Tron OS 決策者', intro: '負責方向、裁示與作品驗收；這是固定像素角色。' },
+  { id: 'zhuge-crew-pm', name: 'Jackal', duty: 'PM／TRQN OS 決策者', intro: '負責方向、裁示與作品驗收；這是固定像素角色。' },
   { id: 'zhuge-crew-gpt', name: 'GPT', duty: 'PM 助理／協作 AI', intro: '負責規劃與審查；此固定角色不代表目前有背景工作正在執行。' },
   { id: 'zhuge-crew-codex', name: 'Codex', duty: '首席工程師', intro: '負責主要開發交付；此固定角色不代表目前有 Codex Run 正在執行。' },
   { id: 'zhuge-crew-gem', name: 'Gem', duty: '第二工程師', intro: '負責協作開發；此固定角色不代表 Gemini Provider 已連線。' },
@@ -78,7 +78,7 @@ export function toOfficeSnapshot(
   // account/session identifiers are explicitly synthetic and status is fixed idle.
   const crewRoomId = 'zhuge-room-crew';
   const crewRoom: RoomInfo = {
-    id: crewRoomId, name: 'Tron OS｜固定角色', path: '/zhuge-ai-os/crew',
+    id: crewRoomId, name: 'TRQN OS｜固定角色', path: '/zhuge-ai-os/crew',
     slot: startSlot, seed: seed(crewRoomId), createdAt: sessionStartedAt,
   };
   const crewAgents: AgentInfo[] = ZHUGE_CAST.map(member => ({

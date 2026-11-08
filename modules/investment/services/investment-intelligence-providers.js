@@ -582,7 +582,7 @@
     const now = typeof options.now === "function" ? options.now : () => Date.now();
     const invokeFunction = options.invokeFunction;
     const edgeFunctionName = text(options.edgeFunctionName || "investment-intelligence-read");
-    const secUserAgent = text(options.secUserAgent || "Tron Investment Intelligence/1.0 (contact: qq.1025@gmail.com)");
+    const secUserAgent = text(options.secUserAgent || "TRQN Investment Intelligence/1.0 (contact: qq.1025@gmail.com)");
     const responseCache = new Map();
     let registered = false;
 

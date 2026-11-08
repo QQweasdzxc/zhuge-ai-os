@@ -45,7 +45,7 @@ async function setup(t,{signedIn=true,viewport={width:1440,height:900},issueList
 }
 test("anonymous Pages client never fakes TaskFlow data or redirects to Render",async t=>{
  const {page,requests,rootURL}=await setup(t,{signedIn:false});
- await page.getByText("需要先登入 Tron").waitFor();
+ await page.getByText("需要先登入 TRQN").waitFor();
  assert.equal(new URL(page.url()).origin,new URL(rootURL).origin);
  assert.equal(requests.length,0,"no TaskFlow identity exchange without existing Zhuge session");
  assert.equal(await page.locator(".tf-issue").count(),0);

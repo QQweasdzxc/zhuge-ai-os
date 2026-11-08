@@ -27,13 +27,13 @@
 @media(max-width:600px){.tf-create-form,.tf-create-grid,.tf-evidence-form{grid-template-columns:1fr}.tf-form-wide,.tf-optional-evidence,.tf-evidence-form>button{grid-column:auto}.tf-header-actions{width:100%;justify-content:stretch}.tf-header-actions button{flex:1}.tf-evidence-grid{grid-template-columns:1fr}.tf-inline-form{display:grid;grid-template-columns:1fr;width:100%}.tf-inline-form select{min-width:0}.tf-native-pr{grid-template-columns:1fr}.tf-subpanel{padding:12px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
 
-/* Tron 覆蓋（候選） */
+/* TRQN 覆蓋（候選） */
 :root{ --bg:#050b12; --panel:#0b1520; --card:#0d1a24; --line:#173242; --accent:#2fd7f5; }
 .tf-login a{ background:#2a1503; border:1px solid #ff9a3c; color:#ffc58f; border-radius:6px; }
 .tf-brand>span:first-child{ background:#0e2230; border:1px solid #2fd7f5; }
 .tf-inbox-link{ color:#6ff3ff; }
 
-/* Tron 淺色語彙：與 tokens.css light 同源 */
+/* TRQN 淺色語彙：與 tokens.css light 同源 */
 @media (prefers-color-scheme: light) {
   :root{color-scheme:light;--bg:#f2f4f7;--panel:#ffffff;--card:#f8fafc;--line:rgba(51,65,85,.12);--ink:#1d2430;--secondary:#687386;--accent:#0888a8}
   .tf-nav{background:#ffffff}

@@ -36,7 +36,7 @@ test("new WorkTodo is a source-equivalent AI Board consumer with a scoped data b
     assert.match(aiBoard, new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
     assert.match(worktodo, new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), marker);
   }
-  assert.match(worktodo, /<title>Tron｜工作待辦<\/title>/);
+  assert.match(worktodo, /<title>TRQN｜工作待辦<\/title>/);
   assert.match(worktodo, /data-active-workspace="tasks-new"/);
   assert.match(worktodo, /get\("consumer"\) === "worktodo-old"/);
   assert.match(worktodo, /canonicalUrl\.searchParams\.delete\("consumer"\)/);

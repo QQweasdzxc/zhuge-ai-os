@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Multica Agent Lab · Tron</title>
+  <title>Multica Agent Lab · TRQN</title>
   <style>
     :root{color-scheme:dark}
     body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#07111f;color:#e5edf8}
@@ -24,16 +24,16 @@
 <body>
   <main>
     <section class="card">
-      <div class="eyebrow">Tron · LAB</div>
+      <div class="eyebrow">TRQN · LAB</div>
       <h1>Multica Agent Lab</h1>
-      <p>Multica 直接接受目前已登入的 Tron 身分與 UUID。沒有第二次註冊、沒有 OTP，也不建立另一個 Human Identity。</p>
+      <p>Multica 直接接受目前已登入的 TRQN 身分與 UUID。沒有第二次註冊、沒有 OTP，也不建立另一個 Human Identity。</p>
       <p>Board、Issues、Agents、Runs、Runtime、Blocked、Skills、Squads 與 Autopilot 仍保留原生 Multica 體驗。</p>
       <div class="actions">
         <button id="enterLab" type="button">直接進入 Multica Lab</button>
         <a class="button secondary" href="https://github.com/multica-ai/multica" target="_blank" rel="noopener noreferrer">上游原始碼</a>
       </div>
       <div id="status" class="status" role="status" aria-live="polite"></div>
-      <p class="note">Identity Authority：Tron Shared Identity。Multica 只接受 Tron 已核准的 Supabase Session，並沿用相同 <code>user UUID</code> 建立本地 Session。</p>
+      <p class="note">Identity Authority：TRQN Shared Identity。Multica 只接受 TRQN 已核准的 Supabase Session，並沿用相同 <code>user UUID</code> 建立本地 Session。</p>
     </section>
   </main>
   <script>
@@ -97,7 +97,7 @@
       async function enter() {
         const accessToken = currentAccessToken();
         if (!accessToken) {
-          status.textContent = "目前沒有 Zhuge 登入 Session。請先回 Tron 登入，再從 Lab 進入。";
+          status.textContent = "目前沒有 Zhuge 登入 Session。請先回 TRQN 登入，再從 Lab 進入。";
           return;
         }
 

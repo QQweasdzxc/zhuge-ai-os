@@ -973,7 +973,7 @@ function renderWorkTodoAttachmentContextResult(drawerRoot, result = {}) {
   const aiResult = result.aiResult || null;
   const aiOutput = aiResult?.status === "ready" && aiResult.output && typeof aiResult.output === "object" ? aiResult.output : null;
   const aiMarkup = aiOutput
-    ? `<section class="shared-attachment-ai-result" data-state="ready"><strong>Tron AI 閱讀</strong><p>${escapeHtml(aiOutput.summary || "目前沒有可驗證摘要。")}</p>${Array.isArray(aiOutput.observations) && aiOutput.observations.length ? `<ul>${aiOutput.observations.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}${Array.isArray(aiOutput.uncertainties) && aiOutput.uncertainties.length ? `<small>仍需確認：${escapeHtml(aiOutput.uncertainties.join("、"))}</small>` : ""}</section>`
+    ? `<section class="shared-attachment-ai-result" data-state="ready"><strong>TRQN AI 閱讀</strong><p>${escapeHtml(aiOutput.summary || "目前沒有可驗證摘要。")}</p>${Array.isArray(aiOutput.observations) && aiOutput.observations.length ? `<ul>${aiOutput.observations.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}${Array.isArray(aiOutput.uncertainties) && aiOutput.uncertainties.length ? `<small>仍需確認：${escapeHtml(aiOutput.uncertainties.join("、"))}</small>` : ""}</section>`
     : aiResult
       ? `<small class="shared-attachment-ai-status" data-state="${escapeHtml(String(aiResult.status || "unavailable"))}">AI 閱讀：${escapeHtml(aiResult.nextStep || aiResult.reason || "目前沒有可驗證 AI 摘要。")}</small>`
       : "";
@@ -3148,7 +3148,7 @@ function workTodoHeaderActions() {
 }
 
 function header() {
-  return `<div class="top"><div class="brand-row"><button class="mini adaptive-menu" data-toggle-sidebar="1">☰</button><div class="brand-stack"><h1><span class="brand-mark" aria-hidden="true"><img src="../../shared/assets/logo/tron-icon.svg" alt="" style="width:22px;height:22px;border-radius:6px;vertical-align:-4px"></span> Tron</h1><span class="brand-companion">by Mr. KM</span></div></div><div class="header-right">${headerWorkIdentityStatus()}</div></div>`;
+  return `<div class="top"><div class="brand-row"><button class="mini adaptive-menu" data-toggle-sidebar="1">☰</button><div class="brand-stack"><h1><span class="brand-mark" aria-hidden="true"><img src="../../shared/assets/logo/tron-icon.svg" alt="" style="width:22px;height:22px;border-radius:6px;vertical-align:-4px"></span> TRQN</h1><span class="brand-companion">by Mr. KM</span></div></div><div class="header-right">${headerWorkIdentityStatus()}</div></div>`;
 }
 
 /*
@@ -3166,12 +3166,12 @@ function workspaceContextBar() {
     library: "Knowledge｜整理文件、工作知識與 AI 分析結果",
     sync: "控制台｜查看同步狀態與系統連線",
     management: "管理功能｜進入工作看板、工程準則與系統管理中心",
-    settings: "設定｜管理個人工作身分與 Tron 偏好"
+    settings: "設定｜管理個人工作身分與 TRQN 偏好"
   };
   if (typeof ZhugeSharedShell !== "undefined") {
     return ZhugeSharedShell.renderHeader({
       title: `${workspace.icon} ${workspace.label}`,
-      description: descriptions[activeWorkspace] || "Tron 工作模組",
+      description: descriptions[activeWorkspace] || "TRQN 工作模組",
       identity: session,
       version: VERSION,
       build: BUILD_TIME,
@@ -3180,17 +3180,17 @@ function workspaceContextBar() {
     });
   }
   const navigationMenu = SYSTEM_TEMPLATE_VIEW === "navigation" ? `<button class="mini adaptive-menu" data-toggle-sidebar="1" aria-label="開啟工作模組選單">☰</button>` : "";
-  return `<div class="workspace-context-bar workspace-shell-header"><div class="workspace-context-inner">${navigationMenu}<div class="workspace-context-title"><span class="workspace-breadcrumb"><span class="workspace-breadcrumb-root">Tron</span><span class="workspace-breadcrumb-separator" aria-hidden="true">›</span><span aria-hidden="true">${workspace.icon}</span><span>${escapeHtml(workspace.label)}</span></span></div>${workTodoHeaderActions()}</div></div>`;
+  return `<div class="workspace-context-bar workspace-shell-header"><div class="workspace-context-inner">${navigationMenu}<div class="workspace-context-title"><span class="workspace-breadcrumb"><span class="workspace-breadcrumb-root">TRQN</span><span class="workspace-breadcrumb-separator" aria-hidden="true">›</span><span aria-hidden="true">${workspace.icon}</span><span>${escapeHtml(workspace.label)}</span></span></div>${workTodoHeaderActions()}</div></div>`;
 }
 
 function authScreen() {
   const oauthError = getStoredOAuthError();
   const errorBlock = oauthError ? `<div class="empty" role="alert" style="margin:14px 0;border-color:#d97878"><b>Google 登入未完成</b><div class="muted">${escapeHtml(oauthError.message || "請稍後再試")}</div><small>錯誤代碼：${escapeHtml(oauthError.code || "unknown")}</small></div>` : "";
-  return `<div class="wrap"><div class="card"><section class="panel auth-panel" style="margin-top:18px"><h1><img src="../../shared/assets/logo/tron-wordmark.svg" alt="Tron" style="height:32px;display:block;margin-bottom:4px"></h1><div class="muted">by Mr. KM</div><p>Tron 是一套 AI 工作管理平台，整合 Google Login、WorkLog、Google Drive 與知識管理，協助使用者管理每日工作、工作紀錄與知識整理。</p><p class="muted">可使用 Google 或 Email 帳號登入；登入後即可使用 WorkLog、Google Drive 整合及 AI 工作管理功能。</p>${errorBlock}<div class="auth-methods"><button class="btn full" id="googleLoginBtn">使用 Google 帳號登入</button><div class="auth-divider"><span>或使用 Email</span></div><form id="emailAuthForm" novalidate><label for="emailAuthEmail">Email</label><input class="input" id="emailAuthEmail" type="email" autocomplete="email" placeholder="name@example.com" required><label for="emailAuthPassword">密碼</label><input class="input" id="emailAuthPassword" type="password" autocomplete="current-password" minlength="8" placeholder="至少 8 個字元" required><div class="form-actions"><button class="btn" type="submit" data-email-auth-mode="login">Email 登入</button><button class="btn2" type="button" data-email-auth-mode="signup">建立帳號</button><button class="btn2" type="button" data-email-auth-mode="reset">忘記密碼</button></div></form><div id="emailAuthMessage" class="muted" role="status" aria-live="polite"></div></div><nav class="auth-public-links" aria-label="公開產品資訊"><a href="../../product/">產品介紹</a><a href="../../privacy/">隱私權政策</a><a href="../../terms/">服務條款</a><a href="../../support/">支援</a><a href="mailto:qq.1025@gmail.com">聯絡支援</a></nav></section></div></div>`;
+  return `<div class="wrap"><div class="card"><section class="panel auth-panel" style="margin-top:18px"><h1><img src="../../shared/assets/logo/tron-wordmark.svg" alt="TRQN" style="height:32px;display:block;margin-bottom:4px"></h1><div class="muted">by Mr. KM</div><p>TRQN 是一套 AI 工作管理平台，整合 Google Login、WorkLog、Google Drive 與知識管理，協助使用者管理每日工作、工作紀錄與知識整理。</p><p class="muted">可使用 Google 或 Email 帳號登入；登入後即可使用 WorkLog、Google Drive 整合及 AI 工作管理功能。</p>${errorBlock}<div class="auth-methods"><button class="btn full" id="googleLoginBtn">使用 Google 帳號登入</button><div class="auth-divider"><span>或使用 Email</span></div><form id="emailAuthForm" novalidate><label for="emailAuthEmail">Email</label><input class="input" id="emailAuthEmail" type="email" autocomplete="email" placeholder="name@example.com" required><label for="emailAuthPassword">密碼</label><input class="input" id="emailAuthPassword" type="password" autocomplete="current-password" minlength="8" placeholder="至少 8 個字元" required><div class="form-actions"><button class="btn" type="submit" data-email-auth-mode="login">Email 登入</button><button class="btn2" type="button" data-email-auth-mode="signup">建立帳號</button><button class="btn2" type="button" data-email-auth-mode="reset">忘記密碼</button></div></form><div id="emailAuthMessage" class="muted" role="status" aria-live="polite"></div></div><nav class="auth-public-links" aria-label="公開產品資訊"><a href="../../product/">產品介紹</a><a href="../../privacy/">隱私權政策</a><a href="../../terms/">服務條款</a><a href="../../support/">支援</a><a href="mailto:qq.1025@gmail.com">聯絡支援</a></nav></section></div></div>`;
 }
 
 function authVerificationScreen() {
-  return `<div class="wrap"><div class="card"><section class="panel auth-panel" style="margin-top:18px"><h1><img src="../../shared/assets/logo/tron-wordmark.svg" alt="Tron" style="height:32px;display:block;margin-bottom:4px"></h1><div class="muted">by Mr. KM</div><div class="empty" role="alert" style="margin:14px 0"><b>目前無法確認登入狀態</b><div class="muted">網路或伺服器暫時無法驗證你的登入工作階段。你的登入資料仍保留在這個瀏覽器中，尚未被清除；請重新檢查。若多次失敗，可返回登入頁面重新登入。</div></div><div class="auth-methods"><button class="btn full" id="authVerifyRetryBtn" type="button">重新檢查</button><button class="btn2 full" id="authVerifyLoginBtn" type="button">返回登入頁面</button></div></section></div></div>`;
+  return `<div class="wrap"><div class="card"><section class="panel auth-panel" style="margin-top:18px"><h1><img src="../../shared/assets/logo/tron-wordmark.svg" alt="TRQN" style="height:32px;display:block;margin-bottom:4px"></h1><div class="muted">by Mr. KM</div><div class="empty" role="alert" style="margin:14px 0"><b>目前無法確認登入狀態</b><div class="muted">網路或伺服器暫時無法驗證你的登入工作階段。你的登入資料仍保留在這個瀏覽器中，尚未被清除；請重新檢查。若多次失敗，可返回登入頁面重新登入。</div></div><div class="auth-methods"><button class="btn full" id="authVerifyRetryBtn" type="button">重新檢查</button><button class="btn2 full" id="authVerifyLoginBtn" type="button">返回登入頁面</button></div></section></div></div>`;
 }
 
 function bindAuthVerification() {
@@ -3342,7 +3342,7 @@ function worklogWelcomeScreen() {
     confirm: ["Step 4 / 4", "■■■■"]
   };
   if (step === "welcome") {
-    return `<div class="wrap"><div class="card"><section class="panel welcome-panel work-identity-welcome" style="margin-top:18px"><h1>👋 歡迎來到 Tron</h1><p class="work-identity-tagline">一句話記錄工作，一步步建立專屬於你的 AI 工作助理。</p><p>我是 Mr. KM，您的工作搭檔與 Knowledge Manager。</p><p>未來我會逐漸學習您的工作方式，成為最了解您的 AI 助理。</p><p>開始之前，我們先花不到一分鐘，建立您的工作身分。</p><div class="muted">工作身分是 Tron 對您工作角色的理解基礎，未來 Knowledge Brain、Recommendation Engine 與 Suggestion Engine 都會以此作為 Context。</div><div class="form-actions"><button class="btn" data-work-identity-start="1">開始設定</button></div></section></div></div>`;
+    return `<div class="wrap"><div class="card"><section class="panel welcome-panel work-identity-welcome" style="margin-top:18px"><h1>👋 歡迎來到 TRQN</h1><p class="work-identity-tagline">一句話記錄工作，一步步建立專屬於你的 AI 工作助理。</p><p>我是 Mr. KM，您的工作搭檔與 Knowledge Manager。</p><p>未來我會逐漸學習您的工作方式，成為最了解您的 AI 助理。</p><p>開始之前，我們先花不到一分鐘，建立您的工作身分。</p><div class="muted">工作身分是 TRQN 對您工作角色的理解基礎，未來 Knowledge Brain、Recommendation Engine 與 Suggestion Engine 都會以此作為 Context。</div><div class="form-actions"><button class="btn" data-work-identity-start="1">開始設定</button></div></section></div></div>`;
   }
   if (step === "confirm") {
     const [label, bars] = progress.confirm;
@@ -3472,7 +3472,7 @@ function workspaceTabs() {
   // sidebar and shared Header already provide the module navigation context.
   // Do not add a second single-workspace title row above the board.
   if (activeWorkspace === "tasks") return "";
-  if (!openTabs.length) return `<div data-worklog-navigation class="workspace-subnav empty"><span><img src="../../shared/assets/logo/tron-icon.svg" alt="" style="width:22px;height:22px;border-radius:6px;vertical-align:-4px"> Tron</span><span class="muted">工作模組入口</span></div>`;
+  if (!openTabs.length) return `<div data-worklog-navigation class="workspace-subnav empty"><span><img src="../../shared/assets/logo/tron-icon.svg" alt="" style="width:22px;height:22px;border-radius:6px;vertical-align:-4px"> TRQN</span><span class="muted">工作模組入口</span></div>`;
   if (openTabs.length === 1) {
     const w = workspaceDef(openTabs[0]);
     return `<div class="workspace-title workspace-subnav">${w.icon} ${w.label}</div>`;
@@ -4391,7 +4391,7 @@ function assistantNudgeText() {
 function assistantWelcomePanel(mode = "floating") {
   const floatingMode = mode === "floating" || mode === "hub-embedded";
   const modeClass = mode === "extension" ? "extension-assistant" : (mode === "standalone" ? "standalone-assistant" : "floating-assistant");
-  return `<section class="panel assistant-panel ${modeClass}"><div class="assistant-welcome"><h2>▽ Tron</h2><div class="muted">by Mr. KM</div><p>歡迎，今天也讓我陪你一起完成工作吧。</p><p>我會協助你用一句自然語言建立工時、寫入工時月曆，並在月底匯出 ECP。</p><button class="btn full" type="button" data-start-assistant="1">開始</button>${floatingMode ? `<button class="btn2 full" type="button" data-close-assistant="1">稍後</button>` : ""}</div></section>`;
+  return `<section class="panel assistant-panel ${modeClass}"><div class="assistant-welcome"><h2>▽ TRQN</h2><div class="muted">by Mr. KM</div><p>歡迎，今天也讓我陪你一起完成工作吧。</p><p>我會協助你用一句自然語言建立工時、寫入工時月曆，並在月底匯出 ECP。</p><button class="btn full" type="button" data-start-assistant="1">開始</button>${floatingMode ? `<button class="btn2 full" type="button" data-close-assistant="1">稍後</button>` : ""}</div></section>`;
 }
 
 function worklogAssistantPanel(mode = "web") {
@@ -4414,7 +4414,7 @@ function worklogAssistantPanel(mode = "web") {
       : `<button class="assistant-icon-action disabled" type="button" disabled title="安裝 Chrome 擴充功能（即將推出）" aria-label="安裝 Chrome 擴充功能（即將推出）">🧩</button>`)
     : "";
   const osAction = mode === "extension" || mode === "standalone"
-    ? `<a class="assistant-icon-action" href="${escapeHtml(appHomeUrl())}" target="${mode === "extension" ? "_blank" : "_self"}" rel="noopener" title="開啟 Tron" aria-label="開啟 Tron">🖥</a>`
+    ? `<a class="assistant-icon-action" href="${escapeHtml(appHomeUrl())}" target="${mode === "extension" ? "_blank" : "_self"}" rel="noopener" title="開啟 TRQN" aria-label="開啟 TRQN">🖥</a>`
     : "";
   const fullscreenAction = mode === "floating"
     ? `<a class="assistant-icon-action" href="${escapeHtml(standaloneChatUrl())}" title="全螢幕開啟" aria-label="全螢幕開啟">↗</a>`
@@ -4549,7 +4549,7 @@ function sync() {
     ["本機資料", "🟢 正常", "", "保留尚未同步的本機工作內容"]
   ];
   const online = session ? "目前可以使用" : "需要登入後才能使用";
-  return `<section class="panel control-center" aria-label="控制台內容"><section class="control-center-first-screen" aria-labelledby="control-center-first-screen-title"><div><p class="eyebrow">控制台</p><h2 id="control-center-first-screen-title">${online}</h2><p class="muted">先看是否有會影響工作的問題；Build、Schema 與同步細節放在下方展開。</p></div><div class="control-center-summary-grid"><div class="control-center-summary-card"><strong>${session ? "🟢 工作空間可用" : "⚪ 尚未登入"}</strong><small>${session ? "登入狀態正常" : "請先登入 Tron"}</small></div><div class="control-center-summary-card"><strong>${cloudSyncLabel()}</strong><small>跨裝置資料同步狀態</small></div><div class="control-center-summary-card"><strong>🟢 AI 可使用</strong><small>既有 AI 助手與知識能力</small></div></div></section><section class="control-center-status-column" aria-labelledby="control-center-status-title"><h2 id="control-center-status-title" class="dashboard-section-label">系統狀態</h2><h3 class="desktop-status-subheading">服務狀態</h3><div class="control-grid">${services.map(([name, state, action, impact]) => `<div class="service-card"><div><h3>${escapeHtml(name)}</h3><b>${escapeHtml(state)}</b><small class="muted">${escapeHtml(impact)}</small></div>${action}</div>`).join("")}</div>${developerConsoleMarkup()}</section></section>`;
+  return `<section class="panel control-center" aria-label="控制台內容"><section class="control-center-first-screen" aria-labelledby="control-center-first-screen-title"><div><p class="eyebrow">控制台</p><h2 id="control-center-first-screen-title">${online}</h2><p class="muted">先看是否有會影響工作的問題；Build、Schema 與同步細節放在下方展開。</p></div><div class="control-center-summary-grid"><div class="control-center-summary-card"><strong>${session ? "🟢 工作空間可用" : "⚪ 尚未登入"}</strong><small>${session ? "登入狀態正常" : "請先登入 TRQN"}</small></div><div class="control-center-summary-card"><strong>${cloudSyncLabel()}</strong><small>跨裝置資料同步狀態</small></div><div class="control-center-summary-card"><strong>🟢 AI 可使用</strong><small>既有 AI 助手與知識能力</small></div></div></section><section class="control-center-status-column" aria-labelledby="control-center-status-title"><h2 id="control-center-status-title" class="dashboard-section-label">系統狀態</h2><h3 class="desktop-status-subheading">服務狀態</h3><div class="control-grid">${services.map(([name, state, action, impact]) => `<div class="service-card"><div><h3>${escapeHtml(name)}</h3><b>${escapeHtml(state)}</b><small class="muted">${escapeHtml(impact)}</small></div>${action}</div>`).join("")}</div>${developerConsoleMarkup()}</section></section>`;
 }
 
 function nextKnowledgeId() {
@@ -5031,13 +5031,13 @@ function settings() {
   const wp = normalizeWorkProfile(workProfile || {}, profile);
   const profileStatus = isWorkProfileReady(wp) ? "✓ 已完成" : `⚠ 尚未完成：${workProfileMissingFields(wp).join("、")}`;
   const identitySetup = session.provider === "google-oauth"
-    ? `<div class="work-model-section settings-identity-section"><h3>登入方式</h3><div class="muted">目前使用 Google 登入。同一個 Tron 身分可以設定 Email 密碼，仍會沿用同一個 User UUID。</div><label for="accountPassword">設定 Email 密碼</label><input id="accountPassword" class="input" type="password" minlength="8" autocomplete="new-password" placeholder="至少 8 個字元"><button class="btn2" type="button" data-set-account-password="1">儲存密碼</button><div id="accountPasswordMessage" class="muted" role="status"></div></div>`
+    ? `<div class="work-model-section settings-identity-section"><h3>登入方式</h3><div class="muted">目前使用 Google 登入。同一個 TRQN 身分可以設定 Email 密碼，仍會沿用同一個 User UUID。</div><label for="accountPassword">設定 Email 密碼</label><input id="accountPassword" class="input" type="password" minlength="8" autocomplete="new-password" placeholder="至少 8 個字元"><button class="btn2" type="button" data-set-account-password="1">儲存密碼</button><div id="accountPasswordMessage" class="muted" role="status"></div></div>`
     : `<div class="work-model-section settings-identity-section"><h3>登入方式</h3><div class="muted">目前使用 Email 登入。Google 可作為同一個帳號的其他登入方式（完成連結前不會建立第二個 User）。</div><button class="btn2" type="button" data-link-google-identity="1">連結 Google 登入</button><div id="accountIdentityMessage" class="muted" role="status">連結會先開啟 Google 授權頁。</div></div>`;
   const roleOptions = roles.map(r => `<option ${profile && profile.role === r ? "selected" : ""}>${r}</option>`).join("");
   const settingsFirstScreen = `<div class="settings-first-screen"><div><p class="eyebrow">設定</p><h2>管理帳號、偏好與工作設定</h2><div class="muted">先從帳號與安全開始；低頻的工作記憶與系統資訊需要時再展開。</div></div><nav class="settings-section-index" aria-label="設定分類"><a href="#settings-account-security">帳號與安全</a><a href="#settings-preferences">個人偏好</a><a href="#settings-work-settings">工作設定</a><a href="#settings-advanced-system">進階系統</a></nav></div>`;
   const workSection = `<details class="settings-secondary-section settings-work-section" id="settings-work-settings"><summary><span>我的工作與 AI 建議</span><small>低頻設定與工作記憶</small></summary><div class="settings-secondary-section-content">${workMemoryPage({ compact: true })}</div></details>`;
   const advancedSection = `<details class="settings-secondary-section settings-advanced-section" id="settings-advanced-system"><summary><span>進階系統</span><small>重設、登出與版本資訊</small></summary><div class="settings-secondary-section-content"><div class="settings-actions"><button class="btn2 settings-reset-action" id="resetProfile">重新初次認識</button><button class="btn settings-logout-action" id="logoutBtn">登出</button></div><div class="settings-version"><span>About／版本</span><strong>${VERSION}</strong></div></div></details>`;
-  return `<section class="panel settings-page" style="margin-top:18px"><div class="settings-page-heading"><div><h2>⚙️ 設定</h2><div class="muted">管理個人工作身分與 Tron 偏好</div></div></div>${settingsFirstScreen}<div class="settings-summary-grid"><div class="entry settings-summary-card" id="settings-account-security"><b>目前使用者</b><div class="muted">${escapeHtml(session.name)}｜${escapeHtml(session.status || session.email || "")}</div></div><div class="entry settings-summary-card"><b>工作身分</b><div class="muted">${escapeHtml(profileStatus)}</div><div class="source-path">目前工作任務：${escapeHtml(wp.defaultTask || "尚未設定")}｜有效月份：${escapeHtml(wp.taskEffectiveMonth || "尚未設定")}</div></div></div><section class="settings-account-security">${identitySetup}</section><section class="settings-preferences" id="settings-preferences"><div class="entry settings-preference-card"><b>Smart Auto Save</b><div class="muted">設定一修改即更新本機狀態，約 2 秒後自動同步 Cloud。</div></div><label class="settings-role-field" for="roleSet"><span>角色</span><select id="roleSet" class="input">${roleOptions}</select></label></section><section class="work-model-section settings-ecp-section"><div class="settings-section-heading"><div><h3>ECP 設定</h3><div class="muted">目前工作任務會作為 ECP 匯出的任務欄位來源。</div></div></div><div class="settings-form-grid"><label class="settings-form-field">ECP 負責人<input class="input" id="ecpOwner" value="${escapeHtml(profile?.ecpOwner || "")}" placeholder="例如：陳彥達-UU"></label><label class="settings-form-field">ECP 負責部門<input class="input" id="ecpDepartment" value="${escapeHtml(profile?.ecpDepartment || "")}" placeholder="例如：UU管理部"></label><div class="settings-form-field settings-field-wide"><span>目前工作任務（Current Active Task）</span>${ecpTaskList(tasks)}</div><div class="work-model-add settings-ecp-add"><input class="input" id="newEcpTask" placeholder="新增 ECP 任務，例如：採購案件處理"><button class="btn2" id="addEcpTask" type="button">＋ 新增 ECP 任務</button></div></div><div class="muted settings-help">快速紀錄仍可選「不指定 ECP 任務」。</div></section>${workSection}${advancedSection}</section>`;
+  return `<section class="panel settings-page" style="margin-top:18px"><div class="settings-page-heading"><div><h2>⚙️ 設定</h2><div class="muted">管理個人工作身分與 TRQN 偏好</div></div></div>${settingsFirstScreen}<div class="settings-summary-grid"><div class="entry settings-summary-card" id="settings-account-security"><b>目前使用者</b><div class="muted">${escapeHtml(session.name)}｜${escapeHtml(session.status || session.email || "")}</div></div><div class="entry settings-summary-card"><b>工作身分</b><div class="muted">${escapeHtml(profileStatus)}</div><div class="source-path">目前工作任務：${escapeHtml(wp.defaultTask || "尚未設定")}｜有效月份：${escapeHtml(wp.taskEffectiveMonth || "尚未設定")}</div></div></div><section class="settings-account-security">${identitySetup}</section><section class="settings-preferences" id="settings-preferences"><div class="entry settings-preference-card"><b>Smart Auto Save</b><div class="muted">設定一修改即更新本機狀態，約 2 秒後自動同步 Cloud。</div></div><label class="settings-role-field" for="roleSet"><span>角色</span><select id="roleSet" class="input">${roleOptions}</select></label></section><section class="work-model-section settings-ecp-section"><div class="settings-section-heading"><div><h3>ECP 設定</h3><div class="muted">目前工作任務會作為 ECP 匯出的任務欄位來源。</div></div></div><div class="settings-form-grid"><label class="settings-form-field">ECP 負責人<input class="input" id="ecpOwner" value="${escapeHtml(profile?.ecpOwner || "")}" placeholder="例如：陳彥達-UU"></label><label class="settings-form-field">ECP 負責部門<input class="input" id="ecpDepartment" value="${escapeHtml(profile?.ecpDepartment || "")}" placeholder="例如：UU管理部"></label><div class="settings-form-field settings-field-wide"><span>目前工作任務（Current Active Task）</span>${ecpTaskList(tasks)}</div><div class="work-model-add settings-ecp-add"><input class="input" id="newEcpTask" placeholder="新增 ECP 任務，例如：採購案件處理"><button class="btn2" id="addEcpTask" type="button">＋ 新增 ECP 任務</button></div></div><div class="muted settings-help">快速紀錄仍可選「不指定 ECP 任務」。</div></section>${workSection}${advancedSection}</section>`;
 }
 
 function currentViewHtml() {
@@ -7264,7 +7264,7 @@ function bindSettings() {
     button.disabled = true;
     try {
       await setPasswordForCurrentUser(input?.value || "");
-      if (message) message.textContent = "密碼已設定；之後可用同一個 Tron 身分登入。";
+      if (message) message.textContent = "密碼已設定；之後可用同一個 TRQN 身分登入。";
       if (input) input.value = "";
     } catch (error) {
       if (message) { message.textContent = error.message || "設定密碼失敗。"; message.style.color = "#ffb4ab"; }
