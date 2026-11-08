@@ -579,12 +579,12 @@ html:has(.standalone-chat-page),body:has(.standalone-chat-page),#app:has(.standa
 [data-worklog-mobile-sections]{grid-area:mobiletabs}
 
 
-/* Tron 視覺統一（定案 v8/v5 語彙）：主按鈕橘框青內框雙框，停用與互動態一致。*/
+/* TRQN 視覺統一（定案 v8/v5 語彙）：主按鈕橘框青內框雙框，停用與互動態一致。*/
 .btn:not(.gray):not(.red):not(.amber):hover{filter:drop-shadow(0 0 8px rgba(255,154,60,.35))}
 .btn:disabled,.btn[disabled]{opacity:.5;cursor:not-allowed;filter:none}
 .btn2:hover{border-color:#2fd7f5;color:#6ff3ff}
 
-/* ZG-69 Tron 視覺統一：chat／assistant 元件與品牌載入畫面的淺色模式。
+/* ZG-69 TRQN 視覺統一：chat／assistant 元件與品牌載入畫面的淺色模式。
    值對齊 shared/theme/tokens.css 的 light token（本檔在 chat standalone 下不載入 tokens，故用具體值）。*/
 html[data-theme="light"] body:has(.standalone-chat-page), html[data-theme="light"] body:has(.hub-chat-embed-page){background:#f2f4f7;color:#1d2430;color-scheme:light}
 html[data-theme="light"] .standalone-chat-page{background:radial-gradient(circle at top,#e3edf4 0,#eef2f6 42%,#f2f4f7 100%)}
