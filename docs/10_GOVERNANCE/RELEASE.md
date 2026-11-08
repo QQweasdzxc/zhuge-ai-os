@@ -253,3 +253,51 @@ never an overall release PASS.
 Core changes require an explicit architecture decision. New modules must use
 the existing Shell, Shared Core, Services, AI, Theme, i18n, and release
 contracts rather than creating a parallel foundation.
+
+
+## ZG-71 review build — 2026-11-08
+
+Version `0.9.0-alpha.9.190` · Build `20261108-2356` (Asia/Taipei).
+Baseline main: `2ddf801287963f4909890e4ad6141202a85d24c8` (ZG-70 #246).
+Per-person reversible access cards, creator-only App identity union, append-only
+Off/On events and missing 11/06 pause baseline; no production SQL, merge or deploy.
+Historical REJECTED remains allowed during pause until explicitly switched Off.
+Full audit, policy precedence, deployment order, coverage gaps and SQL evidence:
+`labs/taskflow/docs/ZG71_ACCESS_SWITCH_AUDIT.md`.
+
+Release synchronization changes only Version/Build/cache identity in:
+
+```text
+app/Board/ai/index.html
+app/Board/investment/index.html
+app/Board/procurement/index.html
+app/Board/template-preview/index.html
+app/Board/worktodo/index.html
+app/dashboard/index.html
+app/dashboard/zhuge-dashboard.js
+docs/index.html
+docs/status-classic.html
+index.html
+labs/investment/app.js
+labs/investment/index.html
+labs/investment/src/portfolio/view.mjs
+labs/investment/version.json
+labs/taskflow/index.html
+modules/investment/index.html
+modules/investment/version.json
+modules/skyeye/index.html
+modules/worklog/chat/index.html
+modules/worklog/index.html
+modules/worklog/version.json
+shared/app-config.js
+shared/config/template-release.js
+shared/config/version.js
+status-classic.html
+version.json
+```
+
+Published C identity is preserved by the existing sync-build gate. A FullSource
+Review artifact is required by this policy; its QA record must retain the known
+baseline failures: mobile-actions/compact-header 116.1875 and investment providers
+16 PASS / 1 FAIL. Focused access tests and 84 TF Python tests pass locally; this
+is not a full-regression PASS or a deployment approval. PR CI is reported separately.
