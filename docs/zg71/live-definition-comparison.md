@@ -61,11 +61,11 @@
 |---|---:|---:|---:|---:|---:|---:|
 | 現行（暫停 true） | 6 | 0 | 5 | 1 | — | — |
 | migration 單獨部署／不採 A／cutoff 未設 | 6 | 0 | 5 | 1 | 0 | 0 |
-| 立即採 A 的假設影響（被啟用 gate 阻止） | 5 | 1 | 5 | 1 | 5 | 1 |
-| 建議順序：缺口者自己進入留卡並經 creator On，再啟用 A | 6 | 0 | 6 | 0 | 6 | 0 |
+| main 明確確認排除 1 個未證實身分後採 A（未執行） | 5 | 1 | 5 | 1 | 5 | 1 |
+| 新進者日後自行進入（仍無祖父，需 creator On） | — | — | — | — | 5 | — |
 
-現有事件：approved_bootstrap 4、application_approved 1；PENDING 0、REJECTED 0、disabled 0、NEW 1。以上建議順序最後一列是預測，並未對正式庫執行。
+現有事件：approved_bootstrap 4、application_approved 1；PENDING 0、REJECTED 0、disabled 0、NEW 1。以上新政策列是投影，並未對正式庫執行。
 
-不得把缺口帳號當作祖父。activate_app_access_model 在仍有有效允許且缺 App 證據的帳號時拒絕，現在直接啟用會失敗。先部署 ensure_app_member + 新 gate 的相容期，讓該帳號自己進入產生卡；creator 確認 On 後再由 main 執行 owner-only 一行 activation。所有新增時間及 cutoff 均由伺服器 clock_timestamp 決定；呼叫者不能傳 user_id 或時間。
+不得把缺口帳號當作祖父。補充 7 的 164 個 App/TF/private 欄位來源均為 0 活動，但有 1–7 天前 Google 登入與 3 個未撤銷 refresh token，不能稱為停用／測試帳號。固定建議不納入祖父，main 明確接受 6→5 允許的資格變化後，以 owner-only activate_app_access_model(1) 啟用；若未證實身分計數改變則拒絕。不再依賴該帳號去登入，不從 Auth 列出名冊或補造 App membership。細節與唯讀來源見 gap-account-review.md。
 
 舊 profile 的 created_at 不作祖父授權判斷；啟用當刻的 private 快照封存 App 身分來源，cutoff 後修改／回填 profile 不會更新快照。migration 不執行 activation、不建立祖父資料、不批量修改使用者狀態。

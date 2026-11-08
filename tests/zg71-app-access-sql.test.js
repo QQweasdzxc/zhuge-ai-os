@@ -90,6 +90,7 @@ test('ZG-71 real SQL: transition, reversible access, legacy writers, permissions
  await db.exec(migration);
  assert.deepEqual(await scalar('select jsonb_agg(to_jsonb(e) order by event_no) from private.app_access_application_events e'),replayBefore);
  assert.deepEqual(await scalar("select value from private.app_access_settings where key='access_model_cutoff'"),cutoffBefore);
+ const impact = await q(read('docs/zg71/post-migration-impact-readonly.sql'));assert.ok(impact.length>0);assert.ok(impact.every(r=>typeof r.effective_allowed==='boolean'));
  console.log('TEST DATA SQL PASS: unchanged transition; REJECTED+paused allowed; Off+paused denied; creator protected; reversible; app identities scoped.');
  } finally { await db.close(); }
 });

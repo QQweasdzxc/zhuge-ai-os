@@ -375,7 +375,7 @@ $function$;
 drop trigger if exists app_access_switch_guard on private.app_access_application_events;
 drop function if exists public.set_app_access_user_enabled(uuid,boolean,text,text);
 drop function if exists public.ensure_app_member();
-drop function if exists private.activate_app_access_model();
+drop function if exists private.activate_app_access_model(integer);
 drop function if exists private.guard_app_access_switch();
 drop function if exists private.app_access_member_identities();
 drop function if exists private.app_access_effective_allowed(uuid);

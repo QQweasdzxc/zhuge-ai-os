@@ -1,0 +1,1 @@
+select r.rolname,has_function_privilege(r.rolname,'public.is_app_access_approved()','EXECUTE') as can_execute_rpc,has_schema_privilege(r.rolname,'private','USAGE') as private_usage from pg_roles r where r.rolname in ('multica_lab_runtime','taskflow_runtime') order by r.rolname;

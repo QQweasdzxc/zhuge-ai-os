@@ -46,6 +46,8 @@ test("Pages panel: Google login, creator gate, confirmed RPC parameters and erro
     });
     const writes = () => calls.filter(call => call.name === "set_app_access_review_paused");
     await page.goto(panelURL);
+    assert.equal(await page.locator("#transition-settings").getAttribute("open"), null);
+    await page.getByText("進階：過渡設定", { exact: true }).click();
     await page.getByText("人工審核：已暫停", { exact: true }).waitFor();
     assert.equal(writes().length, 0);
     page.once("dialog", dialog => dialog.dismiss());

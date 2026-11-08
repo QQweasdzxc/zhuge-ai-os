@@ -36,7 +36,7 @@ exports.verifyMatrix=async ({db,as,q,scalar,id})=>{
   await as(n);await scalar('select ensure_app_member()');assert.equal(await scalar('select is_app_access_approved()'),false,table+' backdate cannot grandfather');
  }
  await assert.rejects(scalar(`select ensure_app_member('${id(1)}')`),/does not exist/);
- assert.equal(await scalar("select has_function_privilege('authenticated','private.activate_app_access_model()','EXECUTE')"),false);
+ assert.equal(await scalar("select has_function_privilege('authenticated','private.activate_app_access_model(integer)','EXECUTE')"),false);
  // New application by an old grandfather must be explicitly decided again.
  await as(1);await scalar(`select set_app_access_user_enabled('${id(110)}',true,null,'matrix-enable')`);
  await db.exec(`insert into private.app_access_application_events(applicant_user_id,event_type,email_snapshot,display_name,reason,source,created_at) values('${id(111)}','application_submitted','old@example.invalid','TEST','New request','user_application','2100-01-01')`);
@@ -48,10 +48,11 @@ exports.verifyMatrix=async ({db,as,q,scalar,id})=>{
  await as(111);assert.equal(await scalar('select is_app_access_approved()'),false,'new rejection cannot restore grandfather allowance');
  // Activation is owner-only, gap-blocked and does not auto-run with migration.
  await db.exec("delete from private.app_access_settings where key='access_model_cutoff'");
- await assert.rejects(scalar('select private.activate_app_access_model()'),/lack App evidence/);
- await as(8);await scalar('select ensure_app_member()');await as(1);
- const activation=await scalar('select private.activate_app_access_model()');assert.ok(activation.grandfather_count>0);
- await assert.rejects(scalar('select private.activate_app_access_model()'),/already activated/);
+ await assert.rejects(scalar('select private.activate_app_access_model(0)'),/unproven eligibility count changed/);
+ const activation=await scalar('select private.activate_app_access_model(1)');assert.ok(activation.grandfather_count>0);assert.equal(activation.excluded_unproven_count,1);
+ await as(8);assert.equal(await scalar('select is_app_access_approved()'),false,'unproven identity excluded without waiting for login');
+ await scalar('select ensure_app_member()');assert.equal(await scalar('select is_app_access_approved()'),false,'later membership does not backfill grandfather');await as(1);
+ await assert.rejects(scalar('select private.activate_app_access_model(0)'),/already activated/);
  await as(null);await assert.rejects(scalar('select ensure_app_member()'),/Authenticated/);
  // Persist non-PII local computed matrix for the UI test in the same CI job.
  fs.mkdirSync('/tmp/zg71-matrix',{recursive:true});fs.writeFileSync('/tmp/zg71-matrix/result.json',JSON.stringify(output));

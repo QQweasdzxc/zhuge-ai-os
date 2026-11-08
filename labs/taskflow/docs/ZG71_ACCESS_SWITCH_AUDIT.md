@@ -10,15 +10,17 @@ main 基準 `2ddf801287963f4909890e4ad6141202a85d24c8`（ZG-70 #246）。同一 
 
 - cutoff 未設：保留原暫停語意，但 access_disabled 必定 false。
 - cutoff 已設：批准事件（bootstrap/approved/enabled）為 true；disabled 永遠 false；其他狀態僅可在 pause=true 且身分已在受保護快照中時相容放行。cutoff 後新提出的 PENDING 仍需重新決定；新進 NEW/PENDING 為 Off、琥珀框與待審文字。
-- UI 不增加祖父或 cutoff 控制。暫停設定仍是原 creator setter，沒有自動切換旗標。相容期顯示「暫停審核中，登入者可直接使用；個別 Off 會被擋」，啟用後顯示「既有成員保留使用；新加入者需你開啟。個別 Off 會被擋」。
+- 頂層只有名片／有效開關／待審文字；暫停開關移至名片下方、預設收合的「進階：過渡設定」。UI 不增加祖父或 cutoff 控制。暫停設定仍是原 creator setter，沒有自動切換旗標。相容期顯示「暫停審核中，登入者可直接使用；個別 Off 會被擋」，啟用後顯示「既有成員保留使用；新加入者需你開啟。個別 Off 會被擋」。
 
 `ensure_app_member()` 無參數、只記錄 auth.uid()，Email／顯示名稱取該身分既有資料、不取頭像。private 表 first_seen_at 用 clock_timestamp，冪等 DO NOTHING；沒有新增 client time／其他 user_id 入口。共用 app-access-service 在 resolve 後對已登入的當前身分呼叫它，成功留卡才完成 getCurrent。anonymous 不留記錄，Off 不因此解除。
 
-祖父判斷不使用使用者可回填的 app_users/user_profiles/worklog_users.created_at；owner-only `activate_app_access_model()` 以 server clock 一次快照當刻 App 身分。cutoff 後新增／回填上述表都不會更新快照。private 表 RLS＋撤銷直接存取；activate 的 EXECUTE 對 public/anon/authenticated/service_role 全部撤銷，main 只在確認後執行一行 SQL。
+祖父判斷不使用使用者可回填的 app_users/user_profiles/worklog_users.created_at；owner-only `activate_app_access_model(integer)` 以 server clock 一次快照當刻 App 身分。cutoff 後新增／回填上述表都不會更新快照。private 表 RLS＋撤銷直接存取；activate(integer) 的 EXECUTE 對 public/anon/authenticated/service_role 全部撤銷，main 只在確認後執行一行 SQL。
 
 ## 實際影響與部署證據
 
-目前有效允許 **6**，有 App 證據 **5**，缺口 **1**。現有狀態 APPROVED 5（bootstrap 4、application_approved 1）、NEW 1，其他 0。migration 單獨部署仍 6 允許／0 禁止。直接啟用 A 的假設會變成 5 允許／1 禁止，因此 activation 的安全 gate 現在會拒絕。固定處理順序：相容期讓該帳號自己進入留卡，creator 明確確認 On，重新計數缺口為 0 後才啟用；不預設算它為祖父，不列出 Auth 專案原始名單。
+目前有效允許 **6**，有 App 證據 **5**，缺口 **1**。現有 APPROVED 5（bootstrap 4、application_approved 1）、NEW 1。migration 單獨部署仍 6／0。補充 7 已查 158 個 public/TF 與 6 個 private App 欄位來源，該帳號活動均 0，TF UUID/Email 對應 0；但 1–7 天前有 Google 登入、仍有 3 個未撤銷 refresh token，不能判定停用或測試。沒有合法活動來源可補建 membership，不依賴它下次登入。
+
+固定建議：不納祖父，main 明確接受資格影響後用 owner-only `activate_app_access_model(1)` 啟用 A，成為 **5 允許／1 Off**。整數 1 是影響計數確認，若現況漂移就原子拒絕；不傳客戶端時間或名單。這會撤除 1 人既有暫停放行資格，不能宣稱啟用 A 完全零影響；migration 單獨部署則保持現況。詳 `docs/zg71/gap-account-review.md`、兩份 gap 唯讀 SQL 與 counts JSON。
 
 - [逐函式 live 比對與影響表](../../../docs/zg71/live-definition-comparison.md)：正式庫 pg_get_functiondef 的七個定義與 baseline／新 migration，逐一列差異；list 重組不是純 additive。
 - `tests/fixtures/zg71-live-function-definitions.json`：唯讀原文，無個資資料列；SQL 測試真的載入這七個 live 定義後套用新 migration。
@@ -51,14 +53,14 @@ main 基準 `2ddf801287963f4909890e4ad6141202a85d24c8`（ZG-70 #246）。同一 
 
 ### 仍未涵蓋 TF 與其他界線
 
-[TF 研究](../../../docs/zg71/taskflow-boundary.md)：有 Supabase UUID → TF user.id 的既有對應，但之後是 TF 本地簽發 JWT/cookie/PAT，沒有可轉送的 Supabase caller JWT 或現成逐請求 canonical 查詢介面。新增跨 schema grant／server-to-server 信任會超出「重用現有機制、不得新增憑證橋接」；本次不冒充僅登入查一次即完整 Off。UI 明示「目前不涵蓋 TF 的獨立工作階段」。
+[TF 研究](../../../docs/zg71/taskflow-boundary.md)：有 Supabase UUID → TF user.id 的既有對應，但之後是 TF 本地簽發 JWT/cookie/PAT，登入時有既有 TF→Supabase server helper，可做僅新登入的最小檢查；後續 session 沒有可轉送的 Supabase caller JWT 或現成逐請求 canonical 查詢介面。新增跨 schema grant／server-to-server 信任會超出「重用現有機制、不得新增憑證橋接」；本次不冒充僅登入查一次即完整 Off。UI 明示「目前不涵蓋 TF 的獨立工作階段」。
 
 也不撤銷已下載資料、本機快取／Storage signed URL；沒有新 gate 的後新增表（office roster 等）仍靠其既有 RLS。服務／actor、學習島及 frozen 範圍未修改，不宣稱每人開關覆蓋這些路徑。
 
 ## 測試與視覺證據
 
 - SQL：48 組 cutoff × pause × old/new × 六狀態；is_approved == resolver.effective_allowed == list.effective_allowed == enabled。測試 UI 直接採這份本地 SQL 計算出的 48 組結果，逐一比 aria-checked，不是獨立抄一份 JavaScript 政策。
-- SQL 另測：所有舊 resolver 欄位／事件在 migration 前後相等、REJECTED 暫停現況、RLS 真正拒讀、creator 自鎖禁止、On/Off 冪等／衝突、legacy decided review 40001、重送不可蓋 Off、私表拒讀、伺服器時間與回填防護、activation gap gate。
+- SQL 另測：所有舊 resolver 欄位／事件在 migration 前後相等、REJECTED 暫停現況、RLS 真正拒讀、creator 自鎖禁止、On/Off 冪等／衝突、legacy decided review 40001、重送不可蓋 Off、私表拒讀、伺服器時間與回填防護、activation 預期影響計數 gate（不再等待登入補證據）。
 - rollback：七個 live function body 完全還原、trigger 移除；新決定後 exact rollback 拒絕，compatibility rollback 保留 Off 與歷史。測試全部為一次性 PGlite，不接正式庫。
 - Edge：七個真 handler 在 fake RPC 下執行 false/null/錯格式/HTTP/network/timeout，Provider／資料讀寫為 0；true 通過至既有驗證。
 - `docs/zg71-screenshots/`：已提交 TEST DATA 桌面／手機主畫面（待審琥珀框、On/Off、暫停區、禁止卡）、空狀態與錯誤狀態各兩張 PNG；沒有正式個資。測試 runtime fixture 只在 tests，不進產品路徑。

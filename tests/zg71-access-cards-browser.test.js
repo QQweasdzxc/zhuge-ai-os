@@ -9,7 +9,7 @@ const url = 'https://qqweasdzxc.github.io/zhuge-ai-os/labs/taskflow/access-manag
 test('TEST DATA: cards, keyboard, filters, confirmation, errors and identity revalidation; all requests intercepted',async()=>{
  const browser=await chromium.launch({executablePath:resolveBrowserExecutable(),headless:true,args:['--no-sandbox']});
  try {
- const context=await browser.newContext();const page=await context.newPage();let creator=true,paused=false,fail=false,empty=false,network=false;
+ const context=await browser.newContext({deviceScaleFactor:2});const page=await context.newPage();let creator=true,paused=false,fail=false,empty=false,network=false;
  const writes=[],errors=[];page.on('pageerror',e=>errors.push(e.message));
  const rows=[
  {applicant_user_id:'u1',display_name:'TEST DATA 管理者',email:'creator@example.invalid',status:'APPROVED',enabled:true,bootstrap:true,is_creator:true},
@@ -36,6 +36,8 @@ test('TEST DATA: cards, keyboard, filters, confirmation, errors and identity rev
  });
  await page.addInitScript(()=>localStorage.setItem('zhuge_ai_os_google_auth_session_v1',JSON.stringify({access_token:'TEST-ONLY',expires_at:Date.now()/1000+3600})));
  await page.goto(url);await page.locator('.card').nth(3).waitFor();
+ assert.equal(await page.locator('#transition-settings').getAttribute('open'),null);assert.equal(await page.getByRole('switch').count(),4);
+ assert.equal(await page.locator('#cards').evaluate(el=>Boolean(el.compareDocumentPosition(document.getElementById('transition-settings')) & Node.DOCUMENT_POSITION_FOLLOWING)),true);
  assert.equal(await page.locator('.card.pending').count(),1);assert.equal(await page.locator('.card img').count(),0);assert.equal(writes.length,0);
  assert.equal(await page.getByRole('switch',{name:'TEST DATA 管理者：允許使用'}).isDisabled(),true);
  await page.getByRole('button',{name:'待審核 (1)',exact:true}).click();assert.equal(await page.locator('.card').count(),1);
@@ -53,6 +55,7 @@ test('TEST DATA: cards, keyboard, filters, confirmation, errors and identity rev
  const evidence=process.env.ZG71_EVIDENCE_DIR||path.join(root,'tests/evidence/zg71');fs.mkdirSync(evidence,{recursive:true});
  await page.setViewportSize({width:1440,height:1100});await page.screenshot({path:path.join(evidence,'TEST-DATA-desktop.png'),fullPage:true});
  await page.setViewportSize({width:390,height:844});await page.screenshot({path:path.join(evidence,'TEST-DATA-mobile.png'),fullPage:true});
+ assert.equal(fs.readFileSync(path.join(evidence,'TEST-DATA-mobile.png')).readUInt32BE(16),780,'native DPR2 mobile PNG is not downscaled');
  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
  await sw.click();creator=false;await page.getByRole('button',{name:'確認變更',exact:true}).click();await page.getByText('無權限',{exact:true}).waitFor();assert.equal(await page.locator('.card').count(),0);assert.equal(writes.length,4);
  creator=true;empty=true;await page.getByRole('button',{name:'重新確認',exact:true}).click();await page.getByText('目前沒有申請紀錄',{exact:true}).waitFor();await page.screenshot({path:path.join(evidence,'TEST-DATA-empty-mobile.png'),fullPage:true});await page.setViewportSize({width:1440,height:1000});await page.screenshot({path:path.join(evidence,'TEST-DATA-empty-desktop.png'),fullPage:true});

@@ -1,0 +1,896 @@
+{
+  "capturedAt": "2026-11-09",
+  "activity": [
+    {
+      "source": "public.app_users.auth_user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.assistant_conversation_states.user_uuid",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.assistant_conversations.user_uuid",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.assistant_messages.user_uuid",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.board_instance_workflow_state.updated_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.board_instances.archived_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.board_instances.created_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.board_instances.owner_uuid",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.board_task_attachments.created_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.board_task_attachments.deleted_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.board_task_checklist_items.created_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.board_task_checklist_items.updated_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.board_task_vendor_links.created_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.board_task_vendor_links.updated_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.board_tasks.accepted_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.board_tasks.archived_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.board_tasks.completion_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.board_tasks.created_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.board_tasks.owner_uuid",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.board_tasks.resolved_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.board_workflow_adoptions.applied_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.board_workflow_adoptions.approved_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.board_workflow_adoptions.requested_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.board_workflow_definitions.created_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.board_workflow_definitions.published_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.board_workflow_step_mappings.created_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.board_workspace_notification_settings.created_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.board_workspace_notification_settings.updated_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.board_workspaces.created_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.board_workspaces.owner_uuid",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.board_workspaces.updated_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.broker_position_reconciliations.created_by_auth_user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.broker_position_reconciliations.user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.broker_position_snapshot_audits.auth_user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.broker_position_snapshot_audits.user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.broker_position_snapshots.created_by_auth_user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.broker_position_snapshots.user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.decision_logs.user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.engineering_activity_log.actor_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.engineering_artifacts.created_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.engineering_checklist_items.checked_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.engineering_governance_authorizations.authorized_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.engineering_knowledge.approved_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.engineering_knowledge.created_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.engineering_members.user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.engineering_project_checkpoints.updated_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.engineering_project_configuration.updated_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.engineering_qa.verified_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.engineering_work_items.created_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.erp_edit_custody.owner_uuid",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.erp_write_operations.owner_uuid",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.identity_claim_logs.auth_user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.identity_claim_logs.workspace_user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.investment_ivtk_card_links.created_by_auth_user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.investment_ivtk_card_links.user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.investment_pending_actions.user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.knowledge_candidates.created_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.knowledge_candidates.reviewed_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.knowledge_recommendation_candidates.user_uuid",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.knowledge_sources.created_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.knowledge_sources.updated_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.knowledge_sources.user_uuid",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.knowledge_suggested_skills.user_uuid",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.knowledge_units.user_uuid",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.module_release_history.published_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.module_releases.published_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.office_member_roster.owner",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.onboarding_state.user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.opening_positions.user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.portfolios.user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.recommendation_feedback.user_uuid",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.strategies.user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.sync_migrations.user_uuid",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.transactions.user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.user_ecp_tasks.user_uuid",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.user_export_settings.ecp_owner",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.user_export_settings.user_uuid",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.user_profiles.user_uuid",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.user_settings.user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.user_tasks.completed_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.user_tasks.user_uuid",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.user_work_models.user_uuid",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.user_work_profiles.user_uuid",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.watchlists.user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.work_entries.user_uuid",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.work_journal_entries.created_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.work_journal_entries.user_uuid",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.worklog_entries.user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.worklog_settings.user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.worklog_source_events.user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.worklog_tasks.user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.worklog_users.auth_user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.worktodo_attachments.created_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.worktodo_attachments.deleted_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.worktodo_attachments.user_uuid",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.worktodo_checklist_items.created_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.worktodo_checklist_items.updated_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "public.worktodo_checklist_items.user_uuid",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.activity_log.actor_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.agent.archived_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.agent.owner_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.agent_invocation_target.created_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.agent_runtime.owner_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.agent_task_queue.accountable_user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.agent_task_queue.initiator_user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.agent_task_queue.originator_user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.attachment.uploader_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.autopilot.assignee_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.autopilot_collaborator.user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.autopilot_subscriber.user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.channel_binding_token.channel_user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.channel_chat_context_generation.initiator_user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.channel_installation.installer_user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.channel_user_binding.channel_user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.channel_user_binding.multica_user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.chat_pinned_agent.user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.chat_session.creator_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.client_usage_daily.user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.comment.author_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.comment_reaction.actor_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.feedback.user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.github_installation.connected_by_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.github_pending_check_suite.repo_owner",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.github_pull_request.repo_owner",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.inbox_item.actor_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.issue.assignee_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.issue.creator_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.issue_reaction.actor_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.issue_source_context.captured_by_user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.issue_subscriber.user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.issue_view.owner_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.issue_view_preference.user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.issue_wakeup.created_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.issue_wakeup.filter_actor_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.lark_installation.installer_user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.lark_user_binding.multica_user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.member.user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.notification_preference.user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.personal_access_token.user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.pinned_item.user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.plugin_package.created_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.project_resource.created_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.quick_action.assignee_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.runtime_profile.created_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.seat_capacity_outbox.user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.service_agent_tokens.created_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.skill.created_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.squad.creator_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.task_supplement.author_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.task_token.user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.user_composio_connection.composio_user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.user_composio_connection.user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.vcs_pull_request.repo_owner",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.workspace_invitation.invitee_user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.workspace_invitation.inviter_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.workspace_mcp_server.created_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.workspace_share_link.created_by",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "taskflow.user.id",
+      "rows": 0,
+      "users": 0
+    }
+  ],
+  "auth": [
+    {
+      "metric": "account_created",
+      "bucket": "1_to_7_days",
+      "count": 1
+    },
+    {
+      "metric": "anonymous_users",
+      "bucket": "false",
+      "count": 1
+    },
+    {
+      "metric": "gap_users",
+      "bucket": "all",
+      "count": 1
+    },
+    {
+      "metric": "last_sign_in",
+      "bucket": "1_to_7_days",
+      "count": 1
+    },
+    {
+      "metric": "provider",
+      "bucket": "google",
+      "count": 1
+    },
+    {
+      "metric": "refresh_tokens",
+      "bucket": "unrevoked",
+      "count": 3
+    },
+    {
+      "metric": "refresh_tokens",
+      "bucket": "unrevoked_updated_within_7_days",
+      "count": 3
+    },
+    {
+      "metric": "sessions",
+      "bucket": "not_after_unexpired_or_unbounded",
+      "count": 3
+    },
+    {
+      "metric": "sessions",
+      "bucket": "refreshed_within_7_days",
+      "count": 0
+    },
+    {
+      "metric": "sessions",
+      "bucket": "total",
+      "count": 3
+    },
+    {
+      "metric": "taskflow_user_email_correspondence",
+      "bucket": "aggregate_only",
+      "count": 0
+    }
+  ],
+  "testMarkers": [
+    {
+      "accounts_with_server_test_marker": 0,
+      "deleted_accounts": 0
+    }
+  ],
+  "privateActivity": [
+    {
+      "source": "private.app_access_application_events.applicant_user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "private.app_access_application_events.reviewer_user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "private.creator_user_notes.created_by_user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "private.creator_user_notes.subject_user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "private.creator_user_notes.updated_by_user_id",
+      "rows": 0,
+      "users": 0
+    },
+    {
+      "source": "private.line_subject_bindings.user_id",
+      "rows": 0,
+      "users": 0
+    }
+  ],
+  "summary": {
+    "public_tf_sources": 158,
+    "private_sources": 6,
+    "matching_activity_rows": 0,
+    "gap_users": 1
+  }
+}

@@ -313,29 +313,31 @@ grant execute on function public.is_app_access_approved(), public.resolve_app_ac
   public.set_app_access_user_enabled(uuid,boolean,text,text) to authenticated;
 -- Owner-only activation. Migration NEVER calls this function or sets cutoff.
 -- Snapshot membership, not user-controlled created_at. Existing events unchanged.
-create or replace function private.activate_app_access_model()
+create or replace function private.activate_app_access_model(p_expected_unproven integer)
 returns jsonb language plpgsql security definer
 set search_path to pg_catalog, auth, private, public, pg_temp
 as $function$
-declare v_cutoff timestamptz; v_count integer;
+declare v_cutoff timestamptz; v_count integer; v_unproven integer;
 begin
  perform pg_advisory_xact_lock(hashtextextended('app_access_model_activation',0));
  v_cutoff := clock_timestamp();
  if exists(select 1 from private.app_access_settings where key='access_model_cutoff') then
   raise exception 'Access model already activated; do not recreate the snapshot';
  end if;
- -- Deployment gate: resolve unknown identities through self-entry during the
- -- compatibility period, never import the Auth project as an App roster.
- if exists(select 1 from auth.users u where private.app_access_effective_allowed(u.id)
-   and not exists(select 1 from private.app_access_member_identities() m where m.user_id=u.id)) then
-  raise exception 'Activation blocked: effective users lack App evidence';
+ -- Main explicitly acknowledges the aggregate loss of legacy pause-only
+ -- eligibility. Unknown Auth identities are NOT imported or grandfathered.
+ select count(*) into v_unproven from auth.users u
+ where private.app_access_effective_allowed(u.id)
+   and not exists(select 1 from private.app_access_member_identities() m where m.user_id=u.id);
+ if p_expected_unproven is null or p_expected_unproven<0 or v_unproven<>p_expected_unproven then
+  raise exception 'Activation blocked: unproven eligibility count changed; review aggregates';
  end if;
  insert into private.app_access_grandfathers(user_id)
  select user_id from private.app_access_member_identities() on conflict do nothing;
  get diagnostics v_count = row_count;
  insert into private.app_access_settings(key,value) values('access_model_cutoff',to_jsonb(v_cutoff));
- return jsonb_build_object('cutoff',v_cutoff,'grandfather_count',v_count);
+ return jsonb_build_object('cutoff',v_cutoff,'grandfather_count',v_count,'excluded_unproven_count',v_unproven);
 end;
 $function$;
-revoke all on function private.activate_app_access_model() from public, anon, authenticated, service_role;
+revoke all on function private.activate_app_access_model(integer) from public, anon, authenticated, service_role;
 commit;

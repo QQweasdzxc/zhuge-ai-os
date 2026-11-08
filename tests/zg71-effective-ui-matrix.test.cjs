@@ -22,6 +22,7 @@ test('48 real SQL decisions equal rendered switch aria-checked',async()=>{
  active=cutoff;paused=pause;group=cases.filter(c=>c.cutoff===cutoff&&c.pause===pause);
  await page.goto('https://fixture.invalid/labs/taskflow/access-management/');await page.locator('.card').nth(11).waitFor();
  for(let i=0;i<group.length;i++)assert.equal(await page.locator('.card').nth(i).getByRole('switch').getAttribute('aria-checked'),String(group[i].backend),JSON.stringify(group[i]));
+ assert.equal(await page.locator('#transition-settings').getAttribute('open'),null);
  if(cutoff&&pause)assert.ok(await page.getByText('既有成員保留使用；新加入者需你開啟。個別 Off 會被擋。',{exact:true}).count());
  }
  }finally{await browser.close();}

@@ -2,11 +2,11 @@
 
 ## 固定建議與次序
 
-1. 先重跑 `impact-readonly.sql`、比對 live 7 個函式與 capture。若有 drift，重新 review；不要直接全量 db push。
+1. 先重跑部署前的 `impact-readonly.sql`、比對 live 7 個函式與 capture。若有 drift，重新 review；不要直接全量 db push。
 2. 按先前 audit 的歷史 migration 次序核對 11/06 baseline，再部署 ZG71 migration。cutoff 不會被 migration 設定，沒有任何會員回填／祖父資料寫入；此步 6 個現有有效允許仍為 6。
 3. 部署下列 7 個 Edge 與 `_shared/app-access.ts`，再部署同一 PR 的 Pages gate/UI。所有使用者路徑在資料或 Provider 呼叫前，用 caller JWT（anon apikey）呼叫 is_app_access_approved；不是 service role。
-4. 相容觀察期讓缺口帳號自己下次進入，由 ensure_app_member 產生名片；creator 明確確認 On。不得替未進入者建立記錄，也不以 Auth created_at 推定成員。
-5. 重新計數，缺口必須為 0、已確認的存取不變，才由 main 執行 `activate-cutoff.sql` 的一行 `select private.activate_app_access_model();`。函式為 owner-only，現在缺口 1 時會拒絕。它用 server clock 並一次封存 App 名單，再設定 cutoff；不改暫停旗標、不回填／重設事件。
+4. 依補充 7 的唯讀查證，1 個缺口帳號沒有可驗證 App 活動，卻仍有近期 Google 登入／未撤銷 refresh token；不推定測試或停用，不補建 membership，不依賴它下次登入。
+5. 部署後先以 `post-migration-impact-readonly.sql` 查新 membership 的真實彙總（不要用舊 schema 的 gap CTE 漏掉 ensure 記錄）。main 審核並明確接受其暫停放行資格由 On 轉 Off 後，執行 `activate-cutoff.sql` 的一行 `select private.activate_app_access_model(1);`。整數 1 是對未證實身分影響數的明確確認，不是 ID 名單或時間。函式重新計數；任何漂移都原子拒絕，不能盲目沿用舊計數。它只以 server clock 封存 5 個 App 成員並設定 cutoff，不改暫停旗標、不回填／重設事件；目前預測 6→5 允許、0→1 Off。
 6. cutoff 啟用後新進 NEW/PENDING 一律 Off；舊快照的相容放行僅在暫停 true 時成立。cutoff 後重新提出申請需再明確 On；disabled 永遠優先。無法藉回填 created_at 或重送 ensure 取得祖父資格。
 
 ## Edge 使用者／服務路徑界線
