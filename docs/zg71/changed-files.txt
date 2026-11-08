@@ -25,6 +25,12 @@ docs/zg71/gap-auth-readonly.sql
 docs/zg71/gap-evidence-counts.json
 docs/zg71/impact-counts.json
 docs/zg71/impact-readonly.sql
+docs/zg71/live-compat/README.md
+docs/zg71/live-compat/SHA256SUMS
+docs/zg71/live-compat/workspace-email-notification.gated.ts
+docs/zg71/live-compat/workspace-email-notification.live.ts
+docs/zg71/live-compat/zhuge-skyeye-read.gated.ts
+docs/zg71/live-compat/zhuge-skyeye-read.live.ts
 docs/zg71/live-definition-comparison.md
 docs/zg71/post-migration-impact-readonly.sql
 docs/zg71/rollback-compatible.sql
@@ -75,6 +81,7 @@ tests/zg71-access-cards-browser.test.js
 tests/zg71-app-access-sql.test.js
 tests/zg71-edge-enforcement.test.cjs
 tests/zg71-effective-ui-matrix.test.cjs
+tests/zg71-live-compat-gates.test.js
 tests/zg71-rollback.test.cjs
 tests/zg71-taskflow-boundary.test.cjs
 version.json
