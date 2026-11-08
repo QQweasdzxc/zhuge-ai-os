@@ -16,7 +16,10 @@ def patch(source):
     source = replace_once(source, 'import { WorkspaceTab } from "./workspace-tab";', 'import { WorkspaceTab } from "./workspace-tab";\nimport { useTaskFlowAccessManagement } from "./taskflow-access-management";')
     source = replace_once(source, '  const pluginsEnabled =', '  const accessActive = navigation.searchParams.get("tab") === "app-access";\n  const accessManagement = useTaskFlowAccessManagement(user?.id, accessActive);\n  const pluginsEnabled =')
     source = replace_once(source, '            entry("workspace",', '            ...(accessManagement.visible ? [entry("app-access", "全站存取管理", Lock, null)] : []),\n            entry("workspace",')
-    return replace_once(source, '          {active.content}', '          {accessManagement.frame}\n          {accessActive ? null : active.content}')
+    # The iframe must survive tab navigation AND conditional entry changes.
+    source = replace_once(source, '        key={`${active.value}:${location.integration ?? ""}`}\n', '')
+    source = replace_once(source, '        <div\n          className={cn(\n            "mx-auto w-full', '        {accessManagement.frame}\n        <div\n          key={`${active.value}:${location.integration ?? ""}`}\n          className={cn(\n            "mx-auto w-full')
+    return replace_once(source, '          {active.content}', '          {accessActive ? null : active.content}')
 
 def apply(root, overlays):
     root = root.resolve()
@@ -26,9 +29,15 @@ def apply(root, overlays):
     source = patch(target.read_text())
     component = (overlays / "taskflow-access-management.tsx").read_text()
     test = (overlays / "taskflow-access-management.test.tsx").read_text()
+    shell_test = target.parent / "settings-page.test.tsx"
+    shell_source = shell_test.read_text()
+    if "TaskFlow access iframe integration" in shell_source:
+        raise ValueError("access integration test already installed")
+    integration_test = (overlays / "taskflow-access-settings-test-block.txt").read_text()
     target.write_text(source)
     (target.parent / "taskflow-access-management.tsx").write_text(component)
     (target.parent / "taskflow-access-management.test.tsx").write_text(test)
+    shell_test.write_text(shell_source + "\n" + integration_test)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

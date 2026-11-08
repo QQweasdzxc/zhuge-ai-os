@@ -16,6 +16,7 @@ class AccessOverlayTest(unittest.TestCase):
             target = root / overlay.TARGET
             target.parent.mkdir(parents=True)
             target.write_text(original)
+            (target.parent / "settings-page.test.tsx").write_text((ROOT / "third_party/multica/packages/views/settings/components/settings-page.test.tsx").read_text())
             overlay.apply(root, ROOT / "labs/taskflow/overrides")
             result = target.read_text()
             self.assertLess(result.index('entry("app-access"'), result.index('entry("workspace"'))
