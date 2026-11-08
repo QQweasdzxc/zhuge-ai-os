@@ -6,7 +6,7 @@ iframe{display:block;width:100vw;height:100vh;height:100dvh;border:0;background:
 #site-intro .site-intro-links{margin-left:8px;white-space:nowrap}
 #site-intro a{color:#a8e2ff;text-decoration:underline;margin-right:8px}
 
-/* Tron 淺色語彙：與 tokens.css light 同源；iframe 內像素辦公室場景為內容不動 */
+/* TRQN 淺色語彙：與 tokens.css light 同源；iframe 內像素辦公室場景為內容不動 */
 @media (prefers-color-scheme: light) {
   html,body{background:#f2f4f7;color:#1d2430}
   iframe{background:#f2f4f7}
