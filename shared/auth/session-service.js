@@ -1,4 +1,4 @@
-/* Tron Shared Session
+/* TRQN Shared Session
  *
  * Adapts the root application's existing session provider to a redacted,
  * read-only module contract. It does not persist, refresh, sign in, or sign out.

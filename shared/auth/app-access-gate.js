@@ -36,13 +36,13 @@
 
   function titleFor(status) {
     return ({
-      [STATUS.checking]: "正在確認 Tron 使用權",
+      [STATUS.checking]: "正在確認 TRQN 使用權",
       [STATUS.unknown]: "目前無法確認使用權",
-      [STATUS.new]: "申請使用 Tron",
+      [STATUS.new]: "申請使用 TRQN",
       [STATUS.pending]: "申請已送出，等待審核",
       [STATUS.rejected]: "這次申請尚未通過",
-      [STATUS.unauthenticated]: "請先登入 Tron"
-    })[status] || "Tron 使用權";
+      [STATUS.unauthenticated]: "請先登入 TRQN"
+    })[status] || "TRQN 使用權";
   }
 
   function messageFor(access) {
@@ -51,9 +51,9 @@
       [STATUS.checking]: "正在確認 Google 登入身份與產品使用權，完成前不會開啟受保護工作空間。",
       [STATUS.unknown]: "目前無法安全確認使用權。請重新檢查；不會以登入成功或前端狀態代替核准。",
       [STATUS.new]: "Google 登入成功後，還需要完成一次使用申請。",
-      [STATUS.pending]: "管理者完成審核前，暫時不能進入 Tron 的正常工作空間。",
+      [STATUS.pending]: "管理者完成審核前，暫時不能進入 TRQN 的正常工作空間。",
       [STATUS.rejected]: "這次申請未通過；您可以保留歷史紀錄並重新送出新的申請原因。",
-      [STATUS.unauthenticated]: "請先以 Google 帳號登入，再確認 Tron 使用權。"
+      [STATUS.unauthenticated]: "請先以 Google 帳號登入，再確認 TRQN 使用權。"
     })[status] || "請重新檢查目前的使用權狀態。";
   }
 
@@ -68,7 +68,7 @@
       <label for="appAccessDisplayName">姓名／外號</label>
       <input class="input" id="appAccessDisplayName" name="displayName" maxlength="120" value="${name}" required autocomplete="name">
       <label for="appAccessReason">申請原因</label>
-      <textarea class="input" id="appAccessReason" name="reason" maxlength="2000" rows="5" required placeholder="請簡單說明使用 Tron 的原因">${reason}</textarea>
+      <textarea class="input" id="appAccessReason" name="reason" maxlength="2000" rows="5" required placeholder="請簡單說明使用 TRQN 的原因">${reason}</textarea>
       <div class="app-access-form-message" data-app-access-message role="status" aria-live="polite"></div>
       <button class="btn" type="submit" data-app-access-submit>${rejected ? "重新送出申請" : "送出使用申請"}</button>
     </form>`;
@@ -92,7 +92,7 @@
       ? `<div class="app-access-review-note"><strong>審核備註</strong><span>${escape(normalized.reviewNote)}</span></div>` : "";
     return `<section class="app-access-gate" data-app-access-status="${escape(status)}" aria-labelledby="app-access-title">
       <div class="app-access-panel">
-        <p class="app-access-eyebrow">Tron · App Access</p>
+        <p class="app-access-eyebrow">TRQN · App Access</p>
         <h1 id="app-access-title">${escape(titleFor(status))}</h1>
         <p class="app-access-message">${escape(messageFor(normalized))}</p>
         ${email ? `<p class="app-access-identity"><span>目前登入身份</span><strong>${email}</strong></p>` : ""}
