@@ -31,7 +31,7 @@ function loadCliSSO(): Promise<CliSSO> {
 }
 
 export default function Page() {
-  const [message, setMessage] = useState("正在確認 Tron 身分…");
+  const [message, setMessage] = useState("正在確認 TRQN 身分…");
   const [intent, setIntent] = useState<CliIntent>({ status: "none" });
   const [identity, setIdentity] = useState<{ id: string; name: string; email: string } | null>(null);
   const [ready, setReady] = useState(false);
@@ -80,12 +80,12 @@ export default function Page() {
             if (!alive) return;
             api.setToken(null);
             setSessionChecked(true);
-            setMessage("TaskFlow 登入狀態已過期。請從 Tron 重新進入。");
+            setMessage("TaskFlow 登入狀態已過期。請從 TRQN 重新進入。");
           });
           return;
         }
         setSessionChecked(true);
-        setMessage("請從 Tron 的 WORK → TaskFlow 進入；CLI 登入也必須使用同一個 Tron 身分。");
+        setMessage("請從 TRQN 的 WORK → TaskFlow 進入；CLI 登入也必須使用同一個 TRQN 身分。");
         return;
       }
       setIntent(parsed);
@@ -94,14 +94,14 @@ export default function Page() {
         if (!alive) return;
         setIdentity({ id: user.id, name: user.name, email: user.email });
         setReady(true);
-        setMessage("請確認以此 Tron 身分授權 Multica CLI。授權碼 5 分鐘後失效。");
+        setMessage("請確認以此 TRQN 身分授權 Multica CLI。授權碼 5 分鐘後失效。");
       }).catch(() => {
         if (!alive) return;
         api.setToken(null);
-        setMessage("TaskFlow 身分已失效。請先在 Tron 登入，再重新執行 multica login。");
+        setMessage("TaskFlow 身分已失效。請先在 TRQN 登入，再重新執行 multica login。");
       });
     }).catch(() => {
-      if (alive) setMessage("無法安全載入 CLI 授權元件，請重新從 Tron 進入。");
+      if (alive) setMessage("無法安全載入 CLI 授權元件，請重新從 TRQN 進入。");
     });
     return () => { alive = false; };
   }, []);
@@ -131,19 +131,19 @@ export default function Page() {
       <div className="mx-auto flex min-h-svh w-full max-w-xl items-center px-6 py-14">
         <section className="w-full rounded-2xl border border-border bg-card p-7 text-center shadow-sm sm:p-10">
           <MulticaBrandMark className="flex items-center justify-center gap-2 text-foreground" />
-          <p className="mt-3 text-xs font-semibold tracking-[0.16em] text-muted-foreground">TRON · IDENTITY</p>
+          <p className="mt-3 text-xs font-semibold tracking-[0.16em] text-muted-foreground">TRQN · IDENTITY</p>
           <h1 className="mt-3 text-2xl font-semibold">TaskFlow / CLI 身分授權</h1>
           <p className="mt-4 leading-7 text-muted-foreground">{message}</p>
           {identity && (
-            <div className="mt-5 rounded-lg border border-border p-4 text-left text-sm" aria-label="已驗證的 Tron 使用者">
+            <div className="mt-5 rounded-lg border border-border p-4 text-left text-sm" aria-label="已驗證的 TRQN 使用者">
               <div className="font-semibold">{identity.name || identity.email}</div>
               <div className="text-muted-foreground">{identity.email}</div>
-              <div className="mt-1 break-all text-xs text-muted-foreground">Tron UUID：{identity.id}</div>
+              <div className="mt-1 break-all text-xs text-muted-foreground">TRQN UUID：{identity.id}</div>
             </div>
           )}
           {intent.status !== "valid" && sessionChecked && (
             <div className="mt-6 flex flex-col justify-center gap-3">
-              <a href="https://qqweasdzxc.github.io/zhuge-ai-os/labs/taskflow/" className="inline-flex min-h-11 items-center justify-center rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground">從 Tron 進入 TaskFlow</a>
+              <a href="https://qqweasdzxc.github.io/zhuge-ai-os/labs/taskflow/" className="inline-flex min-h-11 items-center justify-center rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground">從 TRQN 進入 TaskFlow</a>
             </div>
           )}
           {intent.status === "valid" && (
@@ -151,7 +151,7 @@ export default function Page() {
               <button type="button" disabled={!ready || working} onClick={() => void authorize()} className="inline-flex min-h-11 items-center justify-center rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50">
                 {working ? "正在授權 CLI…" : "授權此 CLI"}
               </button>
-              <a href="https://qqweasdzxc.github.io/zhuge-ai-os/labs/taskflow/" rel="noreferrer" className="text-sm text-muted-foreground underline underline-offset-4">取消並返回 Tron</a>
+              <a href="https://qqweasdzxc.github.io/zhuge-ai-os/labs/taskflow/" rel="noreferrer" className="text-sm text-muted-foreground underline underline-offset-4">取消並返回 TRQN</a>
             </div>
           )}
           {error && <p role="alert" className="mt-4 text-sm text-destructive">{error}</p>}
