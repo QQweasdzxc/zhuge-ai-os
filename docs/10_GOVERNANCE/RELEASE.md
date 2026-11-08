@@ -306,3 +306,22 @@ ZG-71 packaging status: BLOCKED. The existing packager requires real full/browse
 PASS; known baseline failures are retained, so no FullSource artifact is issued
 and no PASS evidence is fabricated. Earlier whitespace CI failure in the added
 SQL fixture is corrected; complete PR diff whitespace is checked.
+
+## ZG-71 follow-up review — 2026-11-09
+
+Version `0.9.0-alpha.9.191` · Build `20261109-0034` (Asia/Taipei).
+Same PR #247, baseline main `2ddf801287963f4909890e4ad6141202a85d24c8`.
+One effective_allowed function, self-only first-entry membership, owner-only
+one-time cutoff snapshot (not activated), seven caller-JWT Edge gates, live
+function comparison, aggregate impact, tested rollback and committed TEST DATA
+screenshots. No production writes, Edge deployment, migration application,
+cutoff activation or merge. TF native sessions remain explicitly outside scope.
+
+The 26 runtime Version/Build/cache synchronization paths are the same set listed
+in the previous ZG-71 review entry. Complete current diff, including gate/UI/Edge,
+SQL tests, docs and PNGs: `docs/zg71/changed-files.txt`. Published C identity stays
+unchanged. Evidence: `labs/taskflow/docs/ZG71_ACCESS_SWITCH_AUDIT.md` and
+`docs/zg71/live-definition-comparison.md` / `deployment.md` / `impact-counts.json`.
+Baseline mobile-actions and compact-header 116.1875 and investment provider
+16 PASS / 1 FAIL remain reproducible locally; no unrelated fix or fake full PASS.
+FullSource packaging remains BLOCKED by the existing actual-full-PASS gate.
