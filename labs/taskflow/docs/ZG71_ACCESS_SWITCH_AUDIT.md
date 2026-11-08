@@ -6,7 +6,7 @@ main 基準 `2ddf801287963f4909890e4ad6141202a85d24c8`（ZG-70 #246）。同一 
 
 `private.app_access_effective_allowed(user_id)` 是唯一授權判斷；is_app_access_approved 用 auth.uid() 呼叫它；resolve 和 creator list 的 effective_allowed 用同一個函式；enabled 僅為相容別名。UI 只以 effective_allowed 顯示與切換，沒有自行用 pause 或歷史 status 猜測許可。
 
-最終建議為相容觀察期後，由 main 明確啟用一次性 App 祖父快照。migration 不啟用 cutoff，不改任何現有有效存取、不寫申請／祖父資料：
+最終建議為由 main 明確啟用一次性「當下有效允許」凍結快照。migration 不啟用 cutoff，不改任何現有有效存取、不寫申請／凍結資料：
 
 - cutoff 未設：保留原暫停語意，但 access_disabled 必定 false。
 - cutoff 已設：批准事件（bootstrap/approved/enabled）為 true；disabled 永遠 false；其他狀態僅可在 pause=true 且身分已在受保護快照中時相容放行。cutoff 後新提出的 PENDING 仍需重新決定；新進 NEW/PENDING 為 Off、琥珀框與待審文字。
@@ -14,13 +14,13 @@ main 基準 `2ddf801287963f4909890e4ad6141202a85d24c8`（ZG-70 #246）。同一 
 
 `ensure_app_member()` 無參數、只記錄 auth.uid()，Email／顯示名稱取該身分既有資料、不取頭像。private 表 first_seen_at 用 clock_timestamp，冪等 DO NOTHING；沒有新增 client time／其他 user_id 入口。共用 app-access-service 在 resolve 後對已登入的當前身分呼叫它，成功留卡才完成 getCurrent。anonymous 不留記錄，Off 不因此解除。
 
-祖父判斷不使用使用者可回填的 app_users/user_profiles/worklog_users.created_at；owner-only `activate_app_access_model(integer)` 以 server clock 一次快照當刻 App 身分。cutoff 後新增／回填上述表都不會更新快照。private 表 RLS＋撤銷直接存取；activate(integer) 的 EXECUTE 對 public/anon/authenticated/service_role 全部撤銷，main 只在確認後執行一行 SQL。
+凍結判斷不使用使用者可回填的 app_users/user_profiles/worklog_users.created_at；owner-only `activate_app_access_model(integer)` 先鎖定決定事件與暫停設定表、再取 server clock cutoff，一次凍結當刻有效允許的身分（只回計數，不建名片）。cutoff 後新增／回填上述表都不會更新。private 表 RLS＋撤銷直接存取；EXECUTE 對 public/anon/authenticated/service_role 全部撤銷。
 
 ## 實際影響與部署證據
 
 目前有效允許 **6**，有 App 證據 **5**，缺口 **1**。現有 APPROVED 5（bootstrap 4、application_approved 1）、NEW 1。migration 單獨部署仍 6／0。補充 7 已查 158 個 public/TF 與 6 個 private App 欄位來源，該帳號活動均 0，TF UUID/Email 對應 0；但 1–7 天前有 Google 登入、仍有 3 個未撤銷 refresh token，不能判定停用或測試。沒有合法活動來源可補建 membership，不依賴它下次登入。
 
-固定建議：不納祖父，main 明確接受資格影響後用 owner-only `activate_app_access_model(1)` 啟用 A，成為 **5 允許／1 Off**。整數 1 是影響計數確認，若現況漂移就原子拒絕；不傳客戶端時間或名單。這會撤除 1 人既有暫停放行資格，不能宣稱啟用 A 完全零影響；migration 單獨部署則保持現況。詳 `docs/zg71/gap-account-review.md`、兩份 gap 唯讀 SQL 與 counts JSON。
+固定建議：不判定缺口帳號身分，啟用不改任何人現行存取；以 owner-only `activate_app_access_model(6)` 凍結當下 6 人，結果 6 允許／0 Off；人數漂移則拒絕。凍結僅在暫停保持 true 時有效，且 TF 既有 session 不在 Off 涵蓋範圍。
 
 - [逐函式 live 比對與影響表](../../../docs/zg71/live-definition-comparison.md)：正式庫 pg_get_functiondef 的七個定義與 baseline／新 migration，逐一列差異；list 重組不是純 additive。
 - `tests/fixtures/zg71-live-function-definitions.json`：唯讀原文，無個資資料列；SQL 測試真的載入這七個 live 定義後套用新 migration。
