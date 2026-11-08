@@ -1,6 +1,11 @@
 name: TaskFlow Build Parity
 
 on:
+  pull_request:
+    paths:
+      - "labs/taskflow/**"
+      - "tests/taskflow-access-management-browser.test.js"
+      - ".github/workflows/taskflow-build-parity.yml"
   push:
     branches:
       - main
