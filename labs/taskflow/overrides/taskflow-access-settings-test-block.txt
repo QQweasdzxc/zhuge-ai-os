@@ -1,0 +1,24 @@
+describe("TaskFlow access settings workspace-role visibility", () => {
+  it.each(["owner", "admin"] as const)("offers the launch entry to workspace %s; Pages decides global creator", (role) => {
+    shell.role = role;
+    navigationState.search = "tab=app-access";
+    renderWithI18n(<SettingsPage />);
+    expect(screen.getByRole("link", { name: "全站存取管理" })).toBeInTheDocument();
+    const link = screen.getByRole("link", { name: "開啟全站存取管理" });
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    expect(link).toHaveAttribute("href", "https://qqweasdzxc.github.io/zhuge-ai-os/labs/taskflow/access-management/");
+    expect(document.querySelector("iframe")).toBeNull();
+    expect(screen.queryByRole("switch")).toBeNull();
+  });
+  it("hides the entry from plain workspace members, including direct tab and search", () => {
+    shell.role = "member";
+    navigationState.search = "tab=app-access";
+    renderWithI18n(<SettingsPage />);
+    expect(screen.queryByRole("link", { name: "全站存取管理" })).toBeNull();
+    expect(screen.queryByRole("option", { name: "全站存取管理" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "開啟全站存取管理" })).toBeNull();
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search settings" }), { target: { value: "全站存取管理" } });
+    expect(screen.queryByRole("option", { name: /全站存取管理/ })).toBeNull();
+  });
+});
