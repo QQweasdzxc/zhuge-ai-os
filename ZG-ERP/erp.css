@@ -373,7 +373,7 @@ button.geo-kpi:hover{border-color:var(--ds-teal,#0a7)}
 :root[data-theme="dark"] .seat-anchor { border-color: #6a6264; }
 :root[data-theme="dark"] ::placeholder { color: var(--ds-ink-4); }
 
-/* Tron 深色主題覆蓋（候選 v4）：切角、藍橘雙重框線（主按鈕橘外框＋黑隙＋青內線）、純 CSS 無動畫 */
+/* TRQN 深色主題覆蓋（候選 v4）：切角、藍橘雙重框線（主按鈕橘外框＋黑隙＋青內線）、純 CSS 無動畫 */
 :root[data-theme="dark"] .zhugebar { border-bottom:1px solid #173242; box-shadow:0 1px 0 rgba(47,215,245,.35); }
 :root[data-theme="dark"] .zhugebar b { color:#6ff3ff; letter-spacing:1px; text-transform:uppercase; text-shadow:0 0 8px rgba(47,215,245,.6); white-space:nowrap; }
 :root[data-theme="dark"] a { color:#6ff3ff; }
@@ -392,7 +392,7 @@ button.geo-kpi:hover{border-color:var(--ds-teal,#0a7)}
 :root[data-theme="dark"] .zhugebar img.brandmark, .zhugebar img.brandmark { height:22px; width:22px; border-radius:6px; align-self:center; }
 .zhugebar span { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
 
-/* Tron 淺色主題覆蓋（候選 v4）：淺底可讀＋同設計語言（切角、雙重框主操作、青光導覽、深色品牌帶） */
+/* TRQN 淺色主題覆蓋（候選 v4）：淺底可讀＋同設計語言（切角、雙重框主操作、青光導覽、深色品牌帶） */
 :root:not([data-theme="dark"]) .zhugebar { background:#0b1520; border:1px solid #173242; border-radius:10px; padding:10px 12px; box-shadow:0 1px 0 rgba(47,215,245,.28); }
 :root:not([data-theme="dark"]) .zhugebar b { color:#6ff3ff; letter-spacing:1px; text-transform:uppercase; text-shadow:0 0 8px rgba(47,215,245,.45); white-space:nowrap; }
 :root:not([data-theme="dark"]) .zhugebar > span { color:#9fb8c4; }
