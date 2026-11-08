@@ -44,7 +44,7 @@ baseline SHA. Source changes were not copied into main.
 | --- | --- | --- | --- |
 | mobile-actions-workspace-archive-browser.test.js | FAIL | FAIL | identical `ai_board header 116.1875`, line 117 |
 | shared-header-compact-browser.test.js | FAIL | FAIL | identical `Board/investment narrow height 116.1875`, line 87 |
-| investment-intelligence-providers.test.js | 9 PASS / 1 FAIL | 9 PASS / 1 FAIL | identical line 579: old `/Zhuge AI OS Investment Intelligence/` expectation vs `TRQN Investment Intelligence/1.0` |
+| investment-intelligence-providers.test.js | 16 PASS / 1 FAIL | 16 PASS / 1 FAIL | identical line 579: old `/Zhuge AI OS Investment Intelligence/` expectation vs `TRQN Investment Intelligence/1.0` |
 
 These failures reproduce on main and are not introduced by this work. They
 remain failures; no assertion, fixture, brand or security flag was changed to
@@ -80,3 +80,43 @@ never infer Render rollout from a successful Pages build.
 See the generated exact file list below; release identity/cache-buster files
 change only to synchronize Version/Build as required by RELEASE.md.
 
+```text
+.github/workflows/taskflow-build-parity.yml
+app/Board/ai/index.html
+app/Board/investment/index.html
+app/Board/procurement/index.html
+app/Board/template-preview/index.html
+app/Board/worktodo/index.html
+app/dashboard/index.html
+app/dashboard/zhuge-dashboard.js
+docs/index.html
+docs/status-classic.html
+index.html
+labs/investment/app.js
+labs/investment/index.html
+labs/investment/src/portfolio/view.mjs
+labs/investment/version.json
+labs/taskflow/Dockerfile.web
+labs/taskflow/access-management/index.html
+labs/taskflow/access-management/panel.js
+labs/taskflow/docs/GLOBAL_ACCESS_MANAGEMENT.md
+labs/taskflow/index.html
+labs/taskflow/overrides/taskflow-access-management.test.tsx
+labs/taskflow/overrides/taskflow-access-management.tsx
+labs/taskflow/overrides/taskflow-access-settings-test-block.txt
+labs/taskflow/patches/apply-taskflow-access-management.py
+labs/taskflow/tests/test_taskflow_access_management_overlay.py
+modules/investment/index.html
+modules/investment/version.json
+modules/skyeye/index.html
+modules/worklog/chat/index.html
+modules/worklog/index.html
+modules/worklog/version.json
+shared/app-config.js
+shared/config/template-release.js
+shared/config/version.js
+status-classic.html
+tests/run-browser-regression.js
+tests/taskflow-access-management-browser.test.js
+version.json
+```
