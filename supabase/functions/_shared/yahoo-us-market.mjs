@@ -80,7 +80,7 @@ async function fetchChart(url, { fetcher, now, timeoutMs }) {
   try {
     const response = await fetcher(url, {
       method: "GET",
-      headers: { accept: "application/json", "user-agent": "Tron Investment read-only provider" },
+      headers: { accept: "application/json", "user-agent": "TRQN Investment read-only provider" },
       signal: controller.signal,
     });
     if (!response?.ok) throw error(response?.status === 429 ? "YAHOO_RATE_LIMITED" : `YAHOO_HTTP_${Number(response?.status) || 0}`);
