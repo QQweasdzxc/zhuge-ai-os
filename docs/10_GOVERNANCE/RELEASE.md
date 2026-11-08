@@ -325,3 +325,26 @@ unchanged. Evidence: `labs/taskflow/docs/ZG71_ACCESS_SWITCH_AUDIT.md` and
 Baseline mobile-actions and compact-header 116.1875 and investment provider
 16 PASS / 1 FAIL remain reproducible locally; no unrelated fix or fake full PASS.
 FullSource packaging remains BLOCKED by the existing actual-full-PASS gate.
+
+## ZG-71 review supplement 7 — 2026-11-09
+
+Version `0.9.0-alpha.9.192` · Build `20261109-0104` (Asia/Taipei).
+Same PR #247, main baseline `2ddf801287963f4909890e4ad6141202a85d24c8`.
+Read-only audit found zero matches in 164 App/TF/private identity/activity fields
+for the one unproven identity; Google sign-in 1–7 days ago and 3 unrevoked refresh
+tokens mean it cannot be labelled inactive/test. The fixed activation proposal
+excludes it: migration alone keeps 6 allowed; explicit owner activation(1) would
+make 5 allowed / 1 Off. Count drift aborts; no Auth roster import or forced login.
+Nothing has been activated, written to production, deployed or merged.
+
+Top-level UI now contains only cards/effective switches/pending labels. Existing
+pause control is below the cards in collapsed advanced transition settings;
+backend pause behavior is unchanged. Native DPR2 mobile PNG is 780x3566, no
+resizing. TF login's existing Supabase HTTP helper can support a future login-only
+check; native refresh/session credentials remain distinct. No TF auth change.
+
+Live seven-function comparison rechecked unchanged; SQL/rollback/48-case UI,
+Edge and TF tests rerun. Full diff list: docs/zg71/changed-files.txt. All 26
+existing release sync files are synchronized; Published C identity stays fixed.
+Known three local baseline failures remain, so FullSource package still cannot
+claim full PASS. Final same-head CI is recorded in PR independently.

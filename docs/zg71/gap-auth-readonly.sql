@@ -4,7 +4,7 @@ union select auth_user_id from public.worklog_users union select applicant_user_
 ), missing as (
 select u.id from auth.users u where not exists(select 1 from evidence e where e.id=u.id)
 and (public.app_access_review_paused() or exists(select 1 from private.app_access_application_events e where e.applicant_user_id=u.id and e.event_type in ('approved_bootstrap','application_approved') and e.event_no=(select max(event_no) from private.app_access_application_events where applicant_user_id=u.id)))
-) 
+)
 select 'gap_users' as metric,'all' as bucket,count(*) as count from missing
 union all select 'provider',i.provider,count(*) from auth.identities i join missing m on m.id=i.user_id group by i.provider
 union all select 'last_sign_in',case when u.last_sign_in_at is null then 'never' when u.last_sign_in_at>=now()-interval '1 day' then 'within_24h' when u.last_sign_in_at>=now()-interval '7 days' then '1_to_7_days' when u.last_sign_in_at>=now()-interval '30 days' then '7_to_30_days' else 'over_30_days' end,count(*) from auth.users u join missing m on m.id=u.id group by 2
