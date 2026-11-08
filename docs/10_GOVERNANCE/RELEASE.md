@@ -348,3 +348,22 @@ Edge and TF tests rerun. Full diff list: docs/zg71/changed-files.txt. All 26
 existing release sync files are synchronized; Published C identity stays fixed.
 Known three local baseline failures remain, so FullSource package still cannot
 claim full PASS. Final same-head CI is recorded in PR independently.
+
+## ZG-71 frozen-cohort activation — 2026-11-09
+
+Version `0.9.0-alpha.9.194` · Build `20261109-0600` (Asia/Taipei).
+Same PR #247, main baseline `2ddf801287963f4909890e4ad6141202a85d24c8` (Version
+.189). `.190`-`.192` were earlier review builds of this PR; `.193` is already used by
+the draft review/p0-functional-consolidation-20261023 branch, so this review uses `.194`.
+The activation RPC `private.activate_app_access_model(expected_allowed)` now locks the
+decision-event and settings tables, takes the cutoff after the locks, freezes the set of
+currently effective allowed identities in one read, aborts when the count differs, and
+returns counts only. The previous cutoff would have turned one allowed account Off.
+Verified: live seven-function md5 match and 6 allowed / 0 blocked (read-only), two-connection
+PostgreSQL concurrency run on an isolated synthetic server, SQL/UI/Edge/rollback tests, and
+PR CI. Not tested: a writer that starts before activation and commits after it began,
+and TF existing sessions (not covered by the App switch). No production write, migration,
+Edge deploy, activation or merge. Release synchronization changes only Version/Build/cache
+identity in the same 26 paths listed above, plus the Version-only paths of this entry.
+FullSource packaging remains BLOCKED by the existing full-PASS gate (baseline failures:
+mobile-actions/compact-header 116.1875, investment providers 16 PASS / 1 FAIL).
