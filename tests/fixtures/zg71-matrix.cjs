@@ -48,11 +48,26 @@ exports.verifyMatrix=async ({db,as,q,scalar,id})=>{
  await as(111);assert.equal(await scalar('select is_app_access_approved()'),false,'new rejection cannot restore grandfather allowance');
  // Activation is owner-only, gap-blocked and does not auto-run with migration.
  await db.exec("delete from private.app_access_settings where key='access_model_cutoff'");
- await assert.rejects(scalar('select private.activate_app_access_model(0)'),/unproven eligibility count changed/);
- const activation=await scalar('select private.activate_app_access_model(1)');assert.ok(activation.grandfather_count>0);assert.equal(activation.excluded_unproven_count,1);
- await as(8);assert.equal(await scalar('select is_app_access_approved()'),false,'unproven identity excluded without waiting for login');
- await scalar('select ensure_app_member()');assert.equal(await scalar('select is_app_access_approved()'),false,'later membership does not backfill grandfather');await as(1);
- await assert.rejects(scalar('select private.activate_app_access_model(0)'),/already activated/);
+ const allowedNow=Number(await scalar('select count(*) from auth.users u where private.app_access_effective_allowed(u.id)'));await db.exec('create temp table zg71_before as select u.id from auth.users u where private.app_access_effective_allowed(u.id)');
+ await assert.rejects(scalar(`select private.activate_app_access_model(${allowedNow+1})`),/allowed count changed/);assert.equal(Number(await scalar("select count(*) from private.app_access_settings where key='access_model_cutoff'")),0,'rejected activation writes no cutoff');
+ const activation=await scalar(`select private.activate_app_access_model(${allowedNow})`);assert.equal(activation.currently_allowed_count,allowedNow);assert.ok(activation.grandfather_count>0&&activation.grandfather_count<=allowedNow);
+ await as(8);assert.equal(await scalar('select is_app_access_approved()'),true,'frozen existing allowed identity keeps access without waiting for login');
+ await scalar('select ensure_app_member()');assert.equal(await scalar('select is_app_access_approved()'),true,'self membership does not change frozen access');
+ await as(1);const lost=await scalar("select count(*) from zg71_before b where not private.app_access_effective_allowed(b.id)");
+ // Only fixture rows deliberately dated after the server cutoff may change; real pre-cutoff history cannot.
+ const lostNotFuture=await scalar("select count(*) from zg71_before b where not private.app_access_effective_allowed(b.id) and not exists(select 1 from (select created_at from private.app_access_application_events e where e.applicant_user_id=b.id order by event_no desc limit 1) x where x.created_at>=(select (value #>> '{}')::timestamptz from private.app_access_settings where key='access_model_cutoff'))");
+ assert.equal(Number(lostNotFuture),0,'activation never removes access from anyone with pre-cutoff history');
+ // Transaction semantics: a rejected activation leaves no cutoff and no new frozen rows.
+ // (Checked before the successful activation below via the already-run reject; re-assert state.)
+ assert.equal(Number(await scalar("select count(*) from private.app_access_settings where key='access_model_cutoff'")),1,'one cutoff after activation');
+ // A real post-activation event uses the server clock default and is after the cutoff.
+ await db.exec(`insert into auth.users(id,email) values('${id(301)}','late2@example.invalid'); insert into private.app_access_application_events(applicant_user_id,event_type,email_snapshot,display_name,reason,source) values('${id(301)}','application_submitted','late2@example.invalid','TEST','post-activation','user_application')`);
+ assert.equal(await scalar(`select (select created_at from private.app_access_application_events where applicant_user_id='${id(301)}' order by event_no desc limit 1)>=(select (value #>> '{}')::timestamptz from private.app_access_settings where key='access_model_cutoff')`),true,'server-default event time after activation is after the cutoff');
+ await db.exec(`insert into auth.users(id,email) values('${id(300)}','late@example.invalid')`);
+ await as(300);assert.equal(await scalar('select is_app_access_approved()'),false,'identity first appearing after activation is not frozen');await scalar('select ensure_app_member()');assert.equal(await scalar('select is_app_access_approved()'),false,'first-login newcomer is pending Off');
+ await as(1);await scalar(`select set_app_access_user_enabled('${id(8)}',false,null,'off-wins')`);await as(8);assert.equal(await scalar('select is_app_access_approved()'),false,'explicit Off beats frozen allowance');await as(1);
+ await db.exec("update private.app_access_settings set value='\"1901-01-01T00:00:00Z\"' where key='access_model_cutoff'");
+  await assert.rejects(scalar('select private.activate_app_access_model(0)'),/already activated/);
  await as(null);await assert.rejects(scalar('select ensure_app_member()'),/Authenticated/);
  // Persist non-PII local computed matrix for the UI test in the same CI job.
  fs.mkdirSync('/tmp/zg71-matrix',{recursive:true});fs.writeFileSync('/tmp/zg71-matrix/result.json',JSON.stringify(output));
