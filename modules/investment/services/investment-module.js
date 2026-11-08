@@ -188,8 +188,8 @@
   function accessScreen(result = {}) {
     const reason = result.code === "SESSION_EXPIRED"
       ? "登入狀態已過期，請重新登入。"
-      : "請先使用 Google 帳號登入 Tron，再開啟投資模組。";
-    return accessShell(`<div class="investment-access-panel"><img src="../../shared/assets/logo/tron-icon.svg" alt="Tron"><p class="investment-eyebrow">Tron › 投資</p><h1>請先登入</h1><p>${global.InvestmentSafeHtml.escape(reason)}</p><div><a class="investment-primary-link" href="${global.InvestmentSafeHtml.escape(INVESTMENT_LOGIN_HREF)}">使用 Google 帳號登入</a><a class="investment-secondary-link" href="../../app/dashboard/">返回 AI OS 首頁</a></div></div>`, { title: "Investment", description: "投資模組｜登入後即可使用投資工作空間" });
+      : "請先使用 Google 帳號登入 TRQN，再開啟投資模組。";
+    return accessShell(`<div class="investment-access-panel"><img src="../../shared/assets/logo/tron-icon.svg" alt="TRQN"><p class="investment-eyebrow">TRQN › 投資</p><h1>請先登入</h1><p>${global.InvestmentSafeHtml.escape(reason)}</p><div><a class="investment-primary-link" href="${global.InvestmentSafeHtml.escape(INVESTMENT_LOGIN_HREF)}">使用 Google 帳號登入</a><a class="investment-secondary-link" href="../../app/dashboard/">返回 AI OS 首頁</a></div></div>`, { title: "Investment", description: "投資模組｜登入後即可使用投資工作空間" });
   }
 
   function appAccessScreen(access, context) {
@@ -198,7 +198,7 @@
     const email = String(access?.email || session.email || "").trim();
     const content = gate?.render
       ? gate.render(access, { email, loginHref: INVESTMENT_LOGIN_HREF })
-      : `<div class="investment-access-panel"><p class="investment-eyebrow">Tron · App Access</p><h1>目前無法確認使用權</h1><p>App Access 服務尚未載入，請重新整理後再試。</p></div>`;
+      : `<div class="investment-access-panel"><p class="investment-eyebrow">TRQN · App Access</p><h1>目前無法確認使用權</h1><p>App Access 服務尚未載入，請重新整理後再試。</p></div>`;
     return accessShell(content, { title: "Investment｜使用權", description: "Investment 模組｜App Access" });
   }
 
@@ -256,7 +256,7 @@
     } else if (state.mode === "challenge") {
       content = `<div class="zhuge-mfa-info"><strong>請輸入驗證碼</strong><span>開啟 Google Authenticator，輸入目前顯示的 6 位數驗證碼。驗證成功後，投資模組會解鎖 10 分鐘。</span></div>${unlockCodeForm(state, busy)}`;
     }
-    return accessShell(`<div class="investment-access-panel investment-unlock-panel zhuge-mfa-panel"><img src="../../shared/assets/logo/tron-icon.svg" alt="Tron"><p class="investment-eyebrow zhuge-mfa-kicker">安全驗證</p><h1>解鎖投資</h1><p class="zhuge-mfa-intro">這是受保護的投資工作區。完成安全驗證後即可進入。</p>${error}${content}<a class="investment-secondary-link" href="../../app/dashboard/">返回 AI OS 首頁</a><small>只會解鎖投資模組；AI OS 首頁與工時模組不受影響。</small></div>`, { title: "Investment 安全驗證", description: "投資模組｜完成安全驗證後即可進入" });
+    return accessShell(`<div class="investment-access-panel investment-unlock-panel zhuge-mfa-panel"><img src="../../shared/assets/logo/tron-icon.svg" alt="TRQN"><p class="investment-eyebrow zhuge-mfa-kicker">安全驗證</p><h1>解鎖投資</h1><p class="zhuge-mfa-intro">這是受保護的投資工作區。完成安全驗證後即可進入。</p>${error}${content}<a class="investment-secondary-link" href="../../app/dashboard/">返回 AI OS 首頁</a><small>只會解鎖投資模組；AI OS 首頁與工時模組不受影響。</small></div>`, { title: "Investment 安全驗證", description: "投資模組｜完成安全驗證後即可進入" });
   }
 
   function unlockCodeForm(state = {}, busy = false) {
@@ -330,7 +330,7 @@
       },
       INVESTMENT_SESSION_REQUIRED: {
         title: "需要登入",
-        message: "請先使用 Google 帳號登入 Tron，再開啟投資模組。"
+        message: "請先使用 Google 帳號登入 TRQN，再開啟投資模組。"
       },
       INVESTMENT_DATA_QUERY_ERROR: {
         title: "投資資料讀取失敗",
@@ -422,7 +422,7 @@
       const release = global.ZhugeFoundationConfig?.version || {};
       global.ZhugeSharedShell.mountHeader(sharedHeaderTarget, {
         title: `${pageIcon} ${pageTitle}`,
-        description: descriptions[pageKey] || "Tron 投資模組",
+        description: descriptions[pageKey] || "TRQN 投資模組",
         identity,
         version: release.version,
         build: release.build,
