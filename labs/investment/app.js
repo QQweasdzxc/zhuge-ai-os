@@ -1,21 +1,21 @@
 import { createReadOnlyPortfolioAdapter } from "./src/portfolio/readonly-adapter.mjs";
 import { createLabMarketProvider } from "./src/providers/lab-market-provider.mjs";
-import { loadPortfolioHistoryMap } from "./src/portfolio/history.mjs?v=20261108-0710";
+import { loadPortfolioHistoryMap } from "./src/portfolio/history.mjs?v=20261108-0722";
 import { formalWatchlistMembership } from "./src/portfolio/research-context.mjs";
-import { renderPortfolioResearchContext, renderPortfolioSection } from "./src/portfolio/view.mjs?v=20261108-0710";
-import { MiniMarketChart } from "./src/components/mini-market-chart.mjs?v=20261108-0710";
-import { renderResearchOhlcvChart } from "./src/components/research-ohlcv-chart.mjs?v=20261108-0710";
+import { renderPortfolioResearchContext, renderPortfolioSection } from "./src/portfolio/view.mjs?v=20261108-0722";
+import { MiniMarketChart } from "./src/components/mini-market-chart.mjs?v=20261108-0722";
+import { renderResearchOhlcvChart } from "./src/components/research-ohlcv-chart.mjs?v=20261108-0722";
 import { renderUsTreasuryContext } from "./src/components/us-treasury-context.mjs";
 import { renderGlobalFxContext } from "./src/components/global-fx-context.mjs";
-import { renderInstitutionalFlowSummary } from "./src/components/institutional-flow-view.mjs?v=20261108-0710";
-import { renderChipCycleObservation } from "./src/components/chip-cycle-observation.mjs?v=20261108-0710";
-import { renderTaiwanScanResults } from "./src/components/taiwan-scan-results.mjs?v=20261108-0710";
-import { renderTaiwanSectorHeatmap } from "./src/components/taiwan-sector-heatmap.mjs?v=20261108-0710";
-import { renderTaiwanMarginBalance, renderTdccOwnership } from "./src/components/taiwan-positioning-evidence.mjs?v=20261108-0710";
-import { recordTdccLocalObservation } from "./src/domain/tdcc-local-observations.mjs?v=20261108-0710";
+import { renderInstitutionalFlowSummary } from "./src/components/institutional-flow-view.mjs?v=20261108-0722";
+import { renderChipCycleObservation } from "./src/components/chip-cycle-observation.mjs?v=20261108-0722";
+import { renderTaiwanScanResults } from "./src/components/taiwan-scan-results.mjs?v=20261108-0722";
+import { renderTaiwanSectorHeatmap } from "./src/components/taiwan-sector-heatmap.mjs?v=20261108-0722";
+import { renderTaiwanMarginBalance, renderTdccOwnership } from "./src/components/taiwan-positioning-evidence.mjs?v=20261108-0722";
+import { recordTdccLocalObservation } from "./src/domain/tdcc-local-observations.mjs?v=20261108-0722";
 import { calculateIndicators } from "./src/domain/indicators.mjs";
-import { buildTechnicalSignalMatrix, renderTechnicalSignalMatrix } from "./src/domain/technical-signal-matrix.mjs?v=20261108-0710";
-import { buildChipCycleObservation } from "./src/domain/chip-cycle-observation.mjs?v=20261108-0710";
+import { buildTechnicalSignalMatrix, renderTechnicalSignalMatrix } from "./src/domain/technical-signal-matrix.mjs?v=20261108-0722";
+import { buildChipCycleObservation } from "./src/domain/chip-cycle-observation.mjs?v=20261108-0722";
 import { filtersForTaiwanSector } from "./src/domain/taiwan-market-scan.mjs";
 import { buildSmaCrossoverSignals, runSmaCrossoverBacktest } from "./src/domain/sma-crossover-backtest.mjs";
 import { buildInvestmentAiEvidencePack, createInvestmentAiProvider } from "./src/ai/analysis-contract.mjs";
@@ -153,7 +153,7 @@ function applyNav() {
 }
 
 function pageHead(title, description, controls = "") {
-  return `<header class="page-head"><div><p class="eyebrow">Tron · Lab_投資</p><h1>${esc(title)}</h1><p>${esc(description)}</p></div>${controls ? `<div class="head-actions">${controls}</div>` : ""}</header>`;
+  return `<header class="page-head"><div><p class="eyebrow">TRQN · Lab_投資</p><h1>${esc(title)}</h1><p>${esc(description)}</p></div>${controls ? `<div class="head-actions">${controls}</div>` : ""}</header>`;
 }
 
 function portfolioErrorStatus(error) {
