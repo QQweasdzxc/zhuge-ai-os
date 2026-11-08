@@ -322,7 +322,7 @@ function bearer(request: Request) {
 
 async function requireAuthenticatedSession(request: Request) {
   const authorization = bearer(request);
-  if (!authorization) throw new HttpError("Authenticated Tron OS session is required.", 401, "AUTH_REQUIRED");
+  if (!authorization) throw new HttpError("Authenticated TRQN OS session is required.", 401, "AUTH_REQUIRED");
 
   // The Supabase Edge gateway validates the JWT before invoking this function.
   // This second user lookup prevents a permissive function configuration from
@@ -334,9 +334,9 @@ async function requireAuthenticatedSession(request: Request) {
     method: "GET",
     headers: { apikey: anonKey, authorization: authorization }
   });
-  if (!response.ok) throw new HttpError("Authenticated Tron OS session is required.", 401, "AUTH_REQUIRED");
+  if (!response.ok) throw new HttpError("Authenticated TRQN OS session is required.", 401, "AUTH_REQUIRED");
   const user = await response.json().catch(() => ({})) as JsonObject;
-  if (!text(user.id, 120)) throw new HttpError("Authenticated Tron OS session is required.", 401, "AUTH_REQUIRED");
+  if (!text(user.id, 120)) throw new HttpError("Authenticated TRQN OS session is required.", 401, "AUTH_REQUIRED");
 }
 
 function safeProviderCode(error: unknown) {
