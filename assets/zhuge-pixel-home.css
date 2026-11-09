@@ -17,5 +17,7 @@ iframe{display:block;width:100vw;height:100vh;height:100dvh;border:0;background:
 }
 
 #site-intro-toggle{display:inline;font:inherit;color:inherit;background:none;border:0;padding:0 8px 0 0;cursor:pointer}
-#site-intro.collapsed{left:auto;right:12px;max-width:none;padding:4px 10px;white-space:nowrap}
+/* Collapsed: a slim bar in its own strip under the office (the iframe shrinks), so nothing is covered. */
+#site-intro.collapsed{left:0;right:0;bottom:0;max-width:none;border-radius:0;border-width:1px 0 0;padding:4px 12px;padding-bottom:calc(4px + env(safe-area-inset-bottom));font-size:11px;line-height:20px;white-space:nowrap;overflow:hidden}
+body.intro-collapsed iframe{height:calc(100vh - 30px - env(safe-area-inset-bottom));height:calc(100dvh - 30px - env(safe-area-inset-bottom))}
 #site-intro.collapsed #site-intro-text{display:none}
