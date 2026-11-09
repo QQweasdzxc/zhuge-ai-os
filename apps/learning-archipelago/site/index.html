@@ -599,6 +599,7 @@ window.ArchipelagoDaily={mount({container,request,worlds=['chengyu','vocab']}){
 <link rel="icon" type="image/png" sizes="32x32" href="./4-favicon-32.png?v=20261109b">
 <link rel="icon" type="image/png" sizes="16x16" href="./5-favicon-16.png?v=20261109b">
 <link rel="manifest" href="./manifest.json?v=20261109b">
+<link rel="stylesheet" href="./hud-cutouts.css?v=20261109a">
 </head>
 <body>
 <div class="site"><div class="wrap">
@@ -1145,5 +1146,18 @@ const forgetFamily=document.createElement('button');forgetFamily.type='button';f
 .voyage-hot-english:before,.voyage-hot-english:after{display:none!important}
 
 }
+</style>
+
+<style id="protruding-avatar-hud">
+@media(max-width:690px){
+.m-topbar{left:8px!important;bottom:calc(6px + env(safe-area-inset-bottom,0px))!important;width:236px!important;max-width:calc(100vw - 88px)!important}
+.m-hud{width:236px!important;max-width:100%!important;min-height:56px!important;border:0!important;border-radius:12px!important;box-shadow:none!important;overflow:visible!important;background:linear-gradient(90deg,transparent 6%,rgba(12,26,48,.78) 37%,rgba(12,26,48,.93) 100%)!important}
+.m-hud .m-player{min-height:56px!important;padding:4px 9px 20px 128px!important;border:0!important;overflow:visible!important}
+.m-hud .m-face{position:absolute!important;left:0!important;top:auto!important;bottom:0!important;width:126px!important;height:106px!important;border:0!important;border-radius:0!important;background:none!important;overflow:visible!important;box-shadow:none!important}
+.m-hud .m-face .profile-portrait{background-color:transparent!important;background-size:contain!important;background-position:center bottom!important;background-repeat:no-repeat!important;image-rendering:auto!important;filter:drop-shadow(0 2px 2px #07142599)}
+.m-hud .m-pinfo{gap:2px!important;position:relative;z-index:2}.m-hud .m-pinfo strong{font-size:14px!important;line-height:1.2!important}.m-hud .m-lvline{font-size:10px!important;line-height:1.2!important}.m-hud .m-xpbar{width:42px!important}
+.m-hud .m-coins{min-height:22px!important;right:9px!important;bottom:0!important;font-size:12px!important}.m-coin-label{font-size:10px!important}
+}
+
 </style>
 </body></html>
