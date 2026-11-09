@@ -62,7 +62,7 @@ Compatibility 回復後完成修復及相同 head QA，再由 main 重新授予 
   - zhuge-skyeye-read：index `6fafaad05d366d40`，**live 相容 gate-only 版本**（`docs/zg71/live-compat/zhuge-skyeye-read.gated.ts`；live 原始碼見 `.live.ts`，只多 3 行 gate；不含 main 的天氣快取）
   - workspace-email-notification：index `4a7310ec7109cced`，**live 相容 gate-only 版本**（`docs/zg71/live-compat/workspace-email-notification.gated.ts`；不含 main 的 cc/bcc、card_url、From name 變更）
   - 另四個函式的 live 版本與 main 只差品牌字串（Tron OS／TRQN OS）；部署 head 會把該字串換成 TRQN OS。
-- 尚未部署：investment-intelligence-read。Dashboard bundler 無法解析 `../../../labs/...` 相對依賴（Module not found，live 未變），需等價打包或 CLI／CI 部署路徑。**此函式尚無 gate，Off 使用者仍可用自己的 JWT 呼叫（消耗 provider 額度，無使用者資料）。**
+- investment-intelligence-read（08:20 部署）：Dashboard bundler 無法解析 `../../../labs/...`（07:18 失敗，live 未變），改用經驗證等價的 import-only 重新打包：labs 十個檔案原樣搬到 `../_shared/labs/investment/src/...`，index 與三個 `_shared` 檔只改 import specifier，加入 `../_shared/app-access.ts`。部署內容 = live + 3 行 gate（保留 live 的 Tron OS 字串與 live 的 yahoo-us-market.mjs），index sha256 前綴 `b85b3955cf500588`（`docs/zg71/live-compat/investment-intelligence-read.gated-repack.ts`）；fred `1d0d901e3b93100e`、us-treasury `acb2b739edcf6725`、world-bank-commodity-radar `375d2885cb4623c0`；Deno module graph 兩種佈局相同（20 本地模組、內容 normalise 後一致、同樣 2 個遠端依賴），見 `investment-repack-check.sh`。部署後重新載入逐檔比對，verify_jwt 開啟，tree 共 20 個項目。未做真實使用者 JWT 呼叫。
 - card-progress-email-notification 未部署於 production，無需 gate。
 - Edge 部署不會自動回復；回復方式為重新部署 live 原始碼（`*.live.ts`）並刪除 `../_shared/app-access.ts`，但這會移除 gate，須先確認狀態。
 - 驗證限制：未用真實使用者 JWT 探測；匿名金鑰探測得到函式自身的 401。尚未啟用 cutoff，因此 gate 對現有 6 個可用帳號都放行。
