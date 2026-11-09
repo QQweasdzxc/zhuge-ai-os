@@ -593,6 +593,7 @@ function render(){
  $('heroRole').textContent=role?(hero.avatarStyle==='boy'?'男生造型 · ':hero.avatarStyle==='girl'?'女生造型 · ':'造型待選 · ')+role.title+' · '+title(lv):'尚未選擇冒險職業';
  $('avatar').innerHTML=role&&hero.avatarStyle?'<span class="profile-portrait '+hero.profession+' '+hero.avatarStyle+'" role="img" aria-label="'+(hero.avatarStyle==='boy'?'男':'女')+role.title+'角色插畫"></span>':'🎒';
  $('heroLv').textContent='LV. '+lv+'｜'+title(lv);$('heroXP').textContent=xp+' XP';
+ if(stats?.wallet)$('heroXP').textContent+=' · '+stats.wallet.balance+' 金幣';
  $('xpBar').style.width=Math.max(0,Math.min(100,(xp-base)/(goal-base)*100))+'%';
  $('heroHint').textContent=hero.eligible?'🏰 經驗已達標！通過 10 題晉級試煉，才能正式升級。':'還差 '+Math.max(0,goal-xp)+' XP 開啟下一次晉級試煉。';
  $('roleButton').hidden=false;$('roleButton').textContent=!hero.avatarStyle?'🎨 選擇角色造型':role?'🎨 更換角色造型':'🎭 選擇冒險職業';$('examButton').hidden=!hero.eligible;
@@ -633,6 +634,7 @@ async function selectPlayer(id){
  show('<div class="dialog-icon">⚔️</div><h2 id="dialogTitle">正在召喚冒險者…</h2><p>讀取 '+esc(found.name)+' 的職業、總 XP 與晉級記錄。</p>','loading');
  try{
   stats=await call('load');hero=stats.hero;render();status('✅ '+found.name+' 已進入冒險總部 · XP 跨島同步');
+  try{const coins=await call('claimLogin');if(player?.id===id){stats.wallet=coins.wallet;render();if(coins.wallet.loginAwarded)status('✅ '+found.name+' 今天登入 +1 金幣 · 兩島共用，一天領一次');}}catch(e){status('✅ 冒險資料已讀取 · 金幣暫時無法同步，稍後重開可再試');}
   if(!hero.avatarStyle)chooseAvatarStyle();
   else if(!hero.profession)chooseRole();
   else close();
@@ -773,7 +775,7 @@ function confirmRole(code){
 }
 async function refresh(){
  if(!player||!isFamily())return;
- try{stats=await call('load');hero=stats.hero;render()}
+ try{const currentId=player.id;const loaded=await call('load');if(player?.id!==currentId)return;stats=loaded;hero=stats.hero;try{const coins=await call('getWallet');if(player?.id!==currentId)return;stats.wallet=coins.wallet}catch(e){}render()}
  catch(e){status('⚠️ 重新讀取失敗：'+e.message)}
 }
 async function startExam(){
@@ -817,5 +819,4 @@ render();loadPlayers();
 </script>
 <script src="./island-world.js?v=3.2.2"></script>
 </body></html>
-
 
