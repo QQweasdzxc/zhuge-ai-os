@@ -714,6 +714,7 @@ function isFamily(){return /^[A-Za-z0-9_-]{40,128}$/.test(token)}
 function show(html,mode){
  document.dispatchEvent(new Event('archipelago:drawer-close'));
  lastMode=mode||'';
+ $('overlay').dataset.mode=lastMode;
  if($('overlay').hidden)originalOverflow=document.body.style.overflow;
  $('dialog').innerHTML=html;
  $('dialog').classList.toggle('poster-dialog',mode==='rolePoster');
@@ -1159,5 +1160,28 @@ const forgetFamily=document.createElement('button');forgetFamily.type='button';f
 .m-hud .m-coins{min-height:22px!important;right:9px!important;bottom:0!important;font-size:12px!important}.m-coin-label{font-size:10px!important}
 }
 
+</style>
+
+<style id="hud-aligned-touch-review-20261109">
+/* A single dock grid; the original cutout can protrude above its cell. */
+@media(max-width:690px){
+ .m-topbar{bottom:calc(16px + env(safe-area-inset-bottom,0px))!important}
+ .m-hud,.m-hud .m-player{height:56px!important;min-height:56px!important;box-sizing:border-box!important}
+ .m-bar #mTasksBtn,.m-bar #mShopBtn{height:56px!important;min-height:56px!important;box-sizing:border-box!important}
+ .m-bar #mTasksBtn{bottom:calc(80px + env(safe-area-inset-bottom,0px))!important}
+ .m-bar #mShopBtn{bottom:calc(16px + env(safe-area-inset-bottom,0px))!important}
+}
+/* A finger is not a mouse selection. Do not leave a purple answer on the next question. */
+@media(hover:none){
+ .exam-choice:hover{background:#f4f2ff}
+ .btn:hover:not(:disabled){transform:none;box-shadow:4px 4px 0 #223053}
+}
+/* One scroll surface for the entire result, with no hidden last correction. */
+#overlay[data-mode="examResult"]{overflow-y:auto;align-items:flex-start;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+#overlay[data-mode="examResult"] .dialog{margin:auto;max-height:none;overflow:visible}
+#overlay[data-mode="examResult"] .review{max-height:none;overflow:visible;font-size:14px}
+#overlay[data-mode="examResult"] .review article{padding:12px 8px}
+#overlay[data-mode="examResult"] .review p{font-size:14px;line-height:1.65}
+#overlay[data-mode="examResult"] .dialog-actions{position:static;padding-top:4px}
 </style>
 </body></html>
