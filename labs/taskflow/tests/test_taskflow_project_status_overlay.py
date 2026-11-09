@@ -31,7 +31,11 @@ PATCHED_PATHS = [
     "packages/core/issue-views/preferences.ts",
     "packages/core/package.json",
     *[f"packages/views/locales/{locale}/issues.json" for locale in ("en", "zh-Hant", "zh-Hans", "ja", "fr")],
+    "packages/views/settings/components/issue-statuses-tab.tsx",
+    "packages/views/settings/components/issue-statuses-tab.test.tsx",
 ]
+
+SETTINGS_TAB_PATH = "packages/views/settings/components/issue-statuses-tab.tsx"
 
 
 class TaskFlowProjectStatusOverlayTests(unittest.TestCase):
@@ -58,6 +62,12 @@ class TaskFlowProjectStatusOverlayTests(unittest.TestCase):
             self.assertIn("TASKFLOW_PROJECT_STATUS_VISIBILITY", (root / PATCHED_PATHS[2]).read_text())
             self.assertIn("TaskFlowProjectStatusSettings", (root / PATCHED_PATHS[3]).read_text())
             self.assertIn("TASKFLOW_PRESERVE_PROJECT_STATUS_PREFS", (root / PATCHED_PATHS[7]).read_text())
+            settings_tab = (root / SETTINGS_TAB_PATH).read_text()
+            self.assertIn("TASKFLOW_WORKSPACE_STATUS_SCOPE", settings_tab)
+            self.assertIn("excludeTaskFlowProjectStatuses", settings_tab)
+            self.assertIn("data: allStatuses = []", settings_tab)
+            self.assertNotIn("data: statuses = []", settings_tab)
+            self.assertIn("TASKFLOW_WORKSPACE_STATUS_SCOPE_REGRESSION", (root / "packages/views/settings/components/issue-statuses-tab.test.tsx").read_text())
             core_package = json.loads((root / "packages/core/package.json").read_text())
             self.assertEqual(
                 core_package["exports"]["./issue-statuses/taskflow-project-status-scope"],
@@ -83,6 +93,10 @@ class TaskFlowProjectStatusOverlayTests(unittest.TestCase):
             PATCH.patch_status_hook("export function useIssueStatuses() { return null; }")
         with self.assertRaisesRegex(ValueError, "already applied"):
             PATCH.patch_status_hook("// TASKFLOW_PROJECT_STATUS_SCOPE")
+        with self.assertRaisesRegex(ValueError, "expected one upstream marker"):
+            PATCH.patch_settings_status_tab("export function IssueStatusesTab() { return null; }")
+        with self.assertRaisesRegex(ValueError, "already applied"):
+            PATCH.patch_settings_status_tab("// TASKFLOW_WORKSPACE_STATUS_SCOPE")
 
 
 if __name__ == "__main__":

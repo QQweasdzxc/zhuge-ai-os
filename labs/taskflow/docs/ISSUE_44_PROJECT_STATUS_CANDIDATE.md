@@ -81,6 +81,18 @@ run against an authenticated isolated TaskFlow API or real Desktop/iPhone
 browser session; those runtime checks remain NOT VERIFIED and require PM
 acceptance. No Production write or device session is used by this candidate.
 
+## Candidate review note — 2026-11-09
+
+The workspace settings 任務狀態 tab read the raw workspace status list and
+rendered Project-owned rows under their opaque `TF:<key>` native names. The
+tab now applies the same workspace-wide exclusion described above through
+`excludeTaskFlowProjectStatuses`, so Project custom statuses appear only on
+their Project surface, where the per-user display labels render. This is a
+render/scoping fix: no status rows, keys, issue data, or preferences change
+on load. Manual workspace reordering still sends the complete active category
+required by the native API, merging the visible order around unchanged
+Project-owned slots so hidden rows do not cause a partial-set rejection.
+
 ## Candidate review note — 2026-10-14
 
 The settings button exposes a localized accessible name for desktop and mobile

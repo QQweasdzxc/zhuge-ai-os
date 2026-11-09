@@ -284,6 +284,90 @@ def patch_swimlane(source: str) -> str:
     return source
 
 
+def patch_settings_status_tab(source: str) -> str:
+    if "TASKFLOW_WORKSPACE_STATUS_SCOPE" in source:
+        raise ValueError("TaskFlow workspace status scope already applied")
+    source = replace_once(
+        source,
+        'import { useWorkspaceId } from "@multica/core/hooks";\n',
+        'import { useWorkspaceId } from "@multica/core/hooks";\n'
+        'import { excludeTaskFlowProjectStatuses, mergeTaskFlowWorkspaceStatusOrder } from "@multica/core/issue-statuses/taskflow-project-status-scope";\n',
+        "workspace status scope import",
+    )
+    source = replace_once(
+        source,
+        "  const { data: statuses = [], isLoading } = useQuery(issueStatusListOptions(wsId));\n",
+        "  const { data: allStatuses = [], isLoading } = useQuery(issueStatusListOptions(wsId));\n"
+        "  // TASKFLOW_WORKSPACE_STATUS_SCOPE: Project-owned custom statuses are\n"
+        "  // managed on their Project surface; the workspace-wide catalog list\n"
+        "  // must not render their opaque `TF:<key>` native names (render-only).\n"
+        "  const statuses = useMemo(() => excludeTaskFlowProjectStatuses(allStatuses), [allStatuses]);\n",
+        "workspace status list excludes Project-owned keys",
+    )
+    source = replace_once(
+        source,
+        "              entries={group.entries}\n",
+        "              entries={group.entries}\n"
+        "              reorderEntries={allStatuses.filter((entry) => !entry.archived_at && normalizeIssueStatusCategory(entry.category) === group.category).sort(compareIssueStatusEntries)}\n",
+        "complete active category reorder inputs",
+    )
+    source = replace_once(source, "  entries,\n  canManage,", "  entries,\n  reorderEntries,\n  canManage,", "category reorder inputs prop")
+    source = replace_once(source, "  entries: IssueStatusEntry[];\n", "  entries: IssueStatusEntry[];\n  reorderEntries: IssueStatusEntry[];\n", "category reorder inputs type")
+    source = replace_once(
+        source,
+        "{ category, ordered: next.filter((entry) => !entry.archived_at) }",
+        "{ category, ordered: mergeTaskFlowWorkspaceStatusOrder(reorderEntries, next.filter((entry) => !entry.archived_at)) }",
+        "preserve hidden Project slots in complete native reorder payload",
+    )
+    return source
+
+
+def patch_settings_status_tests(source: str) -> str:
+    if "TASKFLOW_WORKSPACE_STATUS_SCOPE_REGRESSION" in source:
+        raise ValueError("TaskFlow workspace status regression already applied")
+    return source + '''
+
+// TASKFLOW_WORKSPACE_STATUS_SCOPE_REGRESSION: exercise the actual settings tab.
+describe("TaskFlow workspace settings scope", () => {
+  it("reorders workspace rows with a complete category payload and stable Project slots", async () => {
+    const projectKey = "p28mg00rg359vcpn4e25sr8okeb_tb1s";
+    catalog = [
+      entry({ key: "qa_first", name: "QA First", position: 1 }),
+      entry({ key: projectKey, name: `TF:${projectKey}`, position: 2 }),
+      entry({ key: "qa_second", name: "QA Second", position: 3 }),
+    ];
+    render(<IssueStatusesTab />);
+    fireEvent.click(screen.getByLabelText(en.issue_statuses.actions.open.replace("{{name}}", "QA Second")));
+    fireEvent.click(await screen.findByRole("menuitem", { name: en.issue_statuses.actions.move_up }));
+    expect(reorderMutate.mock.calls[0]![0].ordered.map((s: IssueStatusEntry) => s.key)).toEqual(["qa_second", projectKey, "qa_first"]);
+    expect(screen.queryByText(`TF:${projectKey}`)).toBeNull();
+  });
+
+  it("keeps workspace statuses but excludes active and archived Project-owned rows", () => {
+    const projectKey = "p28mg00rg359vcpn4e25sr8okeb_tb1s";
+    const archivedProjectKey = "p6dc8109ttp9fap1ia2j4ctrv6v_mrdt";
+    catalog = [
+      BUILT_IN_IN_REVIEW,
+      entry({ key: "workspace_qa", name: "Workspace QA" }),
+      entry({ key: projectKey, name: `TF:${projectKey}` }),
+      entry({ key: archivedProjectKey, name: `TF:${archivedProjectKey}`, archived_at: "2026-11-01T00:00:00Z" }),
+    ];
+    render(<IssueStatusesTab />);
+    expect(screen.getByText("Workspace QA")).toBeInTheDocument();
+    expect(screen.queryByText(`TF:${projectKey}`)).toBeNull();
+    expect(screen.queryByText(`TF:${archivedProjectKey}`)).toBeNull();
+    expect(archivedToggle()).toBeNull();
+    expect(catalog).toHaveLength(4);
+    expect(catalog[2]?.name).toBe(`TF:${projectKey}`);
+    expect(createMutate).not.toHaveBeenCalled();
+    expect(updateMutate).not.toHaveBeenCalled();
+    expect(archiveMutate).not.toHaveBeenCalled();
+    expect(reorderMutate).not.toHaveBeenCalled();
+  });
+});
+'''
+
+
 def patch_preferences(source: str) -> str:
     if "TASKFLOW_PRESERVE_PROJECT_STATUS_PREFS" in source:
         raise ValueError("TaskFlow project preference merge already applied")
@@ -367,6 +451,8 @@ def apply(root: Path, overlay: Path) -> None:
     write_patch(root, "packages/views/issues/components/board-column.tsx", patch_board_column)
     write_patch(root, "packages/views/issues/components/swimlane-view.tsx", patch_swimlane)
     write_patch(root, "packages/core/issue-views/preferences.ts", patch_preferences)
+    write_patch(root, "packages/views/settings/components/issue-statuses-tab.tsx", patch_settings_status_tab)
+    write_patch(root, "packages/views/settings/components/issue-statuses-tab.test.tsx", patch_settings_status_tests)
     patch_core_exports(root)
     patch_locales(root, overlay)
 
