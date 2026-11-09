@@ -40,16 +40,16 @@ style.textContent=[
 '@keyframes voyageTw{0%,100%{opacity:0;transform:scale(.6)}50%{opacity:.95;transform:scale(1.25)}}',
 '.voyage-shimmer{position:absolute;left:34%;top:33%;width:12%;height:26%;pointer-events:none;mix-blend-mode:screen;background:linear-gradient(180deg,rgba(255,220,150,.16),rgba(255,220,150,0) 80%);animation:voyageShim 7s ease-in-out infinite alternate;will-change:opacity}',
 '@keyframes voyageShim{from{opacity:.25}to{opacity:.7}}',
-'.voyage-hot{position:absolute;transform:translate(-50%,-50%);border:0;background:transparent;cursor:pointer;text-decoration:none;z-index:3;touch-action:manipulation;-webkit-tap-highlight-color:transparent;padding:0}','.voyage-hot-chengyu::before,.voyage-hot-english::before{content:"";position:absolute;inset:var(--hit,14px);border:3px solid rgba(255,223,117,.95);border-radius:9px;background:rgba(15,28,55,.08);box-shadow:0 0 16px rgba(255,223,117,.5),inset 0 0 10px rgba(255,223,117,.28);animation:voyagePulse 2.4s ease-in-out infinite}','.voyage-hot-board::after{content:"";position:absolute;inset:calc(-1 * var(--hit,14px))}',
+'.voyage-hot{position:absolute;transform:translate(-50%,-50%);border:0;background:transparent;cursor:pointer;text-decoration:none;z-index:3;touch-action:manipulation;-webkit-tap-highlight-color:transparent;padding:0}','.voyage-hot-chengyu::before,.voyage-hot-english::before,.voyage-hot-board::before{content:"";position:absolute;left:50%;top:50%;width:340%;height:380%;transform:translate(-50%,-50%);background:radial-gradient(ellipse at center,rgba(255,240,190,.5) 0%,rgba(255,224,140,.22) 45%,rgba(255,224,140,0) 70%);filter:blur(8px);mix-blend-mode:screen;opacity:0;transition:opacity .25s ease;pointer-events:none;z-index:-1}','.voyage-hot-board::after{content:"";position:absolute;inset:calc(-1 * var(--hit,14px))}',
 '.voyage-hot:before{content:"";position:absolute;inset:-13px}',
 '@keyframes voyagePulse{0%,100%{opacity:.78}50%{opacity:1}}',
-'.voyage-hot:hover{background:rgba(15,28,55,.18)}',
+'@media(hover:hover){.voyage-hot:hover::before{opacity:1}.voyage-hot-board:hover .voyage-sign{filter:brightness(1.12)}}','.voyage-hot:focus::before,.voyage-hot:focus-visible::before{opacity:1}','.voyage-hot:active::before{opacity:1;transition-duration:.05s}',
 '.voyage-hot:focus-visible{outline:3px solid #ffdf75;outline-offset:4px;border-radius:12px}',
 '.voyage-hot-chengyu{left:15.7%;top:37.2%;width:calc(9.6% + (var(--hit,14px) * 2));height:calc(8.6% + (var(--hit,14px) * 2))}',
 '.voyage-hot-english{left:89.8%;top:40.6%;width:calc(7.4% + (var(--hit,14px) * 2));height:calc(6.6% + (var(--hit,14px) * 2))}',
 '.voyage-hot-board{left:69.3%;top:31.8%;width:auto;height:auto;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;border:0;background:none;box-shadow:none;animation:none}',
 '.voyage-hot-board:before{inset:-10px}',
-'.voyage-sign{position:relative;display:inline-flex;align-items:center;justify-content:center;padding:.34em .95em;background:linear-gradient(180deg,#cfa66f 0%,#b98a52 55%,#a87a45 100%);border:3px solid #6b4a2a;border-radius:7px;box-shadow:0 3px 0 #54371d,0 6px 12px rgba(20,10,0,.4),inset 0 1px 0 rgba(255,235,200,.45),0 0 16px rgba(255,223,117,.5);color:#3d2712;font-weight:900;font-size:clamp(11px,1.2vw,16px);letter-spacing:.14em;white-space:nowrap;text-shadow:0 1px 0 rgba(255,230,190,.4);animation:voyagePulse 2.4s ease-in-out infinite}',
+'.voyage-sign{position:relative;display:inline-flex;align-items:center;justify-content:center;padding:.34em .95em;background:linear-gradient(180deg,#cfa66f 0%,#b98a52 55%,#a87a45 100%);border:3px solid #6b4a2a;border-radius:7px;box-shadow:0 3px 0 #54371d,0 6px 12px rgba(20,10,0,.4),inset 0 1px 0 rgba(255,235,200,.45);color:#3d2712;font-weight:900;font-size:clamp(11px,1.2vw,16px);letter-spacing:.14em;white-space:nowrap;text-shadow:0 1px 0 rgba(255,230,190,.4)}',
 '.voyage-sign:before,.voyage-sign:after{content:"";position:absolute;top:5px;width:5px;height:5px;border-radius:50%;background:#54371d;box-shadow:inset 0 1px 1px rgba(0,0,0,.5)}',
 '.voyage-sign:before{left:6px}.voyage-sign:after{right:6px}',
 '.voyage-index{background:#182230;border-left:3px solid #2e4a5f;min-width:0;display:flex;flex-direction:column}',
@@ -124,7 +124,7 @@ const IC={
 root.outerHTML='<section class="world expedition-world" id="worldMap" aria-label="學習冒險群島探索地圖">'+
  '<div class="section-label"><div><h2>'+IC.island+'學習冒險群島地圖</h2><p>和孩子一起，航向今天的知識冒險</p></div><span class="pixel pill">CHAPTER 01 · THE FIRST VOYAGE</span></div>'+
  '<div class="voyage-shell">'+
- '<div class="voyage-heading"><div><strong>'+IC.island+'THE ISLAND EXPEDITION · 群島探索</strong><small>點地圖上的島嶼出航，或登上燈塔看看英雄榜</small></div><span class="voyage-status">'+IC.sail+'已開放 2 島</span></div>'+
+ '<div class="voyage-heading"><div><strong>'+IC.island+'THE ISLAND EXPEDITION · 群島探索</strong><small>點地圖上的島嶼，或登上燈塔看看英雄榜</small></div><span class="voyage-status">'+IC.sail+'已開放 2 島</span></div>'+
  '<div class="voyage-grid">'+
  '<div class="voyage-stage" role="img" aria-label="夕陽下的立體方塊群島：左邊是成語島的東方書院，右邊是英文島的魔法高塔，中央主島有孩子們的遊樂場、小小的 TRQN 字母地標與英雄榜燈塔">'+
  '<div class="voyage-bg"></div>'+
@@ -132,18 +132,18 @@ root.outerHTML='<section class="world expedition-world" id="worldMap" aria-label
  '<div class="voyage-mist vm1"></div><div class="voyage-mist vm2"></div><div class="voyage-mist vm3"></div><div class="voyage-mist vm4"></div>'+
  '<div class="voyage-glow vg1"></div><div class="voyage-glow vg2"></div><div class="voyage-glow vg3"></div><div class="voyage-glow vg4"></div><div class="voyage-glow vg5"></div><div class="voyage-glow vg6"></div><div class="voyage-glow vg7"></div>'+
  '<div id="voyageSea"></div>'+
- '<a class="voyage-hot voyage-hot-chengyu" id="islandChengyu" data-world="chengyu" href="'+domainFor('chengyu')+playerHash()+'" aria-label="出航前往成語島"></a>'+
- '<a class="voyage-hot voyage-hot-english" id="islandEnglish" data-world="english" href="'+domainFor('english')+playerHash()+'" aria-label="出航前往英文島"></a>'+
+ '<a class="voyage-hot voyage-hot-chengyu" id="islandChengyu" data-world="chengyu" href="'+domainFor('chengyu')+playerHash()+'" aria-label="前往成語島"></a>'+
+ '<a class="voyage-hot voyage-hot-english" id="islandEnglish" data-world="english" href="'+domainFor('english')+playerHash()+'" aria-label="前往英文島"></a>'+
  '<button class="voyage-hot voyage-hot-board" id="heroBoardBtn" type="button" aria-label="打開英雄榜"><span class="voyage-sign">英雄榜</span></button>'+
  '</div>'+
  '<aside class="voyage-index isometric-index" aria-label="島嶼索引"><header class="index-head"><small>THE ISLAND INDEX</small><h3>今天的冒險，從哪座島開始？</h3><p>成語島和英文島已經開放，更多島嶼還在興建中。</p></header>'+
  '<div class="index-scroll">'+
- '<a class="index-item" data-world="chengyu" href="'+domainFor('chengyu')+playerHash()+'"><span class="index-number">01</span><span><strong>成語島 · 出航</strong><span class="index-note">典故森林・成語解謎</span></span><span class="index-arrow">↗</span></a>'+
- '<a class="index-item" data-world="english" href="'+domainFor('english')+playerHash()+'"><span class="index-number">02</span><span><strong>英文島 · 出航</strong><span class="index-note">魔法高塔・拼字試煉</span></span><span class="index-arrow">↗</span></a>'+
+ '<a class="index-item" data-world="chengyu" href="'+domainFor('chengyu')+playerHash()+'"><span class="index-number">01</span><span><strong>成語島</strong><span class="index-note">典故森林・成語解謎</span></span><span class="index-arrow">↗</span></a>'+
+ '<a class="index-item" data-world="english" href="'+domainFor('english')+playerHash()+'"><span class="index-number">02</span><span><strong>英文島</strong><span class="index-note">魔法高塔・拼字試煉</span></span><span class="index-arrow">↗</span></a>'+
  '<button class="index-item" id="heroBoardBtn2" type="button"><span class="index-number">'+IC.trophy+'</span><span><strong>英雄榜</strong><span class="index-note">燈塔上的家庭冒險總榜</span></span><span class="index-arrow">↗</span></button>'+
  '</div>'+
  '<div class="index-foot">★ 通過各島的學習挑戰，XP 將回到同一位冒險者。<br>'+IC.castle+'正式升級仍須通過晉級試煉。</div></aside></div>'+
- '<div class="voyage-legend"><strong>'+IC.point+'點選島嶼即可出航</strong><span>'+IC.book+'成語島 / '+IC.abc+'英文島已開放 · '+IC.trophy+'燈塔英雄榜</span></div>'+
+ '<div class="voyage-legend"><strong>'+IC.point+'點選島嶼即可前往</strong><span>'+IC.book+'成語島 / '+IC.abc+'英文島已開放 · '+IC.trophy+'燈塔英雄榜</span></div>'+
  '</div>'+
  '<div class="hb-overlay" id="heroBoardOverlay" hidden><div class="hb-card" role="dialog" aria-modal="true" aria-label="英雄榜" id="heroBoardCard"></div></div>'+
  '</section>';
