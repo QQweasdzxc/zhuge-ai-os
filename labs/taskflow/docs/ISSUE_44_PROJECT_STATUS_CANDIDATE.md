@@ -88,7 +88,10 @@ rendered Project-owned rows under their opaque `TF:<key>` native names. The
 tab now applies the same workspace-wide exclusion described above through
 `excludeTaskFlowProjectStatuses`, so Project custom statuses appear only on
 their Project surface, where the per-user display labels render. This is a
-render/scoping fix: no status rows, keys, issue data, or preferences change.
+render/scoping fix: no status rows, keys, issue data, or preferences change
+on load. Manual workspace reordering still sends the complete active category
+required by the native API, merging the visible order around unchanged
+Project-owned slots so hidden rows do not cause a partial-set rejection.
 
 ## Candidate review note — 2026-10-14
 
