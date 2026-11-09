@@ -47,7 +47,7 @@ style.textContent=[
 '.voyage-hot:focus-visible{outline:3px solid #ffdf75;outline-offset:4px;border-radius:12px}',
 '.voyage-hot-chengyu{left:15.7%;top:37.2%;width:calc(9.6% + (var(--hit,14px) * 2));height:calc(8.6% + (var(--hit,14px) * 2))}',
 '.voyage-hot-english{left:89.8%;top:40.6%;width:calc(7.4% + (var(--hit,14px) * 2));height:calc(6.6% + (var(--hit,14px) * 2))}',
-'.voyage-hot-board{left:69.3%;top:31.8%;width:auto;height:auto;border:0;background:none;box-shadow:none;animation:none}',
+'.voyage-hot-board{left:69.3%;top:31.8%;width:auto;height:auto;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;border:0;background:none;box-shadow:none;animation:none}',
 '.voyage-hot-board:before{inset:-10px}',
 '.voyage-sign{position:relative;display:inline-flex;align-items:center;justify-content:center;padding:.34em .95em;background:linear-gradient(180deg,#cfa66f 0%,#b98a52 55%,#a87a45 100%);border:3px solid #6b4a2a;border-radius:7px;box-shadow:0 3px 0 #54371d,0 6px 12px rgba(20,10,0,.4),inset 0 1px 0 rgba(255,235,200,.45),0 0 16px rgba(255,223,117,.5);color:#3d2712;font-weight:900;font-size:clamp(11px,1.2vw,16px);letter-spacing:.14em;white-space:nowrap;text-shadow:0 1px 0 rgba(255,230,190,.4);animation:voyagePulse 2.4s ease-in-out infinite}',
 '.voyage-sign:before,.voyage-sign:after{content:"";position:absolute;top:5px;width:5px;height:5px;border-radius:50%;background:#54371d;box-shadow:inset 0 1px 1px rgba(0,0,0,.5)}',
