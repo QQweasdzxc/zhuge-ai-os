@@ -1,16 +1,20 @@
-/* Learning Archipelago - local day/night + weather atmosphere layer (v1).
+/* Learning Archipelago - local day/night + weather atmosphere layer (v1.1).
    Follows the family's real location: sunrise/sunset tint (dawn/day/dusk/night)
    plus overcast, fog, rain and snow overlays on the existing world map art.
    Privacy: one-shot coarse geolocation -> Open-Meteo (no key, CC BY 4.0).
    Coordinates are never sent to the family backend or stored server-side;
-   only a 45-minute localStorage cache on the device. Denial/failure falls
-   back to a default city silently and never blocks or re-prompts play.
+   only a 45-minute localStorage cache on the device, reused only for the
+   same position (<=6h stale when a refetch fails).
+   Fallback honesty: when location is denied/unavailable we never show
+   another city's weather or sunrise. The scene falls back to a neutral
+   device-clock day/night (fixed 06:00/18:00 ramp), clear sky, plus a tiny
+   non-blocking note. A known-denied permission is never re-asked; we only
+   retry when the browser permission state actually changes to granted.
    Demo hook for testing: #wxdemo=<wmoCode>[,HH:MM] (e.g. #wxdemo=61,23:30). */
 (function(){
 'use strict';
-var FALLBACK={lat:25.033,lon:121.565,label:'Taipei'};
 var CACHE_KEY='la-wx-v1', GEO_KEY='la-wx-geo-v1';
-var CACHE_TTL=45*60*1000, GEO_RETRY=24*60*60*1000;
+var CACHE_TTL=45*60*1000, CACHE_STALE=6*60*60*1000, GEO_SUPPRESS=30*24*60*60*1000, COORD_TOL=0.5;
 var stage=null,shell=null;
 var layers={};
 var state={code:0,sunrise:null,sunset:null};
@@ -25,6 +29,7 @@ var CSS=[
 '.wx-stars{background-repeat:repeat;mix-blend-mode:screen;opacity:0;transition:opacity 6s linear;animation:wxTwinkle 4.5s ease-in-out infinite alternate}',
 '@keyframes wxTwinkle{from{filter:brightness(.75)}to{filter:brightness(1.2)}}',
 '.voyage-shell.wx-noanim .wx-layer,.voyage-shell.wx-noanim .wx-precip{transition:none!important}',
+'.wx-note{position:absolute;right:8px;bottom:8px;z-index:5;font-size:10px;letter-spacing:.04em;color:#cfe3ee;background:rgba(13,25,42,.72);border:1px solid #3d6a74;border-radius:6px;padding:3px 7px;pointer-events:none}',
 '.wx-precip{display:none;opacity:0;transition:opacity 3s linear}',
 '.wx-precip.on{display:block;opacity:1}',
 '.wx-precip i{position:absolute;left:-6%;right:-6%;top:-180px;bottom:0;background-repeat:repeat;will-change:transform;animation:wxFall .82s linear infinite}',
@@ -81,6 +86,11 @@ function build(){
  layers.fog=mk('wx-fog');
  layers.stars=mk('wx-stars');
  layers.stars.style.backgroundImage=starsTile();
+ layers.note=document.createElement('div');
+ layers.note.className='wx-note';
+ layers.note.textContent='未取得位置，顯示預設場景';
+ layers.note.hidden=true;
+ stage.appendChild(layers.note);
  layers.precip=mk('wx-precip');
  layers.precip.appendChild(document.createElement('i'));
  layers.precip.appendChild(document.createElement('i'));
@@ -119,7 +129,7 @@ function clamp01(v){return v<0?0:v>1?1:v}
 function weatherPlan(code){
  var p={dim:0,fog:0,precip:null};
  if(code===2){p.dim=.14}
- else if(code===3){p.dim=.42}
+ else if(code===3){p.dim=.34}
  else if(code===45||code===48){p.dim=.16;p.fog=.75}
  else if(code>=51&&code<=57){p.dim=.2;p.precip='light'}
  else if((code>=61&&code<=67)||(code>=80&&code<=82)){p.dim=.24;p.precip=(code===65||code===67||code===82)?'heavy':'rain'}
@@ -149,14 +159,21 @@ function apply(){
 }
 
 /* --- data ---------------------------------------------------------------- */
-function readCache(){
+function readCache(lat,lon,maxAge){
  try{
   var c=JSON.parse(localStorage.getItem(CACHE_KEY)||'null');
-  if(c&&c.ts&&Date.now()-c.ts<CACHE_TTL&&c.sunrise&&c.sunset)return c;
- }catch(e){}
- return null;
+  if(!c||!c.ts||!c.sunrise||!c.sunset)return null;
+  if(Date.now()-c.ts>maxAge)return null;
+  if(typeof lat==='number'&&(Math.abs(c.lat-lat)>COORD_TOL||Math.abs(c.lon-lon)>COORD_TOL))return null; // only reuse for the same position
+  return c;
+ }catch(e){return null}
 }
 function writeCache(c){try{localStorage.setItem(CACHE_KEY,JSON.stringify(c))}catch(e){}}
+function defaultScene(){ // honest fallback: device-clock day/night only, no weather, no fake city
+ var t=new Date();
+ return {code:0,sunrise:new Date(t.getFullYear(),t.getMonth(),t.getDate(),6,0).toString(),
+  sunset:new Date(t.getFullYear(),t.getMonth(),t.getDate(),18,0).toString(),noLoc:true};
+}
 function fetchWeather(lat,lon,cb){
  var url='https://api.open-meteo.com/v1/forecast?latitude='+lat.toFixed(3)+'&longitude='+lon.toFixed(3)+
   '&current=weather_code&daily=sunrise,sunset&timezone=auto&forecast_days=1';
@@ -166,42 +183,58 @@ function fetchWeather(lat,lon,cb){
    sunrise:j.daily.sunrise[0],sunset:j.daily.sunset[0]};
   writeCache(c);cb(c);
  }).catch(function(){
-  cb({lat:lat,lon:lon,ts:Date.now(),code:0,sunrise:null,sunset:null});
+  var stale=readCache(lat,lon,CACHE_STALE); // same-position cache, time-bounded
+  cb(stale||defaultScene());
  });
 }
-function locate(cb){
- var last=0;
- try{last=parseInt(localStorage.getItem(GEO_KEY)||'0',10)||0}catch(e){}
- var fallback=function(){cb(FALLBACK.lat,FALLBACK.lon)};
- if(!navigator.geolocation){fallback();return}
- if(last&&Date.now()-last<GEO_RETRY){fallback();return} // denied/failed recently: never re-ask
- var mark=function(){try{localStorage.setItem(GEO_KEY,String(Date.now()))}catch(e){}};
+function geoSuppressed(){
+ try{var t=parseInt(localStorage.getItem(GEO_KEY)||'0',10)||0;return t&&Date.now()-t<GEO_SUPPRESS}catch(e){return false}
+}
+function suppressGeo(){try{localStorage.setItem(GEO_KEY,String(Date.now()))}catch(e){}}
+function clearSuppress(){try{localStorage.removeItem(GEO_KEY)}catch(e){}}
+function attemptGeo(cb){
  var done=false;
- var to=setTimeout(function(){if(!done){done=true;mark();fallback()}},9000);
+ var to=setTimeout(function(){if(!done){done=true;suppressGeo();cb(null)}},9000);
  navigator.geolocation.getCurrentPosition(function(pos){
-  if(done)return;done=true;clearTimeout(to);
-  try{localStorage.removeItem(GEO_KEY)}catch(e){}
-  cb(pos.coords.latitude,pos.coords.longitude);
+  if(done)return;done=true;clearTimeout(to);clearSuppress();
+  cb({lat:pos.coords.latitude,lon:pos.coords.longitude});
  },function(){
-  if(done)return;done=true;clearTimeout(to);mark();fallback();
+  if(done)return;done=true;clearTimeout(to);suppressGeo();cb(null);
  },{enableHighAccuracy:false,timeout:8000,maximumAge:30*60000});
+}
+function locate(cb){
+ if(!navigator.geolocation){cb(null);return}
+ var decide=function(mayAsk){
+  if(geoSuppressed()&&!mayAsk){cb(null);return} // known denied/unavailable: never re-ask on our own
+  attemptGeo(cb);
+ };
+ if(navigator.permissions&&navigator.permissions.query){
+  navigator.permissions.query({name:'geolocation'}).then(function(st){
+   if(st.state==='granted'){clearSuppress();decide(true)}
+   else if(st.state==='denied'){suppressGeo();cb(null)}
+   else decide(false); // 'prompt': ask only when not suppressed by an earlier denial
+   st.onchange=function(){if(st.state==='granted'){clearSuppress();refresh(true)}}; // actual permission change
+  }).catch(function(){decide(false)});
+ }else{
+  decide(false);
+ }
 }
 function applyData(c){
  state.code=c.code||0;
  state.sunrise=c.sunrise?parseLocal(c.sunrise):null;
  state.sunset=c.sunset?parseLocal(c.sunset):null;
- if(!state.sunrise||!state.sunset){
-  var t=new Date();
-  state.sunrise=new Date(t.getFullYear(),t.getMonth(),t.getDate(),6,0);
-  state.sunset=new Date(t.getFullYear(),t.getMonth(),t.getDate(),18,0);
- }
+ if(!state.sunrise||!state.sunset)c=defaultScene(),state.code=0,state.sunrise=parseLocal(c.sunrise),state.sunset=parseLocal(c.sunset);
+ layers.note.hidden=!c.noLoc;
  apply();
 }
 function refresh(force){
- if(demo){applyData({code:demo.code,sunrise:demo.sr,sunset:demo.ss});return}
- var c=force?null:readCache();
- if(c){applyData(c);return}
- locate(function(lat,lon){fetchWeather(lat,lon,applyData)});
+ if(demo){layers.note.hidden=true;applyData({code:demo.code,sunrise:demo.sr,sunset:demo.ss});return}
+ locate(function(pos){
+  if(!pos){applyData(defaultScene());return}
+  var c=force?null:readCache(pos.lat,pos.lon,CACHE_TTL);
+  if(c){applyData(c);return}
+  fetchWeather(pos.lat,pos.lon,applyData);
+ });
 }
 
 /* demo hook: #wxdemo=61,23:30 or #wxdemo=3 -> deterministic state, no geo/fetch */
