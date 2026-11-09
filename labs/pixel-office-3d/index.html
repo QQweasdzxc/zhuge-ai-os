@@ -491,6 +491,8 @@
       <details class="settings menu" id="settingsMenu">
         <summary class="btn" aria-controls="settingsPanel" data-a="settings"><svg class="ui-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.5-2-3.4-2.3.9a7.5 7.5 0 0 0-2.6-1.5L14.1 2.6h-4l-.4 2.4A7.5 7.5 0 0 0 7.1 6.5l-2.3-.9-2 3.4 2 1.5a7.6 7.6 0 0 0 0 3l-2 1.5 2 3.4 2.3-.9a7.5 7.5 0 0 0 2.6 1.5l.4 2.4h4l.4-2.4a7.5 7.5 0 0 0 2.6-1.5l2.3.9 2-3.4z"/></svg><span data-t="settings"></span></summary>
         <div class="settings-panel prefs-panel" id="settingsPanel">
+          <div class="setting-label">圖例</div>
+          <div class="legend" id="legend" style="position:static;margin:4px 0 10px;padding:0;background:none;backdrop-filter:none"></div>
           <div class="setting-toggles">
             <label class="tog"><span data-t="subagents"></span><input type="checkbox" role="switch" id="showSub"></label>
             <label class="tog" id="idleToggle"><span data-t="showIdle"></span><input type="checkbox" role="switch" id="showIdle"></label>
@@ -522,7 +524,6 @@
   </div>
   <div id="officeWrap">
     <div class="office loading" id="office"><div class="office-loader"><div class="spin"></div><span id="loaderText"></span></div></div>
-    <div class="legend" id="legend"></div>
     <div class="legend" id="agentLegend" hidden></div>
   </div>
   <aside class="side" id="side" aria-label="Agents">
@@ -2093,4 +2094,4 @@ if (state.full) {
 setInterval(tickTimes, 1000);
 </script>
 </body>
-  </html>
+            </html>
