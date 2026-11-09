@@ -1,6 +1,6 @@
 {
-  "name": "學習冒險群島｜冒險者總部",
-  "short_name": "學習冒險群島",
+  "name": "學習冒險島",
+  "short_name": "學習冒險島",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#152347",
