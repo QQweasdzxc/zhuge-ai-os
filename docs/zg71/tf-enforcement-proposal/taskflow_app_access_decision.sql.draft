@@ -1,0 +1,9 @@
+-- PROPOSAL, NOT APPLIED. Additive, no data writes. Needs explicit go.
+create or replace function public.taskflow_app_access_decision(p_user_id uuid)
+returns boolean language sql stable security definer
+set search_path to pg_catalog, private, public, pg_temp
+as $$ select private.app_access_effective_allowed(p_user_id); $$;
+revoke all on function public.taskflow_app_access_decision(uuid) from public, anon, authenticated, service_role;
+grant execute on function public.taskflow_app_access_decision(uuid) to taskflow_runtime;
+-- Returns one boolean for a given id (same resolver as is_app_access_approved).
+-- No listing, no writes, no auth.users read exposed.
