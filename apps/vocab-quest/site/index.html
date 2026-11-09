@@ -607,11 +607,11 @@ function gameOverScreen(){
  var w=s.lastWrongIndex>=0?words[s.lastWrongIndex]:null;
  var target=s.challengeMode==="all"?s.pool.length*3:s.pool.length;
  app.innerHTML='<section class="game-over"><div class="skull">💀</div>'+
- '<h1>GAME OVER</h1><p>🖤 🖤 🖤</p><p>答錯三次，三條命已用完！</p>'+
+ '<h1>GAME OVER</h1><p>🖤 🖤 🖤</p><p>三顆愛心都用完了，看看答案再試一次。</p>'+
  '<p>本次已答 '+s.attempts.length+' / '+target+' 題</p>'+
  (w?'<div class="game-miss">最後一題正確答案<br><b>'+safe(w[0])+'</b><p>'+safe(w[1])+'</p></div>':"")+
  '</section><section class="panel"><h2>🔄 重新挑戰</h2>'+
- '<p>'+(s.challengeMode==="all"?"三關連續挑戰從第一關重新開始。":"同一關重新洗牌，再獲得三條命。")+'</p>'+
+ '<p>'+(s.challengeMode==="all"?"三關連續挑戰從第一關重新開始。":"再練這一關，愛心會補滿。")+'</p>'+
  '<div class="actions">'+btn("🎮 重新闖關 ❤️❤️❤️","replay","primary wide")+
  btn("返回首頁選關","home","outline wide")+
  btn("📊 查看歷史成績","report","outline wide")+'</div>'+
@@ -875,7 +875,7 @@ function polish(){
   const can=save?.textContent.includes('破關！')&&next&&!next.disabled;
   if(can&&!advance){advance=document.createElement('button');advance.type='button';advance.id='appNextZone';advance.className='btn-primary';advance.textContent='挑戰下一關 →';advance.addEventListener('click',()=>{const current=$('.adventure-stage[aria-pressed="true"]'),target=$('.adventure-stage[data-zone="'+(Number(current.dataset.zone)+1)+'"]');if(target&&!target.disabled){target.click();$('#startBtn').click()}});$('#screen-result .result-actions').prepend(advance)}if(advance)advance.hidden=!can;
  }else if(!root.querySelector('.entry-mission')){
-  for(const e of root.querySelectorAll('[data-action="report"]'))e.hidden=true;
+  for(const e of root.querySelectorAll('[data-action="report"]'))e.hidden=true;const meta=root.querySelector('.game-over-meta');if(meta)setText(meta,meta.textContent.replace(/Supabase/g,'雲端'));
   for(const e of root.querySelectorAll('[data-action="home"]'))setText(e,'回到練習');
   for(const e of root.querySelectorAll('[data-action="replay"]'))setText(e,'再練一次');
   for(const e of root.querySelectorAll('[data-action="filterAll"]'))setText(e,'全家人的紀錄');for(const e of root.querySelectorAll('[data-action="filterTester"]'))setText(e,'目前冒險者');
@@ -886,4 +886,4 @@ function polish(){
 if(idiom)new MutationObserver(polish).observe($('#screen-result'),{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
 arrange();polish();sync();
 })();
-</script></body></html>
+</script><style>#app [data-action="report"][hidden]{display:none!important}</style></body></html>
