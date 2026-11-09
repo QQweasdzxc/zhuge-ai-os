@@ -150,6 +150,13 @@ Deno.serve(async req=>{
   }
   const hero=await heroFor(family,learnerId);
   if(!hero)return fail(req,"找不到對應的冒險者",403);
+  if(action==="getWallet"||action==="claimLogin"){
+   // IDs are resolved from the verified family capability and learner mapping, never input.heroId.
+   const result=await db("rpc/learning_adventure_wallet","","POST",{
+    p_family:family.adventureFamilyId,p_hero:hero.id,p_claim_login:action==="claimLogin"
+   });
+   return respond(req,{ok:true,wallet:result});
+  }
   if(action==="load"){
    const [ledger,exams]=await Promise.all([
     db("learning_adventure_xp_ledger","hero_id=eq."+hero.id+"&select=world,amount&limit=3000"),
