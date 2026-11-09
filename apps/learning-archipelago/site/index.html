@@ -451,9 +451,10 @@ window.ArchipelagoCatalog={mount({container,request}){
  body.innerHTML='<p role="status">正在讀取自己的金幣與紀錄…</p>';
  try{const [w,r,mine]=await Promise.all([request('getWallet'),request('listRewards'),request('listOwnRedemptions')]);if(!alive)return;wallet=w.wallet;rewards=r.rewards||[];redemptionEnabled=r.redemptionEnabled;
  const examples=[{title:'看卡通 20 分鐘',price:20},{title:'一份點心',price:50},{title:'一本繪本',price:150}];
- body.innerHTML='<h3>'+esc(wallet.balance)+' 金幣</h3><p>金幣可以存著，兌換不會扣 XP，也不會降級。</p><p role="status"><strong>'+(r.setupRequired?'家長兌換尚未設定':'孩子選獎品，家長確認後提供獎勵')+'</strong><br>各家庭自己約定獎品與價格。這裡不會自動購物。送出確認後會先保留金幣。</p><div class="coin-gifts">'+(rewards.length?rewards:examples).map(x=>'<article><h4>'+esc(x.title)+'</h4><strong>'+esc(x.price)+' 金幣</strong><small>'+(rewards.length?'送出後先保留金幣，家長取消會退回':'價格示例，不是已約定的獎品')+'</small><button type="button" data-gift="'+esc(x.id||'')+'" '+(!redemptionEnabled||!x.id||wallet.balance<x.price?'disabled':'')+'>'+(r.setupRequired?'等待家長設定':!x.id?'價格示例':wallet.balance<x.price?'還差 '+(x.price-wallet.balance)+' 幣':'選這個獎勵')+'</button></article>').join('')+'</div><p data-action-note role="status"></p><div data-confirm></div><h3>我的兌換紀錄</h3><ul class="coin-history">'+(mine.redemptions.map(x=>'<li>'+esc(x.title)+' · '+esc(x.price)+' 幣<strong>'+esc({pending:'等家長確認（已保留金幣）',fulfilled:'已提供獎勵',rejected:'已取消，金幣已退回'}[x.status])+'</strong></li>').join('')||'<li>還沒有兌換紀錄。</li>')+'</ul><h3>我的金幣紀錄</h3><ul class="coin-history">'+((wallet.history||[]).map(x=>'<li>'+esc(names[x.kind]||x.kind)+'<strong>'+(x.amount>0?'+':'')+esc(x.amount)+'</strong><small>'+esc(x.day)+'</small></li>').join('')||'<li>還沒有金幣紀錄。</li>')+'</ul>'+(!r.setupRequired?'<button type="button" data-parent-settings>家長設定與確認</button><div data-settings></div>':'<p>家長初次設定須使用獨立的私人設定連結，孩子的家庭網址不能代替。</p>')+'<p>目前已開放每日登入 1 幣。每島每天前3個通關回合各5幣；每日訂正／複習3幣各一次。兌換不會自動購物。</p>';
+ body.innerHTML='<h3>'+esc(wallet.balance)+' 金幣</h3><p>金幣可以存著，兌換不會扣 XP，也不會降級。</p><p role="status"><strong>'+(r.setupRequired?'還沒設定家庭獎品，金幣仍可照常累積':'孩子選獎品，家長確認後提供獎勵')+'</strong><br>各家庭自己約定獎品與價格。這裡不會自動購物。送出確認後會先保留金幣。</p>'+ (r.setupRequired?'<button type="button" data-parent-guide-top>家長如何設定獎品？</button>':'') +'<div class="coin-gifts">'+(rewards.length?rewards:examples).map(x=>'<article><h4>'+esc(x.title)+'</h4><strong>'+esc(x.price)+' 金幣</strong><small>'+(rewards.length?'送出後先保留金幣，家長取消會退回':'價格示例，不是已約定的獎品')+'</small><button type="button" data-gift="'+esc(x.id||'')+'" '+(!redemptionEnabled||!x.id||wallet.balance<x.price?'disabled':'')+'>'+(r.setupRequired?'獎品示例，尚未開放兌換':!x.id?'價格示例':wallet.balance<x.price?'還差 '+(x.price-wallet.balance)+' 幣':'選這個獎勵')+'</button></article>').join('')+'</div><p data-action-note role="status"></p><div data-confirm></div><h3>我的兌換紀錄</h3><ul class="coin-history">'+(mine.redemptions.map(x=>'<li>'+esc(x.title)+' · '+esc(x.price)+' 幣<strong>'+esc({pending:'等家長確認（已保留金幣）',fulfilled:'已提供獎勵',rejected:'已取消，金幣已退回'}[x.status])+'</strong></li>').join('')||'<li>還沒有兌換紀錄。</li>')+'</ul><h3>我的金幣紀錄</h3><ul class="coin-history">'+((wallet.history||[]).map(x=>'<li>'+esc(names[x.kind]||x.kind)+'<strong>'+(x.amount>0?'+':'')+esc(x.amount)+'</strong><small>'+esc(x.day)+'</small></li>').join('')||'<li>還沒有金幣紀錄。</li>')+'</ul>'+('<button type="button" data-parent-settings>'+(r.setupRequired?'家長如何設定獎品？':'家長設定與確認')+'</button><div data-settings></div>')+'<p>目前已開放每日登入 1 幣。每島每天前3個通關回合各5幣；每日訂正／複習3幣各一次。兌換不會自動購物。</p>';
  for(const button of root.querySelectorAll('[data-gift]'))button.onclick=()=>confirmGift(rewards.find(x=>x.id===button.dataset.gift));
- root.querySelector('[data-parent-settings]')?.addEventListener('click',()=>parentSettings().catch(()=>{const area=root.querySelector('[data-settings]');if(alive&&area)area.textContent='家長設定暫時無法讀取，請重新驗證後再試。';parentSession=null;parentExpires=0;}));
+ root.querySelector('[data-parent-guide-top]')?.addEventListener('click',()=>root.querySelector('[data-parent-settings]').click());
+ root.querySelector('[data-parent-settings]')?.addEventListener('click',()=>{if(r.setupRequired){const area=root.querySelector('[data-settings]');area.innerHTML='<section class="coin-parent-guide" tabindex="-1"><h3>家長初次設定</h3><p>這裡等待的是家長約定「獎品名稱」與「需要多少金幣」，不是等待批准孩子玩遊戲或領金幣。</p><ol><li>目前沒有公開自助開通入口。首次設定需要遊戲管理者先核實家庭歸屬，再私下提供設定連結。請勿公開貼家庭遊戲網址，也不用提供孩子姓名。</li><li>收到私人一次性連結後，在設定頁建立家長 PIN。請不要把 PIN 傳在聊天裡。</li><li>用原本的家庭遊戲連結回總部，開啟「商店 → 家長設定與確認」，驗證 PIN，再自行新增獎品與價格。</li></ol><p>目前的卡通、點心、繪本都只是示例，不是已約定的獎品。不設定獎品也能繼續學習、存金幣。</p><p>家庭遊戲連結不能自行開通或重設家長權限。若已有設定連結，請從私訊中的連結進入；若尚未收到或連結已失效，需由遊戲管理者另外協助，這個頁面目前不能直接申請。</p></section>';area.querySelector('section').focus();area.scrollIntoView({block:'nearest',behavior:'smooth'});return;}return parentSettings().catch(()=>{const area=root.querySelector('[data-settings]');if(alive&&area)area.textContent='家長設定暫時無法讀取，請重新驗證後再試。';parentSession=null;parentExpires=0;});});
  }catch(e){if(alive)body.textContent='暫時無法讀取金幣與商店，不影響繼續練習。稍後可重新開啟。';}
  };
 
@@ -1048,4 +1049,24 @@ render();loadPlayers();
 </script>
 <script src="./island-world.js?v=3.3.1"></script>
 
+
+<style id="mobile-map-edge-to-edge">
+/* Full-viewport scene. Foreground artwork stays proportional and uncropped;
+   only the outer backdrop continues beyond the portrait's original ratio. */
+@media(max-width:690px){
+.voyage-shell{padding:0!important;inset:0!important;border:0!important;border-radius:0!important;box-shadow:none!important;background:#78c8de!important;display:block!important}
+.voyage-stage{position:absolute!important;inset:0!important;margin:0!important;width:100%!important;height:100%!important;max-width:none!important;aspect-ratio:auto!important;overflow:hidden!important;background:#79c9e0!important}
+.voyage-stage:before{content:"";position:absolute;inset:-30px;background:url('./1-archipelago-portrait.jpg') center/cover no-repeat;filter:blur(22px);pointer-events:none}
+.voyage-pan{position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;width:min(100vw,calc(100dvh * 941 / 1672))!important;height:min(100dvh,calc(100vw * 1672 / 941))!important;overflow:visible!important}
+.voyage-bg{background-size:100% 100%!important;transform:none!important}
+.stage-chip-hint{display:none!important}
+.m-topbar{top:calc(7px + env(safe-area-inset-top,0px))!important}
+.m-bar{border:0!important;background:linear-gradient(transparent,rgba(13,22,42,.6))!important;gap:8px!important;padding:6px 10px calc(6px + env(safe-area-inset-bottom,0px))!important}
+.m-bar button{min-height:44px!important;font-size:10px!important;gap:1px!important;background:rgba(20,39,67,.88)!important;border:1px solid #a3c6d5!important;border-radius:10px!important;box-shadow:0 2px 4px #10223d66}
+.m-bar button svg{width:19px!important;height:19px!important}
+.coin-parent-guide{border:1px solid #d7bc81;border-radius:10px;padding:12px;background:#fff6da;margin:12px 0}
+.coin-parent-guide h3{margin-top:0}.coin-parent-guide ol{padding-left:22px}.coin-parent-guide li{margin:9px 0}
+[data-parent-guide-top]{margin:0 0 14px}
+}
+</style>
 </body></html>
