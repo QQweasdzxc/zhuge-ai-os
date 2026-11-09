@@ -1,3 +1,4 @@
+import { requireAppAccess } from "../_shared/app-access.ts";
 /* Zhuge AI OS Investment Screenshot Recognition
  *
  * This is a narrow, authenticated recognition boundary. It does not query
@@ -318,6 +319,7 @@ Deno.serve(async request => {
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: headers(origin) });
     if (request.method !== "POST") throw new HttpError("POST is required.", 405, "METHOD_NOT_ALLOWED");
     requireAal2(request);
+    await requireAppAccess(request);
     const apiKey = String(Deno.env.get("OPENAI_API_KEY") || "").trim();
     if (!apiKey) throw new HttpError("Recognition provider is not configured.", 503, "PROVIDER_NOT_CONFIGURED");
     const input = validateRequest(await request.json());
@@ -339,6 +341,7 @@ Deno.serve(async request => {
       warnings: readyCount === results.length ? [] : ["部分圖片未產生可驗證結果，請檢查後重新嘗試。"]
     }, readyCount ? 200 : 502, origin);
   } catch (error) {
+    if ((error as {code?: string})?.code?.startsWith("APP_ACCESS") || (error as {code?: string})?.code === "ACCESS_CONFIG_MISSING") return json({ code: "APP_ACCESS_REQUIRED", message: "App access denied or unavailable" }, Number((error as {status?: number}).status) || 403, origin);
     if (error instanceof HttpError) return json({ code: error.code, message: error.message }, error.status, origin);
     return json({ code: "RECOGNITION_FAILED", message: "Recognition service failed." }, 500, origin);
   }

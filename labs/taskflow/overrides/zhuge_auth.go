@@ -193,6 +193,12 @@ func (h *Handler) ZhugeLogin(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusForbidden, "Zhuge identity is not authorized")
 		return
 	}
+	// ZG-71: App access Off blocks new TaskFlow sessions. Dormant unless
+	// TASKFLOW_APP_ACCESS_ENFORCE=on; decided before any local user is created.
+	if auth.IsAppAccessDeniedUserID(identity.ID) {
+		writeError(w, http.StatusForbidden, "App access is off")
+		return
+	}
 	user, err := h.ensureZhugeUser(r.Context(), identity)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to bind Zhuge identity")

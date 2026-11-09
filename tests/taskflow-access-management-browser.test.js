@@ -32,6 +32,8 @@ test("Pages panel: Google login, creator gate, confirmed RPC parameters and erro
       const args = route.request().postDataJSON();
       calls.push({ name, args });
       if (name === "resolve_creator_capability") return route.fulfill({ json: { user_id: "u1", is_creator: creator } });
+      if (name === "list_app_access_applications") return route.fulfill({ json: [] });
+      if (name === "resolve_app_access") return route.fulfill({ json: { access_model_active: false } });
       if (name === "app_access_review_paused") return route.fulfill({ json: value });
       assert.equal(name, "set_app_access_review_paused");
       assert.equal(typeof args.paused, "boolean");
@@ -44,6 +46,8 @@ test("Pages panel: Google login, creator gate, confirmed RPC parameters and erro
     });
     const writes = () => calls.filter(call => call.name === "set_app_access_review_paused");
     await page.goto(panelURL);
+    assert.equal(await page.locator("#transition-settings").getAttribute("open"), null);
+    await page.getByText("進階：過渡設定", { exact: true }).click();
     await page.getByText("人工審核：已暫停", { exact: true }).waitFor();
     assert.equal(writes().length, 0);
     page.once("dialog", dialog => dialog.dismiss());
@@ -52,11 +56,11 @@ test("Pages panel: Google login, creator gate, confirmed RPC parameters and erro
     assert.equal(await page.getByRole("switch").isChecked(), true);
     page.once("dialog", dialog => dialog.accept());
     await page.getByRole("switch").click();
-    await page.getByText("設定已更新：人工審核啟用。", { exact: true }).waitFor();
+    await page.getByText("設定已更新。", { exact: true }).waitFor();
     assert.deepEqual(writes(), [{ name: "set_app_access_review_paused", args: { paused: false } }]);
     page.once("dialog", dialog => dialog.accept());
     await page.getByRole("switch").click();
-    await page.getByText("設定已更新：人工審核已暫停。", { exact: true }).waitFor();
+    await page.getByText("設定已更新。", { exact: true }).waitFor();
     assert.deepEqual(writes()[1].args, { paused: true });
     denied = true;
     page.once("dialog", dialog => dialog.accept());

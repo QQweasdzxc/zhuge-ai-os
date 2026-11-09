@@ -5,6 +5,8 @@ const path = require("node:path");
 const root = path.resolve(__dirname, "..");
 const browserTests = [
   "tests/taskflow-access-management-browser.test.js",
+  "tests/zg71-access-cards-browser.test.js",
+  "tests/zg71-effective-ui-matrix.test.cjs",
   "tests/site-integration-browser.test.js",
   "tests/site-integration-contract.test.js",
   "tests/release-consistency.test.js",

@@ -1,0 +1,30 @@
+{
+  "capturedAt": "2026-11-09",
+  "query": "impact-readonly.sql",
+  "rows": [
+    {
+      "event_type": "application_approved",
+      "app_evidence": true,
+      "live_allowed": true,
+      "no_cutoff_allowed": true,
+      "proposed_snapshot_allowed": true,
+      "users": 1
+    },
+    {
+      "event_type": "approved_bootstrap",
+      "app_evidence": true,
+      "live_allowed": true,
+      "no_cutoff_allowed": true,
+      "proposed_snapshot_allowed": true,
+      "users": 4
+    },
+    {
+      "event_type": "NEW",
+      "app_evidence": false,
+      "live_allowed": true,
+      "no_cutoff_allowed": true,
+      "proposed_snapshot_allowed": false,
+      "users": 1
+    }
+  ]
+}

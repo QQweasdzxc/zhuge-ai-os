@@ -1,0 +1,21 @@
+{
+  "verifiedOn": "2026-11-09",
+  "timezone": "Asia/Taipei",
+  "liveFunctionCount": 7,
+  "liveFunctionsUnchangedFromPreviousCapture": true,
+  "roleEvidence": [
+    {
+      "rolname": "multica_lab_runtime",
+      "can_execute_rpc": false,
+      "private_usage": false
+    },
+    {
+      "rolname": "taskflow_runtime",
+      "can_execute_rpc": false,
+      "private_usage": false
+    }
+  ],
+  "activitySourceCount": 164,
+  "matchingActivitySources": 0,
+  "rawIdentityDataReturned": false
+}

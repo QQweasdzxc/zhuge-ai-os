@@ -1,0 +1,179 @@
+// ZG-71 TaskFlow App access: websocket + real Postgres regression test.
+// Copied by verify/run.sh into <patched vendored source>/server/internal/realtime/ and run with TF_PG_URL,
+// TF_PG_ADMIN_URL (and TF_PG_STOP_CMD for the outage case). Skips when those are unset.
+package realtime
+
+import (
+	"context"
+	"encoding/json"
+	"os"
+	"os/exec"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/gorilla/websocket"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/multica-ai/multica/server/internal/auth"
+)
+
+func tfID(n int) string {
+	return "00000000-0000-4000-8000-" + strings.Repeat("0", 12-len(itoa(n))) + itoa(n)
+}
+func itoa(n int) string { b, _ := json.Marshal(n); return string(b) }
+
+func tfSetup(t *testing.T) (*Hub, string, *pgxpool.Pool) {
+	t.Helper()
+	url := os.Getenv("TF_PG_URL")
+	adm := os.Getenv("TF_PG_ADMIN_URL")
+	if url == "" || adm == "" {
+		t.Skip("TF_PG_URL not set")
+	}
+	t.Setenv("TASKFLOW_APP_ACCESS_ENFORCE", "on")
+	pool, err := pgxpool.New(context.Background(), url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+	auth.SetAppAccessLookup(func(ctx context.Context, id string) (bool, error) {
+		var ok *bool
+		if err := pool.QueryRow(ctx, "select taskflow_gate.taskflow_app_access_decision($1::uuid)", id).Scan(&ok); err != nil {
+			return false, err
+		}
+		if ok == nil {
+			return false, context.Canceled
+		}
+		return *ok, nil
+	})
+	admin, err := pgxpool.New(context.Background(), adm)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(admin.Close)
+	hub, server := newTestHub(t)
+	t.Cleanup(server.Close)
+	return hub, server.URL, admin
+}
+
+func tfConnect(t *testing.T, base string, uid string) *websocket.Conn {
+	t.Helper()
+	wsURL := "ws" + strings.TrimPrefix(base, "http") + "/ws?workspace_id=" + testWorkspaceID
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	msg, _ := json.Marshal(map[string]any{"type": "auth", "payload": map[string]string{"token": makeTestTokenForUser(t, uid, "")}})
+	conn.WriteMessage(websocket.TextMessage, msg)
+	conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	_, ack, err := conn.ReadMessage()
+	if err != nil || !strings.Contains(string(ack), "auth_ack") {
+		t.Fatalf("connect %s: %v %s", uid, err, ack)
+	}
+	return conn
+}
+
+func setOff(t *testing.T, admin *pgxpool.Pool, target int, on bool, key string) {
+	t.Helper()
+	ctx := context.Background()
+	c, err := admin.Acquire(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Release()
+	if _, err := c.Exec(ctx, "select set_config('request.uid',$1,false)", tfID(1)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Exec(ctx, "select public.set_app_access_user_enabled($1::uuid,$2,'t',$3)", tfID(target), on, key); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// waitClose reads until the connection ends; returns elapsed since t0 and whether frames arrived before.
+func waitClose(conn *websocket.Conn, t0 time.Time, limit time.Duration) (time.Duration, int, error) {
+	frames := 0
+	conn.SetReadDeadline(time.Now().Add(limit))
+	for {
+		_, _, err := conn.ReadMessage()
+		if err != nil {
+			return time.Since(t0), frames, err
+		}
+		frames++
+	}
+}
+
+func traffic(hub *Hub, uid string, stop chan struct{}) {
+	for {
+		select {
+		case <-stop:
+			return
+		case <-time.After(500 * time.Millisecond):
+			hub.SendToUser(uid, []byte(`{"type":"tick"}`))
+		}
+	}
+}
+
+func TestTFWSOffActiveTraffic(t *testing.T) {
+	hub, base, admin := tfSetup(t)
+	conn := tfConnect(t, base, tfID(3))
+	stop := make(chan struct{})
+	defer close(stop)
+	go traffic(hub, tfID(3), stop)
+	time.Sleep(2 * time.Second)
+	t0 := time.Now()
+	setOff(t, admin, 3, false, "ws-active-off")
+	d, frames, err := waitClose(conn, t0, 40*time.Second)
+	t.Logf("ACTIVE traffic: closed after %v (frames before close %d) err=%v", d, frames, err)
+	if err == nil || d > 17*time.Second {
+		t.Fatalf("not closed within bound")
+	}
+	if !websocket.IsCloseError(err, websocket.ClosePolicyViolation) {
+		t.Logf("close error type: %v", err)
+	}
+	// a fresh connection for the Off user is refused at auth
+	wsURL := "ws" + strings.TrimPrefix(base, "http") + "/ws?workspace_id=" + testWorkspaceID
+	c2, _, _ := websocket.DefaultDialer.Dial(wsURL, nil)
+	msg, _ := json.Marshal(map[string]any{"type": "auth", "payload": map[string]string{"token": makeTestTokenForUser(t, tfID(3), "")}})
+	c2.WriteMessage(websocket.TextMessage, msg)
+	c2.SetReadDeadline(time.Now().Add(5 * time.Second))
+	_, m, _ := c2.ReadMessage()
+	t.Logf("reconnect as Off user: %s", m)
+	if strings.Contains(string(m), "auth_ack") {
+		t.Fatal("Off user reconnected")
+	}
+	setOff(t, admin, 3, true, "ws-active-on")
+}
+
+func TestTFWSOffIdlePing(t *testing.T) {
+	_, base, admin := tfSetup(t)
+	conn := tfConnect(t, base, tfID(4))
+	t0 := time.Now()
+	setOff(t, admin, 4, false, "ws-idle-off")
+	d, frames, err := waitClose(conn, t0, 80*time.Second)
+	t.Logf("IDLE: closed after %v (frames %d) err=%v (ping period %v)", d, frames, err, pingPeriod)
+	if err == nil || d > pingPeriod+17*time.Second {
+		t.Fatalf("not closed within bound")
+	}
+	setOff(t, admin, 4, true, "ws-idle-on")
+}
+
+func TestTFWSOutageGrace(t *testing.T) {
+	hub, base, _ := tfSetup(t)
+	conn := tfConnect(t, base, tfID(1))
+	stop := make(chan struct{})
+	defer close(stop)
+	go traffic(hub, tfID(1), stop)
+	time.Sleep(3 * time.Second)
+	stopCmd := os.Getenv("TF_PG_STOP_CMD")
+	if stopCmd == "" {
+		t.Skip("TF_PG_STOP_CMD not set")
+	}
+	if err := exec.Command("sh", "-c", stopCmd).Run(); err != nil {
+		t.Fatal(err)
+	}
+	t0 := time.Now()
+	d, frames, err := waitClose(conn, t0, 100*time.Second)
+	t.Logf("OUTAGE: connection closed %v after DB stop (frames received during outage %d) err=%v", d, frames, err)
+	if err == nil || d > 62*time.Second {
+		t.Fatalf("outage grace not bounded")
+	}
+}

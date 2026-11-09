@@ -253,3 +253,117 @@ never an overall release PASS.
 Core changes require an explicit architecture decision. New modules must use
 the existing Shell, Shared Core, Services, AI, Theme, i18n, and release
 contracts rather than creating a parallel foundation.
+
+
+## ZG-71 review build — 2026-11-08
+
+Version `0.9.0-alpha.9.190` · Build `20261108-2359` (Asia/Taipei).
+Baseline main: `2ddf801287963f4909890e4ad6141202a85d24c8` (ZG-70 #246).
+Per-person reversible access cards, creator-only App identity union, append-only
+Off/On events and missing 11/06 pause baseline; no production SQL, merge or deploy.
+Historical REJECTED remains allowed during pause until explicitly switched Off.
+Full audit, policy precedence, deployment order, coverage gaps and SQL evidence:
+`labs/taskflow/docs/ZG71_ACCESS_SWITCH_AUDIT.md`.
+
+Release synchronization changes only Version/Build/cache identity in:
+
+```text
+app/Board/ai/index.html
+app/Board/investment/index.html
+app/Board/procurement/index.html
+app/Board/template-preview/index.html
+app/Board/worktodo/index.html
+app/dashboard/index.html
+app/dashboard/zhuge-dashboard.js
+docs/index.html
+docs/status-classic.html
+index.html
+labs/investment/app.js
+labs/investment/index.html
+labs/investment/src/portfolio/view.mjs
+labs/investment/version.json
+labs/taskflow/index.html
+modules/investment/index.html
+modules/investment/version.json
+modules/skyeye/index.html
+modules/worklog/chat/index.html
+modules/worklog/index.html
+modules/worklog/version.json
+shared/app-config.js
+shared/config/template-release.js
+shared/config/version.js
+status-classic.html
+version.json
+```
+
+Published C identity is preserved by the existing sync-build gate. A FullSource
+Review artifact is required by this policy; its QA record must retain the known
+baseline failures: mobile-actions/compact-header 116.1875 and investment providers
+16 PASS / 1 FAIL. Focused access tests and 84 TF Python tests pass locally; this
+is not a full-regression PASS or a deployment approval. PR CI is reported separately.
+
+ZG-71 packaging status: BLOCKED. The existing packager requires real full/browser
+PASS; known baseline failures are retained, so no FullSource artifact is issued
+and no PASS evidence is fabricated. Earlier whitespace CI failure in the added
+SQL fixture is corrected; complete PR diff whitespace is checked.
+
+## ZG-71 follow-up review — 2026-11-09
+
+Version `0.9.0-alpha.9.191` · Build `20261109-0034` (Asia/Taipei).
+Same PR #247, baseline main `2ddf801287963f4909890e4ad6141202a85d24c8`.
+One effective_allowed function, self-only first-entry membership, owner-only
+one-time cutoff snapshot (not activated), seven caller-JWT Edge gates, live
+function comparison, aggregate impact, tested rollback and committed TEST DATA
+screenshots. No production writes, Edge deployment, migration application,
+cutoff activation or merge. TF native sessions remain explicitly outside scope.
+
+The 26 runtime Version/Build/cache synchronization paths are the same set listed
+in the previous ZG-71 review entry. Complete current diff, including gate/UI/Edge,
+SQL tests, docs and PNGs: `docs/zg71/changed-files.txt`. Published C identity stays
+unchanged. Evidence: `labs/taskflow/docs/ZG71_ACCESS_SWITCH_AUDIT.md` and
+`docs/zg71/live-definition-comparison.md` / `deployment.md` / `impact-counts.json`.
+Baseline mobile-actions and compact-header 116.1875 and investment provider
+16 PASS / 1 FAIL remain reproducible locally; no unrelated fix or fake full PASS.
+FullSource packaging remains BLOCKED by the existing actual-full-PASS gate.
+
+## ZG-71 review supplement 7 — 2026-11-09
+
+Version `0.9.0-alpha.9.192` · Build `20261109-0104` (Asia/Taipei).
+Same PR #247, main baseline `2ddf801287963f4909890e4ad6141202a85d24c8`.
+Read-only audit found zero matches in 164 App/TF/private identity/activity fields
+for the one unproven identity; Google sign-in 1–7 days ago and 3 unrevoked refresh
+tokens mean it cannot be labelled inactive/test. The fixed activation proposal
+excludes it: migration alone keeps 6 allowed; explicit owner activation(1) would
+make 5 allowed / 1 Off. Count drift aborts; no Auth roster import or forced login.
+Nothing has been activated, written to production, deployed or merged.
+
+Top-level UI now contains only cards/effective switches/pending labels. Existing
+pause control is below the cards in collapsed advanced transition settings;
+backend pause behavior is unchanged. Native DPR2 mobile PNG is 780x3566, no
+resizing. TF login's existing Supabase HTTP helper can support a future login-only
+check; native refresh/session credentials remain distinct. No TF auth change.
+
+Live seven-function comparison rechecked unchanged; SQL/rollback/48-case UI,
+Edge and TF tests rerun. Full diff list: docs/zg71/changed-files.txt. All 26
+existing release sync files are synchronized; Published C identity stays fixed.
+Known three local baseline failures remain, so FullSource package still cannot
+claim full PASS. Final same-head CI is recorded in PR independently.
+
+## ZG-71 frozen-cohort activation — 2026-11-09
+
+Version `0.9.0-alpha.9.194` · Build `20261109-0600` (Asia/Taipei).
+Same PR #247, main baseline `2ddf801287963f4909890e4ad6141202a85d24c8` (Version
+.189). `.190`-`.192` were earlier review builds of this PR; `.193` is already used by
+the draft review/p0-functional-consolidation-20261023 branch, so this review uses `.194`.
+The activation RPC `private.activate_app_access_model(expected_allowed)` now locks the
+decision-event and settings tables, takes the cutoff after the locks, freezes the set of
+currently effective allowed identities in one read, aborts when the count differs, and
+returns counts only. The previous cutoff would have turned one allowed account Off.
+Verified: live seven-function md5 match and 6 allowed / 0 blocked (read-only), two-connection
+PostgreSQL concurrency run on an isolated synthetic server, SQL/UI/Edge/rollback tests, and
+PR CI. Not tested: a writer that starts before activation and commits after it began,
+and TF existing sessions (not covered by the App switch). No production write, migration,
+Edge deploy, activation or merge. Release synchronization changes only Version/Build/cache
+identity in the same 26 paths listed above, plus the Version-only paths of this entry.
+FullSource packaging remains BLOCKED by the existing full-PASS gate (baseline failures:
+mobile-actions/compact-header 116.1875, investment providers 16 PASS / 1 FAIL).

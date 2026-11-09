@@ -1,3 +1,4 @@
+import { requireAppAccess } from "../_shared/app-access.ts";
 /* Zhuge SkyEye location-centric read-only provider adapter.
  *
  * Browser -> Shared Supabase Gateway -> this function -> official/public
@@ -502,6 +503,7 @@ Deno.serve(async request => {
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: headers(origin) });
     if (request.method !== "POST") throw new ReadError("METHOD_NOT_ALLOWED", "POST is required.", 405);
     await requireAuth(request);
+    await requireAppAccess(request);
     const input = await request.json().catch(() => ({})) as JsonObject;
     const now = Date.now();
     const operation = text(input.operation || input.action, 40).toLowerCase();
@@ -554,6 +556,7 @@ Deno.serve(async request => {
       trading_operations: 0
     }, 200, origin);
   } catch (error) {
+    if ((error as {code?: string})?.code?.startsWith("APP_ACCESS") || (error as {code?: string})?.code === "ACCESS_CONFIG_MISSING") return json({ code: "APP_ACCESS_REQUIRED", message: "App access denied or unavailable" }, Number((error as {status?: number}).status) || 403, origin);
     if (error instanceof ReadError) return json({ code: error.code, message: error.message }, error.status, origin);
     return json({ code: "SKYEYE_READ_FAILED", message: "SkyEye read adapter failed." }, 500, origin);
   }

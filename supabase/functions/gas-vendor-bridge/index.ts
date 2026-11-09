@@ -1,3 +1,4 @@
+import { requireAppAccess } from "../_shared/app-access.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
 type JsonObject = Record<string, unknown>;
 const SPREADSHEET_ID = "1RO6idAURJi40wnzH7LBeTzkJpSGQ2yZbfSJ7hMde1jY";
@@ -491,6 +492,7 @@ Deno.serve(async request => {
     const anonKey = asText(Deno.env.get("SUPABASE_ANON_KEY"));
     if (!supabaseUrl || !anonKey) throw new HttpError("Supabase server configuration is missing.", 500, "SERVER_CONFIG_MISSING");
     await requireUser(request, supabaseUrl, anonKey);
+    await requireAppAccess(request);
     const email = asText(Deno.env.get(SERVICE_ACCOUNT_EMAIL_SECRET));
     const privateKey = asText(Deno.env.get(SERVICE_ACCOUNT_PRIVATE_KEY_SECRET));
     const missing = [
@@ -534,6 +536,7 @@ Deno.serve(async request => {
       rows
     }, 200, origin);
   } catch (error) {
+    if ((error as {code?: string})?.code?.startsWith("APP_ACCESS") || (error as {code?: string})?.code === "ACCESS_CONFIG_MISSING") return json({ code: "APP_ACCESS_REQUIRED", message: "App access denied or unavailable" }, Number((error as {status?: number}).status) || 403, origin);
     if (error instanceof HttpError) {
       return json({ code: error.code, message: error.message, ...error.details }, error.status, origin);
     }
