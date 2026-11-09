@@ -451,7 +451,7 @@ window.ArchipelagoCatalog={mount({container,request}){
  body.innerHTML='<p role="status">正在讀取自己的金幣與紀錄…</p>';
  try{const [w,r,mine]=await Promise.all([request('getWallet'),request('listRewards'),request('listOwnRedemptions')]);if(!alive)return;wallet=w.wallet;rewards=r.rewards||[];redemptionEnabled=r.redemptionEnabled;
  const examples=[{title:'看卡通 20 分鐘',price:20},{title:'一份點心',price:50},{title:'一本繪本',price:150}];
- body.innerHTML='<h3>'+esc(wallet.balance)+' 金幣</h3><p>金幣可以存著，兌換不會扣 XP，也不會降級。</p><p role="status"><strong>'+(r.setupRequired?'家長兌換尚未設定':'孩子選獎品，家長確認後提供獎勵')+'</strong><br>各家庭自己約定獎品與價格。這裡不會自動購物。送出確認後會先保留金幣。</p><div class="coin-gifts">'+(rewards.length?rewards:examples).map(x=>'<article><h4>'+esc(x.title)+'</h4><strong>'+esc(x.price)+' 金幣</strong><small>'+(rewards.length?'送出後先保留金幣，家長取消會退回':'價格示例，不是已約定的獎品')+'</small><button type="button" data-gift="'+esc(x.id||'')+'" '+(!redemptionEnabled||!x.id||wallet.balance<x.price?'disabled':'')+'>'+(r.setupRequired?'等待家長設定':!x.id?'價格示例':wallet.balance<x.price?'還差 '+(x.price-wallet.balance)+' 幣':'選這個獎勵')+'</button></article>').join('')+'</div><p data-action-note role="status"></p><div data-confirm></div><h3>我的兌換紀錄</h3><ul class="coin-history">'+(mine.redemptions.map(x=>'<li>'+esc(x.title)+' · '+esc(x.price)+' 幣<strong>'+esc({pending:'等家長確認（已保留金幣）',fulfilled:'已提供獎勵',rejected:'已取消，金幣已退回'}[x.status])+'</strong></li>').join('')||'<li>還沒有兌換紀錄。</li>')+'</ul><h3>我的金幣紀錄</h3><ul class="coin-history">'+((wallet.history||[]).map(x=>'<li>'+esc(names[x.kind]||x.kind)+'<strong>'+(x.amount>0?'+':'')+esc(x.amount)+'</strong><small>'+esc(x.day)+'</small></li>').join('')||'<li>還沒有金幣紀錄。</li>')+'</ul>'+(!r.setupRequired?'<button type="button" data-parent-settings>家長設定與確認</button><div data-settings></div>':'<p>家長初次設定須使用獨立的私人設定連結，孩子的家庭網址不能代替。</p>')+'<p>目前已開放每日登入 1 幣。通關與每日任務獎勵另行開放；兌換不會自動購物。</p>';
+ body.innerHTML='<h3>'+esc(wallet.balance)+' 金幣</h3><p>金幣可以存著，兌換不會扣 XP，也不會降級。</p><p role="status"><strong>'+(r.setupRequired?'家長兌換尚未設定':'孩子選獎品，家長確認後提供獎勵')+'</strong><br>各家庭自己約定獎品與價格。這裡不會自動購物。送出確認後會先保留金幣。</p><div class="coin-gifts">'+(rewards.length?rewards:examples).map(x=>'<article><h4>'+esc(x.title)+'</h4><strong>'+esc(x.price)+' 金幣</strong><small>'+(rewards.length?'送出後先保留金幣，家長取消會退回':'價格示例，不是已約定的獎品')+'</small><button type="button" data-gift="'+esc(x.id||'')+'" '+(!redemptionEnabled||!x.id||wallet.balance<x.price?'disabled':'')+'>'+(r.setupRequired?'等待家長設定':!x.id?'價格示例':wallet.balance<x.price?'還差 '+(x.price-wallet.balance)+' 幣':'選這個獎勵')+'</button></article>').join('')+'</div><p data-action-note role="status"></p><div data-confirm></div><h3>我的兌換紀錄</h3><ul class="coin-history">'+(mine.redemptions.map(x=>'<li>'+esc(x.title)+' · '+esc(x.price)+' 幣<strong>'+esc({pending:'等家長確認（已保留金幣）',fulfilled:'已提供獎勵',rejected:'已取消，金幣已退回'}[x.status])+'</strong></li>').join('')||'<li>還沒有兌換紀錄。</li>')+'</ul><h3>我的金幣紀錄</h3><ul class="coin-history">'+((wallet.history||[]).map(x=>'<li>'+esc(names[x.kind]||x.kind)+'<strong>'+(x.amount>0?'+':'')+esc(x.amount)+'</strong><small>'+esc(x.day)+'</small></li>').join('')||'<li>還沒有金幣紀錄。</li>')+'</ul>'+(!r.setupRequired?'<button type="button" data-parent-settings>家長設定與確認</button><div data-settings></div>':'<p>家長初次設定須使用獨立的私人設定連結，孩子的家庭網址不能代替。</p>')+'<p>目前已開放每日登入 1 幣。每島每天前3個通關回合各5幣；每日訂正／複習3幣各一次。兌換不會自動購物。</p>';
  for(const button of root.querySelectorAll('[data-gift]'))button.onclick=()=>confirmGift(rewards.find(x=>x.id===button.dataset.gift));
  root.querySelector('[data-parent-settings]')?.addEventListener('click',()=>parentSettings().catch(()=>{const area=root.querySelector('[data-settings]');if(alive&&area)area.textContent='家長設定暫時無法讀取，請重新驗證後再試。';parentSession=null;parentExpires=0;}));
  }catch(e){if(alive)body.textContent='暫時無法讀取金幣與商店，不影響繼續練習。稍後可重新開啟。';}
@@ -566,7 +566,19 @@ window.ArchipelagoCatalog={mount({container,request}){
 #chipFace .profile-portrait.girl{background-image:var(--hero-profile-layer),var(--hero-profile-master)}
 
 [hidden]{display:none!important}.drawer{z-index:80}.drawer-card{box-sizing:border-box;padding-top:48px;max-height:calc(100dvh - 110px)}.drawer-close{width:44px;height:44px;z-index:2}.drawer-card .profile{display:flex;flex-direction:column;gap:12px}.drawer-card .profile-main{display:grid;grid-template-columns:1fr 1fr;gap:12px}.drawer-card .avatar{width:100%;height:auto;aspect-ratio:384/227}.drawer-card .lv-box{width:100%}.drawer-card .coin-panel{margin:0;padding:10px}.drawer-card .coin-summary{flex-wrap:wrap}.drawer-card .profile-head{padding-right:4px}.drawer-card .btn{white-space:normal}.m-coins{pointer-events:auto;cursor:pointer}.footer{font-size:10px;margin-top:14px}.topbar{padding-top:12px}.cloud-status{display:none}.dock-chip{min-width:44px;min-height:44px}.drawer-card button{min-height:44px}#profileClose{position:absolute;float:none;top:4px;right:4px;margin:0}.quest-tag{font-size:9px}#tasksDrawer .drawer-card{padding-top:12px}#tasksDrawer .drawer-close{top:4px;right:4px}#tasksDrawer .quest-title{margin-right:42px}.drawer-card:focus{outline:none}@media(max-width:690px){html,body{height:100%;overflow:hidden}.topbar,.footer{display:none}.site{min-height:100dvh}.m-bar button{font-size:11px;min-height:52px}.m-topbar{gap:8px;align-items:flex-start}.m-player{padding-right:9px;max-width:66vw}.m-coins{padding:8px}.m-pinfo strong{max-width:38vw}.drawer-card{bottom:calc(78px + env(safe-area-inset-bottom,0px));max-height:calc(100dvh - 100px)}.drawer-card .profile{padding:0}.drawer-card .hero-name{font-size:20px}.drawer-card .hero-rank{font-size:12px}.drawer-card .profile-head strong{font-size:12px}.drawer-card .profile-switch{font-size:11px}.drawer-card .level-line{flex-wrap:wrap}.drawer-card .profile .btn{font-size:12px}.m-bar{box-sizing:border-box}.m-coins{font-size:12px}#shopDrawer .drawer-card{padding:48px 10px 10px}#shopClose{top:4px}#shopDrawer .coin-panel{border:0}.quest-mini-row{min-height:44px}}
-</style></head>
+</style><style>.daily-review-modal{position:fixed;inset:0;background:#101a39cc;z-index:150;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box}.daily-review-modal[hidden]{display:none}.daily-review-modal input[type=text]{font:inherit;box-sizing:border-box;max-width:100%;padding:8px}.daily-review-modal section{background:#fffbed;color:#263658;border-radius:15px;padding:18px;max-height:80dvh;overflow:auto;width:min(100%,500px);font:15px/1.6 system-ui}.daily-review-modal button{min-height:44px;padding:9px 14px;background:#ffe1a2;border:1px solid #ba9d64;border-radius:8px;font:inherit}.daily-review-modal fieldset{margin:16px 0;border:1px solid #cdc6ae;border-radius:8px}.daily-review-modal label{display:block;padding:10px 4px;min-height:24px}.daily-review-modal [data-daily-close]{float:right}.daily-learning{font-size:11px}.daily-learning>button{font:inherit;padding:5px;border:1px solid #b89d6a;border-radius:6px;background:#ffedbd;min-height:44px;margin:2px}.daily-learning p:empty{display:none}</style><script>/* Server-graded daily review. No client balances, reward flags or XP writes. */
+window.ArchipelagoDaily={mount({container,request,worlds=['chengyu','vocab']}){
+ const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));let busy=false,alive=true,review=null;
+ const box=document.createElement('div');box.className='daily-learning';box.innerHTML=worlds.map(w=>'<button type="button" data-review-world="'+w+'">'+(w==='chengyu'?'成語島':'英文島')+'訂正／複習 +3</button>').join('')+'<p data-daily-note role="status"></p><div data-daily-quiz></div>';container.appendChild(box);const modal=document.createElement('div');modal.className='daily-review-modal';modal.hidden=true;modal.innerHTML='<section role="dialog" aria-modal="true" aria-label="每日訂正與複習"><button type="button" data-daily-close aria-label="關閉每日複習">關閉</button><h3>每日訂正與複習</h3><p data-daily-result role="status"></p><div data-daily-content></div></section>';document.body.appendChild(modal);modal.querySelector('[data-daily-close]').onclick=()=>{if(!busy)modal.hidden=true;};
+ const note=t=>{if(alive){box.querySelector('[data-daily-note]').textContent=t;modal.querySelector('[data-daily-result]').textContent=t;}};
+ function render(){modal.hidden=false;const area=modal.querySelector('[data-daily-content]');if(review.completed){area.innerHTML='<p>今天這座島的每日任務已完成，3 金幣已記錄，不會重複領取。</p>';return;}
+ area.innerHTML='<p>'+(review.reviewType==='correction'?'把本回合錯題重新答對。':review.reviewType==='first_review'?'第一次學習，複習剛學過的內容。':'複習已學過的內容。')+'</p><form data-daily-form>'+review.questions.map((q,i)=>'<fieldset><legend>'+(i+1)+'. '+escape(q.stem)+'</legend>'+(q.kind==='vocab-spelling'?'<label>英文拼字 <input type="text" name="q'+i+'" autocomplete="off" autocapitalize="none" spellcheck="false" required></label>':q.choices.map((c,j)=>'<label><input type="radio" name="q'+i+'" value="'+j+'" required> '+escape(c)+'</label>').join(''))+'</fieldset>').join('')+'<button type="submit">檢查訂正與領取每日 3 幣</button></form>';
+ area.querySelector('form').onsubmit=async e=>{e.preventDefault();if(busy)return;busy=true;const button=e.currentTarget.querySelector('button');button.disabled=true;const fd=new FormData(e.currentTarget),answers=review.questions.map((q,i)=>q.kind==='vocab-spelling'?String(fd.get('q'+i)||''):Number(fd.get('q'+i)));try{const d=await request('submitDailyReview',{reviewId:review.id,answers});if(!alive)return;if(d.completed||d.duplicate){review.completed=true;document.dispatchEvent(new Event('archipelago:coin-updated'));render();note(d.awarded?'完成每日學習 +3 金幣！':'今天已領過，不會重複發幣。');}else{note('第 '+d.incorrect.map(x=>x+1).join('、')+' 題再想一下，全部訂正後才領獎。');}}catch(e){note(e.message||'暫時無法檢查，可稍後重試，不會重複領幣。');}finally{busy=false;if(button.isConnected)button.disabled=false;}};
+ }
+ for(const button of box.querySelectorAll('[data-review-world]'))button.onclick=async()=>{if(busy)return;busy=true;button.disabled=true;note('正在讀取今日學習紀錄…');try{const d=await request('startDailyReview',{reviewWorld:button.dataset.reviewWorld});if(!alive)return;review=d.review;note('');render();}catch(e){note(e.message||'暫時無法讀取每日任務');}finally{busy=false;if(button.isConnected)button.disabled=false;}};
+ return {destroy(){alive=false;box.remove();modal.remove();}};
+}};
+</script></head>
 <body>
 <div class="site"><div class="wrap">
 <header class="topbar">
@@ -588,7 +600,7 @@ window.ArchipelagoCatalog={mount({container,request}){
   <div class="map-footer"><span>⛵ 已開放 2 / 6 座學習島</span><span>✨ 同一位冒險者，所有島嶼共用總 XP</span></div>
  </div>
 </section>
-<div hidden aria-hidden="true"><p id="connect"></p><p id="welcomeMessage"></p><button id="goExplore"></button></div></main><footer class="footer">學習冒險群島 · BUILD 2026.11.09.07 · 家庭雲端紀錄由 Supabase 保存<br>本網站不要求登入；家庭專用網址含私人存取金鑰，請只分享給家人。</footer>
+<div hidden aria-hidden="true"><p id="connect"></p><p id="welcomeMessage"></p><button id="goExplore"></button></div></main><footer class="footer">學習冒險群島 · BUILD 2026.11.09.08 · 家庭雲端紀錄由 Supabase 保存<br>本網站不要求登入；家庭專用網址含私人存取金鑰，請只分享給家人。</footer>
 </div></div>
 <div class="dock" aria-label="快捷入口">
  <button class="dock-chip" id="shopChip" type="button" aria-label="金幣商店"><span class="chip-ic" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="#ffd873" stroke="#8a6d1f" stroke-width="2"/><circle cx="12" cy="12" r="5.5" fill="none" stroke="#c9982f" stroke-width="1.6"/><path d="M12 8.8l.9 1.9 2.1.3-1.5 1.5.3 2.1-1.8-1-1.8 1 .3-2.1-1.5-1.5 2.1-.3z" fill="#c9982f"/></svg></span><span class="dock-chip-label pixel">金幣商店</span></button>
@@ -628,12 +640,12 @@ window.ArchipelagoCatalog={mount({container,request}){
 <div class="drawer" id="tasksDrawer" hidden>
  <div class="drawer-card pixel-panel" role="dialog" aria-modal="true" aria-label="今日任務">
   <button class="drawer-close" id="tasksClose" type="button" aria-label="關閉">✕</button>
-  <h3 class="quest-title"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7V6a4 4 0 0 1 8 0v1h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2zm2 0h4V6a2 2 0 0 0-4 0v1zm-2 5v3h8v-3h-3v1h-2v-1H8z" fill="currentColor"/></svg> 今日任務 <span class="quest-tag">練習入口</span></h3>
-  <p class="quest-reset">完成進度與獎勵規則確認後,才會接上每日重置。</p>
-  <div class="quest-mini">
+  <h3 class="quest-title"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7V6a4 4 0 0 1 8 0v1h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2zm2 0h4V6a2 2 0 0 0-4 0v1zm-2 5v3h8v-3h-3v1h-2v-1H8z" fill="currentColor"/></svg> 今日任務 <span class="quest-tag">每日獎勵</span></h3>
+  <p class="quest-reset">先完成一回合，再回來訂正或複習。每島每天 +3 幣。</p>
+  <div id="dailyLearning"></div><div class="quest-mini">
    <a class="quest-mini-row" data-quest="chengyu" href="https://chengyu-quest-family.onrender.com/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4a2 2 0 0 1 2-2h12v15H7a2 2 0 0 0-2 2V4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M19 17v5H7a2 2 0 0 1 0-4h12z" fill="currentColor" opacity=".28"/></svg><span class="qmr-text"><strong>成語島</strong> · 1 回合成語練習</span><span class="qmr-go" aria-hidden="true">›</span></a>
    <a class="quest-mini-row" data-quest="english" href="https://vocab-quest-family.onrender.com/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18 12 4l6 14M8.4 13h7.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="qmr-text"><strong>英文島</strong> · 1 回合單字練習</span><span class="qmr-go" aria-hidden="true">›</span></a>
-   <details class="quest-more"><summary>每日獎勵尚未開放</summary><p class="drawer-note">每日任務進度與額外獎勵尚未開放。現在可先進島練習，原有答題 XP 不變。</p></details>
+   <details class="quest-more"><summary>每日領獎規則</summary><p class="drawer-note">每日先完成一回合，再完成訂正或少量複習可領3幣，愛心用完完成訂正也可領。通關每島每天前3回合各5幣，XP不變。</p></details>
   </div>
  </div>
 </div>
@@ -662,7 +674,7 @@ if(window.ARCHIPELAGO_SHARED_GIRL_LAYER){
  document.documentElement.style.setProperty('--hero-profile-layer','url("'+window.ARCHIPELAGO_SHARED_GIRL_LAYER+'")');
 }
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let coinCatalog=null;
+let coinCatalog=null,dailyLearning=null;
 let token='',players=[],player=null,hero=null,stats=null,exam=null,examIndex=0,examAnswers=[],busy=false,lastMode='',originalOverflow='';
 try{token=new URLSearchParams(location.hash.slice(1)).get('f')||''}catch(e){}
 function isFamily(){return /^[A-Za-z0-9_-]{40,128}$/.test(token)}
@@ -781,13 +793,14 @@ function addPlayerForm(){
 }
 async function selectPlayer(id){
  const found=players.find(p=>p.id===id);if(!found)return;
- if(coinCatalog){coinCatalog.destroy();coinCatalog=null;}
+ if(coinCatalog){coinCatalog.destroy();coinCatalog=null;}if(dailyLearning){dailyLearning.destroy();dailyLearning=null;}
  player=found;hero=null;stats=null;try{history.replaceState(null,'',location.pathname+location.search+'#f='+encodeURIComponent(token)+'&p='+encodeURIComponent(found.name))}catch(e){}render();
  show('<div class="dialog-icon">⚔️</div><h2 id="dialogTitle">正在召喚冒險者…</h2><p>讀取 '+esc(found.name)+' 的職業、總 XP 與晉級記錄。</p>','loading');
  try{
   stats=await call('load');hero=stats.hero;render();status('✅ '+found.name+' 已進入冒險總部 · XP 跨島同步');
   try{const coins=await call('claimLogin');if(player?.id===id){stats.wallet=coins.wallet;render();if(coins.wallet.loginAwarded)status('✅ '+found.name+' 今天登入 +1 金幣 · 兩島共用，一天領一次');}}catch(e){status('✅ 冒險資料已讀取 · 金幣暫時無法同步，稍後重開可再試');}
   if(player?.id!==id)return;coinCatalog=window.ArchipelagoCatalog.mount({container:$('coinCatalog'),request:(action,args={})=>{if(player?.id!==id)throw Error('玩家已切換');return call(action,args);}});
+  dailyLearning=window.ArchipelagoDaily.mount({container:$('dailyLearning'),request:(action,args={})=>{if(player?.id!==id)throw Error('玩家已切換');return call(action,args);}});
   if(!hero.avatarStyle)chooseAvatarStyle();
   else if(!hero.profession)chooseRole();
   else close();
@@ -966,6 +979,7 @@ $('changePlayer').onclick=()=>{if(!isFamily())return loadPlayers();choosePlayer(
 $('goExplore').onclick=()=>{if(!hero){if(isFamily())choosePlayer();else loadPlayers();return;}document.getElementById('worldMap')?.scrollIntoView({behavior:'smooth',block:'start'});};
 $('roleButton').onclick=()=>{if(!hero?.avatarStyle||hero?.profession)chooseAvatarStyle();else chooseRole()};
 $('examButton').onclick=startExam;
+document.addEventListener('archipelago:coin-updated',async()=>{try{const d=await call('getWallet');if(stats){stats.wallet=d.wallet;render();}}catch{}});
 window.addEventListener('pageshow',()=>{if(player&&!$('overlay').hidden)return;if(player)refresh()});
 render();loadPlayers();
 /* v3.3.0 corner dock + drawers (profile/history/parent/board + daily tasks) */
