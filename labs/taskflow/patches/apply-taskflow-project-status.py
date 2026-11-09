@@ -284,6 +284,29 @@ def patch_swimlane(source: str) -> str:
     return source
 
 
+def patch_settings_status_tab(source: str) -> str:
+    if "TASKFLOW_WORKSPACE_STATUS_SCOPE" in source:
+        raise ValueError("TaskFlow workspace status scope already applied")
+    source = replace_once(
+        source,
+        'import { useWorkspaceId } from "@multica/core/hooks";\n',
+        'import { useWorkspaceId } from "@multica/core/hooks";\n'
+        'import { excludeTaskFlowProjectStatuses } from "@multica/core/issue-statuses/taskflow-project-status-scope";\n',
+        "workspace status scope import",
+    )
+    source = replace_once(
+        source,
+        "  const { data: statuses = [], isLoading } = useQuery(issueStatusListOptions(wsId));\n",
+        "  const { data: allStatuses = [], isLoading } = useQuery(issueStatusListOptions(wsId));\n"
+        "  // TASKFLOW_WORKSPACE_STATUS_SCOPE: Project-owned custom statuses are\n"
+        "  // managed on their Project surface; the workspace-wide catalog list\n"
+        "  // must not render their opaque `TF:<key>` native names (render-only).\n"
+        "  const statuses = useMemo(() => excludeTaskFlowProjectStatuses(allStatuses), [allStatuses]);\n",
+        "workspace status list excludes Project-owned keys",
+    )
+    return source
+
+
 def patch_preferences(source: str) -> str:
     if "TASKFLOW_PRESERVE_PROJECT_STATUS_PREFS" in source:
         raise ValueError("TaskFlow project preference merge already applied")
@@ -367,6 +390,7 @@ def apply(root: Path, overlay: Path) -> None:
     write_patch(root, "packages/views/issues/components/board-column.tsx", patch_board_column)
     write_patch(root, "packages/views/issues/components/swimlane-view.tsx", patch_swimlane)
     write_patch(root, "packages/core/issue-views/preferences.ts", patch_preferences)
+    write_patch(root, "packages/views/settings/components/issue-statuses-tab.tsx", patch_settings_status_tab)
     patch_core_exports(root)
     patch_locales(root, overlay)
 
