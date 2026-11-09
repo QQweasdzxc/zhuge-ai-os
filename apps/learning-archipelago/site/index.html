@@ -695,7 +695,16 @@ if(window.ARCHIPELAGO_SHARED_GIRL_LAYER){
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let coinCatalog=null,dailyLearning=null;
 let token='',players=[],player=null,hero=null,stats=null,exam=null,examIndex=0,examAnswers=[],busy=false,lastMode='',originalOverflow='';
-try{token=new URLSearchParams(location.hash.slice(1)).get('f')||''}catch(e){}
+const FAMILY_DEVICE_KEY='archipelago-verified-family-v1';let savedPlayer='',rememberDevice=true;
+try{const h=new URLSearchParams(location.hash.slice(1));token=h.get('f')||'';if(!h.has('f')){const saved=JSON.parse(localStorage.getItem(FAMILY_DEVICE_KEY)||'null');if(saved&&/^[A-Za-z0-9_-]{40,128}$/.test(saved.token||'')){token=saved.token;savedPlayer=typeof saved.player==='string'?saved.player:''}}}catch(e){}
+function rememberFamily(){if(!rememberDevice)return;try{localStorage.setItem(FAMILY_DEVICE_KEY,JSON.stringify({token,player:player?.name||''}));}catch(e){}}
+function restoreFamilyForm(){
+ show('<div class="dialog-icon">🧭</div><h2 id="dialogTitle">接回原本的家庭冒險</h2><p>加入手機主畫面後若顯示訪客，不代表冒險者被刪除。貼上原本成語島、英文島或總部的完整家庭遊戲連結，再選原來的名字，不用重新建立。</p><form id="restoreFamilyForm"><label class="form-label" for="familyRestoreUrl">原本的家庭遊戲連結</label><input class="text-input" id="familyRestoreUrl" type="url" autocomplete="off" autocapitalize="none" spellcheck="false" required placeholder="在這裡貼上完整遊戲連結"><label style="display:block;margin:12px 0;font-size:13px"><input id="rememberFamilyDevice" type="checkbox" checked> 在這個裝置記住家庭與玩家</label><p style="font-size:12px">連結是家庭的私人入口，只貼在此頁，不要傳到公開聊天。共用裝置可取消記住。這裡不需要家長 PIN，也不會新建或覆寫冒險者。</p><p class="error" id="restoreFamilyError" role="alert"></p><div class="dialog-actions"><button class="btn" type="submit" id="restoreFamilySubmit">接回原家庭</button><button class="btn secondary" type="button" id="restoreFamilyBack">先看地圖</button></div></form>','restore');
+ $('restoreFamilyBack').onclick=close;
+ $('restoreFamilyForm').onsubmit=async e=>{e.preventDefault();if(busy)return;let parsed,candidate,hint;try{parsed=new URL($('familyRestoreUrl').value.trim());if(parsed.protocol!=='https:'||!['learning-archipelago-family.onrender.com','chengyu-quest-family.onrender.com','vocab-quest-family.onrender.com'].includes(parsed.hostname))throw Error();const h=new URLSearchParams(parsed.hash.slice(1));candidate=h.get('f')||'';hint=h.get('p')||'';if(!/^[A-Za-z0-9_-]{40,128}$/.test(candidate))throw Error();}catch(e){$('restoreFamilyError').textContent='請貼上原本三個學習網站的完整家庭遊戲連結（需含家庭識別），不是一般首頁或家長 PIN 設定連結。';return;}
+ busy=true;$('restoreFamilySubmit').disabled=true;try{const res=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',body:JSON.stringify({action:'listPlayers',world:'chengyu',token:candidate})});const data=await res.json();if(!res.ok||!data.ok)throw Error(data.error||'家庭連結無法驗證');token=candidate;savedPlayer=hint;rememberDevice=$('rememberFamilyDevice').checked;if(!rememberDevice){try{localStorage.removeItem(FAMILY_DEVICE_KEY)}catch(e){}}history.replaceState(null,'',location.pathname+location.search+'#f='+encodeURIComponent(token)+(hint?'&p='+encodeURIComponent(hint):''));$('familyRestoreUrl').value='';rememberFamily();await loadPlayers();}catch(err){if($('restoreFamilyError'))$('restoreFamilyError').textContent=err.message||'暫時無法接回，請保留原連結稍後再試。';}finally{busy=false;if($('restoreFamilySubmit'))$('restoreFamilySubmit').disabled=false;}};
+}
+
 function isFamily(){return /^[A-Za-z0-9_-]{40,128}$/.test(token)}
 function show(html,mode){
  document.dispatchEvent(new Event('archipelago:drawer-close'));
@@ -784,11 +793,11 @@ function render(){
  $('examWins').textContent=(stats?.exams||[]).filter(x=>x.passed===true).length+' 次';
 }
 async function loadPlayers(){
- if(!isFamily()){status('⚠️ 請使用包含 #f= 的家庭專用網址，才能讀取雲端玩家與成績。');show('<div class="dialog-icon">🧭</div><h2 id="dialogTitle">歡迎來到學習冒險群島</h2><p>這是世界地圖的公開預覽。請使用原本成語或英文闖關王的完整家庭網址，由學習總部進入，才能保存玩家與經驗值。</p><div class="dialog-actions"><button class="btn secondary" id="previewClose" type="button">先看看地圖</button></div>','preview');$('previewClose').onclick=close;return}
+ if(!isFamily()){status('⚠️ 請使用包含 #f= 的家庭專用網址，才能讀取雲端玩家與成績。');show('<div class="dialog-icon">🧭</div><h2 id="dialogTitle">歡迎來到學習冒險群島</h2><p>這是世界地圖的公開預覽。請使用原本成語或英文闖關王的完整家庭網址，由學習總部進入，才能保存玩家與經驗值。</p><div class="dialog-actions"><button class="btn" id="restoreFamilyOpen" type="button">已有冒險者？接回原家庭</button><button class="btn secondary" id="previewClose" type="button">先看看地圖</button></div>','preview');$('previewClose').onclick=close;$('restoreFamilyOpen').onclick=restoreFamilyForm;return}
  status('☁️ 正在連接 Supabase 家庭冒險資料…');
  show('<div class="dialog-icon">☁️</div><h2 id="dialogTitle">正在開啟冒險世界</h2><p>努力載入家庭冒險者名單中…</p>','loading');
- try{const data=await call('listPlayers');players=data.players||[];status('✅ 家庭冒險雲端已連線，選自己的名字就可以出航！');const hint=new URLSearchParams(location.hash.slice(1)).get('p');const who=hint&&players.find(x=>x.name===hint);if(who)await selectPlayer(who.id);else choosePlayer()}
- catch(e){status('⚠️ 雲端連線失敗：'+e.message);show('<div class="dialog-icon">🌧️</div><h2 id="dialogTitle">暫時無法進入冒險總部</h2><p>'+esc(e.message)+'</p><div class="dialog-actions"><button class="btn" id="retry" type="button">↻ 重新連接</button></div>','error');$('retry').onclick=loadPlayers}
+ try{const data=await call('listPlayers');players=data.players||[];rememberFamily();if(!new URLSearchParams(location.hash.slice(1)).get('f')){history.replaceState(null,'',location.pathname+location.search+'#f='+encodeURIComponent(token)+(savedPlayer?'&p='+encodeURIComponent(savedPlayer):''));}setLinks();status('✅ 家庭冒險雲端已連線，選自己的名字就可以出航！');const hint=new URLSearchParams(location.hash.slice(1)).get('p')||savedPlayer;const who=hint&&players.find(x=>x.name===hint);if(who)await selectPlayer(who.id);else choosePlayer()}
+ catch(e){status('⚠️ 雲端連線失敗：'+e.message);show('<div class="dialog-icon">🌧️</div><h2 id="dialogTitle">暫時無法進入冒險總部</h2><p>'+esc(e.message)+'</p><div class="dialog-actions"><button class="btn" id="retry" type="button">↻ 重新連接</button></div>','error');$('retry').onclick=loadPlayers;const other=document.createElement('button');other.type='button';other.className='btn secondary';other.textContent='改用原家庭連結接回';other.onclick=restoreFamilyForm;$('dialog').querySelector('.dialog-actions').appendChild(other);}
 }
 function choosePlayer(){
  const avatars=['🦊','🐨','🐼','🐰','🐬','🦁','🐯','🐻'];
@@ -816,7 +825,7 @@ async function selectPlayer(id){
  player=found;hero=null;stats=null;try{history.replaceState(null,'',location.pathname+location.search+'#f='+encodeURIComponent(token)+'&p='+encodeURIComponent(found.name))}catch(e){}render();
  show('<div class="dialog-icon">⚔️</div><h2 id="dialogTitle">正在召喚冒險者…</h2><p>讀取 '+esc(found.name)+' 的職業、總 XP 與晉級記錄。</p>','loading');
  try{
-  stats=await call('load');hero=stats.hero;render();status('✅ '+found.name+' 已進入冒險總部 · XP 跨島同步');
+  stats=await call('load');hero=stats.hero;rememberFamily();render();status('✅ '+found.name+' 已進入冒險總部 · XP 跨島同步');
   try{const coins=await call('claimLogin');if(player?.id===id){stats.wallet=coins.wallet;render();if(coins.wallet.loginAwarded)status('✅ '+found.name+' 今天登入 +1 金幣 · 兩島共用，一天領一次');}}catch(e){status('✅ 冒險資料已讀取 · 金幣暫時無法同步，稍後重開可再試');}
   if(player?.id!==id)return;coinCatalog=window.ArchipelagoCatalog.mount({container:$('coinCatalog'),request:(action,args={})=>{if(player?.id!==id)throw Error('玩家已切換');return call(action,args);}});
   dailyLearning=window.ArchipelagoDaily.mount({container:$('dailyLearning'),request:(action,args={})=>{if(player?.id!==id)throw Error('玩家已切換');return call(action,args);}});
@@ -1000,7 +1009,7 @@ $('roleButton').onclick=()=>{if(!hero?.avatarStyle||hero?.profession)chooseAvata
 $('examButton').onclick=startExam;
 document.addEventListener('archipelago:coin-updated',async()=>{try{const d=await call('getWallet');if(stats){stats.wallet=d.wallet;render();}}catch{}});
 window.addEventListener('pageshow',()=>{if(player&&!$('overlay').hidden)return;if(player)refresh()});
-render();loadPlayers();
+const forgetFamily=document.createElement('button');forgetFamily.type='button';forgetFamily.className='btn secondary';forgetFamily.id='forgetFamilyDevice';forgetFamily.textContent='切換家庭／清除此裝置記住的家庭';forgetFamily.onclick=()=>{if(!window.confirm('只清除此裝置記住的家庭入口，不會刪除雲端冒險者或進度。確認退出並換家庭？'))return;try{localStorage.removeItem(FAMILY_DEVICE_KEY)}catch(e){}location.replace(location.pathname+location.search)};document.querySelector('#profileDrawer .drawer-card')?.appendChild(forgetFamily);render();loadPlayers();
 /* v3.3.0 corner dock + drawers (profile/history/parent/board + daily tasks) */
 (function initDock(){
  const pd=$('profileDrawer'),td=$('tasksDrawer'),chipFace=$('chipFace');
