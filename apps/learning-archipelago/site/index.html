@@ -595,10 +595,10 @@ window.ArchipelagoDaily={mount({container,request,worlds=['chengyu','vocab']}){
  for(const button of box.querySelectorAll('[data-review-world]'))button.onclick=async()=>{if(busy)return;busy=true;button.disabled=true;note('正在讀取今日學習紀錄…');try{const d=await request('startDailyReview',{reviewWorld:button.dataset.reviewWorld});if(!alive)return;review=d.review;note('');render();}catch(e){note(e.message||'暫時無法讀取每日任務');}finally{busy=false;if(button.isConnected)button.disabled=false;}};
  return {destroy(){alive=false;box.remove();modal.remove();}};
 }};
-</script><link rel="apple-touch-icon" sizes="180x180" href="./1-apple-touch-icon.png?v=20261109b">
-<link rel="icon" type="image/png" sizes="32x32" href="./4-favicon-32.png?v=20261109b">
-<link rel="icon" type="image/png" sizes="16x16" href="./5-favicon-16.png?v=20261109b">
-<link rel="manifest" href="./manifest.json?v=20261109b">
+</script><link rel="apple-touch-icon" sizes="180x180" href="./1-learning-icon-180-20261110.png?v=20261110">
+<link rel="icon" type="image/png" sizes="32x32" href="./2-learning-icon-20261110.png?v=20261110">
+<link rel="icon" type="image/png" sizes="16x16" href="./2-learning-icon-20261110.png?v=20261110">
+<link rel="manifest" href="./manifest.json?v=20261110">
 <link rel="stylesheet" href="./hud-cutouts.css?v=20261109a">
 </head>
 <body>
