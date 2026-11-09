@@ -480,7 +480,7 @@
         <div class="settings-panel list-panel" id="accountPanel" style="width:min(260px,calc(100vw - 32px))">
           <div class="setting-label" id="accountState" role="status" aria-live="polite"></div>
           <a class="btn" id="accountLogin" target="_top" style="display:none;margin-top:8px;text-decoration:none;justify-content:center" href="https://qqweasdzxc.github.io/zhuge-ai-os/modules/worklog/?app=1&amp;workspace=dashboard&amp;previewReturn=1">使用 TRQN 登入</a>
-          <a class="btn" id="accountHome" target="_top" style="display:none;margin-top:8px;text-decoration:none;justify-content:center" href="https://qqweasdzxc.github.io/zhuge-ai-os/modules/worklog/?app=1&amp;workspace=dashboard">前往 TRQN</a>
+          <a class="btn" id="accountHome" target="_top" style="display:none;margin-top:8px;text-decoration:none;justify-content:center" href="https://qqweasdzxc.github.io/zhuge-ai-os/labs/taskflow/">前往 TaskFlow</a>
           <button class="btn" id="accountLogout" type="button" style="display:none;margin-top:8px;justify-content:center">登出</button>
         </div>
       </details>
@@ -586,6 +586,12 @@
       $('accountState').textContent = '尚未登入 TRQN';
     }
   }
+  // Same-tab hand-off into the TaskFlow board through the office's existing
+  // session exchange (zhugeOpenTfBoard); the plain href is only the fallback
+  // to the TaskFlow entry page.
+  $('accountHome').addEventListener('click', (e) => {
+    if (typeof window.zhugeOpenTfBoard === 'function') { e.preventDefault(); window.zhugeOpenTfBoard(); }
+  });
   $('accountLogout').addEventListener('click', () => {
     for (const k of SESSION_KEYS.concat(VERIFIER_KEYS)) { try { localStorage.removeItem(k); } catch { /* best effort */ } }
     render();
@@ -2083,4 +2089,4 @@ if (state.full) {
 setInterval(tickTimes, 1000);
 </script>
 </body>
-                         </html>
+            </html>
