@@ -32,6 +32,7 @@ PATCHED_PATHS = [
     "packages/core/package.json",
     *[f"packages/views/locales/{locale}/issues.json" for locale in ("en", "zh-Hant", "zh-Hans", "ja", "fr")],
     "packages/views/settings/components/issue-statuses-tab.tsx",
+    "packages/views/settings/components/issue-statuses-tab.test.tsx",
 ]
 
 SETTINGS_TAB_PATH = "packages/views/settings/components/issue-statuses-tab.tsx"
@@ -66,6 +67,7 @@ class TaskFlowProjectStatusOverlayTests(unittest.TestCase):
             self.assertIn("excludeTaskFlowProjectStatuses", settings_tab)
             self.assertIn("data: allStatuses = []", settings_tab)
             self.assertNotIn("data: statuses = []", settings_tab)
+            self.assertIn("TASKFLOW_WORKSPACE_STATUS_SCOPE_REGRESSION", (root / "packages/views/settings/components/issue-statuses-tab.test.tsx").read_text())
             core_package = json.loads((root / "packages/core/package.json").read_text())
             self.assertEqual(
                 core_package["exports"]["./issue-statuses/taskflow-project-status-scope"],
