@@ -44,4 +44,23 @@
     if (f) f.addEventListener('load', function () { if (officeReady()) hide(); });
   });
 })();
-</script><nav id="pixel-fallback"><a href="./status-classic.html">經典報表</a></nav><footer id="site-intro">TRQN OS 是個人工作管理平台，提供任務協作、工作日誌與投資紀錄等功能。本站使用 Google 帳號登入，登入後可存取您的工作區。<span class="site-intro-links"><a href="./privacy/">隱私權政策</a><a href="./terms/">服務條款</a></span></footer><footer hidden id="zhuge-source-identity">Version 0.9.0-alpha.9.189 · Build 20261108-2138</footer></body></html>
+</script><nav id="pixel-fallback"><a href="./status-classic.html">經典報表</a></nav><footer id="site-intro"><span id="site-intro-text">TRQN OS 是個人工作管理平台，提供任務協作、工作日誌與投資紀錄等功能。本站使用 Google 帳號登入，登入後可存取您的工作區。</span><span class="site-intro-links"><a href="./privacy/">隱私權政策</a><a href="./terms/">服務條款</a></span></footer><script>
+// The site intro (Google sign-in / privacy notice) stays in the DOM and keeps its
+// privacy and terms links visible. After a few seconds only its long text
+// collapses so it no longer covers the office; the button reopens it.
+(function () {
+  'use strict';
+  var intro = document.getElementById('site-intro');
+  if (!intro) return;
+  var btn = document.createElement('button');
+  btn.type = 'button'; btn.id = 'site-intro-toggle'; btn.textContent = '\u24D8 \u95DC\u65BC TRQN'; btn.setAttribute('aria-expanded', 'true');
+  intro.insertBefore(btn, intro.firstChild);
+  var timer = 0;
+  function set(collapsed) {
+    intro.classList.toggle('collapsed', collapsed);
+    btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+  }
+  btn.addEventListener('click', function () { clearTimeout(timer); set(!intro.classList.contains('collapsed')); });
+  timer = setTimeout(function () { set(true); }, 6000);
+})();
+</script><footer hidden id="zhuge-source-identity">Version 0.9.0-alpha.9.189 · Build 20261108-2138</footer></body></html>
