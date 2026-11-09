@@ -98,3 +98,8 @@ labs/taskflow/overrides/taskflow_app_access_lookup.go
 labs/taskflow/patches/apply-taskflow-app-access.py
 docs/zg71/tf-enforcement-proposal/README.md
 docs/zg71/tf-enforcement-proposal/taskflow_app_access_decision.sql.draft
+docs/zg71/tf-enforcement-proposal/verify/gen-setup.js
+docs/zg71/tf-enforcement-proposal/verify/scenario.sh
+docs/zg71/tf-enforcement-proposal/verify/run.sh
+docs/zg71/tf-enforcement-proposal/verify/tf_app_access_ws_test.go.txt
+.github/workflows/zg71-tf-access-enforcement.yml
