@@ -9,6 +9,7 @@ mage:{icon:'🪄',name:'法師',description:'運用智慧，發現隱藏在題�
 ranger:{icon:'🏹',name:'弓箭手',description:'細心觀察，用精準判斷破解難題'},
 guardian:{icon:'🛡️',name:'守護者',description:'穩扎穩打，守護自己的學習成果'}
 };
+const loginClaims=new Set();
 let learnerId='',hero=null,loadSequence=0,exam=null,examIndex=0,examAnswers=[],busy=false,openDialog=false;
 const $=id=>document.getElementById(id);
 function safe(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -43,14 +44,15 @@ async function call(action,extra){
  if(!response.ok||!data?.ok)throw new Error(data?.error||'雲端連線失敗');
  return data;
 }
-function renderHero(stats){
+function renderHero(stats,wallet){
  if(!hero){card.hidden=true;return}
  card.hidden=false;
  const xp=Number(hero.totalXP)||0,lv=Number(hero.level)||1,base=50*(lv-1)*lv,next=Number(hero.nextXP)||100,eligible=hero.eligible;
  const pct=Math.max(0,Math.min(100,Math.round((xp-base)/(next-base)*100)));
  const r=roles[hero.profession];
  card.innerHTML='<div class="hero-label">🌏 學習群島 · 我的共用冒險者</div>'+
- '<div class="hero-title"><div class="adventure-hero-main">'+(r?'<span class="adventure-hero-portrait '+hero.profession+' '+(hero.avatarStyle||'boy')+'" role="img" aria-label="'+r.name+'角色插畫"></span>':'')+'<strong>'+(r?.icon||'⭐')+' '+safe(hero.name)+'｜Lv. '+lv+' '+title(lv)+'</strong></div><span>'+xp+' XP</span></div>'+
+ '<div class="hero-title"><div class="adventure-hero-main">'+(r?'<span class="adventure-hero-portrait '+hero.profession+' '+(hero.avatarStyle||'boy')+'" role="img" aria-label="'+r.name+'角色插畫"></span>':'')+'<strong>'+(r?.icon||'⭐')+' '+safe(hero.name)+'｜Lv. '+lv+' '+title(lv)+'</strong></div><span>'+xp+' XP'+(wallet?' · '+Number(wallet.balance)+' 金幣':'')+'</span></div>'+
+ (wallet?.loginAwarded?'<p role="status">今天登入 +1 金幣 · 兩島共用，一天領一次</p>':'')+
  '<p>'+(r?'職業：'+r.name+' · ':'尚未選擇職業 · ')+(eligible?'XP 已達標，請通過升級試煉才能正式升級':'距離下一次升級試煉還差 '+Math.max(0,next-xp)+' XP')+'</p>'+
  '<div class="global-xp"><span style="width:'+pct+'%"></span></div>'+
  '<div class="island-totals"><span>📖 成語島：'+Number(stats?.chengyu||0)+' XP</span><span>🔤 英文島：'+Number(stats?.vocab||0)+' XP</span>'+
@@ -108,7 +110,9 @@ async function refresh(){
   const data=await call('load');
   if(sequence!==loadSequence)return;
   hero=data.hero;
-  renderHero(data.islandXP);
+  const claimKey=world+':'+learnerId;let wallet=null;
+  try{const result=await call(loginClaims.has(claimKey)?'getWallet':'claimLogin');if(sequence!==loadSequence)return;wallet=result.wallet;loginClaims.add(claimKey)}catch(e){if(sequence!==loadSequence)return}
+  renderHero(data.islandXP,wallet);
   if(!hero.avatarStyle)showAppearance();
   else if(!hero.profession)showClass();
   else if(data.pendingExam&&!openDialog){exam=data.pendingExam;examIndex=0;examAnswers=[];}
