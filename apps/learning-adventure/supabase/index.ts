@@ -118,6 +118,36 @@ async function buildQuestions(family,hero){
  if(quiz.length!==10)throw new Error("升級試煉題數不完整");
  return shuffled(quiz);
 }
+// Daily review uses a saved run and server question banks, never a client completion flag.
+async function dailyReviewStart(family,hero,reviewWorld){
+ const world=reviewWorld||family.world;if(!['chengyu','vocab'].includes(world))throw Error('學習島不正確');
+ const day=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei'}).format(new Date());
+ let sessions=await db('learning_adventure_daily_reviews','adventure_family_id=eq.'+family.adventureFamilyId+'&hero_id=eq.'+hero.id+'&world=eq.'+world+'&day=eq.'+day+'&select=*');
+ if(sessions.length)return dailyVisible(sessions[0]);
+ const links=await db('learning_adventure_hero_links','hero_id=eq.'+hero.id+'&world=eq.'+world+'&select=source_learner_id&limit=1');if(!links.length)throw Error('請先到這座島完成一回合練習');
+ const binding=await db('learning_adventure_family_bindings','adventure_family_id=eq.'+family.adventureFamilyId+'&world=eq.'+world+'&select=source_family_id&limit=1');if(!binding.length)throw Error('尚未連接這座學習島');
+ const release=await db('learning_adventure_learning_release','singleton=eq.true&select=starts_at');
+ const since=new Date(day+'T00:00:00+08:00').toISOString();const lower=new Date(release[0].starts_at)>new Date(since)?release[0].starts_at:since;
+ const runs=await db(world+'_family_attempts','family_id=eq.'+binding[0].source_family_id+'&learner_id=eq.'+links[0].source_learner_id+'&created_at=gte.'+encodeURIComponent(lower)+'&result_status=in.(completed,game_over)&select=id,answers,result_status,created_at&order=created_at.desc&limit=1');
+ if(!runs.length||!runs[0].answers?.length)throw Error('先完成今日一回合，再回來訂正或複習');
+ const source=runs[0],wrong=[...new Set(source.answers.filter(a=>a.correct===false).map(a=>a.word))];
+ let words=wrong,reviewType='correction';
+ if(!words.length){reviewType='review';const previous=await db(world+'_family_attempts','family_id=eq.'+binding[0].source_family_id+'&learner_id=eq.'+links[0].source_learner_id+'&id=neq.'+source.id+'&select=answers&order=created_at.desc&limit=30');words=[...new Set(previous.flatMap(x=>(x.answers||[]).map(a=>a.word)))];if(!words.length){words=[...new Set(source.answers.map(a=>a.word))];reviewType='first_review';}words=shuffled(words).slice(0,3);}
+ let questions=[];
+ if(world==='chengyu'){
+  const bank=await db('learning_adventure_exam_bank','select=word,meaning,example,zone&limit=500');
+  questions=words.map(word=>{const item=bank.find(x=>x.word===word),choices=choiceSet(item.meaning,bank.filter(x=>x.word!==word).map(x=>x.meaning));return {kind:'idiom-review',stem:'「'+word+'」的意思是什麼？',...choices};});
+ }else{
+  const units=await db('vocab_family_units','family_id=eq.'+binding[0].source_family_id+'&select=words&limit=150');const bank=units.flatMap(u=>Array.isArray(u.words)?u.words:[]);
+  questions=words.map(word=>{const item=bank.find(x=>String(x.en).toLowerCase()===String(word).toLowerCase());if(!item?.zh)throw Error('題庫尚未找到這個單字，暫不發獎');if(reviewType==='correction'&&source.answers.some(a=>a.word===word&&a.correct===false&&a.stage===1))return {kind:'vocab-spelling',stem:'請拼出「'+item.zh+'」的英文單字',answerText:String(item.en).trim().toLowerCase().replace(/\s+/g,' '),acceptedTexts:[item.en,...(Array.isArray(item.aliases)?item.aliases:[])].map(x=>String(x).trim().toLowerCase().replace(/\s+/g,' '))};return {kind:'vocab-review',stem:'哪個英文單字是「'+item.zh+'」？',...(()=>{const candidates=[...new Set(bank.map(x=>x.en).filter(x=>x&&x!==item.en))];const choices=shuffled([item.en,...shuffled(candidates).slice(0,3),...(candidates.length?[]:['以上皆非'])]);return {choices,answerIndex:choices.indexOf(item.en)};})()};});
+ }
+ if(!questions.length)throw Error('沒有可驗證的複習題目');
+ const row={adventure_family_id:family.adventureFamilyId,hero_id:hero.id,world,day,source_attempt_id:source.id,questions:questions.map(q=>({...q,reviewType}))};
+ try{sessions=await db('learning_adventure_daily_reviews','','POST',row);}catch{sessions=await db('learning_adventure_daily_reviews','hero_id=eq.'+hero.id+'&world=eq.'+world+'&day=eq.'+day+'&select=*');if(!sessions.length)throw Error('暫時無法建立複習');}
+ return dailyVisible(sessions[0]);
+}
+function dailyVisible(r){return {id:r.id,world:r.world,day:r.day,completed:!!r.completed_at,reviewType:r.questions[0]?.reviewType||'review',questions:r.questions.map((q,index)=>({index,kind:q.kind,stem:q.stem,choices:q.choices}))};}
+
 Deno.serve(async req=>{
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors(req)});
  if(req.method!=="POST")return fail(req,"僅支援 POST",405);
@@ -154,6 +184,14 @@ Deno.serve(async req=>{
   }
   const hero=await heroFor(family,learnerId);
   if(!hero)return fail(req,"找不到對應的冒險者",403);
+  if(action==="startDailyReview"){
+   try{return respond(req,{ok:true,review:await dailyReviewStart(family,hero,input.reviewWorld)});}catch(e){return fail(req,e.message||"暫時無法開始每日複習");}
+  }
+  if(action==="submitDailyReview"){
+   if(!uuid(input.reviewId)||!Array.isArray(input.answers)||input.answers.length>1500||input.answers.some(x=>typeof x==='string'?x.length>120:(!Number.isInteger(x)||x<0||x>3)))return fail(req,"請完成全部複習題目");
+   const result=await db("rpc/learning_adventure_complete_daily_review","","POST",{p_family:family.adventureFamilyId,p_hero:hero.id,p_review:input.reviewId,p_answers:input.answers});
+   const wallet=await db("rpc/learning_adventure_wallet","","POST",{p_family:family.adventureFamilyId,p_hero:hero.id,p_claim_login:false});return respond(req,{...result,wallet},result.ok?200:400);
+  }
   if(action==="parentLogin"){
    if(typeof input.pin!=="string"||!/^[0-9]{6,12}$/.test(input.pin))return fail(req,"請輸入家長 PIN",403);
    const result=await db("rpc/learning_adventure_parent_login","","POST",{p_family:family.adventureFamilyId,p_pin:input.pin});return respond(req,result,result.ok?200:403);
