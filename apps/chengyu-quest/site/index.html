@@ -56,10 +56,10 @@
           <div style="grid-column:1/-1">
             <div class="field-label">③ 出題方式</div>
             <div class="option-grid" id="modes">
-              <button type="button" class="pill selected" data-mode="mixed">🎲 綜合隨機</button>
-              <button type="button" class="pill" data-mode="meaning">看成語選解釋</button>
+              <button type="button" class="pill selected" data-mode="mixed">混合練習</button>
+              <button type="button" class="pill" data-mode="meaning">看成語，選意思</button>
               <button type="button" class="pill" data-mode="context">情境填空</button>
-              <button type="button" class="pill" data-mode="reverse">看解釋選成語</button>
+              <button type="button" class="pill" data-mode="reverse">看意思，選成語</button>
             </div>
           </div>
         </div>
@@ -85,7 +85,7 @@
         </div>
       </div>
       <div class="progress"><span id="progressFill"></span></div>
-      <div class="question-head"><span class="mode-tag" id="modeTag">看成語選解釋</span><span class="level-tag" id="levelTag">國中</span></div>
+      <div class="question-head"><span class="mode-tag" id="modeTag">看成語，選意思</span><span class="level-tag" id="levelTag">國中</span></div>
       <div class="question-title" id="questionTitle">這個成語的意思是什麼？</div>
       <div class="prompt-panel"><div id="questionPrompt" class="prompt-word"></div></div>
       <div class="subcontrols"><button class="speak-btn" type="button" id="speakQ">🔊 朗讀題目</button><span class="text-note">先選答案，再看完整解析</span></div>
@@ -133,7 +133,7 @@ const DATA = [{"level":"國小","word":"畫蛇添足","meaning":"做了多餘的
 const $ = id => document.getElementById(id);
 const config={level:'國中',count:10,mode:'mixed',speed:0.9};
 let game=null, current=null, lastWrong=[], libFilter='全部', libLimit=12;
-const modes={meaning:'看成語選解釋',context:'情境填空',reverse:'看解釋選成語'};
+const modes={meaning:'看成語，選意思',context:'情境填空',reverse:'看意思，選成語'};
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const shuffle=arr=>{const out=[...arr];for(let i=out.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[out[i],out[j]]=[out[j],out[i]];}return out;};
 const scrollTop=()=>window.scrollTo({top:0,behavior:'smooth'});
@@ -346,7 +346,7 @@ if(idiom){
  const voice=$('.voice-settings');if(voice){const sound=disclosure('聲音設定 · 音色與朗讀');sound.lastElementChild.append(voice);options.after(sound);sound.lastElementChild.prepend($('#speedBtn'));}
  const tools=make('div','entry-tools');tools.append(lib);const cloud=$('.cloud-panel');if(cloud){const sw=$('#cloudSwitch'),report=$('#cloudReport');if(sw)tools.append(sw);if(report)tools.append(report);const info=disclosure('雲端狀態與資料說明');info.lastElementChild.append(cloud);home.append(info)}
  options.before(tools);setup.remove();$('.feature-strip')?.remove();
- const update=()=>{const z=$('.adventure-stage[aria-pressed="true"] strong'),count=$('#counts .selected'),mode=$('#modes .selected');$('#entryZone').textContent=z?.textContent.replace('｜',' · ')||'選擇你的冒險關卡';$('#entryMissionNote').textContent=(count?.textContent.trim()||'10題')+' · '+(mode?.textContent.trim().replace('🎲 ','')||'綜合隨機')+' · 達80%解鎖下一關';const summary=options.firstElementChild;summary.firstChild.textContent='挑戰設定 · '+(count?.textContent.trim()||'10題')+' / '+(mode?.textContent.trim().replace('🎲 ','')||'綜合隨機');};
+ const update=()=>{const z=$('.adventure-stage[aria-pressed="true"] strong'),count=$('#counts .selected'),mode=$('#modes .selected');$('#entryZone').textContent=z?.textContent.replace('｜',' · ')||'選擇你的冒險關卡';$('#entryMissionNote').textContent=(count?.textContent.trim()||'10題')+' · '+(mode?.textContent.trim().replace('🎲 ','')||'綜合隨機')+' · 答對8成，開啟下一關';const summary=options.firstElementChild;summary.firstChild.textContent='這次練習 · '+(count?.textContent.trim()||'10題')+' / '+(mode?.textContent.trim().replace('🎲 ','')||'綜合隨機');};
  new MutationObserver(update).observe($('#adventureStages'),{childList:true,subtree:true});grid.addEventListener('click',()=>queueMicrotask(update));update();
  const sync=()=>{const active=home.classList.contains('active');profile.hidden=!active;document.documentElement.classList.toggle('entry-playing',!active)};new MutationObserver(sync).observe(home,{attributes:true,attributeFilter:['class']});sync();
 }else{
@@ -384,6 +384,10 @@ html.app-resuming #playerGate,html.app-resuming #vocabPlayerGate{display:none!im
 html.app-settings-open .entry-material{display:none!important}.app-settings .app-setting-section .adventure-hint a{color:#bdb6ff}.app-settings .entry-profile .entry-person small{color:#c4d6ee}.app-settings .cloud-note{font-size:12px;line-height:1.7}
 
 html:not(.entry-playing) #homebtn{display:none!important}html.entry-playing #homebtn{display:flex!important;font-size:13px!important;min-height:44px;padding:9px 12px;border:1px solid #7184a3;border-radius:10px;background:transparent;color:#eef4ff}html.entry-playing .top{flex-wrap:wrap!important}
+
+#appNextZone{flex:1 0 100%;min-height:52px}#appNextZone[hidden]{display:none!important}.result-actions>button{min-height:48px}.result-actions #playAgain{box-shadow:none;background:#eff0ff;color:#4f41a7;border:1px solid #a5a2cd}.app-settings .app-setting-section .footer{font-size:11px!important}.entry-home .entry-mission .app-identity{font-size:12px!important}
+
+#app>[hidden]{display:none!important}
 </style><script>/* App workspace: learning first, administration only on demand. */
 (function(){
 'use strict';
@@ -410,7 +414,7 @@ function sync(){
  const text=player?player.name+(stat?' · '+stat:''):(new URLSearchParams(location.hash.slice(1)).get('p')?'正在載入冒險者…':'試玩模式');
  if(identity.textContent!==text)identity.textContent=text;
  const raw=idiom?$('#cloudStatus')?.textContent:window.vocabPlayerBridge?.snapshot().status;
- const warning=raw&&(/⚠|失敗|無法|錯誤/.test(raw));const message=warning?raw:'';
+ const warning=raw&&(/⚠|失敗|無法|錯誤/.test(raw));const token=new URLSearchParams(location.hash.slice(1)).get('f');const message=warning?(!token?'目前是試玩，進度不會儲存。請從總部進入。':'暫時無法同步，請重新整理再試。') : ''; 
  if(issue.textContent!==message)issue.textContent=message;issue.hidden=!warning;
  if(document.documentElement.classList.contains('app-resuming')){
   const connected=idiom?state?.connected:window.vocabPlayerBridge?.snapshot().connected;
@@ -420,7 +424,7 @@ function sync(){
 function arrange(){
  if(!root.querySelector('.entry-mission'))return;
  if(root.querySelector('.app-settings')){sync();return}
- close();page=settings();
+ const keepSettings=document.documentElement.classList.contains('app-settings-open');if(!keepSettings)close();page=settings();
  const who=section('冒險者與進度');who.append(profile);const manage=section('家長專區');const sound=section('聲音');const data=section('同步與關於');
  if(idiom){
   const sw=$('#cloudSwitch');sw.textContent='切換冒險者';who.append(sw);
@@ -440,21 +444,40 @@ function arrange(){
   const sw=root.querySelector('[data-action="switchTester"]');if(sw){sw.textContent='切換冒險者';who.append(sw)}root.querySelector('.entry-switch')?.remove();
   const report=root.querySelector('[data-action="report"]');if(report){report.textContent='查看家長成績';manage.append(report)}
   const more=root.querySelector('.more-panel');if(more){more.open=true;more.querySelector('.more-description')?.remove();sound.append(more)}
-  for(const e of root.querySelectorAll('.tester-current,.entry-sync'))data.append(e);
+  for(const e of root.querySelectorAll('.tester-current,.entry-sync,.cloud-warning'))data.append(e);
   if(release)data.append(release);
  }
- page.append(who,sound,manage,data);root.append(page);
+ page.append(who,sound,manage,data);root.append(page);if(keepSettings){page.hidden=false;profile.hidden=false;gear.hidden=true;place.textContent='';}
  page.addEventListener('click',e=>{if(e.target.closest('#cloudReport,#cloudSwitch,[data-action="report"],[data-action="switchTester"]'))close()});
- const mission=root.querySelector('.entry-mission');mission.prepend(identity);mission.before(issue);
+ const mission=root.querySelector('.entry-mission');mission.prepend(identity);mission.before(issue);const scope=mission.querySelector('.entry-scope');if(scope)scope.textContent=scope.textContent.replace(/(\d+\s*個單字)(?:\s*[·｜|]\s*\1)+/g,'$1');
  mission.querySelector('.entry-kicker').textContent=idiom?'繼續你的冒險':'今天的練習';
- mission.querySelector('.entry-launch button').textContent=idiom?'繼續闖關 →':'開始中英配對 →';
+ mission.querySelector('.entry-launch button').textContent=idiom?'開始這一關 →':'開始練習 →';
  sync();
 }
-new MutationObserver(()=>{arrange();arrangeParent();sync()}).observe(root,{childList:true});
+new MutationObserver(()=>{arrange();arrangeParent();polish();sync()}).observe(root,{childList:true});
 new MutationObserver(sync).observe(profile,{childList:true,subtree:true});
 if(idiom)new MutationObserver(sync).observe($('#cloudStatus'),{childList:true,subtree:true});
 if(!idiom)document.addEventListener('vocab-cloud-change',sync);
-arrange();sync();
+function setText(e,t){if(e&&e.textContent!==t)e.textContent=t}
+function polish(){
+ if(idiom){
+  setText($('#quitBtn'),'‹ 回到關卡');setText($('#resultHome'),'回到關卡');setText($('#libHome'),'‹ 回到關卡');setText($('#playAgain'),'再練一次');setText($('#reviewWrong'),'練習答錯的題目');
+  const save=$('#cloudSaveStatus');if(save&&!save.querySelector('button')){const clean=save.textContent.replace('正在將本回合成績儲存至 Supabase…','正在儲存這次進度…').replace('成績已儲存雲端','進度已儲存');setText(save,clean)}
+  const active=$('.adventure-stage[aria-pressed="true"]'),next=active&&$('.adventure-stage[data-zone="'+(Number(active.dataset.zone)+1)+'"]');
+  let advance=$('#appNextZone');
+  const can=save?.textContent.includes('破關！')&&next&&!next.disabled;
+  if(can&&!advance){advance=document.createElement('button');advance.type='button';advance.id='appNextZone';advance.className='btn-primary';advance.textContent='挑戰下一關 →';advance.addEventListener('click',()=>{const current=$('.adventure-stage[aria-pressed="true"]'),target=$('.adventure-stage[data-zone="'+(Number(current.dataset.zone)+1)+'"]');if(target&&!target.disabled){target.click();$('#startBtn').click()}});$('#screen-result .result-actions').prepend(advance)}if(advance)advance.hidden=!can;
+ }else if(!root.querySelector('.entry-mission')){
+  for(const e of root.querySelectorAll('[data-action="report"]'))e.hidden=true;
+  for(const e of root.querySelectorAll('[data-action="home"]'))setText(e,'回到練習');
+  for(const e of root.querySelectorAll('[data-action="replay"]'))setText(e,'再練一次');
+  for(const e of root.querySelectorAll('[data-action="filterAll"]'))setText(e,'全家人的紀錄');for(const e of root.querySelectorAll('[data-action="filterTester"]'))setText(e,'目前冒險者');
+  if(!parentView&&root.querySelector('h1.title')?.textContent.includes('成績')){const last=root.lastElementChild;if(last?.querySelector('[data-action="filterAll"]'))last.hidden=true;
+   const intro=root.querySelector('h1.title + p');if(intro)intro.innerHTML=intro.innerHTML.replace('本次測試者：','冒險者：').replace('測驗範圍：','這次練習：');}
+ }
+}
+if(idiom)new MutationObserver(polish).observe($('#screen-result'),{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
+arrange();polish();sync();
 })();
 </script></body>
 </html>
