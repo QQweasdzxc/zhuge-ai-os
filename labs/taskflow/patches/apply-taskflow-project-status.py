@@ -307,6 +307,38 @@ def patch_settings_status_tab(source: str) -> str:
     return source
 
 
+def patch_settings_status_tests(source: str) -> str:
+    if "TASKFLOW_WORKSPACE_STATUS_SCOPE_REGRESSION" in source:
+        raise ValueError("TaskFlow workspace status regression already applied")
+    return source + '''
+
+// TASKFLOW_WORKSPACE_STATUS_SCOPE_REGRESSION: exercise the actual settings tab.
+describe("TaskFlow workspace settings scope", () => {
+  it("keeps workspace statuses but excludes active and archived Project-owned rows", () => {
+    const projectKey = "p28mg00rg359vcpn4e25sr8okeb_tb1s";
+    const archivedProjectKey = "p6dc8109ttp9fap1ia2j4ctrv6v_mrdt";
+    catalog = [
+      BUILT_IN_IN_REVIEW,
+      entry({ key: "workspace_qa", name: "Workspace QA" }),
+      entry({ key: projectKey, name: `TF:${projectKey}` }),
+      entry({ key: archivedProjectKey, name: `TF:${archivedProjectKey}`, archived_at: "2026-11-01T00:00:00Z" }),
+    ];
+    render(<IssueStatusesTab />);
+    expect(screen.getByText("Workspace QA")).toBeInTheDocument();
+    expect(screen.queryByText(`TF:${projectKey}`)).toBeNull();
+    expect(screen.queryByText(`TF:${archivedProjectKey}`)).toBeNull();
+    expect(archivedToggle()).toBeNull();
+    expect(catalog).toHaveLength(4);
+    expect(catalog[2]?.name).toBe(`TF:${projectKey}`);
+    expect(createMutate).not.toHaveBeenCalled();
+    expect(updateMutate).not.toHaveBeenCalled();
+    expect(archiveMutate).not.toHaveBeenCalled();
+    expect(reorderMutate).not.toHaveBeenCalled();
+  });
+});
+'''
+
+
 def patch_preferences(source: str) -> str:
     if "TASKFLOW_PRESERVE_PROJECT_STATUS_PREFS" in source:
         raise ValueError("TaskFlow project preference merge already applied")
@@ -391,6 +423,7 @@ def apply(root: Path, overlay: Path) -> None:
     write_patch(root, "packages/views/issues/components/swimlane-view.tsx", patch_swimlane)
     write_patch(root, "packages/core/issue-views/preferences.ts", patch_preferences)
     write_patch(root, "packages/views/settings/components/issue-statuses-tab.tsx", patch_settings_status_tab)
+    write_patch(root, "packages/views/settings/components/issue-statuses-tab.test.tsx", patch_settings_status_tests)
     patch_core_exports(root)
     patch_locales(root, overlay)
 
