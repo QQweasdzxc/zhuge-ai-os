@@ -1082,14 +1082,14 @@ const forgetFamily=document.createElement('button');forgetFamily.type='button';f
 
 
 <style id="mobile-map-edge-to-edge">
-/* Full-viewport scene. Foreground artwork stays proportional and uncropped;
-   only the outer backdrop continues beyond the portrait's original ratio. */
+/* Mobile fullscreen art and hit regions share one viewport-sized plane.
+   No blur, cloned image backdrop, crop or separately transformed controls. */
 @media(max-width:690px){
 .voyage-shell{padding:0!important;inset:0!important;border:0!important;border-radius:0!important;box-shadow:none!important;background:#78c8de!important;display:block!important}
 .voyage-stage{position:absolute!important;inset:0!important;margin:0!important;width:100%!important;height:100%!important;max-width:none!important;aspect-ratio:auto!important;overflow:hidden!important;background:#79c9e0!important}
-.voyage-stage:before{content:"";position:absolute;inset:-30px;background:url('./1-archipelago-portrait.jpg') center/cover no-repeat;filter:blur(22px);pointer-events:none}
-.voyage-pan{position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;width:min(100vw,calc(100dvh * 941 / 1672))!important;height:min(100dvh,calc(100vw * 1672 / 941))!important;overflow:visible!important}
-.voyage-bg{background-size:100% 100%!important;transform:none!important}
+.voyage-stage:before{content:none!important;display:none!important;filter:none!important;background:none!important}
+.voyage-pan{position:absolute!important;inset:0!important;left:0!important;top:0!important;transform:none!important;width:100%!important;height:100%!important;overflow:hidden!important}
+.voyage-bg{inset:0!important;background-size:100% 100%!important;transform:none!important;filter:none!important}
 .stage-chip-hint{display:none!important}
 .m-topbar{top:calc(7px + env(safe-area-inset-top,0px))!important}
 .m-bar{border:0!important;background:linear-gradient(transparent,rgba(13,22,42,.6))!important;gap:8px!important;padding:6px 10px calc(6px + env(safe-area-inset-bottom,0px))!important}
