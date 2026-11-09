@@ -314,7 +314,7 @@ async function saveCloudResult(resultStatus){
  var isOver=resultStatus==="game_over";
  familyCloud.saving=isOver?"☁️ 正在儲存 Game Over 紀錄…":"☁️ 正在儲存通關成績…";if(s.view==="report")report();else if(s.view==="gameOver")gameOverScreen();
  try{
-  await cloudCall("saveAttempt",{learnerId:s.runTesterId,unitId:s.scope<0?null:wordUnits[s.scope].id,scopeName:scopeName(),mode:mode,answers:answers,resultStatus:isOver?"game_over":"completed",targetCount:targetCount});
+  await cloudCall("saveAttempt",{clientRunId:s.cloudRunId,learnerId:s.runTesterId,unitId:s.scope<0?null:wordUnits[s.scope].id,scopeName:scopeName(),mode:mode,answers:answers,resultStatus:isOver?"game_over":"completed",targetCount:targetCount});
   familyCloud.saving=isOver?"✅ Game Over 已記錄到 Supabase":"✅ 通關成績已存入 Supabase";
   await refreshCloud()
  }catch(err){familyCloud.saving="⚠️ 成績儲存失敗："+String(err.message||err)}
@@ -571,7 +571,7 @@ function report(){
 function start(retry,whichStage){
 cancelAutoNext();
 if(!retry&&(!s.testerName||!s.testerId||!familyCloud.connected)){s.testerNotice=!familyCloud.connected?"請由家庭專用網址進入，確認已連接雲端":"請先選擇測試者";s.view="home";frame();window.vocabPlayerOpen?.();return}
-if(!retry){s.runTesterId=s.testerId;s.runTesterName=s.testerName}
+if(!retry){s.cloudRunId=crypto.randomUUID();s.runTesterId=s.testerId;s.runTesterName=s.testerName}
 s.view="game";s.retry=!!retry;s.challengeMode=retry?s.challengeMode:(typeof whichStage==="number"?"single":"all");if(!retry)s.selectedStage=s.challengeMode==="single"?whichStage:0;s.q=0;s.stage=retry?1:(s.challengeMode==="single"?s.selectedStage:0);s.pool=retry?s.pool.slice():currentPool();s.order=shuffled(retry?s.missed:s.pool);s.choiceKey="";s.choiceList=[];s.selected=null;s.typed="";s.answered=false;s.correct=false;s.clue=false;s.gameOver=false;s.wrongCount=0;if(!retry){s.score=0;s.attempts=[];s.missed=[];s.lastRecorded=false;s.gameOver=false;s.lastWrongIndex=-1;familyCloud.saving=""}s.lives=3;question()}
 function answer(val){
  if(s.answered||s.gameOver||s.view!=="game")return;
