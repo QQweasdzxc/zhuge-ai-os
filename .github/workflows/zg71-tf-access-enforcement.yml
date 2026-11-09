@@ -32,6 +32,6 @@ jobs:
         run: |
           set -o pipefail
           PGBIN=$(ls -d /usr/lib/postgresql/*/bin | sort -V | tail -1)
-          docs/zg71/tf-enforcement-proposal/verify/run.sh /tmp/taskflow-source/src "$PGBIN" "scenario active idle outage" | tee /tmp/tf-verify.log
+          bash docs/zg71/tf-enforcement-proposal/verify/run.sh /tmp/taskflow-source/src "$PGBIN" "scenario active idle outage" | tee /tmp/tf-verify.log
           ! grep -q '^FAIL' /tmp/tf-verify.log
           for t in TestTFWSOffActiveTraffic TestTFWSOffIdlePing TestTFWSOutageGrace; do grep -q -- "--- PASS: $t" /tmp/tf-verify.log; done
