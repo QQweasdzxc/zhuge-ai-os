@@ -1078,7 +1078,7 @@ const forgetFamily=document.createElement('button');forgetFamily.type='button';f
 
 })();
 </script>
-<script src="./island-world.js?v=3.3.1"></script>
+<script src="./island-world.js?v=20261109c"></script>
 
 
 <style id="mobile-map-edge-to-edge">
@@ -1137,4 +1137,13 @@ const forgetFamily=document.createElement('button');forgetFamily.type='button';f
 .m-bar #mTasksBtn{left:auto!important;right:10px!important;bottom:calc(80px + env(safe-area-inset-bottom,0px))!important}.m-bar #mShopBtn{right:10px!important;bottom:calc(16px + env(safe-area-inset-bottom,0px))!important}
 #tasksDrawer .drawer-card{left:auto!important;right:10px!important;bottom:calc(144px + env(safe-area-inset-bottom,0px))!important;max-height:calc(100dvh - 240px)!important;overflow:auto!important}
 }
-</style></body></html>
+</style>
+<style id="island-touch-contours">
+@media(max-width:690px){
+/* Keep the hit area on the English tower. No invisible expansion into locked islands. */
+.voyage-hot-english{left:66%!important;top:82.5%!important;width:44%!important;height:31%!important;clip-path:polygon(52% 0,63% 20%,84% 35%,100% 61%,90% 88%,55% 100%,16% 88%,0 63%,17% 38%,41% 23%)}
+.voyage-hot-english:before,.voyage-hot-english:after{display:none!important}
+
+}
+</style>
+</body></html>
