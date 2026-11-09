@@ -166,10 +166,34 @@ Deno.serve(async req=>{
    if(typeof input.title!=="string"||input.title.trim().length<1||input.title.length>80||!Number.isInteger(input.price)||input.price<1||input.price>100000||typeof input.available!=="boolean")return fail(req,"請確認獎品名稱與金幣價格");
    const result=await db("rpc/learning_adventure_parent_set_reward","","POST",{p_family:family.adventureFamilyId,p_parent_session:input.parentSession,p_reward:input.rewardId||null,p_title:input.title,p_price:input.price,p_available:input.available});return respond(req,result,result.ok?200:400);
   }
+  if(action==="redeem"){
+   if(!uuid(input.rewardId)||!uuid(input.clientRequestId)||!Number.isInteger(input.expectedPrice)||input.expectedPrice<1)return fail(req,"請重新確認獎勵及價格");
+   const result=await db("rpc/learning_adventure_redeem","","POST",{p_family:family.adventureFamilyId,p_hero:hero.id,p_reward:input.rewardId,p_expected_price:input.expectedPrice,p_request:input.clientRequestId});
+   if(!result.ok)return fail(req,result.error||"兌換未完成");
+   const wallet=await db("rpc/learning_adventure_wallet","","POST",{p_family:family.adventureFamilyId,p_hero:hero.id,p_claim_login:false});
+   return respond(req,{...result,wallet});
+  }
+  if(action==="listRedemptions"||action==="confirmRedemption"){
+   const parentSession=safe(input.parentSession,65);
+   if(!/^[0-9a-f]{64}$/.test(parentSession))return fail(req,"請先完成家長驗證",403);
+   const allowed=await db("rpc/learning_adventure_parent_valid","","POST",{p_family:family.adventureFamilyId,p_token:parentSession});
+   if(!allowed)return fail(req,"家長驗證已失效，請重新驗證",403);
+   if(action==="listRedemptions"){
+    const [rows,heroes]=await Promise.all([db("learning_adventure_redemptions","adventure_family_id=eq."+family.adventureFamilyId+"&status=eq.pending&select=id,hero_id,title,price,status,created_at&order=created_at.asc&limit=100"),db("learning_adventure_heroes","adventure_family_id=eq."+family.adventureFamilyId+"&select=id,display_name")]);
+    return respond(req,{ok:true,redemptions:rows.map(r=>({...r,learnerName:heroes.find(h=>h.id===r.hero_id)?.display_name||"冒險者"}))});
+   }
+   if(!uuid(input.redemptionId)||!["fulfilled","rejected"].includes(input.decision))return fail(req,"兌換結果不正確");
+   const result=await db("rpc/learning_adventure_decide_redemption","","POST",{p_family:family.adventureFamilyId,p_parent_session:parentSession,p_redemption:input.redemptionId,p_decision:input.decision});
+   if(!result.ok)return fail(req,result.error||"兌換紀錄未更新");
+   return respond(req,result);
+  }
+  if(action==="listOwnRedemptions"){
+   const redemptions=await db("learning_adventure_redemptions","adventure_family_id=eq."+family.adventureFamilyId+"&hero_id=eq."+hero.id+"&select=id,title,price,status,created_at,decided_at&order=created_at.desc&limit=100");return respond(req,{ok:true,redemptions});
+  }
   if(action==="listRewards"){
    const rewards=await db("learning_adventure_rewards","adventure_family_id=eq."+family.adventureFamilyId+"&available=eq.true&proposed=eq.false&select=id,title,price,available&order=price.asc");
    const parents=await db("learning_adventure_parent_credentials","adventure_family_id=eq."+family.adventureFamilyId+"&select=adventure_family_id&limit=1");
-   return respond(req,{ok:true,rewards,redemptionEnabled:false,setupRequired:parents.length===0});
+   return respond(req,{ok:true,rewards,redemptionEnabled:parents.length>0,setupRequired:parents.length===0});
   }
   if(action==="getWallet"||action==="claimLogin"){
    // IDs are resolved from the verified family capability and learner mapping, never input.heroId.
