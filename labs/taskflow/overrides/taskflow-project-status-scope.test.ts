@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   encodeTaskFlowProjectStatusKey,
+  excludeTaskFlowProjectStatuses,
   isTaskFlowProjectStatusKey,
   scopeTaskFlowStatusCatalog,
   taskFlowInternalProjectStatusName,
@@ -90,5 +91,22 @@ describe("TaskFlow Project status scope", () => {
     expect(projectB.entryOf(keyB)?.name).toBe("待確認中");
     expect(projectA.entryOf(keyB)?.name).toBe(nameB);
     expect(scopeTaskFlowStatusCatalog(catalog, null).labelOf(keyA)).toBe(nameA);
+  });
+
+  it("excludes Project-owned keys from the workspace-wide catalog list without modifying entries", () => {
+    const projectKey = encodeTaskFlowProjectStatusKey(PROJECT_A, "0001");
+    const entries = [
+      status("todo", true),
+      { ...status(projectKey), name: taskFlowInternalProjectStatusName(projectKey) },
+      status("global_review"),
+    ];
+
+    const visible = excludeTaskFlowProjectStatuses(entries);
+
+    expect(visible.map((entry) => entry.key)).toEqual(["todo", "global_review"]);
+    // Render-only: the source list and the native name are untouched.
+    expect(entries).toHaveLength(3);
+    expect(entries[1]?.name).toBe(`TF:${projectKey}`);
+    expect(excludeTaskFlowProjectStatuses([])).toEqual([]);
   });
 });
