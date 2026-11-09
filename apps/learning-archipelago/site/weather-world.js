@@ -1,4 +1,4 @@
-/* Learning Archipelago - local day/night + weather atmosphere layer (v1.1).
+/* Learning Archipelago - local day/night + weather atmosphere layer (v1.2).
    Follows the family's real location: sunrise/sunset tint (dawn/day/dusk/night)
    plus overcast, fog, rain and snow overlays on the existing world map art.
    Privacy: one-shot coarse geolocation -> Open-Meteo (no key, CC BY 4.0).
@@ -169,10 +169,10 @@ function readCache(lat,lon,maxAge){
  }catch(e){return null}
 }
 function writeCache(c){try{localStorage.setItem(CACHE_KEY,JSON.stringify(c))}catch(e){}}
-function defaultScene(){ // honest fallback: device-clock day/night only, no weather, no fake city
+function defaultScene(note){ // honest fallback: device-clock day/night only, no weather, no fake city
  var t=new Date();
  return {code:0,sunrise:new Date(t.getFullYear(),t.getMonth(),t.getDate(),6,0).toString(),
-  sunset:new Date(t.getFullYear(),t.getMonth(),t.getDate(),18,0).toString(),noLoc:true};
+  sunset:new Date(t.getFullYear(),t.getMonth(),t.getDate(),18,0).toString(),note:note||'未取得位置，顯示預設場景'};
 }
 function fetchWeather(lat,lon,cb){
  var url='https://api.open-meteo.com/v1/forecast?latitude='+lat.toFixed(3)+'&longitude='+lon.toFixed(3)+
@@ -184,7 +184,8 @@ function fetchWeather(lat,lon,cb){
   writeCache(c);cb(c);
  }).catch(function(){
   var stale=readCache(lat,lon,CACHE_STALE); // same-position cache, time-bounded
-  cb(stale||defaultScene());
+  if(stale){stale.note='天氣暫未更新，顯示上次資料';cb(stale)}
+  else cb(defaultScene('暫時無法更新天氣，顯示預設場景'));
  });
 }
 function geoSuppressed(){
@@ -224,7 +225,8 @@ function applyData(c){
  state.sunrise=c.sunrise?parseLocal(c.sunrise):null;
  state.sunset=c.sunset?parseLocal(c.sunset):null;
  if(!state.sunrise||!state.sunset)c=defaultScene(),state.code=0,state.sunrise=parseLocal(c.sunrise),state.sunset=parseLocal(c.sunset);
- layers.note.hidden=!c.noLoc;
+ layers.note.hidden=!c.note;
+ if(c.note)layers.note.textContent=c.note;
  apply();
 }
 function refresh(force){
