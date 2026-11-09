@@ -197,7 +197,7 @@ test("TaskFlow entry hands Zhuge session to API and opens the Multica handoff on
     }, { origin: entryOrigin });
     await page.goto(entry + "?source=work-navigation", { waitUntil: "load" });
     assert.equal(await page.getByRole("heading", { name: "TaskFlow", exact: true }).isVisible(), true);
-    assert.equal(await page.locator(".brand").innerText(), "Multica");
+    assert.equal(await page.locator(".brand img[alt=\"TRQN\"]").isVisible(), true);
     assert.match(await page.locator(".attribution").innerText(), /Multica\. All rights reserved\./);
     assert.equal(await page.locator("#enterTaskFlow").isDisabled(), true);
     const layout = await page.evaluate(() => ({
