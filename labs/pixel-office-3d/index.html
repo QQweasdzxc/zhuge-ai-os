@@ -655,7 +655,7 @@ function applyLang(code) {
       const kk = k.replace('tf:', '');
       const label = k === 'member' ? (L.member || kk) : k.startsWith('tf:') ? ({ needsYou: L.needsYou, needsReview: L.needsReview, blocked: L.blocked, working: L.working, finished: L.finished, interrupted: L.interrupted, idle: (L.tfIdle || L.idle) }[kk] || kk) : (L[k] || k);
       const color = ({ needsYou: 'var(--waiting)', needsReview: 'var(--waiting)', blocked: 'var(--error)', working: 'var(--tool)', finished: 'var(--done)', interrupted: 'var(--muted)', idle: 'var(--muted)' }[kk]) || 'var(--muted)';
-      return `<span style="color:${color}">●</span><span>${esc(label)}</span>`;
+      return `<span style="white-space:nowrap"><span style="color:${color}">●</span><span>${esc(label)}</span></span>`;
     }).join(' ');
   if (typeof renderLangMenu === 'function') renderLangMenu();
   if (typeof office !== 'undefined' && office) office.offDutyLabel = L.wentHome;
@@ -964,7 +964,7 @@ function render() {
       const kk = k.replace('tf:', '');
       const label = k === 'member' ? (L.member || kk) : k.startsWith('tf:') ? ({ needsYou: L.needsYou, needsReview: L.needsReview, blocked: L.blocked, working: L.working, finished: L.finished, interrupted: L.interrupted, idle: (L.tfIdle || L.idle) }[kk] || kk) : (L[k] || k);
       const color = ({ needsYou: 'var(--waiting)', needsReview: 'var(--waiting)', blocked: 'var(--error)', working: 'var(--tool)', finished: 'var(--done)', interrupted: 'var(--muted)', idle: 'var(--muted)' }[kk]) || 'var(--muted)';
-      return `<span style="color:${color}">●</span><span>${esc(label)}</span>`;
+      return `<span style="white-space:nowrap"><span style="color:${color}">●</span><span>${esc(label)}</span></span>`;
     }).join(' ');
 
   renderToday();
