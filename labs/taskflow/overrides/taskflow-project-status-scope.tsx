@@ -90,6 +90,16 @@ export function taskFlowInternalProjectStatusName(key: string): string {
   return `TF:${key}`;
 }
 
+/**
+ * The workspace-wide status catalog excludes Project-owned keys: they are
+ * created and managed on their Project surface with per-user display labels,
+ * so the opaque `TF:<key>` native names must not render in workspace
+ * settings. Render-only; entries and keys are never modified.
+ */
+export function excludeTaskFlowProjectStatuses<T extends { key: string }>(entries: readonly T[]): T[] {
+  return entries.filter((entry) => !isTaskFlowProjectStatusKey(entry.key));
+}
+
 /** Filter only assignable columns; retain the full label lookup for historic rows. */
 export function scopeTaskFlowStatusCatalog(
   catalog: IssueStatusCatalog,
@@ -260,4 +270,4 @@ export function TaskFlowProjectStatusScopeProvider({
 
 export function useTaskFlowProjectStatusSettings(): TaskFlowProjectStatusSettings {
   return useContext(TaskFlowProjectStatusContext);
-}
+    }
