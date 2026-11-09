@@ -22,7 +22,7 @@ RC=0
 for t in $TESTS; do
   echo "=== $t"; fresh
   case $t in
-    scenario) "$HERE/scenario.sh" || RC=1 ;;
+    scenario) bash "$HERE/scenario.sh" || RC=1 ;;
     active|idle|outage)
       psql -h 127.0.0.1 -p $PORT -U postgres -qAt -c "select private.activate_app_access_model(6)" >/dev/null || exit 1
       cp "$HERE/tf_app_access_ws_test.go.txt" "$SRC/server/internal/realtime/tf_app_access_ws_test.go"
