@@ -10,15 +10,15 @@ if(!root)return;
 const style=document.createElement('style');
 style.id='archipelago-voyage-world-style';
 style.textContent=[
-'.expedition-world{margin-top:27px}',
+'.expedition-world{margin-top:8px}',
 '.expedition-world .section-label{margin-bottom:15px}',
-'.voyage-shell{background:#101d2e;border:4px solid #2e4a5f;box-shadow:7px 8px 0 #071022;border-radius:11px;overflow:hidden;color:#fff}',
+'.voyage-shell{position:relative;background:#101d2e;border:4px solid #2e4a5f;box-shadow:7px 8px 0 #071022;border-radius:11px;overflow:hidden;color:#fff}',
 '.voyage-heading{display:flex;justify-content:space-between;align-items:center;gap:10px;background:#16222f;padding:12px 15px;border-bottom:3px solid #2e4a5f}',
 '.voyage-heading strong{font-size:clamp(14px,2vw,20px);letter-spacing:.06em}',
 '.voyage-heading small{display:block;color:#7fd7e8;font-size:11px;margin-top:3px;letter-spacing:.08em}',
 '.voyage-heading .voyage-status{color:#bff0f4;font-size:11px;border:1px solid #3d6a74;border-radius:5px;padding:7px 9px;white-space:nowrap}',
 '.voyage-grid{display:grid;grid-template-columns:minmax(0,1fr) 275px;align-items:start}',
-'.voyage-stage{position:relative;width:100%;aspect-ratio:1672/941;overflow:hidden;background:#0d2036}',
+'.voyage-stage{position:relative;width:100%;aspect-ratio:1672/941;overflow:hidden;background:#0d2036}','.voyage-pan{position:relative;width:100%;height:100%;overflow:hidden}',
 '.voyage-bg{position:absolute;inset:0;background:url("./archipelago-v5.jpg") center/cover no-repeat;animation:voyageSway 26s ease-in-out infinite alternate;will-change:transform}',
 '@keyframes voyageSway{from{transform:scale(1.015) translate3d(-.35%,0,0)}to{transform:scale(1.015) translate3d(.35%,.3%,0)}}',
 '.voyage-mist{position:absolute;border-radius:50%;pointer-events:none;mix-blend-mode:screen;background:radial-gradient(ellipse at center,rgba(255,244,225,.34) 0%,rgba(255,244,225,0) 65%);filter:blur(2px);will-change:transform}',
@@ -40,10 +40,10 @@ style.textContent=[
 '@keyframes voyageTw{0%,100%{opacity:0;transform:scale(.6)}50%{opacity:.95;transform:scale(1.25)}}',
 '.voyage-shimmer{position:absolute;left:34%;top:33%;width:12%;height:26%;pointer-events:none;mix-blend-mode:screen;background:linear-gradient(180deg,rgba(255,220,150,.16),rgba(255,220,150,0) 80%);animation:voyageShim 7s ease-in-out infinite alternate;will-change:opacity}',
 '@keyframes voyageShim{from{opacity:.25}to{opacity:.7}}',
-'.voyage-hot{position:absolute;transform:translate(-50%,-50%);border:0;background:transparent;cursor:pointer;text-decoration:none;z-index:3;touch-action:manipulation;-webkit-tap-highlight-color:transparent;padding:0}','.voyage-hot-chengyu::before,.voyage-hot-english::before,.voyage-hot-board::before{content:"";position:absolute;left:50%;top:50%;width:340%;height:380%;transform:translate(-50%,-50%);background:radial-gradient(ellipse at center,rgba(255,240,190,.5) 0%,rgba(255,224,140,.22) 45%,rgba(255,224,140,0) 70%);filter:blur(8px);mix-blend-mode:screen;opacity:0;transition:opacity .25s ease;pointer-events:none;z-index:-1}','.voyage-hot-board::after{content:"";position:absolute;inset:calc(-1 * var(--hit,14px))}',
+'.voyage-hot{position:absolute;transform:translate(-50%,-50%);border:0;background:transparent;cursor:pointer;text-decoration:none;z-index:3;touch-action:pan-x pan-y;-webkit-tap-highlight-color:transparent;padding:0}','.voyage-hot-board::after{content:"";position:absolute;inset:calc(-1 * var(--hit,14px))}',
 '.voyage-hot:before{content:"";position:absolute;inset:-13px}',
 '@keyframes voyagePulse{0%,100%{opacity:.78}50%{opacity:1}}',
-'@media(hover:hover){.voyage-hot:hover::before{opacity:1}.voyage-hot-board:hover .voyage-sign{filter:brightness(1.12)}}','.voyage-hot:focus::before,.voyage-hot:focus-visible::before{opacity:1}','.voyage-hot:active::before{opacity:1;transition-duration:.05s}',
+'.hot-glow{position:absolute;left:50%;top:50%;width:380%;height:420%;transform:translate(-50%,-50%);background:radial-gradient(ellipse at center,rgba(255,246,214,.72) 0%,rgba(255,230,155,.38) 32%,rgba(255,224,140,.15) 55%,rgba(255,224,140,0) 75%);filter:blur(10px);mix-blend-mode:screen;opacity:0;transition:opacity .25s ease;pointer-events:none;z-index:-1}','@media(hover:hover){.voyage-hot:hover .hot-glow{opacity:1}.voyage-hot-board:hover .voyage-sign{filter:brightness(1.12)}}','.voyage-hot:focus .hot-glow,.voyage-hot:focus-visible .hot-glow{opacity:1}','.voyage-hot:active .hot-glow{opacity:1;transition-duration:.05s}','.voyage-hot.glow-on .hot-glow{opacity:1}',
 '.voyage-hot:focus-visible{outline:3px solid #ffdf75;outline-offset:4px;border-radius:12px}',
 '.voyage-hot-chengyu{left:15.7%;top:37.2%;width:calc(9.6% + (var(--hit,14px) * 2));height:calc(8.6% + (var(--hit,14px) * 2))}',
 '.voyage-hot-english{left:89.8%;top:40.6%;width:calc(7.4% + (var(--hit,14px) * 2));height:calc(6.6% + (var(--hit,14px) * 2))}',
@@ -89,7 +89,33 @@ style.textContent=[
 '@media(max-width:900px){.voyage-grid{grid-template-columns:1fr}.voyage-index{border-left:none;border-top:3px solid #2e4a5f}.voyage-index .index-scroll{padding:2px 9px 12px}.voyage-index .index-item{min-height:56px}}',
 '@media(max-width:610px){.voyage-stage{--hit:22px}.hb-boards{grid-template-columns:1fr}.expedition-world .section-label{flex-wrap:wrap;gap:8px}.expedition-world .section-label .pill{font-size:10px}.voyage-shell{border-width:3px}.voyage-heading{padding:11px}.voyage-heading strong{font-size:14px}.voyage-heading .voyage-status{font-size:10px}.voyage-sign{font-size:11px;padding:.3em .7em}.voyage-index .index-head h3{font-size:17px}.voyage-legend{font-size:10px}.hb-card{padding:16px 14px 12px}}',
 '.ic{display:inline-block;width:1em;height:1em;vertical-align:-0.13em;margin-right:.18em}',
-'@media(prefers-reduced-motion:reduce){.voyage-bg,.voyage-mist,.voyage-glow,.voyage-sparkle,.voyage-shimmer,.voyage-hot,.voyage-sign{animation:none!important}.voyage-index .index-item{transition:none!important}}'
+'@media(prefers-reduced-motion:reduce){.voyage-bg,.voyage-mist,.voyage-glow,.voyage-sparkle,.voyage-shimmer,.voyage-hot,.voyage-sign{animation:none!important}.voyage-index .index-item{transition:none!important}.hot-glow{transition:none!important}}',
+'.island-nav{min-width:0}',
+'.island-nav .index-head{padding:17px 17px 9px;background:#14202e}',
+'.island-nav .index-head small{font-size:10px;letter-spacing:.16em;color:#ffb64d;font-weight:900}',
+'.island-nav .index-head h3{font-size:19px;line-height:1.35;margin:5px 0;color:#eaf6ff}',
+'.island-nav .index-head p{color:#9fb6c4;font-size:11px;line-height:1.5;margin:4px 0 0}',
+'.island-nav .index-scroll{padding:4px 12px 15px;display:flex;flex-direction:column;gap:2px}',
+'.island-nav .index-item{display:flex;gap:12px;align-items:center;min-height:64px;padding:10px 7px;text-decoration:none;color:#e8f4f8;border-bottom:1px solid #2b3d4e;transition:background .14s;background:none;border-top:0;border-left:0;border-right:0;font:inherit;text-align:left;width:100%;cursor:pointer}',
+'.island-nav .index-item:hover{background:#1f3145;border-radius:6px}',
+'.island-nav .index-item strong{display:block;font-size:14px;color:inherit}',
+'.island-nav .index-item .index-note{color:#8fa9b8;font-size:11px;display:block;margin-top:4px}',
+'.island-nav .index-item .index-number{font-family:Georgia,serif;font-weight:bold;font-size:24px;font-style:italic;color:#37e6ff;min-width:36px;text-align:center}',
+'.island-nav .index-item .index-arrow{color:#ffb64d;font-size:19px;margin-left:auto}',
+'.island-nav .index-item:focus-visible{outline:3px solid #fff1b1;outline-offset:-3px}',
+'.island-nav .index-foot{border-top:1px solid #2b3d4e;padding:11px 14px;margin-top:auto;font-size:11px;color:#a9c0cc;line-height:1.7}',
+'/* v3.3.0 immersive map-first chrome */',
+'.stage-chip{position:absolute;z-index:4;display:inline-flex;align-items:center;gap:6px;background:rgba(13,25,42,.78);border:2px solid #3d6a74;border-radius:7px;padding:6px 10px;font-size:11px;color:#d7e9f2;letter-spacing:.05em;pointer-events:none}',
+'.stage-chip-title{left:10px;top:10px;color:#ffd39d;font-weight:900}',
+'.stage-chip-status{right:10px;top:10px;color:#bff0f4}',
+'.stage-chip-hint{left:10px;bottom:10px;color:#ffe6b8}',
+'.island-nav{margin-top:12px;background:#101d2e;border:3px solid #2e4a5f;border-radius:9px;color:#e8f4f8;overflow:hidden}',
+'.island-nav summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;padding:11px 14px;font-size:13px;font-weight:900;color:#ffd39d}',
+'.island-nav summary::-webkit-details-marker{display:none}',
+'.island-nav summary:focus-visible{outline:3px solid #ffdf75;outline-offset:-3px}',
+'.island-nav .index-scroll{padding:2px 9px 8px;display:flex;flex-direction:column;gap:2px}',
+'.island-nav .index-foot{padding:9px 14px;border-top:2px solid #2e4a5f;font-size:11px;color:#9fc3cf}',
+'@media(max-width:690px){.expedition-world{margin-left:-13px;margin-right:-13px}.voyage-shell{position:fixed;inset:0;z-index:30;border:0;border-radius:0;display:flex;flex-direction:column;justify-content:center;overflow:hidden;background:#0d2036;padding:calc(64px + env(safe-area-inset-top,0px)) 0 calc(88px + env(safe-area-inset-bottom,0px))}.voyage-stage{flex:none;width:auto;height:min(calc(100dvh - 165px),177.68vw);max-width:100%;aspect-ratio:941/1672;margin:0 auto;border:0}.voyage-bg{background-image:url("./1-archipelago-portrait.jpg");animation:none}.voyage-mist,.voyage-glow,.voyage-shimmer,#voyageSea{display:none}.voyage-hot-chengyu{left:26%;top:13.5%;width:38%;height:19%}.voyage-hot-english{left:66%;top:80%;width:52%;height:26%}.voyage-hot-board{left:70%;top:33%}.stage-chip-title,.stage-chip-status{display:none}.stage-chip-hint{font-size:10px;position:static;display:inline-block;margin:10px auto 0}.island-nav{display:none}}',
 ].join('\n');
 document.head.appendChild(style);
 
@@ -122,29 +148,31 @@ const IC={
 };
 
 root.outerHTML='<section class="world expedition-world" id="worldMap" aria-label="學習冒險群島探索地圖">'+
- '<div class="section-label"><div><h2>'+IC.island+'學習冒險群島地圖</h2><p>和孩子一起，航向今天的知識冒險</p></div><span class="pixel pill">CHAPTER 01 · THE FIRST VOYAGE</span></div>'+
  '<div class="voyage-shell">'+
- '<div class="voyage-heading"><div><strong>'+IC.island+'THE ISLAND EXPEDITION · 群島探索</strong><small>點地圖上的島嶼，或登上燈塔看看英雄榜</small></div><span class="voyage-status">'+IC.sail+'已開放 2 島</span></div>'+
- '<div class="voyage-grid">'+
- '<div class="voyage-stage" role="img" aria-label="夕陽下的立體方塊群島：左邊是成語島的東方書院，右邊是英文島的魔法高塔，中央主島有孩子們的遊樂場、小小的 TRQN 字母地標與英雄榜燈塔">'+
+ '<div class="voyage-stage" role="img" aria-label="夕陽下的立體方塊群島:左邊是成語島的東方書院,右邊是英文島的魔法高塔,中央主島有孩子們的遊樂場、小小的 TRQN 字母地標與英雄榜燈塔">'+
+ '<div class="voyage-pan">'+
  '<div class="voyage-bg"></div>'+
  '<div class="voyage-shimmer"></div>'+
  '<div class="voyage-mist vm1"></div><div class="voyage-mist vm2"></div><div class="voyage-mist vm3"></div><div class="voyage-mist vm4"></div>'+
  '<div class="voyage-glow vg1"></div><div class="voyage-glow vg2"></div><div class="voyage-glow vg3"></div><div class="voyage-glow vg4"></div><div class="voyage-glow vg5"></div><div class="voyage-glow vg6"></div><div class="voyage-glow vg7"></div>'+
  '<div id="voyageSea"></div>'+
- '<a class="voyage-hot voyage-hot-chengyu" id="islandChengyu" data-world="chengyu" href="'+domainFor('chengyu')+playerHash()+'" aria-label="前往成語島"></a>'+
- '<a class="voyage-hot voyage-hot-english" id="islandEnglish" data-world="english" href="'+domainFor('english')+playerHash()+'" aria-label="前往英文島"></a>'+
- '<button class="voyage-hot voyage-hot-board" id="heroBoardBtn" type="button" aria-label="打開英雄榜"><span class="voyage-sign">英雄榜</span></button>'+
+ '<a class="voyage-hot voyage-hot-chengyu" id="islandChengyu" data-world="chengyu" href="'+domainFor('chengyu')+playerHash()+'" aria-label="前往成語島"><span class="hot-glow" aria-hidden="true"></span></a>'+
+ '<a class="voyage-hot voyage-hot-english" id="islandEnglish" data-world="english" href="'+domainFor('english')+playerHash()+'" aria-label="前往英文島"><span class="hot-glow" aria-hidden="true"></span></a>'+
+ '<button class="voyage-hot voyage-hot-board" id="heroBoardBtn" type="button" aria-label="打開英雄榜"><span class="hot-glow" aria-hidden="true"></span><span class="voyage-sign">英雄榜</span></button>'+
  '</div>'+
- '<aside class="voyage-index isometric-index" aria-label="島嶼索引"><header class="index-head"><small>THE ISLAND INDEX</small><h3>今天的冒險，從哪座島開始？</h3><p>成語島和英文島已經開放，更多島嶼還在興建中。</p></header>'+
+ '</div>'+
+ '<span class="stage-chip stage-chip-title">'+IC.island+'群島探索</span>'+
+ '<span class="stage-chip stage-chip-status">'+IC.sail+'已開放 2 島</span>'+
+ '<span class="stage-chip stage-chip-hint">'+IC.point+'點選島嶼即可前往</span>'+
+ '</div>'+
+ '<details class="island-nav"><summary>'+IC.compass+'島嶼目錄 · 成語島 / 英文島 / 英雄榜</summary>'+
  '<div class="index-scroll">'+
  '<a class="index-item" data-world="chengyu" href="'+domainFor('chengyu')+playerHash()+'"><span class="index-number">01</span><span><strong>成語島</strong><span class="index-note">典故森林・成語解謎</span></span><span class="index-arrow">↗</span></a>'+
  '<a class="index-item" data-world="english" href="'+domainFor('english')+playerHash()+'"><span class="index-number">02</span><span><strong>英文島</strong><span class="index-note">魔法高塔・拼字試煉</span></span><span class="index-arrow">↗</span></a>'+
- '<button class="index-item" id="heroBoardBtn2" type="button"><span class="index-number">'+IC.trophy+'</span><span><strong>英雄榜</strong><span class="index-note">燈塔上的家庭冒險總榜</span></span><span class="index-arrow">↗</span></button>'+
+ '<button class="index-item" id="heroBoardBtn2" type="button"><span class="index-number">'+IC.trophy+'</span><span><strong>英雄榜</strong><span class="index-note">燈塔英雄榜 · 兩島分開排名</span></span><span class="index-arrow">↗</span></button>'+
  '</div>'+
- '<div class="index-foot">★ 通過各島的學習挑戰，XP 將回到同一位冒險者。<br>'+IC.castle+'正式升級仍須通過晉級試煉。</div></aside></div>'+
- '<div class="voyage-legend"><strong>'+IC.point+'點選島嶼即可前往</strong><span>'+IC.book+'成語島 / '+IC.abc+'英文島已開放 · '+IC.trophy+'燈塔英雄榜</span></div>'+
- '</div>'+
+ '<div class="index-foot">★ 各島的學習成績與 XP 由各島分別記錄。<br>'+IC.castle+'正式升級仍須通過晉級試煉。</div>'+
+ '</details>'+
  '<div class="hb-overlay" id="heroBoardOverlay" hidden><div class="hb-card" role="dialog" aria-modal="true" aria-label="英雄榜" id="heroBoardCard"></div></div>'+
  '</section>';
 
@@ -202,10 +230,10 @@ root.outerHTML='<section class="world expedition-world" id="worldMap" aria-label
  function show(){
   overlay.hidden=false;document.body.style.overflow='hidden';
   const tk=token();
-  if(!tk){renderState('英雄榜','燈塔上的家庭冒險總榜',IC.compass+'請從家庭專屬網址（網址含 #f= 金鑰）進入總部，<br>就能看到家人彼此的冒險排名喔！');return}
-  if(!HERO_BOARD_LIVE){renderState('英雄榜','燈塔上的家庭冒險總榜',IC.hourglass+'英雄榜正在準備中！<br>排名方式已經決定好了：成語島、英文島會分開排名；等資料連線完成，這裡就會即時顯示家人的冒險成績。');return}
-  if(!RANK_BASIS_APPROVED){renderState('英雄榜','燈塔上的家庭冒險總榜',IC.hourglass+'排名方式正在和家人確認中（分島榜或合計總榜）；確認後，這裡就會即時顯示家人的冒險成績。<br>「每週挑戰榜」需要新的記錄方式才會公平，確定後才會推出。');return}
-  card.innerHTML=head('英雄榜','燈塔上的家庭冒險總榜')+'<div class="hb-state">'+IC.cloud+'正在從家庭雲端讀取冒險者的 XP…</div><button class="hb-close" type="button" id="hbClose">關閉</button>';
+  if(!tk){renderState('英雄榜','燈塔英雄榜 · 兩島分開排名',IC.compass+'請從家庭專屬網址（網址含 #f= 金鑰）進入總部，<br>就能看到家人彼此的冒險排名喔！');return}
+  if(!HERO_BOARD_LIVE){renderState('英雄榜','燈塔英雄榜 · 兩島分開排名',IC.hourglass+'英雄榜正在準備中！<br>排名方式已經決定好了：成語島、英文島會分開排名；等資料連線完成，這裡就會即時顯示家人的冒險成績。');return}
+  if(!RANK_BASIS_APPROVED){renderState('英雄榜','燈塔英雄榜 · 兩島分開排名',IC.hourglass+'排名方式已確認：成語島、英文島各自分開排名；等資料連線完成，這裡就會即時顯示各島榜單。<br>「每週挑戰榜」需要新的記錄方式才會公平，確定後才會推出。');return}
+  card.innerHTML=head('英雄榜','燈塔英雄榜 · 兩島分開排名')+'<div class="hb-state">'+IC.cloud+'正在從家庭雲端讀取冒險者的 XP…</div><button class="hb-close" type="button" id="hbClose">關閉</button>';
   wireClose();
   load(tk);
  }
@@ -213,7 +241,7 @@ root.outerHTML='<section class="world expedition-world" id="worldMap" aria-label
   try{
    const data=await call('listPlayers');
    const players=(data.players||[]).slice(0,8);
-   if(!players.length){renderState('英雄榜','燈塔上的家庭冒險總榜','還沒有冒險者加入。選好玩家、完成一座島的挑戰後，名字就會登上燈塔！');return}
+   if(!players.length){renderState('英雄榜','燈塔英雄榜 · 兩島分開排名','還沒有冒險者加入。選好玩家、完成一座島的挑戰後，名字就會登上燈塔！');return}
    const rows=[];
    for(const p of players){
     try{
@@ -235,16 +263,50 @@ root.outerHTML='<section class="world expedition-world" id="worldMap" aria-label
     });
     return h+'</table></div>';
    }
-   let html=head('英雄榜','燈塔上的家庭冒險總榜 · 成語、英文分開排名');
+   let html=head('英雄榜','燈塔英雄榜 · 成語島、英文島分開排名');
    html+='<div class="hb-boards">'+board(IC.book,'成語島','cy')+board(IC.abc,'英文島','vo')+'</div>';
    html+='<p class="hb-note">依各島累積 XP 分開排名，從家庭雲端即時讀取，只有家人看得見。「每週挑戰榜」是未來的提議：需要新增每週記錄方式才會公平，確定後才會上線。</p>';
    html+='<button class="hb-close" type="button" id="hbClose">關閉</button>';
    card.innerHTML=html;
    wireClose();
   }catch(e){
-   renderState('英雄榜','燈塔上的家庭冒險總榜',IC.rain+'雲端連線暫時失敗：'+esc(e.message)+'<br>稍後再點一次燈塔試試。');
+   renderState('英雄榜','燈塔英雄榜 · 兩島分開排名',IC.rain+'雲端連線暫時失敗：'+esc(e.message)+'<br>稍後再點一次燈塔試試。');
   }
  }
+ /* mobile: whole archipelago visible on open (no pan); hint mentions tapping */
+(function(){
+ const stage=document.querySelector('.voyage-stage'),pan=document.querySelector('.voyage-pan');
+ if(!stage||!pan)return;
+ const mShell=document.querySelector('.voyage-shell'),mNav=document.querySelector('.island-nav');
+ if(mShell&&mNav&&window.innerWidth<=690){mShell.appendChild(mNav);mNav.open=true}
+ let centered=false;
+ function centerPan(){
+  if(centered||window.innerWidth>690)return;
+  const max=pan.offsetWidth-stage.clientWidth;
+  if(max>0){
+   const hb=document.getElementById('heroBoardBtn');
+   let target=max/2;
+   if(hb){const hbC=hb.offsetLeft+hb.offsetWidth/2;target=Math.min(Math.max(Math.round(hbC-stage.clientWidth*0.62),0),max)}
+   stage.scrollLeft=target;centered=true
+  }
+  const hint=document.querySelector('.stage-chip-hint');
+  if(hint)hint.lastChild.textContent='點選島嶼即可前往';
+ }
+ let userScrolled=false;
+ stage.addEventListener('pointerdown',()=>{userScrolled=true;centered=true},{passive:true});
+ stage.addEventListener('touchstart',()=>{userScrolled=true;centered=true},{passive:true});
+ if(document.readyState==='complete')centerPan();else window.addEventListener('load',()=>requestAnimationFrame(centerPan));
+ [300,900,1800,3500].forEach(t=>setTimeout(()=>{if(!userScrolled){centered=false;centerPan()}},t));
+})();
+/* touch/press glow feedback: class-driven so it works on touch without fake hover */
+ document.querySelectorAll('.voyage-hot').forEach(function(h){
+  const on=function(){h.classList.add('glow-on')};
+  const off=function(){h.classList.remove('glow-on')};
+  h.addEventListener('pointerdown',on);
+  h.addEventListener('pointerup',off);
+  h.addEventListener('pointercancel',off);
+  h.addEventListener('pointerleave',off);
+ });
  const b1=document.getElementById('heroBoardBtn');
  const b2=document.getElementById('heroBoardBtn2');
  if(b1)b1.addEventListener('click',show);
