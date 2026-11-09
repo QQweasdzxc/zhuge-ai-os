@@ -37,7 +37,7 @@ func tfSetup(t *testing.T) (*Hub, string, *pgxpool.Pool) {
 	t.Cleanup(pool.Close)
 	auth.SetAppAccessLookup(func(ctx context.Context, id string) (bool, error) {
 		var ok *bool
-		if err := pool.QueryRow(ctx, "select public.taskflow_app_access_decision($1::uuid)", id).Scan(&ok); err != nil {
+		if err := pool.QueryRow(ctx, "select taskflow_gate.taskflow_app_access_decision($1::uuid)", id).Scan(&ok); err != nil {
 			return false, err
 		}
 		if ok == nil {
