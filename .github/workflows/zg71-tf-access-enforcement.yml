@@ -1,0 +1,37 @@
+name: ZG-71 TaskFlow App access enforcement
+
+on:
+  pull_request:
+    paths:
+      - "labs/taskflow/**"
+      - "docs/zg71/tf-enforcement-proposal/**"
+      - ".github/workflows/zg71-tf-access-enforcement.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-verification:
+    name: Patched TaskFlow server vs isolated Postgres (resolver, grants, websocket close, outage)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.6'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Stage the actual Docker source copy (all TaskFlow patches including App access)
+        run: docker build --target source --output type=local,dest=/tmp/taskflow-source -f labs/taskflow/Dockerfile.backend .
+      - name: Patched server builds
+        run: cd /tmp/taskflow-source/src/server && go build -o /tmp/tf-server ./cmd/server
+      - name: Resolver, grants, websocket close and outage grace on a throwaway Postgres (no network service, no real identity)
+        run: |
+          set -o pipefail
+          PGBIN=$(ls -d /usr/lib/postgresql/*/bin | sort -V | tail -1)
+          docs/zg71/tf-enforcement-proposal/verify/run.sh /tmp/taskflow-source/src "$PGBIN" "scenario active idle outage" | tee /tmp/tf-verify.log
+          ! grep -q '^FAIL' /tmp/tf-verify.log
+          for t in TestTFWSOffActiveTraffic TestTFWSOffIdlePing TestTFWSOutageGrace; do grep -q -- "--- PASS: $t" /tmp/tf-verify.log; done
