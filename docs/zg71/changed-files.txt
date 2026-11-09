@@ -90,3 +90,11 @@ tests/zg71-live-compat-gates.test.js
 tests/zg71-rollback.test.cjs
 tests/zg71-taskflow-boundary.test.cjs
 version.json
+labs/taskflow/Dockerfile.backend
+labs/taskflow/overrides/zhuge_auth.go
+labs/taskflow/overrides/taskflow_app_access.go
+labs/taskflow/overrides/taskflow_app_access_test.go
+labs/taskflow/overrides/taskflow_app_access_lookup.go
+labs/taskflow/patches/apply-taskflow-app-access.py
+docs/zg71/tf-enforcement-proposal/README.md
+docs/zg71/tf-enforcement-proposal/taskflow_app_access_decision.sql.draft
