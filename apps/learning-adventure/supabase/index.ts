@@ -125,6 +125,10 @@ Deno.serve(async req=>{
  if(origin&&!ORIGINS.includes(origin))return fail(req,"不允許的網站來源",403);
  if(!BASE||!KEY)return fail(req,"服務尚未設定",503);
  let input;try{input=await req.json()}catch{return fail(req,"請提供正確的資料")}
+ if(input?.action==="setupParent"){
+  if(typeof input.setupToken!=="string"||!/^[0-9a-f]{64}$/.test(input.setupToken)||typeof input.pin!=="string"||!/^[0-9]{6,12}$/.test(input.pin))return fail(req,"請確認設定連結與 6 至 12 位數字 PIN",403);
+  try{const result=await db("rpc/learning_adventure_complete_parent_setup","","POST",{p_setup_token:input.setupToken,p_pin:input.pin});return respond(req,result,result.ok?200:403);}catch(e){return fail(req,"設定暫時無法完成，請稍後再試",503);}
+ }
  const token=safe(input?.token,150),world=input?.world,learnerId=input?.learnerId,action=input?.action;
  if(!/^[A-Za-z0-9_-]{40,128}$/.test(token)||!["chengyu","vocab"].includes(world))return fail(req,"請使用正確的家庭連結及玩家",403);
  if(!["listPlayers","addPlayer"].includes(action)&&!uuid(learnerId))return fail(req,"請選擇玩家",403);
@@ -150,9 +154,22 @@ Deno.serve(async req=>{
   }
   const hero=await heroFor(family,learnerId);
   if(!hero)return fail(req,"找不到對應的冒險者",403);
+  if(action==="parentLogin"){
+   if(typeof input.pin!=="string"||!/^[0-9]{6,12}$/.test(input.pin))return fail(req,"請輸入家長 PIN",403);
+   const result=await db("rpc/learning_adventure_parent_login","","POST",{p_family:family.adventureFamilyId,p_pin:input.pin});return respond(req,result,result.ok?200:403);
+  }
+  if(action==="setReward"||action==="listParentRewards"){
+   if(typeof input.parentSession!=="string"||!/^[0-9a-f]{64}$/.test(input.parentSession))return fail(req,"請先完成家長驗證",403);
+   const allowed=await db("rpc/learning_adventure_parent_valid","","POST",{p_family:family.adventureFamilyId,p_token:input.parentSession});if(!allowed)return fail(req,"家長驗證已失效，請重新驗證",403);
+   if(action==="listParentRewards"){const rewards=await db("learning_adventure_rewards","adventure_family_id=eq."+family.adventureFamilyId+"&proposed=eq.false&select=id,title,price,available&order=created_at.asc");return respond(req,{ok:true,rewards});}
+   if(input.rewardId!=null&&!uuid(input.rewardId))return fail(req,"獎品識別不正確");
+   if(typeof input.title!=="string"||input.title.trim().length<1||input.title.length>80||!Number.isInteger(input.price)||input.price<1||input.price>100000||typeof input.available!=="boolean")return fail(req,"請確認獎品名稱與金幣價格");
+   const result=await db("rpc/learning_adventure_parent_set_reward","","POST",{p_family:family.adventureFamilyId,p_parent_session:input.parentSession,p_reward:input.rewardId||null,p_title:input.title,p_price:input.price,p_available:input.available});return respond(req,result,result.ok?200:400);
+  }
   if(action==="listRewards"){
    const rewards=await db("learning_adventure_rewards","adventure_family_id=eq."+family.adventureFamilyId+"&available=eq.true&proposed=eq.false&select=id,title,price,available&order=price.asc");
-   return respond(req,{ok:true,rewards,redemptionEnabled:false,setupRequired:true});
+   const parents=await db("learning_adventure_parent_credentials","adventure_family_id=eq."+family.adventureFamilyId+"&select=adventure_family_id&limit=1");
+   return respond(req,{ok:true,rewards,redemptionEnabled:false,setupRequired:parents.length===0});
   }
   if(action==="getWallet"||action==="claimLogin"){
    // IDs are resolved from the verified family capability and learner mapping, never input.heroId.
