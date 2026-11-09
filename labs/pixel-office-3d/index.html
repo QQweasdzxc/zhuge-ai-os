@@ -547,7 +547,7 @@
 // clearStoredAuthSession(); it does not touch any server-side grant.
 (function () {
   const SESSION_KEYS = ['zhuge_ai_os_google_auth_session_v1', 'wl_google_auth_session_v1', 'zhuge_ai_os_auth_provider_v1', 'zhuge_ai_os_session_v1'];
-  const VERIFIER_KEYS = ['zhuge_ai_os_pkce_code_verifier_v1', 'wl_google_pkce_code_verifier_v1'];
+  const VERIFIER_KEYS = ['zhuge_ai_os_pkce_code_verifier_v1', 'wl_google_pkce_code_verifier_v1', 'zhuge_ai_os_auth_verification_failed_v1'];
   const menu = document.getElementById('accountMenu');
   if (!menu) return;
   const $ = (id) => document.getElementById(id);
@@ -563,7 +563,15 @@
     return null;
   }
   function render() {
-    try { if (embeddedParent) { menu.hidden = true; return; } } catch { /* not yet defined */ }
+    // Hidden only when TaskFlow itself embeds the office (it delivers its own
+    // token). The standalone root shell also frames this page, so a plain
+    // "has a parent" test would wrongly hide the chip there.
+    try {
+      const tf = TfSource.EMBEDDED_PARENT_ORIGIN;
+      const anc = location.ancestorOrigins ? Array.from(location.ancestorOrigins) : [];
+      let ref = ''; try { ref = new URL(document.referrer).origin; } catch { /* no referrer */ }
+      if (anc.includes(tf) || ref === tf || (typeof embeddedAuthCtl !== 'undefined' && embeddedAuthCtl.getToken())) { menu.hidden = true; return; }
+    } catch { /* script globals not ready yet: show the chip */ }
     const id = identity();
     menu.hidden = false;
     $('accountLogin').style.display = id ? 'none' : 'inline-flex';
@@ -2075,4 +2083,4 @@ if (state.full) {
 setInterval(tickTimes, 1000);
 </script>
 </body>
-        </html>
+                         </html>
