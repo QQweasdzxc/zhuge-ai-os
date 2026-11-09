@@ -194,85 +194,44 @@ root.outerHTML='<section class="world expedition-world" id="worldMap" aria-label
  }
 })();
 
-/* Hero board (lighthouse): family-only, real cloud data, total-XP order. Weekly board is a future proposal. */
+/* Family-only lighthouse board. User-approved separate cumulative island XP and earned coins. */
 (function(){
  const API='https://lenpbbhwxyyfwgvjcozf.supabase.co/functions/v1/learning-adventure-cloud';
- const overlay=document.getElementById('heroBoardOverlay');
- const card=document.getElementById('heroBoardCard');
+ const overlay=document.getElementById('heroBoardOverlay'),card=document.getElementById('heroBoardCard');
  if(!overlay||!card)return;
- /* Ranking basis approved 11/9 (user 1794193497.537179): SEPARATE cumulative per-island boards
-   (成語島 by islandXP.chengyu, 英文島 by islandXP.vocab). Not combined, not weekly. */
- const RANK_BASIS_APPROVED=true;
- /* Activation held 11/9: real-data integration/isolation verification pending backend access route.
-   Until live, the board shows an honest preparation state and makes ZERO cloud calls. */
- const HERO_BOARD_LIVE=false;
- const AVA_COLORS=['#e8833a','#7a6ce0','#3fa56b','#d0577e','#3d8fc4','#c4a23d','#8a6ce0','#4aa88f'];
- function token(){
-  try{const t=new URLSearchParams(location.hash.slice(1)).get('f')||'';return /^[A-Za-z0-9_-]{40,128}$/.test(t)?t:''}catch(e){return ''}
+ const modes=[{key:'vocabXP',label:'英文',unit:'XP'},{key:'chengyuXP',label:'成語',unit:'XP'},{key:'earnedCoins',label:'累積獲得金幣',unit:'金幣'}];
+ let generation=0,rows=null,active=0,opener=null;
+ const extra=document.createElement('style');extra.textContent='.hb-tabs{display:flex;gap:6px;margin:14px 0}.hb-tabs button{flex:1;min-height:44px;border:1px solid #c7b57d;border-radius:9px;background:#eee3c5;color:#4b5270;font-size:13px;font-weight:700;padding:8px 6px;cursor:pointer}.hb-tabs button[aria-selected="true"]{background:#25365e;color:#fff2cb;border-color:#25365e}.hb-board td:first-child{overflow-wrap:anywhere;white-space:normal}.hb-board th:nth-child(2),.hb-board td:nth-child(2){white-space:nowrap}.hb-board tr.hb-tied .hb-rank{color:#8b6b28}.hb-card:focus{outline:none}.hb-card .hb-sub{line-height:1.6}.hb-note{line-height:1.7}.hb-board caption{text-align:left;margin:0 0 10px;font-weight:700;color:#314468;font-size:14px}';document.head.appendChild(extra);
+ function token(){try{const t=new URLSearchParams(location.hash.slice(1)).get('f')||'';return /^[A-Za-z0-9_-]{40,128}$/.test(t)?t:''}catch(e){return ''}}
+ function head(){return '<h2>'+IC.trophy+'英雄榜</h2><div class="hb-sub">家庭燈塔 · 各自累積，不混合比較</div>'}
+ function closeButton(){return '<button class="hb-close" type="button" id="hbClose">關閉</button>'}
+ function wireClose(){document.getElementById('hbClose').onclick=hide}
+ function hide(){generation++;overlay.hidden=true;document.body.style.overflow='';if(opener)opener.focus()}
+ function state(msg){card.innerHTML=head()+'<div class="hb-state" role="status">'+msg+'</div>'+closeButton();wireClose();document.getElementById('hbClose').focus()}
+ function render(focusTab=false){
+  const mode=modes[active],list=rows.slice().sort((a,b)=>b[mode.key]-a[mode.key]||a.order-b.order);
+  let html=head()+'<div class="hb-tabs" role="tablist" aria-label="排行榜類別">';
+  modes.forEach((m,i)=>html+='<button type="button" role="tab" id="hbTab'+i+'" aria-controls="hbPanel" aria-selected="'+(active===i)+'" tabindex="'+(active===i?0:-1)+'" data-hb-tab="'+i+'">'+esc(m.label)+'</button>');
+  html+='</div><div class="hb-board" id="hbPanel" role="tabpanel" aria-labelledby="hbTab'+active+'"><table><caption>'+esc(mode.label)+(active===2?'':'島 · 累積 XP')+'</caption><thead><tr><th scope="col">冒險者</th><th scope="col">'+esc(mode.unit)+'</th></tr></thead><tbody>';
+  let last=null,rank=0;
+  list.forEach((r,i)=>{const value=r[mode.key];if(value!==last)rank=i+1;last=value;html+='<tr><td><span class="hb-rank">'+rank+'</span><span class="hb-ava" style="background:#526e99">'+esc(Array.from(r.name)[0]||'?')+'</span>'+esc(r.name)+'</td><td><strong>'+value.toLocaleString('zh-TW')+'</strong></td></tr>'});
+  if(!list.length)html+='<tr><td colspan="2" class="hb-state">還沒有冒險者完成角色連結。選好玩家後再來看看。</td></tr>';
+  html+='</tbody></table></div><p class="hb-note">'+(active===2?'只計登入、通關與每日任務實際獲得的金幣。兌換不扣排名，退還的金幣也不會重複加分。':'依這座島的累積 XP 排名，不和另一座島相加。')+'同分並列；只顯示這個家庭。每次打開燈塔會重新讀取。</p>'+closeButton();
+  card.innerHTML=html;wireClose();
+  card.querySelectorAll('[data-hb-tab]').forEach(btn=>{btn.onclick=()=>{active=Number(btn.dataset.hbTab);render(true)};btn.onkeydown=e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();active=e.key==='Home'?0:e.key==='End'?2:(active+(e.key==='ArrowRight'?1:2))%3;render(true)}});
+  if(focusTab)document.getElementById('hbTab'+active).focus();
  }
- async function call(action,more){
-  const body=Object.assign({action:action,world:'chengyu',token:token()},more||{});
-  const res=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',body:JSON.stringify(body)});
-  const data=await res.json().catch(()=>null);
-  if(!res.ok||!data||data.ok!==true)throw new Error((data&&data.error)||'雲端連線暫時失敗');
-  return data;
+ async function show(e){
+  opener=e?.currentTarget||document.activeElement;const current=++generation;rows=null;active=0;overlay.hidden=false;document.body.style.overflow='hidden';
+  const tk=token();if(!tk){state('請先從自己的家庭入口進入並選擇玩家。<br>這裡不提供公開或跨家庭的榜單。');return}
+  state(IC.cloud+'正在讀取家庭排行榜…');
+  try{const res=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',body:JSON.stringify({action:'leaderboard',world:'chengyu',token:tk})});const data=await res.json();
+   if(current!==generation||overlay.hidden)return;
+   if(!res.ok||data.ok!==true||!Array.isArray(data.players))throw Error('unavailable');
+   rows=data.players.map((r,i)=>{if(typeof r.name!=='string'||modes.some(m=>!Number.isSafeInteger(r[m.key])||r[m.key]<0))throw Error('incomplete');return {...r,order:i}});render(true);
+  }catch(e){if(current!==generation||overlay.hidden)return;state('暫時讀不到完整的家庭榜單。<br>沒有把缺少的資料當成 0 分，請稍後再打開燈塔。')}
  }
- function head(title,sub){return '<h2>'+IC.trophy+esc(title)+'</h2><div class="hb-sub">'+esc(sub)+'</div>'}
- function renderState(title,sub,msg){
-  card.innerHTML=head(title,sub)+'<div class="hb-state">'+msg+'</div><button class="hb-close" type="button" id="hbClose">關閉</button>';
-  wireClose();
- }
- function wireClose(){
-  const b=document.getElementById('hbClose');
-  if(b)b.onclick=hide;
- }
- function hide(){overlay.hidden=true;document.body.style.overflow=''}
- function show(){
-  overlay.hidden=false;document.body.style.overflow='hidden';
-  const tk=token();
-  if(!tk){renderState('英雄榜','燈塔英雄榜 · 兩島分開排名',IC.compass+'請從家庭專屬網址（網址含 #f= 金鑰）進入總部，<br>就能看到家人彼此的冒險排名喔！');return}
-  if(!HERO_BOARD_LIVE){renderState('英雄榜','燈塔英雄榜 · 兩島分開排名',IC.hourglass+'英雄榜正在準備中！<br>排名方式已經決定好了：成語島、英文島會分開排名；等資料連線完成，這裡就會即時顯示家人的冒險成績。');return}
-  if(!RANK_BASIS_APPROVED){renderState('英雄榜','燈塔英雄榜 · 兩島分開排名',IC.hourglass+'排名方式已確認：成語島、英文島各自分開排名；等資料連線完成，這裡就會即時顯示各島榜單。<br>「每週挑戰榜」需要新的記錄方式才會公平，確定後才會推出。');return}
-  card.innerHTML=head('英雄榜','燈塔英雄榜 · 兩島分開排名')+'<div class="hb-state">'+IC.cloud+'正在從家庭雲端讀取冒險者的 XP…</div><button class="hb-close" type="button" id="hbClose">關閉</button>';
-  wireClose();
-  load(tk);
- }
- async function load(tk){
-  try{
-   const data=await call('listPlayers');
-   const players=(data.players||[]).slice(0,8);
-   if(!players.length){renderState('英雄榜','燈塔英雄榜 · 兩島分開排名','還沒有冒險者加入。選好玩家、完成一座島的挑戰後，名字就會登上燈塔！');return}
-   const rows=[];
-   for(const p of players){
-    try{
-     const s=await call('load',{learnerId:p.id});
-     const h=s.hero||{};
-     rows.push({name:h.name||p.name||'冒險者',lv:Number(h.level)||1,xp:Number(h.totalXP)||0,cy:Number(s.islandXP&&s.islandXP.chengyu)||0,vo:Number(s.islandXP&&s.islandXP.vocab)||0});
-    }catch(e){
-     rows.push({name:p.name||'冒險者',lv:null,xp:null,cy:null,vo:null});
-    }
-   }
-   rows.forEach((r,i)=>{r.color=AVA_COLORS[i%AVA_COLORS.length]});
-   function board(icon,label,key){
-    const list=rows.slice().sort((a,b)=>(b[key]||0)-(a[key]||0));
-    let h='<div class="hb-board"><h3>'+icon+esc(label)+'</h3><table><tr><th>冒險者</th><th>XP</th><th>總等級</th></tr>';
-    list.forEach((r,i)=>{
-     const initial=esc((r.name||'?').slice(0,1));
-     h+='<tr><td><span class="hb-rank">'+(i+1)+'</span><span class="hb-ava" style="background:'+r.color+'">'+initial+'</span>'+esc(r.name)+'</td>'+
-      '<td><strong>'+(r[key]==null?'—':r[key])+'</strong></td><td>'+(r.lv==null?'—':'Lv.'+r.lv)+'</td></tr>';
-    });
-    return h+'</table></div>';
-   }
-   let html=head('英雄榜','燈塔英雄榜 · 成語島、英文島分開排名');
-   html+='<div class="hb-boards">'+board(IC.book,'成語島','cy')+board(IC.abc,'英文島','vo')+'</div>';
-   html+='<p class="hb-note">依各島累積 XP 分開排名，從家庭雲端即時讀取，只有家人看得見。「每週挑戰榜」是未來的提議：需要新增每週記錄方式才會公平，確定後才會上線。</p>';
-   html+='<button class="hb-close" type="button" id="hbClose">關閉</button>';
-   card.innerHTML=html;
-   wireClose();
-  }catch(e){
-   renderState('英雄榜','燈塔英雄榜 · 兩島分開排名',IC.rain+'雲端連線暫時失敗：'+esc(e.message)+'<br>稍後再點一次燈塔試試。');
-  }
- }
+ document.addEventListener('keydown',e=>{if(overlay.hidden||e.key!=='Tab')return;const all=[...card.querySelectorAll('button:not([tabindex="-1"])')],first=all[0],last=all[all.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}});
  /* mobile: whole archipelago visible on open (no pan); hint mentions tapping */
 (function(){
  const stage=document.querySelector('.voyage-stage'),pan=document.querySelector('.voyage-pan');
