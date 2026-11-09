@@ -475,6 +475,15 @@
           <div class="pick-list" id="langList" role="listbox"></div>
         </div>
       </details>
+      <details class="settings menu" id="accountMenu" hidden>
+        <summary class="btn" aria-controls="accountPanel" id="accountSummary"><svg class="ui-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="3.6"/><path d="M4.8 20c.9-3.6 3.8-5.6 7.2-5.6s6.3 2 7.2 5.6"/></svg><span id="accountLabel">登入</span></summary>
+        <div class="settings-panel list-panel" id="accountPanel" style="width:min(260px,calc(100vw - 32px))">
+          <div class="setting-label" id="accountState" role="status" aria-live="polite"></div>
+          <a class="btn" id="accountLogin" target="_top" style="display:none;margin-top:8px;text-decoration:none;justify-content:center" href="https://qqweasdzxc.github.io/zhuge-ai-os/modules/worklog/?app=1&amp;workspace=dashboard&amp;previewReturn=1">使用 TRQN 登入</a>
+          <a class="btn" id="accountHome" target="_top" style="display:none;margin-top:8px;text-decoration:none;justify-content:center" href="https://qqweasdzxc.github.io/zhuge-ai-os/modules/worklog/?app=1&amp;workspace=dashboard">前往 TRQN</a>
+          <button class="btn" id="accountLogout" type="button" style="display:none;margin-top:8px;justify-content:center">登出</button>
+        </div>
+      </details>
       <details class="settings menu" id="settingsMenu">
         <summary class="btn" aria-controls="settingsPanel" data-a="settings"><svg class="ui-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.5-2-3.4-2.3.9a7.5 7.5 0 0 0-2.6-1.5L14.1 2.6h-4l-.4 2.4A7.5 7.5 0 0 0 7.1 6.5l-2.3-.9-2 3.4 2 1.5a7.6 7.6 0 0 0 0 3l-2 1.5 2 3.4 2.3-.9a7.5 7.5 0 0 0 2.6 1.5l.4 2.4h4l.4-2.4a7.5 7.5 0 0 0 2.6-1.5l2.3.9 2-3.4z"/></svg><span data-t="settings"></span></summary>
         <div class="settings-panel prefs-panel" id="settingsPanel">
@@ -530,6 +539,64 @@
 <div id="tfAuth" hidden style="position:fixed;left:50%;transform:translateX(-50%);z-index:60;background:#7a2e2e;color:#fff;padding:8px 14px;border-radius:8px;font-size:13px">需要登入 TRQN 才能讀取正式任務。<a style="color:#ffd9a0" target="_top" href="https://qqweasdzxc.github.io/zhuge-ai-os/modules/worklog/?app=1&amp;workspace=dashboard&amp;previewReturn=1">使用既有 TRQN 登入</a></div>
 <div class="tip" id="tip"></div>
 <div class="ver" id="ver"></div>
+<script>
+// Account entry: shows whether a TRQN session is stored on this origin and
+// offers the existing login page / logout. Reads only the display name from
+// the stored session; the token is never read into the DOM, logged or sent.
+// Logout removes the same local session keys as shared/auth/auth-service.js
+// clearStoredAuthSession(); it does not touch any server-side grant.
+(function () {
+  const SESSION_KEYS = ['zhuge_ai_os_google_auth_session_v1', 'wl_google_auth_session_v1', 'zhuge_ai_os_auth_provider_v1', 'zhuge_ai_os_session_v1'];
+  const VERIFIER_KEYS = ['zhuge_ai_os_pkce_code_verifier_v1', 'wl_google_pkce_code_verifier_v1', 'zhuge_ai_os_auth_verification_failed_v1'];
+  const menu = document.getElementById('accountMenu');
+  if (!menu) return;
+  const $ = (id) => document.getElementById(id);
+  function identity() {
+    for (const k of ['zhuge_ai_os_google_auth_session_v1', 'zhuge_ai_os_session_v1']) {
+      try {
+        const j = JSON.parse(localStorage.getItem(k) || 'null');
+        if (!j || typeof j.access_token !== 'string' || !j.access_token) continue;
+        const u = j.user || {}; const meta = u.user_metadata || {};
+        return { name: String(j.name || meta.full_name || meta.name || '').trim(), email: String(j.email || u.email || '').trim() };
+      } catch { /* invalid session counts as signed out */ }
+    }
+    return null;
+  }
+  function render() {
+    // Hidden only when TaskFlow itself embeds the office (it delivers its own
+    // token). The standalone root shell also frames this page, so a plain
+    // "has a parent" test would wrongly hide the chip there.
+    try {
+      const tf = TfSource.EMBEDDED_PARENT_ORIGIN;
+      const anc = location.ancestorOrigins ? Array.from(location.ancestorOrigins) : [];
+      let ref = ''; try { ref = new URL(document.referrer).origin; } catch { /* no referrer */ }
+      if (anc.includes(tf) || ref === tf || (typeof embeddedAuthCtl !== 'undefined' && embeddedAuthCtl.getToken())) { menu.hidden = true; return; }
+    } catch { /* script globals not ready yet: show the chip */ }
+    const id = identity();
+    menu.hidden = false;
+    $('accountLogin').style.display = id ? 'none' : 'inline-flex';
+    $('accountHome').style.display = id ? 'inline-flex' : 'none';
+    $('accountLogout').style.display = id ? 'inline-flex' : 'none';
+    if (id) {
+      const who = id.name || id.email || 'TRQN';
+      $('accountLabel').textContent = who.length > 10 ? who.slice(0, 10) + '…' : who;
+      $('accountState').textContent = '已登入：' + (id.email && id.name ? id.name + '（' + id.email + '）' : who);
+    } else {
+      $('accountLabel').textContent = '登入';
+      $('accountState').textContent = '尚未登入 TRQN';
+    }
+  }
+  $('accountLogout').addEventListener('click', () => {
+    for (const k of SESSION_KEYS.concat(VERIFIER_KEYS)) { try { localStorage.removeItem(k); } catch { /* best effort */ } }
+    render();
+    try { location.reload(); } catch { /* ignore */ }
+  });
+  addEventListener('storage', render);
+  addEventListener('focus', render);
+  addEventListener('load', render);
+  render();
+})();
+</script>
 <script src="i18n.js"></script>
 <script src="office.js"></script>
 <script>
@@ -2016,4 +2083,4 @@ if (state.full) {
 setInterval(tickTimes, 1000);
 </script>
 </body>
-  </html>
+                         </html>
