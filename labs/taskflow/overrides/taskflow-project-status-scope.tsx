@@ -100,6 +100,17 @@ export function excludeTaskFlowProjectStatuses<T extends { key: string }>(entrie
   return entries.filter((entry) => !isTaskFlowProjectStatusKey(entry.key));
 }
 
+/** The native reorder API requires every active row in the category. */
+export function mergeTaskFlowWorkspaceStatusOrder<T extends { key: string }>(
+  allEntries: readonly T[],
+  visibleOrder: readonly T[],
+): T[] {
+  let index = 0;
+  return allEntries.map((entry) => isTaskFlowProjectStatusKey(entry.key)
+    ? entry
+    : visibleOrder[index++] ?? entry);
+}
+
 /** Filter only assignable columns; retain the full label lookup for historic rows. */
 export function scopeTaskFlowStatusCatalog(
   catalog: IssueStatusCatalog,
