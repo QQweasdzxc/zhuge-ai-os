@@ -632,3 +632,7 @@ html[data-theme="light"] .worklog-brand-wordmark{color:#1d2430}
   html[data-theme="system"] .worklog-brand-loader p{color:#687386}
   html[data-theme="system"] .worklog-brand-wordmark{color:#1d2430}
 }
+
+/* TRQN login: enlarged, centered wordmark and centered intro; the form below stays as is. */
+.auth-panel > h1,.auth-panel > .muted,.auth-panel > p{text-align:center}
+.auth-panel .auth-logo{display:block;width:min(370px,80%);height:auto;margin:0 auto 6px;filter:drop-shadow(0 0 12px rgba(45,212,191,.45))}
