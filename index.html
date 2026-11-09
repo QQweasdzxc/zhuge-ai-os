@@ -58,6 +58,7 @@
   var timer = 0;
   function set(collapsed) {
     intro.classList.toggle('collapsed', collapsed);
+    document.body.classList.toggle('intro-collapsed', collapsed);
     btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
   }
   btn.addEventListener('click', function () { clearTimeout(timer); set(!intro.classList.contains('collapsed')); });
