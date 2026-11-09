@@ -484,30 +484,96 @@ window.ArchipelagoCatalog={mount({container,request}){
  }
  return{destroy(){alive=false;parentSession=null;parentExpires=0;root.remove();container.hidden=true;}};
 }};
-</script></head>
+</script><style>/* v3.3.0 map-first: corner dock + drawers */
+.cloud-status{margin:14px auto 4px;text-align:center;font-size:12px;color:#7e90b8}
+.world{margin-top:6px}
+.dock{position:fixed;right:18px;bottom:18px;z-index:40;display:flex;flex-direction:column;gap:12px}
+.dock-chip{position:relative;width:62px;height:62px;border-radius:18px;border:3px solid #3c4b7a;background:#fff7e7;box-shadow:0 4px 0 #253656,0 8px 18px rgba(20,30,60,.35);font-size:29px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .15s;padding:0}
+.dock-chip:hover{transform:translateY(-3px)}
+.dock-chip:active{transform:translateY(1px)}
+.dock-chip:focus-visible{outline:3px solid #ffdf75;outline-offset:3px}
+.dock-chip-label{position:absolute;right:72px;top:50%;transform:translateY(-50%);background:#192a54;color:#d7e6fe;border:2px solid #7895bb;border-radius:6px;padding:4px 8px;font-size:10px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .15s}
+.dock-chip:hover .dock-chip-label,.dock-chip:focus-visible .dock-chip-label{opacity:1}
+#chipFace{width:44px;height:44px;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:12px;font-size:30px}
+#chipFace .profile-portrait{width:100%!important;height:100%!important;border-radius:9px}
+.drawer{position:fixed;inset:0;z-index:45;background:rgba(11,19,52,.55)}
+.drawer-card{position:absolute;right:16px;bottom:96px;width:min(370px,calc(100vw - 32px));max-height:min(78vh,640px);overflow-y:auto;padding:18px;background:#fff7e7;color:#2c3a5e}
+.drawer-close{position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:9px;border:2px solid #3c4b7a;background:#e5eefc;font-size:15px;cursor:pointer;color:#2c4274}
+.drawer-close:focus-visible{outline:3px solid #ffdf75;outline-offset:2px}
+.drawer-section{margin-top:16px;border-top:2px dashed #c9d4ec;padding-top:12px}
+.drawer-section h3{margin:0 0 8px;font-size:16px}
+.drawer-note{font-size:12px;color:#64718b;line-height:1.7;margin:6px 0 10px}
+.quest-mini{display:block}
+.quest-mini-row{display:flex;align-items:center;gap:9px;padding:8px;border:2px solid #d8cfae;border-radius:8px;background:#fffdf4;text-decoration:none;color:#2c3a5e;font-size:12px;margin-top:6px}
+.quest-mini-row svg{width:19px;height:19px;color:#3c4b7a;flex:none}
+.quest-mini-row .qmr-text{flex:1;line-height:1.35}
+.quest-mini-row .qmr-go{font-size:16px;color:#8a7a4a}
+.quest-mini-row:active{background:#f3ecd7}
+.quest-more{margin-top:7px;font-size:10px;color:#64718b}
+.quest-more summary{cursor:pointer;font-size:10px;padding:2px 0}
+.quest-icon svg{width:24px;height:24px;display:block}
+.m-topbar{display:none}
+.m-bar{display:none}
+.m-coins{display:flex;align-items:center;gap:5px;background:rgba(16,26,48,.85);border:2px solid #3c4b7a;border-radius:12px;padding:6px 12px;color:#ffd873;font-weight:900;font-size:13px;box-shadow:0 3px 0 #0a1430;pointer-events:none}
+.m-coins svg{width:17px;height:17px}
+.drawer-card .profile{padding:14px}
+.quest-title{margin:0 0 4px;font-size:19px}
+.quest-reset{margin:0 0 12px;font-size:12px;color:#3f7a4d;font-weight:900}
+.quest-list{display:flex;flex-direction:column;gap:12px}
+.quest-card{display:block;text-decoration:none;color:inherit;background:#fffdf6;border:3px solid #d8c49a;border-radius:10px;box-shadow:3px 3px 0 #cbb894;padding:12px 13px;text-align:left;font:inherit;cursor:pointer;width:100%}
+.quest-head{display:flex;align-items:center;gap:9px;font-size:16px}
+.quest-icon{font-size:22px}
+.quest-goal{margin:6px 0 8px;font-size:12.5px;color:#5b6785;line-height:1.55}
+.quest-bar{height:16px;border-radius:8px;background:#e8dcc0;border:2px solid #c9b894;overflow:hidden}
+.quest-bar span{display:block;height:100%;background:linear-gradient(90deg,#e0884f,#c96a2e);border-radius:6px}
+.quest-meta{display:flex;justify-content:space-between;align-items:center;margin-top:7px;font-size:12px}
+.quest-progress{font-weight:900;color:#8a5a2b}
+.quest-reward{font-weight:900;color:#3f7a4d}
+.quest-card.locked{opacity:.72}
+.quest-card:hover{border-color:#b89a62}
+.quest-card:focus-visible{outline:3px solid #ffdf75;outline-offset:2px}
+@media(max-width:690px){.dock{display:none}.drawer-card{left:12px;right:12px;bottom:88px;width:auto}
+.drawer.peek{background:none;pointer-events:none}.drawer.peek .drawer-card{pointer-events:auto}
+#tasksDrawer .drawer-card{left:10px;right:auto;bottom:calc(72px + env(safe-area-inset-bottom,0px));width:min(264px,70vw);max-height:none;overflow:visible;padding:9px 11px}
+#tasksDrawer .quest-full{display:none}#tasksDrawer .quest-mini{display:block}
+#tasksDrawer .quest-title{font-size:13px;margin:0 26px 1px 0}#tasksDrawer .quest-tag{font-size:9px}#tasksDrawer .quest-reset{display:none}
+.m-topbar{display:flex;position:fixed;top:calc(8px + env(safe-area-inset-top,0px));left:10px;right:10px;z-index:35;pointer-events:none}
+.m-player{margin-left:auto;pointer-events:auto;display:flex;align-items:center;gap:9px;background:rgba(16,26,48,.85);border:2px solid #3c4b7a;border-radius:12px;padding:5px 14px 5px 6px;color:#eaf2ff;box-shadow:0 3px 0 #0a1430;cursor:pointer;max-width:78vw;font:inherit}
+.m-face{width:34px;height:34px;border-radius:9px;overflow:hidden;background:#fff7e7;display:flex;align-items:center;justify-content:center;flex:none;color:#3c4b7a;position:relative}
+.m-face>svg{width:24px;height:24px}
+.m-face .profile-portrait{position:absolute;inset:0;width:100%;height:100%}
+.m-pinfo{display:flex;flex-direction:column;gap:3px;min-width:0;text-align:left}
+.m-pinfo strong{font-size:13px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:44vw}
+.m-lvline{display:flex;align-items:center;gap:6px;font-size:9px;color:#9fc3e8;white-space:nowrap}
+.m-xpbar{width:72px;height:7px;border-radius:4px;background:#22345c;border:1px solid #48608c;overflow:hidden;display:inline-block}
+.m-xpbar i{display:block;height:100%;width:0%;background:linear-gradient(90deg,#ffd873,#ff9d5c)}
+.m-bar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:35;background:rgba(13,22,42,.93);border-top:3px solid #2e4a5f;padding:6px 10px calc(7px + env(safe-area-inset-bottom,0px));gap:8px;justify-content:space-around}
+.m-bar button{display:flex;flex-direction:column;align-items:center;gap:2px;background:#1b2c50;border:2px solid #3c4b7a;border-radius:12px;color:#d7e6fe;font-size:9px;padding:5px 0 4px;min-width:58px;flex:0 1 76px;cursor:pointer;font:inherit}
+.m-bar button svg{width:21px;height:21px}
+.m-bar button:active{transform:translateY(1px)}
+.m-bar button:focus-visible{outline:3px solid #ffdf75;outline-offset:2px}}
+
+/* v3.3.0b reliable chip glyphs + quest proposal tag */
+.dock-chip .chip-ic{display:flex;width:30px;height:30px;color:#3c4b7a}
+.dock-chip .chip-ic svg{width:100%;height:100%}
+#chipFace svg{width:32px;height:32px;color:#8eaae0}
+.quest-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.quest-title svg{width:22px;height:22px;color:#8a5a2b}
+.quest-tag{font-size:10px;background:#fff3d6;border:2px solid #d9b96a;color:#8a6a1f;border-radius:5px;padding:2px 6px;font-weight:900;letter-spacing:.05em}
+
+#chipFace .profile-portrait{background-color:#dce7f4;background-size:225% 676.65%;background-repeat:no-repeat;background-position:var(--portrait-x) var(--portrait-y)}
+#chipFace .profile-portrait.boy{background-image:var(--hero-profile-master)}
+#chipFace .profile-portrait.girl{background-image:var(--hero-profile-layer),var(--hero-profile-master)}
+
+[hidden]{display:none!important}.drawer{z-index:80}.drawer-card{box-sizing:border-box;padding-top:48px;max-height:calc(100dvh - 110px)}.drawer-close{width:44px;height:44px;z-index:2}.drawer-card .profile{display:flex;flex-direction:column;gap:12px}.drawer-card .profile-main{display:grid;grid-template-columns:1fr 1fr;gap:12px}.drawer-card .avatar{width:100%;height:auto;aspect-ratio:384/227}.drawer-card .lv-box{width:100%}.drawer-card .coin-panel{margin:0;padding:10px}.drawer-card .coin-summary{flex-wrap:wrap}.drawer-card .profile-head{padding-right:4px}.drawer-card .btn{white-space:normal}.m-coins{pointer-events:auto;cursor:pointer}.footer{font-size:10px;margin-top:14px}.topbar{padding-top:12px}.cloud-status{display:none}.dock-chip{min-width:44px;min-height:44px}.drawer-card button{min-height:44px}#profileClose{position:absolute;float:none;top:4px;right:4px;margin:0}.quest-tag{font-size:9px}#tasksDrawer .drawer-card{padding-top:12px}#tasksDrawer .drawer-close{top:4px;right:4px}#tasksDrawer .quest-title{margin-right:42px}.drawer-card:focus{outline:none}@media(max-width:690px){html,body{height:100%;overflow:hidden}.topbar,.footer{display:none}.site{min-height:100dvh}.m-bar button{font-size:11px;min-height:52px}.m-topbar{gap:8px;align-items:flex-start}.m-player{padding-right:9px;max-width:66vw}.m-coins{padding:8px}.m-pinfo strong{max-width:38vw}.drawer-card{bottom:calc(78px + env(safe-area-inset-bottom,0px));max-height:calc(100dvh - 100px)}.drawer-card .profile{padding:0}.drawer-card .hero-name{font-size:20px}.drawer-card .hero-rank{font-size:12px}.drawer-card .profile-head strong{font-size:12px}.drawer-card .profile-switch{font-size:11px}.drawer-card .level-line{flex-wrap:wrap}.drawer-card .profile .btn{font-size:12px}.m-bar{box-sizing:border-box}.m-coins{font-size:12px}#shopDrawer .drawer-card{padding:48px 10px 10px}#shopClose{top:4px}#shopDrawer .coin-panel{border:0}.quest-mini-row{min-height:44px}}
+</style></head>
 <body>
 <div class="site"><div class="wrap">
 <header class="topbar">
   <a class="brand" href="#" aria-label="學習冒險群島首頁"><span class="brand-gem">💎</span><span><strong>學習冒險群島</strong><small class="pixel">LEARNING ARCHIPELAGO</small></span></a>
   <span class="pill pixel">FAMILY RPG · V1.7.0</span>
 </header>
-<main>
-<section class="hero" aria-label="冒險總部">
- <div class="hero-intro pixel-panel">
-  <span class="kicker pixel">WELCOME TO YOUR NEXT ADVENTURE</span>
-  <h1>知識就是<br>你的冒險力量！</h1>
-  <p class="intro" id="welcomeMessage">來到學習冒險群島，挑選自己的冒險者，準備乘船出發！</p>
-  <div class="actions"><button class="btn" id="goExplore" type="button">🎮 開始冒險</button></div>
-  <p id="connect" role="status">☁️ 準備連接家庭冒險雲端…</p>
- </div>
- <div class="profile pixel-panel" aria-live="polite">
-  <div class="profile-head"><strong>⭐ MY HERO / 冒險者檔案</strong><button class="profile-switch" id="changePlayer" type="button" hidden>👥 切換玩家</button></div>
-  <div class="profile-main"><div class="avatar" id="avatar" aria-hidden="true">🧙</div><div><div class="hero-name" id="heroName">等待勇士加入</div><div class="hero-rank" id="heroRole">選擇玩家後開始冒險</div><button class="btn small secondary" id="roleButton" type="button" hidden>🎭 選擇職業</button></div></div>
-  <div class="lv-box"><div class="level-line"><strong id="heroLv">LV. 1｜見習冒險者</strong><span id="heroXP">0 XP</span></div><div class="bar" aria-label="升級經驗進度"><span id="xpBar"></span></div><p id="heroHint">選好角色後，所有島嶼的 XP 都會累積在一起。</p><button class="btn small mint" id="examButton" type="button" hidden>🏰 前往晉級試煉</button></div>
- </div>
-</section>
-<div id="coinCatalog" hidden></div>
-<section class="world" aria-label="世界地圖">
+<main><section class="world" aria-label="世界地圖">
  <div class="section-label"><div><h2>🗺️ 冒險群島世界地圖</h2><p>選一座島嶼，開始今天的知識冒險</p></div><span class="pixel pill">CHAPTER 01 · FIRST VOYAGE</span></div>
  <div class="world-map">
   <div class="map-head"><strong>🌊 夢想之海 · 01 區域</strong><span class="compass" aria-hidden="true">✧ N ✧</span></div>
@@ -522,21 +588,56 @@ window.ArchipelagoCatalog={mount({container,request}){
   <div class="map-footer"><span>⛵ 已開放 2 / 6 座學習島</span><span>✨ 同一位冒險者，所有島嶼共用總 XP</span></div>
  </div>
 </section>
-<section class="bottom" aria-label="冒險資訊">
- <div class="bottom-card pixel-panel"><h3>🎒 今日冒險指南</h3><p>先到任一島嶼完成練習，收集成語知識或英文單字。想升級時，記得回總部參加綜合試煉。</p><p><span class="chip">XP 每答對 +10</span> <span class="chip">完成回合 +20</span> <span class="chip">晉級試煉需 8/10</span></p></div>
- <div class="bottom-card pixel-panel"><h3>📜 冒險歷程</h3><div class="stat-row"><span>📖 成語島累積</span><strong id="idiomXP">— XP</strong></div><div class="stat-row"><span>🔤 英文島累積</span><strong id="englishXP">— XP</strong></div><div class="stat-row"><span>🏆 已通過晉級試煉</span><strong id="examWins">— 次</strong></div></div>
- <section class="bottom-card pixel-panel" aria-label="家長觀察室" style="margin-bottom:32px">
-  <h3 style="margin:0 0 8px">📊 家長觀察室</h3>
-  <p style="font-size:13px;line-height:1.8;color:#64718b;margin:7px 0 14px">原本的雲端歷史成績、正確率與錯題都保留在各學習島。前往島內的「家長成績」即可查看，玩家身分會由總部帶入。</p>
-  <div class="actions">
-   <a class="btn secondary" id="parentChengyuLink" href="https://chengyu-quest-family.onrender.com/">📖 成語成績</a>
-   <a class="btn secondary" id="parentEnglishLink" href="https://vocab-quest-family.onrender.com/">🔤 英文成績</a>
-  </div>
- </section>
-</main>
-<footer class="footer">學習冒險群島 · BUILD 2026.11.09.05 · 家庭雲端紀錄由 Supabase 保存<br>本網站不要求登入；家庭專用網址含私人存取金鑰，請只分享給家人。</footer>
+<div hidden aria-hidden="true"><p id="connect"></p><p id="welcomeMessage"></p><button id="goExplore"></button></div></main><footer class="footer">學習冒險群島 · BUILD 2026.11.09.07 · 家庭雲端紀錄由 Supabase 保存<br>本網站不要求登入；家庭專用網址含私人存取金鑰，請只分享給家人。</footer>
 </div></div>
-<div class="overlay" id="overlay" hidden><section class="dialog" id="dialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle"></section></div>
+<div class="dock" aria-label="快捷入口">
+ <button class="dock-chip" id="shopChip" type="button" aria-label="金幣商店"><span class="chip-ic" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="#ffd873" stroke="#8a6d1f" stroke-width="2"/><circle cx="12" cy="12" r="5.5" fill="none" stroke="#c9982f" stroke-width="1.6"/><path d="M12 8.8l.9 1.9 2.1.3-1.5 1.5.3 2.1-1.8-1-1.8 1 .3-2.1-1.5-1.5 2.1-.3z" fill="#c9982f"/></svg></span><span class="dock-chip-label pixel">金幣商店</span></button>
+ <button class="dock-chip" id="tasksChip" type="button" aria-label="今日任務"><span class="chip-ic" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7V6a4 4 0 0 1 8 0v1h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2zm2 0h4V6a2 2 0 0 0-4 0v1zm-2 5v3h8v-3h-3v1h-2v-1H8z" fill="currentColor"/></svg></span><span class="dock-chip-label pixel">今日任務</span></button>
+ <button class="dock-chip" id="profileChip" type="button" aria-label="冒險者檔案"><span id="chipFace" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" fill="currentColor"/><path d="M4 20c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5v1H4v-1z" fill="currentColor"/></svg></span><span class="dock-chip-label pixel">冒險者</span></button>
+</div>
+<div class="m-topbar"><span class="m-coins" id="mCoins"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="#ffd873" stroke="#8a6d1f" stroke-width="2"/><circle cx="12" cy="12" r="5.5" fill="none" stroke="#c9982f" stroke-width="1.6"/><path d="M12 8.8l.9 1.9 2.1.3-1.5 1.5.3 2.1-1.8-1-1.8 1 .3-2.1-1.5-1.5 2.1-.3z" fill="#c9982f"/></svg><b id="mCoinsN">—</b></span><button class="m-player" id="mPlayerBtn" type="button" aria-label="開啟冒險者檔案"><span class="m-face" id="mFace"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" fill="currentColor"/><path d="M4 20c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5v1H4v-1z" fill="currentColor"/></svg></span><span class="m-pinfo"><strong id="mName">冒險者</strong><span class="m-lvline"><span id="mLv">訪客</span><span class="m-xpbar" aria-hidden="true"><i id="mXpFill"></i></span></span></span></button></div>
+<nav class="m-bar" aria-label="常用功能">
+ <button type="button" id="mTasksBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7V6a4 4 0 0 1 8 0v1h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2zm2 0h4V6a2 2 0 0 0-4 0v1zm-2 5v3h8v-3h-3v1h-2v-1H8z" fill="currentColor"/></svg><span>任務</span></button>
+ <button type="button" id="mBoardBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v2h3v3a5 5 0 0 1-5 5h-.4A6 6 0 0 1 13 15.9V18h3v3H8v-3h3v-2.1A6 6 0 0 1 8.4 13H8a5 5 0 0 1-5-5V5h3V3zm-1 4v1a3 3 0 0 0 3 3V7H5zm14 0h-3v4a3 3 0 0 0 3-3V7z" fill="currentColor"/></svg><span>英雄榜</span></button>
+ <button type="button" id="mShopBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="#ffd873" stroke="#8a6d1f" stroke-width="2"/><circle cx="12" cy="12" r="5.5" fill="none" stroke="#c9982f" stroke-width="1.6"/><path d="M12 8.8l.9 1.9 2.1.3-1.5 1.5.3 2.1-1.8-1-1.8 1 .3-2.1-1.5-1.5 2.1-.3z" fill="#c9982f"/></svg><span>商店</span></button>
+ <button type="button" id="mProfileBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" fill="currentColor"/><path d="M4 20c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5v1H4v-1z" fill="currentColor"/></svg><span>我的</span></button>
+</nav>
+<div class="drawer" id="profileDrawer" hidden>
+ <div class="drawer-card pixel-panel" role="dialog" aria-modal="true" aria-label="冒險者檔案">
+  <button class="drawer-close" id="profileClose" type="button" aria-label="關閉">✕</button>
+  <div class="profile" aria-live="polite">
+  <div class="profile-head"><strong>⭐ MY HERO / 冒險者檔案</strong><button class="profile-switch" id="changePlayer" type="button" hidden>👥 切換玩家</button></div>
+  <div class="profile-main"><div class="avatar" id="avatar" aria-hidden="true">🧙</div><div><div class="hero-name" id="heroName">等待勇士加入</div><div class="hero-rank" id="heroRole">選擇玩家後開始冒險</div><button class="btn small secondary" id="roleButton" type="button" hidden>🎭 選擇職業</button></div></div>
+  <div class="lv-box"><div class="level-line"><strong id="heroLv">LV. 1｜見習冒險者</strong><span id="heroXP">0 XP</span></div><div class="bar" aria-label="升級經驗進度"><span id="xpBar"></span></div><p id="heroHint">選好角色後，所有島嶼的 XP 都會累積在一起。</p><button class="btn small mint" id="examButton" type="button" hidden>🏰 前往晉級試煉</button></div>
+ </div>
+  <div class="drawer-section"><h3>📜 冒險歷程</h3>
+   <div class="stat-row"><span>📖 成語島累積</span><strong id="idiomXP">— XP</strong></div>
+   <div class="stat-row"><span>🔤 英文島累積</span><strong id="englishXP">— XP</strong></div>
+   <div class="stat-row"><span>🏆 已通過晉級試煉</span><strong id="examWins">— 次</strong></div>
+  </div>
+  <div class="drawer-section"><h3>🏆 英雄榜</h3><p class="drawer-note">燈塔英雄榜：成語島、英文島各自分開排名。</p><button class="btn secondary" id="drawerBoardBtn" type="button">🏆 打開英雄榜</button></div>
+  <div class="drawer-section"><h3>📊 家長觀察室</h3>
+   <p class="drawer-note">雲端歷史成績、正確率與錯題保留在各學習島。前往島內的「家長成績」查看,玩家身分會由總部帶入。</p>
+   <div class="actions">
+    <a class="btn secondary" id="parentChengyuLink" href="https://chengyu-quest-family.onrender.com/">📖 成語成績</a>
+    <a class="btn secondary" id="parentEnglishLink" href="https://vocab-quest-family.onrender.com/">🔤 英文成績</a>
+   </div>
+  </div>
+ </div>
+</div>
+<div class="drawer" id="tasksDrawer" hidden>
+ <div class="drawer-card pixel-panel" role="dialog" aria-modal="true" aria-label="今日任務">
+  <button class="drawer-close" id="tasksClose" type="button" aria-label="關閉">✕</button>
+  <h3 class="quest-title"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7V6a4 4 0 0 1 8 0v1h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2zm2 0h4V6a2 2 0 0 0-4 0v1zm-2 5v3h8v-3h-3v1h-2v-1H8z" fill="currentColor"/></svg> 今日任務 <span class="quest-tag">練習入口</span></h3>
+  <p class="quest-reset">完成進度與獎勵規則確認後,才會接上每日重置。</p>
+  <div class="quest-mini">
+   <a class="quest-mini-row" data-quest="chengyu" href="https://chengyu-quest-family.onrender.com/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4a2 2 0 0 1 2-2h12v15H7a2 2 0 0 0-2 2V4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M19 17v5H7a2 2 0 0 1 0-4h12z" fill="currentColor" opacity=".28"/></svg><span class="qmr-text"><strong>成語島</strong> · 1 回合成語練習</span><span class="qmr-go" aria-hidden="true">›</span></a>
+   <a class="quest-mini-row" data-quest="english" href="https://vocab-quest-family.onrender.com/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18 12 4l6 14M8.4 13h7.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="qmr-text"><strong>英文島</strong> · 1 回合單字練習</span><span class="qmr-go" aria-hidden="true">›</span></a>
+   <details class="quest-more"><summary>每日獎勵尚未開放</summary><p class="drawer-note">每日任務進度與額外獎勵尚未開放。現在可先進島練習，原有答題 XP 不變。</p></details>
+  </div>
+ </div>
+</div>
+<div class="drawer" id="shopDrawer" hidden><div class="drawer-card pixel-panel" role="dialog" aria-modal="true" aria-label="金幣商店" tabindex="-1"><button class="drawer-close" id="shopClose" type="button" aria-label="關閉商店">✕</button><div id="coinCatalog" hidden></div><p id="shopGuest" hidden>請使用原本的家庭遊戲連結並選擇玩家，查看自己的金幣與商店。</p></div></div><div class="overlay" id="overlay" hidden><section class="dialog" id="dialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle"></section></div>
 <script src="./role-portraits.js?v=1.0.1"></script>
 <script src="./role-portraits-v2.js?v=1.2.0"></script>
 <script src="./favorite-poster.js?v=1.0.0"></script>
@@ -566,6 +667,7 @@ let token='',players=[],player=null,hero=null,stats=null,exam=null,examIndex=0,e
 try{token=new URLSearchParams(location.hash.slice(1)).get('f')||''}catch(e){}
 function isFamily(){return /^[A-Za-z0-9_-]{40,128}$/.test(token)}
 function show(html,mode){
+ document.dispatchEvent(new Event('archipelago:drawer-close'));
  lastMode=mode||'';
  if($('overlay').hidden)originalOverflow=document.body.style.overflow;
  $('dialog').innerHTML=html;
@@ -588,7 +690,7 @@ function childLink(world){
 function setLinks(){
  $('islandChengyu').href=childLink('chengyu');
  $('islandEnglish').href=childLink('vocab');
- document.querySelectorAll('.isometric-index a[data-world]').forEach(a=>{a.href=childLink(a.dataset.world)});
+ document.querySelectorAll('[data-world],[data-quest]').forEach(a=>{a.href=childLink((a.dataset.world||a.dataset.quest)==='chengyu'?'chengyu':'vocab')});
  $('parentChengyuLink').href=childLink('chengyu');
  $('parentEnglishLink').href=childLink('vocab');
 }
@@ -866,7 +968,69 @@ $('roleButton').onclick=()=>{if(!hero?.avatarStyle||hero?.profession)chooseAvata
 $('examButton').onclick=startExam;
 window.addEventListener('pageshow',()=>{if(player&&!$('overlay').hidden)return;if(player)refresh()});
 render();loadPlayers();
+/* v3.3.0 corner dock + drawers (profile/history/parent/board + daily tasks) */
+(function initDock(){
+ const pd=$('profileDrawer'),td=$('tasksDrawer'),chipFace=$('chipFace');
+ function openDrawer(which){
+  pd.hidden=which!=='profile';td.hidden=which!=='tasks';$('shopDrawer').hidden=which!=='shop';
+  document.body.style.overflow=(pd.hidden&&td.hidden&&$('shopDrawer').hidden)?'':'hidden';
+ }
+ $('profileClose').onclick=()=>openDrawer(null);
+ $('tasksClose').onclick=()=>openDrawer(null);
+ pd.onclick=e=>{if(e.target===pd)openDrawer(null)};
+ td.onclick=e=>{if(e.target===td)openDrawer(null)};
+ function syncChipFace(){
+  const av=$('avatar');if(!av)return;
+  const p=av.querySelector('.profile-portrait');if(!p)return;
+  const cs=getComputedStyle(p),c=p.cloneNode(true);
+  c.style.setProperty('--portrait-x',cs.getPropertyValue('--portrait-x'));
+  c.style.setProperty('--portrait-y',cs.getPropertyValue('--portrait-y'));
+  chipFace.innerHTML='';chipFace.appendChild(c);
+ }
+ new MutationObserver(syncChipFace).observe($('avatar'),{childList:true,subtree:true,characterData:true});
+ syncChipFace();
+ $('profileChip').onclick=()=>{
+  if(!hero){$('goExplore').click();return}
+  if(pd.hidden){syncChipFace();openDrawer('profile')}else openDrawer(null);
+ };
+ $('drawerBoardBtn').onclick=()=>{openDrawer(null);const b=document.getElementById('heroBoardBtn');if(b)b.click()};
+ function refreshTasks(){
+  const c=$('islandChengyu'),e=$('islandEnglish');
+  if(c){document.querySelectorAll('[data-quest=chengyu]').forEach(a=>{a.href=c.href})}
+  if(e){document.querySelectorAll('[data-quest=english]').forEach(a=>{a.href=e.href})}
+ }
+ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('overlay').hidden)openDrawer(null)});
+ $('tasksChip').onclick=()=>{td.classList.toggle('peek',matchMedia('(max-width:690px)').matches);if(td.hidden){refreshTasks();openDrawer('tasks')}else openDrawer(null)};
+ /* mobile top player bar + bottom function bar (ToS-style layout reference, our own art/systems) */
+ function syncMobileTop(){
+  if(typeof hero!=='undefined'&&hero){
+   $('mName').textContent=hero.name;
+   const l=$('heroLv');if(l)$('mLv').textContent=l.textContent.split('｜')[0];
+   const x=$('xpBar');if(x)$('mXpFill').style.width=x.style.width||'0%';
+  }else{$('mName').textContent='冒險者';$('mLv').textContent='訪客';$('mXpFill').style.width='0%'}
+ $('mCoinsN').textContent=stats?.wallet?.balance??'—';
+ }
+ const profEl=document.querySelector('.profile');
+ if(profEl)new MutationObserver(syncMobileTop).observe(profEl,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['style']});
+ syncMobileTop();
+ const origSync=syncChipFace;
+ syncChipFace=function(){origSync();const av=$('avatar');if(!av)return;const p=av.querySelector('.profile-portrait');if(!p)return;const cs=getComputedStyle(p),c=p.cloneNode(true);c.style.setProperty('--portrait-x',cs.getPropertyValue('--portrait-x'));c.style.setProperty('--portrait-y',cs.getPropertyValue('--portrait-y'));c.style.backgroundImage=cs.backgroundImage;c.style.backgroundSize=cs.backgroundSize;c.style.backgroundPosition=cs.backgroundPosition;$('mFace').innerHTML='';$('mFace').appendChild(c)};
+ const avEl=$('avatar');
+ if(avEl)new MutationObserver(()=>{syncChipFace()}).observe(avEl,{childList:true,subtree:true,characterData:true});
+ syncChipFace();
+ $('mPlayerBtn').onclick=()=>{if(!hero){$('goExplore').click();return}if(pd.hidden){syncChipFace();openDrawer('profile')}else openDrawer(null)};
+ $('mProfileBtn').onclick=()=>$('profileChip').click();
+ $('mTasksBtn').onclick=()=>$('tasksChip').click();
+ $('mBoardBtn').onclick=()=>{const b=document.getElementById('heroBoardBtn');if(b)b.click()};
+
+ const sd=$('shopDrawer');$('shopClose').onclick=()=>openDrawer(null);sd.onclick=e=>{if(e.target===sd)openDrawer(null)};
+ function openShop(){openDrawer('shop');$('shopGuest').hidden=!!hero;const button=$('coinCatalog').querySelector('[data-open]');if(button&&button.parentElement.nextElementSibling.hidden)button.click();}
+ $('mShopBtn').onclick=openShop;$('shopChip').onclick=openShop;$('mCoins').onclick=openShop;
+ for(const id of ['changePlayer','roleButton','examButton'])$(id).addEventListener('click',()=>openDrawer(null));
+ document.addEventListener('archipelago:drawer-close',()=>openDrawer(null));
+})();
+
 })();
 </script>
-<script src="./island-world.js?v=3.2.2"></script>
+<script src="./island-world.js?v=3.3.1"></script>
 </body></html>
