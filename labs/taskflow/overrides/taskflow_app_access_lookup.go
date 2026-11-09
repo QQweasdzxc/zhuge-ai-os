@@ -14,7 +14,7 @@ import (
 func installTaskflowAppAccessLookup(pool *pgxpool.Pool) {
 	auth.SetAppAccessLookup(func(ctx context.Context, userID string) (bool, error) {
 		var allowed *bool
-		if err := pool.QueryRow(ctx, "select public.taskflow_app_access_decision($1::uuid)", userID).Scan(&allowed); err != nil {
+		if err := pool.QueryRow(ctx, "select taskflow_gate.taskflow_app_access_decision($1::uuid)", userID).Scan(&allowed); err != nil {
 			return false, err
 		}
 		if allowed == nil {
