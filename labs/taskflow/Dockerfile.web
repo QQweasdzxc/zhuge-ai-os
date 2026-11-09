@@ -210,7 +210,7 @@ RUN pnpm --filter @multica/core exec vitest run issues/taskflow-row-query.test.t
  && pnpm --filter @multica/views exec vitest run issues/surface/taskflow-pagination-recovery.test.tsx \
  && pnpm --filter @multica/views exec vitest run issues/surface/use-issue-status-branches.test.tsx issues/surface/use-issue-group-branches.test.tsx
 RUN pnpm --filter @multica/core exec vitest run issue-statuses/taskflow-project-status-scope.test.ts issue-statuses/taskflow-project-status-preferences.test.tsx \
- && pnpm --filter @multica/views exec vitest run issues/components/taskflow-project-status-settings.test.tsx
+ && pnpm --filter @multica/views exec vitest run issues/components/taskflow-project-status-settings.test.tsx settings/components/issue-statuses-tab.test.tsx
 RUN pnpm --filter @multica/views exec vitest run common/taskflow-dispatch-center.test.tsx settings/components/taskflow-access-management.test.tsx settings/components/settings-page.test.tsx
 RUN pnpm --filter @multica/core exec vitest run issues/surface/taskflow-project-partition.test.ts \
  && pnpm --filter @multica/views exec vitest run projects/components/projects-page.test.tsx \
