@@ -6,7 +6,7 @@ T="env PGPASSWORD=tfpw psql -h $H -p $PT -U taskflow_runtime -d postgres -At"
 id(){ printf '00000000-0000-4000-8000-%012d' "$1"; }
 FAIL=0
 expect(){ if [ "$2" = "$3" ]; then echo "ok   $1"; else echo "FAIL $1: got [$2] want [$3]"; FAIL=1; fi; }
-dec(){ $T -c "select public.taskflow_app_access_decision('$(id "$1")')"; }
+dec(){ $T -c "select taskflow_gate.taskflow_app_access_decision('$(id "$1")')"; }
 row(){ local o=""; for n in 1 2 3 4 5 6 7 8; do o="$o$(dec $n)"; done; echo "$o"; }
 denied(){ $T -c "$1" 2>&1 | head -1 | grep -c "permission denied"; }
 expect "taskflow_runtime cannot call is_app_access_approved" "$(denied 'select public.is_app_access_approved()')" 1
@@ -14,8 +14,8 @@ expect "taskflow_runtime cannot read private events" "$(denied 'select count(*) 
 expect "taskflow_runtime cannot call private resolver" "$(denied "select private.app_access_effective_allowed('$(id 1)')")" 1
 expect "taskflow_runtime cannot read auth.users" "$(denied 'select count(*) from auth.users')" 1
 expect "taskflow_runtime cannot call set_app_access_user_enabled" "$(denied "select public.set_app_access_user_enabled('$(id 3)',false,'n','k')")" 1
-expect "anon cannot call decision" "$($A -c "set role anon; select public.taskflow_app_access_decision('$(id 1)')" 2>&1 | grep -c 'permission denied')" 1
-expect "authenticated cannot call decision" "$($A -c "set role authenticated; select public.taskflow_app_access_decision('$(id 1)')" 2>&1 | grep -c 'permission denied')" 1
+expect "anon cannot call decision" "$($A -c "set role anon; select taskflow_gate.taskflow_app_access_decision('$(id 1)')" 2>&1 | grep -c 'permission denied')" 1
+expect "authenticated cannot call decision" "$($A -c "set role authenticated; select taskflow_gate.taskflow_app_access_decision('$(id 1)')" 2>&1 | grep -c 'permission denied')" 1
 expect "pause=true, no cutoff: all allowed" "$(row)" "tttttttt"
 expect "activation freezes six" "$($A -c 'select (private.activate_app_access_model(6))->>'"'"'grandfather_count'"'"'')" 6
 $A -c "insert into auth.users(id,email) values('$(id 7)','new7@example.invalid')" >/dev/null
