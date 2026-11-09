@@ -27,13 +27,24 @@
     .attribution{margin-top:24px;padding-top:18px;border-top:1px solid #253550;font-size:12px}
     .attribution a{color:#bfdbfe}
     code{color:#bfdbfe;overflow-wrap:anywhere}
+    .card{text-align:center;border-color:rgba(45,200,180,.45);border-radius:14px;background:#0d1a24}
+    .brand{display:flex;justify-content:center}
+    .brand-logo{display:block;width:min(290px,70%);height:auto;filter:drop-shadow(0 0 12px rgba(45,212,191,.45))}
+    .eyebrow{margin-top:8px;color:#2dd4bf;font-size:13px;letter-spacing:.2em}
+    h1{margin:6px 0 12px;font-size:clamp(28px,6vw,34px);color:#eef4f8}
+    p{color:#9cadbe}
+    .actions{justify-content:center;gap:14px}
+    button,a.button{min-height:44px;border-radius:9px;font-size:14px;background:#0d9488;border:1px solid #50e6d2}
+    a.secondary{background:#16222d;border-color:#485c6e;color:#e2e9ec}
+    .status{color:#788c9e;font-size:13px}
+    .attribution{text-align:center;color:#788c9e}
     @media(max-width:520px){.actions>*{width:100%}.journey{font-size:14px}}
   </style>
 </head>
 <body>
   <main>
     <section class="card" aria-labelledby="taskflow-title">
-      <div class="brand" aria-label="Multica"><span class="brand-mark" aria-hidden="true"></span><span>Multica</span></div>
+      <div class="brand"><img class="brand-logo" src="../../shared/assets/logo/tron-wordmark.svg" alt="TRQN"></div>
       <div class="eyebrow">TRQN · WORK</div>
       <h1 id="taskflow-title">TaskFlow</h1>
       <p>TaskFlow 是 TRQN 的任務看板：在這裡查看任務、專案與工作進度。以 TRQN 帳號登入即可使用。</p>
