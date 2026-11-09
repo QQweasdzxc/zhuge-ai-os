@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#152347">
-<meta name="description" content="學習冒險群島：同一位勇士，航向英文、成語與更多知識島嶼。">
-<title>學習冒險群島｜冒險者總部</title>
+<meta name="description" content="學習冒險島：同一位勇士，航向英文、成語與更多知識島嶼。">
+<title>學習冒險島｜冒險者總部</title>
 <style>
 :root{--ink:#182448;--paper:#f7f4e8;--sea:#4aa8bb;--sea-dark:#247f9e;--blue:#18274d;--sun:#ffcc66;--violet:#8464d7;--mint:#95e3c4;--shadow:#0c183c;--border:#273759}
 *{box-sizing:border-box}
@@ -601,7 +601,7 @@ window.ArchipelagoDaily={mount({container,request,worlds=['chengyu','vocab']}){
 <body>
 <div class="site"><div class="wrap">
 <header class="topbar">
-  <a class="brand" href="#" aria-label="學習冒險群島首頁"><span class="brand-gem">💎</span><span><strong>學習冒險群島</strong><small class="pixel">LEARNING ARCHIPELAGO</small></span></a>
+  <a class="brand" href="#" aria-label="學習冒險島首頁"><span class="brand-gem">💎</span><span><strong>學習冒險島</strong><small class="pixel">LEARNING ARCHIPELAGO</small></span></a>
   <span class="pill pixel">FAMILY RPG · V1.7.0</span>
 </header>
 <main><section class="world" aria-label="世界地圖">
@@ -619,7 +619,7 @@ window.ArchipelagoDaily={mount({container,request,worlds=['chengyu','vocab']}){
   <div class="map-footer"><span>⛵ 已開放 2 / 6 座學習島</span><span>✨ 同一位冒險者，所有島嶼共用總 XP</span></div>
  </div>
 </section>
-<div hidden aria-hidden="true"><p id="connect"></p><p id="welcomeMessage"></p><button id="goExplore"></button></div></main><footer class="footer">學習冒險群島 · BUILD 2026.11.09.08 · 家庭雲端紀錄由 Supabase 保存<br>本網站不要求登入；家庭專用網址含私人存取金鑰，請只分享給家人。</footer>
+<div hidden aria-hidden="true"><p id="connect"></p><p id="welcomeMessage"></p><button id="goExplore"></button></div></main><footer class="footer">學習冒險島 · BUILD 2026.11.09.08 · 家庭雲端紀錄由 Supabase 保存<br>本網站不要求登入；家庭專用網址含私人存取金鑰，請只分享給家人。</footer>
 </div></div>
 <div class="dock" aria-label="快捷入口">
  <button class="dock-chip" id="shopChip" type="button" aria-label="金幣商店"><span class="chip-ic" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="#ffd873" stroke="#8a6d1f" stroke-width="2"/><circle cx="12" cy="12" r="5.5" fill="none" stroke="#c9982f" stroke-width="1.6"/><path d="M12 8.8l.9 1.9 2.1.3-1.5 1.5.3 2.1-1.8-1-1.8 1 .3-2.1-1.5-1.5 2.1-.3z" fill="#c9982f"/></svg></span><span class="dock-chip-label pixel">金幣商店</span></button>
@@ -795,7 +795,7 @@ function render(){
  $('examWins').textContent=(stats?.exams||[]).filter(x=>x.passed===true).length+' 次';
 }
 async function loadPlayers(){
- if(!isFamily()){status('⚠️ 請使用包含 #f= 的家庭專用網址，才能讀取雲端玩家與成績。');show('<div class="dialog-icon">🧭</div><h2 id="dialogTitle">歡迎來到學習冒險群島</h2><p>這是世界地圖的公開預覽。請使用原本成語或英文闖關王的完整家庭網址，由學習總部進入，才能保存玩家與經驗值。</p><div class="dialog-actions"><button class="btn" id="restoreFamilyOpen" type="button">已有冒險者？接回原家庭</button><button class="btn secondary" id="previewClose" type="button">先看看地圖</button></div>','preview');$('previewClose').onclick=close;$('restoreFamilyOpen').onclick=restoreFamilyForm;return}
+ if(!isFamily()){status('⚠️ 請使用包含 #f= 的家庭專用網址，才能讀取雲端玩家與成績。');show('<div class="dialog-icon">🧭</div><h2 id="dialogTitle">歡迎來到學習冒險島</h2><p>這是世界地圖的公開預覽。請使用原本成語或英文闖關王的完整家庭網址，由學習總部進入，才能保存玩家與經驗值。</p><div class="dialog-actions"><button class="btn" id="restoreFamilyOpen" type="button">已有冒險者？接回原家庭</button><button class="btn secondary" id="previewClose" type="button">先看看地圖</button></div>','preview');$('previewClose').onclick=close;$('restoreFamilyOpen').onclick=restoreFamilyForm;return}
  status('☁️ 正在連接 Supabase 家庭冒險資料…');
  show('<div class="dialog-icon">☁️</div><h2 id="dialogTitle">正在開啟冒險世界</h2><p>努力載入家庭冒險者名單中…</p>','loading');
  try{const data=await call('listPlayers');players=data.players||[];rememberFamily();if(!new URLSearchParams(location.hash.slice(1)).get('f')){history.replaceState(null,'',location.pathname+location.search+'#f='+encodeURIComponent(token)+(savedPlayer?'&p='+encodeURIComponent(savedPlayer):''));}setLinks();status('✅ 家庭冒險雲端已連線，選自己的名字就可以出航！');const hint=new URLSearchParams(location.hash.slice(1)).get('p')||savedPlayer;const who=hint&&players.find(x=>x.name===hint);if(who)await selectPlayer(who.id);else choosePlayer()}
@@ -895,7 +895,7 @@ function chooseRolePoster(){
  const poster=
   '<h2 id="dialogTitle" class="poster-sr-only">已選擇'+(style==='girl'?'女生':'男生')+'，選擇四種冒險職業</h2>'+
   '<div class="poster-scene shared-role-scene" data-appearance="'+style+'" aria-label="'+(style==='girl'?'女生':'男生')+'冒險職業選擇，男女欄位位置完全相同">'+
-  '<img class="poster-art shared-master-art" src="'+master+'" alt="學習冒險群島的天空城堡、兩排四張角色卡與確認按鈕" draggable="false">'+
+  '<img class="poster-art shared-master-art" src="'+master+'" alt="學習冒險島的天空城堡、兩排四張角色卡與確認按鈕" draggable="false">'+
   (style==='girl'?'<img class="shared-gender-layer" src="'+girlLayer+'" alt="四位女生職業人物和已選擇女生標示" draggable="false">':'')+
   '<button type="button" class="poster-hotspot poster-sex" id="posterChangeStyle" aria-label="上一步：重新選擇男生或女生"></button>'+
   buttons+
@@ -928,7 +928,7 @@ function showGenderStepOne(){
  const html=
   '<h2 class="poster-sr-only" id="dialogTitle">步驟一：選擇男生或女生造型</h2>'+
   '<div class="rpg-setup-scene">'+
-   '<div class="rpg-setup-top"><img src="'+illustration+'" alt="學習冒險群島，天空城堡與冒險貓咪" draggable="false"></div>'+
+   '<div class="rpg-setup-top"><img src="'+illustration+'" alt="學習冒險島，天空城堡與冒險貓咪" draggable="false"></div>'+
    '<section class="rpg-gender-board"><h3>✨ 步驟 1：選擇角色造型 ✨</h3>'+
     '<p>先選男生或女生，再挑選自己喜歡的職業。</p>'+
     '<div class="rpg-gender-options">'+
