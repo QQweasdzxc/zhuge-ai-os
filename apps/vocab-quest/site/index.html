@@ -37,7 +37,7 @@
 @media(prefers-reduced-motion:reduce){.answer-fx,.answer-fx *, .lives .heart-unit.lost{animation:none!important}}
 
 .spelling-listen{background:#edf2ff;border:1px solid #d7e0ff;border-radius:16px;margin-top:12px;padding:14px 13px;text-align:center}.spelling-listen .listen-label{font-size:14px;font-weight:850;color:#334a85}.spelling-listen .listen-buttons{display:flex;justify-content:center;align-items:center;gap:10px;margin:10px 0}.spelling-listen .listen-buttons .pill{min-height:44px;flex:1;font-size:14px;font-weight:800}.spelling-listen .listen-status{font-size:12px;margin:5px 0 0;color:var(--muted)}@media(max-width:380px){.spelling-listen .listen-buttons{gap:6px}.spelling-listen .listen-buttons .pill{font-size:12px;padding:9px 7px}}
-</style></head><body><main class="shell"><header class="top"><button class="brand brand-action" id="homebtn" aria-label="返回首頁"><span class="mark">🎮</span><span>單字闖關王</span></button><label class="top-picker-wrap"><span class="top-picker-label">測驗項目</span><select id="scope-picker" aria-label="選擇測驗項目"></select></label></header><div id="app" aria-live="polite"></div></main><footer class="release-footer" id="release-footer" aria-label="網站版本資訊"><span class="release-version" id="release-version">V2.8.3</span><span class="release-cloud" id="release-cloud" role="status">☁️ 檢查字庫中</span><span id="release-date">程式更新 2026/11/07 23:32</span><button id="release-check" type="button">檢查新版</button><span class="release-notice" id="release-notice" role="status" aria-live="polite"></span></footer>
+</style><script>if(new URLSearchParams(location.hash.slice(1)).get("p"))document.documentElement.classList.add("app-resuming");</script><style>html.app-resuming #playerGate,html.app-resuming #vocabPlayerGate{display:none!important}</style></head><body><main class="shell"><header class="top"><button class="brand brand-action" id="homebtn" aria-label="返回首頁"><span class="mark">🎮</span><span>單字闖關王</span></button><label class="top-picker-wrap"><span class="top-picker-label">測驗項目</span><select id="scope-picker" aria-label="選擇測驗項目"></select></label></header><div id="app" aria-live="polite"></div></main><footer class="release-footer" id="release-footer" aria-label="網站版本資訊"><span class="release-version" id="release-version">V2.8.3</span><span class="release-cloud" id="release-cloud" role="status">☁️ 檢查字庫中</span><span id="release-date">程式更新 2026/11/07 23:32</span><button id="release-check" type="button">檢查新版</button><span class="release-notice" id="release-notice" role="status" aria-live="polite"></span></footer>
 <script>
 (function(){
 "use strict";
@@ -781,4 +781,86 @@ if(idiom){
  new MutationObserver(()=>{if(!app.querySelector('[data-action="stage0"]'))app.classList.remove('entry-home');arrange()}).observe(app,{childList:true});arrange();
 }
 })();
-</script><script>document.querySelector(".pixel-return")?.addEventListener("click",function(){this.href="https://learning-archipelago-family.onrender.com/"+location.hash;});(function(){const w=document.querySelector("#screen-home")?"chengyu":"vocab";const s=w==="chengyu"?window.chengyuProgressState?.():window.vocabProgressState?.();if(s?.selectedId)window.adventureProfileRefresh?.(w,s.selectedId);})();</script></body></html>
+</script><script>document.querySelector(".pixel-return")?.addEventListener("click",function(){this.href="https://learning-archipelago-family.onrender.com/"+location.hash;});(function(){const w=document.querySelector("#screen-home")?"chengyu":"vocab";const s=w==="chengyu"?window.chengyuProgressState?.():window.vocabProgressState?.();if(s?.selectedId)window.adventureProfileRefresh?.(w,s.selectedId);})();</script><style>
+/* Persistent app workspace, not a new website landing page. */
+.entry-banner{display:none!important}.app-location{color:#c9d6ed;font-size:13px;font-weight:700;margin-left:auto;white-space:nowrap}.app-gear{border:1px solid #526582;background:#1c3050;color:#f2f5ff;border-radius:11px;width:44px;height:44px;cursor:pointer;font-size:21px}.top .brand[hidden],.topbar #homeBtn[hidden]{display:none!important}.top-actions:has(#homeBtn[hidden]){display:none!important}.entry-playing #appSettingsBtn{display:none}.entry-playing .app-location{display:none}
+.app-identity{font-size:12px!important;color:#70718a!important;margin:0 0 16px!important;font-weight:700;line-height:1.6}.entry-mission{margin-top:10px}.entry-mission h2{margin-bottom:7px!important}.entry-mission .entry-kicker{font-size:12px}.entry-home>.entry-tools{display:none}.app-library{width:100%;min-height:48px;border:1px solid #59718f;border-radius:12px;background:#1c3050;color:#edf4ff;font:inherit;font-size:14px;font-weight:700;margin:4px 0 8px;cursor:pointer}.entry-map .adventure-head{display:none}.entry-map .adventure-stages{margin-top:0}.app-sync-issue{color:#ffdfae;background:#593f2b;border:1px solid #9b7449;padding:12px;border-radius:12px;font-size:13px;line-height:1.7;margin-bottom:12px}.app-sync-issue[hidden]{display:none!important}
+.app-settings[hidden]{display:none!important}html.app-settings-open #screen-home>*:not(.app-settings),html.app-settings-open #app>*:not(.app-settings){display:none!important}.app-settings{color:#e5edfc;padding-top:5px}.app-settings>h1{font-size:25px;margin:20px 0}.app-back{min-height:44px;background:transparent;border:1px solid #7184a3;color:#e5edfc;border-radius:10px;padding:10px 14px;font:inherit;cursor:pointer}.app-setting-section{border:1px solid #405674;border-radius:16px;background:#1b2d4a;margin:14px 0;padding:16px}.app-setting-section>h2{font-size:15px!important;color:#e5edfc;margin:0 0 12px!important}.app-setting-section>.entry-profile{margin:0 0 12px}.app-setting-section>button{min-height:46px;border:1px solid #879bbd;border-radius:10px;background:#edf1fb;color:#243450;padding:11px 14px;font:inherit;font-size:14px;font-weight:700;cursor:pointer}.app-setting-section .entry-shell-home{display:block!important}.app-setting-section .more-panel{padding:0!important;margin:0!important;border:0!important}.app-setting-section .more-panel>summary{display:none}.app-setting-section .tester-current{color:#c8d5ec;font-size:12px}.app-setting-section .cloud-panel .cloud-controls,.app-setting-section .player-summary h3{display:none}.app-setting-section .cloud-panel{display:block!important}.app-setting-section .footer{color:#c8d5ec!important;margin:15px 0 0!important}.app-setting-section .adventure-hint{font-size:12px;color:#c8d5ec}.app-setting-section .adventure-hero{background:#ecf3fc;border-radius:12px;padding:12px;margin-top:12px}.app-advanced{font-size:13px;color:#d4e0f5}.app-setting-section .entry-disclosure{margin:0!important}.app-setting-section #vocabXpBoard{margin-top:10px}.app-settings .entry-profile-more{display:none}
+html.app-resuming #playerGate,html.app-resuming #vocabPlayerGate{display:none!important}
+
+html.app-settings-open .entry-material{display:none!important}.app-settings .app-setting-section .adventure-hint a{color:#bdb6ff}.app-settings .entry-profile .entry-person small{color:#c4d6ee}.app-settings .cloud-note{font-size:12px;line-height:1.7}
+
+html:not(.entry-playing) #homebtn{display:none!important}html.entry-playing #homebtn{display:flex!important;font-size:13px!important;min-height:44px;padding:9px 12px;border:1px solid #7184a3;border-radius:10px;background:transparent;color:#eef4ff}html.entry-playing .top{flex-wrap:wrap!important}
+</style><script>/* App workspace: learning first, administration only on demand. */
+(function(){
+'use strict';
+const $=s=>document.querySelector(s),idiom=!!$('#screen-home'),root=$(idiom?'#screen-home':'#app');
+const header=$(idiom?'.topbar':'.top'),profile=$('.entry-profile'),release=$('.entry-shell-home:has(.entry-release)'),footer=$('.footer');
+const nav=$('.pixel-return');nav.textContent='‹ 總部';
+const brand=header.querySelector('.brand');if(brand&&idiom)brand.hidden=true;
+if(idiom)$('#homeBtn').hidden=true;else $('#homebtn').textContent='返回學習';
+const place=document.createElement('span');place.className='app-location';place.textContent=idiom?'成語練習':'英文練習';header.append(place);
+const gear=document.createElement('button');gear.type='button';gear.id='appSettingsBtn';gear.className='app-gear';gear.textContent='⚙';gear.setAttribute('aria-label','開啟設定');header.append(gear);
+const identity=document.createElement('p');identity.className='app-identity';identity.setAttribute('role','status');
+const issue=document.createElement('div');issue.className='app-sync-issue';issue.setAttribute('role','status');issue.hidden=true;
+let page=null,homeScroll=0,parentView=false;
+document.addEventListener('click',e=>{if(!idiom&&e.target.closest('[data-action="report"]'))parentView=true;if(e.target.closest('#homebtn,[data-action="home"],[data-action="stage0"],[data-action="stage1"],[data-action="stage2"],[data-action="start"]'))parentView=false},true);
+function arrangeParent(){if(idiom||!parentView||root.querySelector('.entry-mission'))return;const h=root.querySelector('h1'),last=root.lastElementChild;if(!h||!last)return;h.textContent='家長學習紀錄';for(const e of root.children)e.hidden=e!==h&&e!==last;last.querySelector('h2').textContent='雲端闖關紀錄';}
+function close(){document.documentElement.classList.remove('app-settings-open');if(page)page.hidden=true;gear.hidden=false;place.textContent=idiom?'成語練習':'英文練習';window.scrollTo(0,homeScroll)}
+function open(){if(!page)return;homeScroll=scrollY;page.hidden=false;profile.hidden=false;document.documentElement.classList.add('app-settings-open');place.textContent='';gear.hidden=true;window.scrollTo(0,0);page.querySelector('button')?.focus()}
+gear.addEventListener('click',open);
+function section(title){const e=document.createElement('section');e.className='app-setting-section';const h=document.createElement('h2');h.textContent=title;e.append(h);return e}
+function settings(){const e=document.createElement('section');e.className='app-settings';e.hidden=true;e.setAttribute('aria-label','設定');e.innerHTML='<button class="app-back" type="button">‹ 返回學習</button><h1>設定</h1>';e.firstElementChild.addEventListener('click',close);return e}
+function sync(){
+ const state=idiom?window.chengyuProgressState?.():window.vocabProgressState?.();const player=state?.learners.find(x=>x.id===state.selectedId);
+ const stat=player?'本島 '+(Number(player.xp)||0)+' XP':'';
+ const text=player?player.name+(stat?' · '+stat:''):(new URLSearchParams(location.hash.slice(1)).get('p')?'正在載入冒險者…':'試玩模式');
+ if(identity.textContent!==text)identity.textContent=text;
+ const raw=idiom?$('#cloudStatus')?.textContent:window.vocabPlayerBridge?.snapshot().status;
+ const warning=raw&&(/⚠|失敗|無法|錯誤/.test(raw));const message=warning?raw:'';
+ if(issue.textContent!==message)issue.textContent=message;issue.hidden=!warning;
+ if(document.documentElement.classList.contains('app-resuming')){
+  const connected=idiom?state?.connected:window.vocabPlayerBridge?.snapshot().connected;
+  if(state?.selectedId||connected||warning){document.documentElement.classList.remove('app-resuming');if(!state?.selectedId&&idiom){const gate=$('#playerGate');if(gate)gate.hidden=false}}
+ }
+}
+function arrange(){
+ if(!root.querySelector('.entry-mission'))return;
+ if(root.querySelector('.app-settings')){sync();return}
+ close();page=settings();
+ const who=section('冒險者與進度');who.append(profile);const manage=section('家長專區');const sound=section('聲音');const data=section('同步與關於');
+ if(idiom){
+  const sw=$('#cloudSwitch');sw.textContent='切換冒險者';who.append(sw);
+  const report=$('#cloudReport');report.textContent='查看家長成績';manage.append(report);
+  for(const e of root.querySelectorAll('.entry-disclosure')){
+   if(e.classList.contains('entry-map')||e.classList.contains('entry-options'))continue;
+   if(e.querySelector('.voice-settings'))sound.append(e);else data.append(e);
+  }
+  if(footer)data.append(footer);
+  const lib=$('#libraryBtn');lib.textContent='打開成語寶庫';lib.classList.add('app-library');root.querySelector('.entry-map').after(lib);
+  root.querySelector('.entry-tools')?.remove();
+  const map=root.querySelector('.entry-map');map.open=true;map.querySelector('summary').firstChild.textContent='關卡地圖';
+  const hero=$('#adventureHero');if(hero){const d=document.createElement('details');d.className='app-advanced';d.innerHTML='<summary>本島學習進度</summary>';d.append(hero);who.append(d)}
+  const hint=root.querySelector('.adventure-hint');if(hint)data.append(hint);
+  const options=root.querySelector('.entry-options');options.querySelector('summary').firstChild.textContent='調整這次練習';
+ }else{
+  const sw=root.querySelector('[data-action="switchTester"]');if(sw){sw.textContent='切換冒險者';who.append(sw)}root.querySelector('.entry-switch')?.remove();
+  const report=root.querySelector('[data-action="report"]');if(report){report.textContent='查看家長成績';manage.append(report)}
+  const more=root.querySelector('.more-panel');if(more){more.open=true;more.querySelector('.more-description')?.remove();sound.append(more)}
+  for(const e of root.querySelectorAll('.tester-current,.entry-sync'))data.append(e);
+  if(release)data.append(release);
+ }
+ page.append(who,sound,manage,data);root.append(page);
+ page.addEventListener('click',e=>{if(e.target.closest('#cloudReport,#cloudSwitch,[data-action="report"],[data-action="switchTester"]'))close()});
+ const mission=root.querySelector('.entry-mission');mission.prepend(identity);mission.before(issue);
+ mission.querySelector('.entry-kicker').textContent=idiom?'繼續你的冒險':'今天的練習';
+ mission.querySelector('.entry-launch button').textContent=idiom?'繼續闖關 →':'開始中英配對 →';
+ sync();
+}
+new MutationObserver(()=>{arrange();arrangeParent();sync()}).observe(root,{childList:true});
+new MutationObserver(sync).observe(profile,{childList:true,subtree:true});
+if(idiom)new MutationObserver(sync).observe($('#cloudStatus'),{childList:true,subtree:true});
+if(!idiom)document.addEventListener('vocab-cloud-change',sync);
+arrange();sync();
+})();
+</script></body></html>
