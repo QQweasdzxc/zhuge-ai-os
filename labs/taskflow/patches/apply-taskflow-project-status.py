@@ -291,7 +291,7 @@ def patch_settings_status_tab(source: str) -> str:
         source,
         'import { useWorkspaceId } from "@multica/core/hooks";\n',
         'import { useWorkspaceId } from "@multica/core/hooks";\n'
-        'import { excludeTaskFlowProjectStatuses } from "@multica/core/issue-statuses/taskflow-project-status-scope";\n',
+        'import { excludeTaskFlowProjectStatuses, mergeTaskFlowWorkspaceStatusOrder } from "@multica/core/issue-statuses/taskflow-project-status-scope";\n',
         "workspace status scope import",
     )
     source = replace_once(
@@ -304,6 +304,21 @@ def patch_settings_status_tab(source: str) -> str:
         "  const statuses = useMemo(() => excludeTaskFlowProjectStatuses(allStatuses), [allStatuses]);\n",
         "workspace status list excludes Project-owned keys",
     )
+    source = replace_once(
+        source,
+        "              entries={group.entries}\n",
+        "              entries={group.entries}\n"
+        "              reorderEntries={allStatuses.filter((entry) => !entry.archived_at && normalizeIssueStatusCategory(entry.category) === group.category).sort(compareIssueStatusEntries)}\n",
+        "complete active category reorder inputs",
+    )
+    source = replace_once(source, "  entries,\n  canManage,", "  entries,\n  reorderEntries,\n  canManage,", "category reorder inputs prop")
+    source = replace_once(source, "  entries: IssueStatusEntry[];\n", "  entries: IssueStatusEntry[];\n  reorderEntries: IssueStatusEntry[];\n", "category reorder inputs type")
+    source = replace_once(
+        source,
+        "{ category, ordered: next.filter((entry) => !entry.archived_at) }",
+        "{ category, ordered: mergeTaskFlowWorkspaceStatusOrder(reorderEntries, next.filter((entry) => !entry.archived_at)) }",
+        "preserve hidden Project slots in complete native reorder payload",
+    )
     return source
 
 
@@ -314,6 +329,20 @@ def patch_settings_status_tests(source: str) -> str:
 
 // TASKFLOW_WORKSPACE_STATUS_SCOPE_REGRESSION: exercise the actual settings tab.
 describe("TaskFlow workspace settings scope", () => {
+  it("reorders workspace rows with a complete category payload and stable Project slots", async () => {
+    const projectKey = "p28mg00rg359vcpn4e25sr8okeb_tb1s";
+    catalog = [
+      entry({ key: "qa_first", name: "QA First", position: 1 }),
+      entry({ key: projectKey, name: `TF:${projectKey}`, position: 2 }),
+      entry({ key: "qa_second", name: "QA Second", position: 3 }),
+    ];
+    render(<IssueStatusesTab />);
+    fireEvent.click(screen.getByLabelText(en.issue_statuses.actions.open.replace("{{name}}", "QA Second")));
+    fireEvent.click(await screen.findByRole("menuitem", { name: en.issue_statuses.actions.move_up }));
+    expect(reorderMutate.mock.calls[0]![0].ordered.map((s: IssueStatusEntry) => s.key)).toEqual(["qa_second", projectKey, "qa_first"]);
+    expect(screen.queryByText(`TF:${projectKey}`)).toBeNull();
+  });
+
   it("keeps workspace statuses but excludes active and archived Project-owned rows", () => {
     const projectKey = "p28mg00rg359vcpn4e25sr8okeb_tb1s";
     const archivedProjectKey = "p6dc8109ttp9fap1ia2j4ctrv6v_mrdt";
