@@ -169,6 +169,8 @@ COPY labs/taskflow/overrides/taskflow-access-management.test.tsx /taskflow-acces
 COPY labs/taskflow/overrides/taskflow-access-settings-test-block.txt /taskflow-access/taskflow-access-settings-test-block.txt
 RUN python3 /tmp/apply-taskflow-access-management.py --root /src --overlays /taskflow-access
 
+COPY labs/taskflow/overrides/taskflow-drive-connect-page.tsx /src/apps/web/app/taskflow-drive/connect/page.tsx
+
 FROM node:22-alpine AS deps
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1 \
@@ -185,8 +187,6 @@ RUN corepack enable \
  && PNPM_VERSION="$(node -p 'require("./package.json").packageManager')" \
  && corepack prepare "$PNPM_VERSION" --activate \
  && pnpm install --frozen-lockfile
-
-COPY labs/taskflow/overrides/taskflow-drive-connect-page.tsx /src/apps/web/app/auth/taskflow-drive/connect/page.tsx
 
 FROM node:22-alpine AS builder
 WORKDIR /app
@@ -223,7 +223,11 @@ RUN pnpm --filter @multica/web exec vitest run lib/locale-routing.test.ts lib/ta
 ARG NEXT_PUBLIC_APP_VERSION=taskflow-parity
 ENV NEXT_PUBLIC_APP_VERSION=${NEXT_PUBLIC_APP_VERSION} \
     STANDALONE=true
-RUN pnpm --filter @multica/web build
+# Verify the owner connection page reaches the actual compiled app, outside /auth proxy routes.
+RUN test -s /app/apps/web/app/taskflow-drive/connect/page.tsx \
+ && test ! -e /app/apps/web/app/auth/taskflow-drive/connect/page.tsx \
+ && pnpm --filter @multica/web build \
+ && test -s /app/apps/web/.next/server/app/taskflow-drive/connect/page.js
 
 FROM node:22-alpine AS runtime
 WORKDIR /app
