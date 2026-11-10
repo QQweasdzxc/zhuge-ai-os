@@ -1,0 +1,64 @@
+name: TF private attachment source release qualification
+on:
+  push:
+    branches: ['review/tf-drive-qualification-20261110']
+    paths: ['.github/workflows/taskflow-drive-release-qualification.yml']
+permissions:
+  contents: read
+jobs:
+  materialize:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    outputs:
+      sha: ${{ steps.source.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: review/tf-drive-qualification-20261110
+          fetch-depth: 0
+      - name: Materialize only the previously qualified source patch
+        id: source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum 1-taskflow-private-drive-source.patch | cut -d' ' -f1)" = 607ce871a7efeb1e8f0fa8e208759e3dfd7e8bcb896ccb99f1aeef4d8c9cf37c
+          test "$(git rev-parse HEAD^{tree}:labs/taskflow)" = "$(git rev-parse e158874a2e3110992672d1367506e298a7a73942^{tree}:labs/taskflow)"
+          git apply --check 1-taskflow-private-drive-source.patch
+          git apply 1-taskflow-private-drive-source.patch
+          git diff --check
+          test "$(git diff --name-only | grep -vc '^labs/taskflow/' || true)" = 0
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add labs/taskflow
+          git commit -m 'Materialize exact qualified private attachment source on production baseline'
+          git push origin HEAD:review/tf-drive-qualification-20261110
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+  image:
+    needs: materialize
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [backend, web]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.materialize.outputs.sha }}
+      - name: Verify materialized source against qualified patch
+        run: |
+          git apply --reverse --check 1-taskflow-private-drive-source.patch
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s labs/taskflow/tests -v
+      - name: Build exact source image without deployment or private credentials
+        env:
+          IMAGE: ${{ matrix.image }}
+        shell: bash
+        run: |
+          set -o pipefail
+          docker build --progress=plain -f "labs/taskflow/Dockerfile.$IMAGE" -t "tf-private-drive-$IMAGE:release-qualification" . 2>&1 | tee image-build.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: source-image-build-${{ matrix.image }}
+          path: image-build.log
