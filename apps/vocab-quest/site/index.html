@@ -438,7 +438,7 @@ function cards(){
  '<div class="flex">'+btn("🔊 英文發音","sound","secondary")+btn("🐢 慢速朗讀","slow","secondary")+'</div>'+
  '<p id="audio-status" role="status" class="muted center">按喇叭播放英文單字。</p>'+
  '<div class="flex">'+btn("← 上一張","prev","outline",s.card===0?"disabled":"")+btn("下一張 →","nextcard","outline",s.card===s.cardOrder.length-1?"disabled":"")+'</div>'+
- '<div class="actions">'+btn("🔀 重新洗牌","shuffleCards","outline wide")+btn(chinese?"切換一般單字卡":"切換中文聽力卡",chinese?"study":"studyCN","outline wide")+btn(s.card===s.cardOrder.length-1?"🎯 預習完成，去挑戰":"🎯 選擇練習關卡","home","primary wide")+'</div>'
+ '<div class="actions">'+btn("🔀 重新洗牌","shuffleCards","outline wide")+btn(chinese?"切換一般單字卡":"切換中文聽力卡",chinese?"study":"studyCN","outline wide")+btn(s.card===s.cardOrder.length-1?"🎯 預習完成，去挑戰":"🎯 選擇練習關卡","home","primary wide",s.card===s.cardOrder.length-1?'data-study-exit="1"':"")+'</div>'
 }
 function listing(){
  var out='<h1 class="title">📚 教材單字庫</h1><p class="muted">依教材系列、週次分類；測驗預設只使用選定的當週內容。</p>';
@@ -877,7 +877,7 @@ function polish(){
   if(can&&!advance){advance=document.createElement('button');advance.type='button';advance.id='appNextZone';advance.className='btn-primary';advance.textContent='挑戰下一關 →';advance.addEventListener('click',()=>{const current=$('.adventure-stage[aria-pressed="true"]'),target=$('.adventure-stage[data-zone="'+(Number(current.dataset.zone)+1)+'"]');if(target&&!target.disabled){target.click();$('#startBtn').click()}});$('#screen-result .result-actions').prepend(advance)}if(advance)advance.hidden=!can;
  }else if(!root.querySelector('.entry-mission')){
   for(const e of root.querySelectorAll('[data-action="report"]'))e.hidden=true;const meta=root.querySelector('.game-over-meta');if(meta)setText(meta,meta.textContent.replace(/Supabase/g,'雲端'));
-  for(const e of root.querySelectorAll('[data-action="home"]'))setText(e,'回到練習');
+  for(const e of root.querySelectorAll('[data-action="home"]'))setText(e,e.dataset.studyExit?'🎯 預習完成，去挑戰':'回到練習');
   for(const e of root.querySelectorAll('[data-action="replay"]'))setText(e,'再練一次');
   for(const e of root.querySelectorAll('[data-action="filterAll"]'))setText(e,'全家人的紀錄');for(const e of root.querySelectorAll('[data-action="filterTester"]'))setText(e,'目前冒險者');
   if(!parentView&&root.querySelector('h1.title')?.textContent.includes('成績')){const last=root.lastElementChild;if(last?.querySelector('[data-action="filterAll"]'))last.hidden=true;
