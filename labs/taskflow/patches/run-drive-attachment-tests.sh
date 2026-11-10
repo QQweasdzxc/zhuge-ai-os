@@ -50,6 +50,12 @@ if TASKFLOW_DRIVE_INSTALL_METADATA=1 TASKFLOW_MIGRATION_DATABASE_URL="$NATIVE_UR
 fi
 echo 'GATE private_drive_installer: first/repeat/restricted-role PASS'
 psql "$NATIVE_URL" -X -v ON_ERROR_STOP=1 -f /tmp/test-drive-native-schema.sql
+log=/tmp/taskflow-owner-native-setup.log
+DATABASE_URL="$PARITY_DATABASE_URL" GOMEMLIMIT=256MiB CGO_ENABLED=0 go test ./internal/handler -run '^TestTaskFlowOwner.*PrivateReview$' -count=1 -v > "$log" 2>&1 || { cat "$log";exit 1; }
+cat "$log"
+count=$(grep -cE '^--- PASS: TestTaskFlowOwner' "$log")
+[ "$count" -eq 3 ] || { echo "Owner setup expected3executed groups, got$count";exit 1; }
+echo 'GATE owner_native_setup: crypto39/middleware8/assembled5 PASS'
 log=/tmp/taskflow-drive-storage.log
 TASKFLOW_DRIVE_TEST_DATABASE_URL="$LEDGER_URL" GOMEMLIMIT=256MiB CGO_ENABLED=0 go test ./internal/storage -run '^TestTaskFlowDrive' -count=1 -v > "$log" 2>&1 || { cat "$log";exit 1; }
 cat "$log"

@@ -6,7 +6,8 @@ import (
 	"os"
 )
 
-// This route is mounted ONLY inside the existing authenticated/CSRF group.
+// This route stays inside the existing authenticated/CSRF group.
+// Optional native owner-session recognition is explicit and default-off.
 // A task-agent, plugin or service credential cannot start owner authorization.
 func (h *Handler) StartTaskFlowDriveSetup(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
@@ -14,12 +15,17 @@ func (h *Handler) StartTaskFlowDriveSetup(w http.ResponseWriter, r *http.Request
 	if !ok {
 		return
 	}
-	if r.Header.Get("Authorization") != "" || r.Header.Get("X-Actor-Source") != "" {
+	owner := os.Getenv("TASKFLOW_DRIVE_SETUP_OWNER_USER_ID")
+	if owner == "" || user != owner {
 		writeError(w, http.StatusForbidden, "owner browser session required")
 		return
 	}
-	owner := os.Getenv("TASKFLOW_DRIVE_SETUP_OWNER_USER_ID")
-	if owner == "" || user != owner {
+	if r.Header.Get("Authorization") != "" {
+		if os.Getenv("TASKFLOW_DRIVE_OWNER_NATIVE_SETUP") != "1" || !taskflowDriveOwnerNativeSession(r, user, owner, os.Getenv("TASKFLOW_DRIVE_OWNER_EMAIL"), os.Getenv("TASKFLOW_DRIVE_SETUP_WEB_ORIGIN")) {
+			writeError(w, http.StatusForbidden, "owner browser session required")
+			return
+		}
+	} else if r.Header.Get("X-Actor-Source") != "" {
 		writeError(w, http.StatusForbidden, "owner browser session required")
 		return
 	}
