@@ -547,15 +547,19 @@ function playerName(){
   return l&&l.name||'';
  }catch(e){return''}
 }
-var applied='';
+var applied='',manualPick='';
 function applyDaily(){
  var name=playerName();if(!name)return;
  var day=taipeiDay(),task=dailyPick(name,day),sig=name+'|'+day+'|'+task;
  var mission=document.querySelector('#screen-home .entry-mission');
  if(mission){var k=mission.querySelector('.entry-kicker');if(k&&(k.textContent==='繼續你的冒險'||k.textContent==='你的下一場冒險'))k.textContent='今天的練習 · 每日任務'}
- if(applied===sig)return;
+ /* 每天自動帶出今日模式；孩子今天手動改過就尊重，其他狀況（含選人後設定還原）都補回今日模式。 */
+ if(manualPick===name+'|'+day){applied=sig;return}
+ var cur=document.querySelector('#modes .pill.selected'),curMode=cur?cur.getAttribute('data-mode'):'';
+ if(applied!==sig||curMode!==task){
+  try{if(typeof setSelect!=='function')return;setSelect('modes','mode',task)}catch(e){return}
+ }
  applied=sig;
- try{if(typeof setSelect!=='function')return;setSelect('modes','mode',task)}catch(e){return}
  var modeBtn=document.querySelector('#modes .pill[data-mode="'+task+'"]');
  var count=document.querySelector('#counts .selected');
  var countText=count?count.textContent.trim():'10題';
@@ -565,6 +569,8 @@ function applyDaily(){
  var summary=document.querySelector('.entry-options>summary');
  if(summary&&summary.firstChild)summary.firstChild.textContent='挑戰設定 · '+countText+' / '+modeText;
 }
+var modesEl=document.getElementById('modes');
+if(modesEl)modesEl.addEventListener('click',function(){var n=playerName();if(n)manualPick=n+'|'+taipeiDay()});
 var origRefresh=window.chengyuProgressRefresh;
 window.chengyuProgressRefresh=function(){if(origRefresh)origRefresh();applyDaily()};
 applyDaily();
