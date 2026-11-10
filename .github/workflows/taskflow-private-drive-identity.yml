@@ -1,0 +1,81 @@
+name: TF private attachment repair accurate release identity
+on:
+  push:
+    branches: ['review/tf-private-drive-final-identity-20261110']
+    paths: ['.github/workflows/taskflow-private-drive-identity.yml']
+permissions:
+  contents: write
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    outputs:
+      backend: ${{ steps.prepare.outputs.backend }}
+      web: ${{ steps.prepare.outputs.web }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Prepare exact accepted repair baselines without merging unrelated work
+        id: prepare
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = 65d731967994048ed7e1e5c95b158ddc170ec130
+          printf '%s' 'ZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCmltcG9ydCBqc29uLHN1YnByb2Nlc3Msc3lzCnZlcnNpb249JzAuOS4wLWFscGhhLjkuMTkwJwpidWlsZD1zeXMuYXJndlsxXQpvbGQ9anNvbi5sb2FkcyhQYXRoKCd2ZXJzaW9uLmpzb24nKS5yZWFkX3RleHQoKSlbJ3ZlcnNpb24nXQpmaWxlcz1bJ3ZlcnNpb24uanNvbicsJ21vZHVsZXMvd29ya2xvZy92ZXJzaW9uLmpzb24nLCdtb2R1bGVzL2ludmVzdG1lbnQvdmVyc2lvbi5qc29uJywnbGFicy9pbnZlc3RtZW50L3ZlcnNpb24uanNvbicsJ3NoYXJlZC9hcHAtY29uZmlnLmpzJywnc2hhcmVkL2NvbmZpZy92ZXJzaW9uLmpzJywnYXBwL2Rhc2hib2FyZC9pbmRleC5odG1sJywnYXBwL2Rhc2hib2FyZC96aHVnZS1kYXNoYm9hcmQuanMnLCdpbmRleC5odG1sJywnZG9jcy9pbmRleC5odG1sJywnc3RhdHVzLWNsYXNzaWMuaHRtbCcsJ2RvY3Mvc3RhdHVzLWNsYXNzaWMuaHRtbCddCmZvciBuYW1lIGluIGZpbGVzOgogcD1QYXRoKG5hbWUpCiBpZiBwLmV4aXN0cygpOiBwLndyaXRlX3RleHQocC5yZWFkX3RleHQoKS5yZXBsYWNlKG9sZCx2ZXJzaW9uKSkKcD1QYXRoKCdzaGFyZWQvY29uZmlnL3RlbXBsYXRlLXJlbGVhc2UuanMnKTsgcz1wLnJlYWRfdGV4dCgpOyBuZWVkbGU9JyJkZXZlbG9wbWVudFZlcnNpb24iOiAiJytvbGQrJyInOyBhc3NlcnQgcy5jb3VudChuZWVkbGUpPT0xO3M9cy5yZXBsYWNlKG5lZWRsZSwnImRldmVsb3BtZW50VmVyc2lvbiI6ICInK3ZlcnNpb24rJyInKTtwLndyaXRlX3RleHQocykKc3VicHJvY2Vzcy5ydW4oWydub2RlJywndG9vbHMvcmVsZWFzZS1nb3Zlcm5hbmNlLmpzJywnc3luYy1idWlsZCcsJy0tYnVpbGQnLGJ1aWxkXSxjaGVjaz1UcnVlKQojIEV4aXN0aW5nIHdyYXBwZXIgY29tcGlsYXRpb24gaG9va3MgY2FycnkgdGhlIHJvb3QgcmVsZWFzZSBpZGVudGl0eSBhbmQgaG9zdCBzb3VyY2UgU0hBLgpwPVBhdGgoJ2xhYnMvdGFza2Zsb3cvRG9ja2VyZmlsZS5iYWNrZW5kJyk7cz1wLnJlYWRfdGV4dCgpO25lZWRsZT0nQVJHIERBVEU9dW5rbm93bic7YXNzZXJ0IHMuY291bnQobmVlZGxlKT09MTtzPXMucmVwbGFjZShuZWVkbGUsbmVlZGxlKydcbkFSRyBSRU5ERVJfR0lUX0NPTU1JVFxuQ09QWSB2ZXJzaW9uLmpzb24gL3RtcC90YXNrZmxvdy1yZWxlYXNlLmpzb24nKQpuZWVkbGU9J1JVTiBjZCBzZXJ2ZXIgJiYgQ0dPX0VOQUJMRUQ9MCBnbyBidWlsZCAtbGRmbGFncyAiLXMgLXcgLVggbWFpbi52ZXJzaW9uPSR7VkVSU0lPTn0gLVggbWFpbi5jb21taXQ9JHtDT01NSVR9IiAtbyBiaW4vc2VydmVyIC4vY21kL3NlcnZlcicKYXNzZXJ0IHMuY291bnQobmVlZGxlKT09MQpzPXMucmVwbGFjZShuZWVkbGUsJycnUlVOIFZFUlNJT049IiQoc2VkIC1uICdzLy4qInZlcnNpb24iOiAiXFwoW14iXSpcXCkiLiovXFwxL3AnIC90bXAvdGFza2Zsb3ctcmVsZWFzZS5qc29uKSIgXFwKICYmIEJVSUxEPSIkKHNlZCAtbiAncy8uKiJidWlsZCI6ICJcXChbXiJdKlxcKSIuKi9cXDEvcCcgL3RtcC90YXNrZmxvdy1yZWxlYXNlLmpzb24pIiBcXAogJiYgdGVzdCAtbiAiJHtWRVJTSU9OfSIgJiYgdGVzdCAtbiAiJHtCVUlMRH0iIFxcCiAmJiBDT01NSVQ9IiR7UkVOREVSX0dJVF9DT01NSVQ6LSR7Q09NTUlUfX0iIFxcCiAmJiBjZCBzZXJ2ZXIgJiYgQ0dPX0VOQUJMRUQ9MCBnbyBidWlsZCAtbGRmbGFncyAiLXMgLXcgLVggbWFpbi52ZXJzaW9uPSR7VkVSU0lPTn0rJHtCVUlMRH0gLVggbWFpbi5jb21taXQ9JHtDT01NSVR9IiAtbyBiaW4vc2VydmVyIC4vY21kL3NlcnZlcicnJyk7cC53cml0ZV90ZXh0KHMpCnA9UGF0aCgnbGFicy90YXNrZmxvdy9Eb2NrZXJmaWxlLndlYicpO3M9cC5yZWFkX3RleHQoKTtuZWVkbGU9J0FSRyBORVhUX1BVQkxJQ19BUFBfVkVSU0lPTj10YXNrZmxvdy1wYXJpdHknO2Fzc2VydCBzLmNvdW50KG5lZWRsZSk9PTE7cz1zLnJlcGxhY2UobmVlZGxlLG5lZWRsZSsnXG5BUkcgUkVOREVSX0dJVF9DT01NSVRcbkNPUFkgdmVyc2lvbi5qc29uIC90bXAvdGFza2Zsb3ctcmVsZWFzZS5qc29uJykKbmVlZGxlPScgJiYgcG5wbSAtLWZpbHRlciBAbXVsdGljYS93ZWIgYnVpbGQgXFwnCmFzc2VydCBzLmNvdW50KG5lZWRsZSk9PTEKcz1zLnJlcGxhY2UobmVlZGxlLCcnJyAmJiBORVhUX1BVQkxJQ19BUFBfVkVSU0lPTj0iJChub2RlIC1wICdjb25zdCB2PXJlcXVpcmUoIi90bXAvdGFza2Zsb3ctcmVsZWFzZS5qc29uIik7di52ZXJzaW9uKyIrIit2LmJ1aWxkJykke1JFTkRFUl9HSVRfQ09NTUlUOitAJHtSRU5ERVJfR0lUX0NPTU1JVH19IiBwbnBtIC0tZmlsdGVyIEBtdWx0aWNhL3dlYiBidWlsZCBcXCcnJyk7cC53cml0ZV90ZXh0KHMpCnByaW50KGpzb24uZHVtcHMoeyd2ZXJzaW9uJzp2ZXJzaW9uLCdidWlsZCc6YnVpbGQsJ3ByZXZpb3VzVmVyc2lvbic6b2xkfSkpCg==' | base64 -d > /tmp/prepare-identity.py
+          git switch --detach 8f6e32390431e3530313804a0a989282cd1070ce
+          python3 /tmp/prepare-identity.py 20261110-2012
+          git diff --check
+          node --test tests/release-consistency.test.js tests/release-governance.test.js
+          git add version.json shared app docs index.html status-classic.html modules labs
+          git commit -m 'Synchronize private attachment repair release identity and native backend build identity'
+          git push origin HEAD:refs/heads/review/tf-drive-identity-backend-20261110
+          echo "backend=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          git switch --detach ad56f78ae6b14e7f378ca24e3d64d8a1c2bbce49
+          python3 /tmp/prepare-identity.py 20261110-2012
+          git diff --check
+          node --test tests/release-consistency.test.js tests/release-governance.test.js
+          git add version.json shared app docs index.html status-classic.html modules labs
+          git commit -m 'Synchronize private attachment repair release identity and native web build identity'
+          git push origin HEAD:refs/heads/review/tf-drive-identity-web-20261110
+          echo "web=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+  exact-image:
+    needs: source
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: backend
+            sha: ${{ needs.source.outputs.backend }}
+          - image: web
+            sha: ${{ needs.source.outputs.web }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.sha }}
+          fetch-depth: 0
+      - name: Verify exact source, release identity and overlay contracts
+        env:
+          SOURCE_SHA: ${{ matrix.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          git diff --check
+          node --test tests/release-consistency.test.js tests/release-governance.test.js
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s labs/taskflow/tests -v
+      - name: Build actual deployable image and execute native gates
+        env:
+          IMAGE: ${{ matrix.image }}
+          SOURCE_SHA: ${{ matrix.sha }}
+        shell: bash
+        run: |
+          set -o pipefail
+          docker build --progress=plain --build-arg RENDER_GIT_COMMIT="$SOURCE_SHA" -f "labs/taskflow/Dockerfile.$IMAGE" -t "tf-drive-identity-$IMAGE:qualification" . 2>&1 | tee image-build.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: private-drive-identity-${{ matrix.image }}
+          path: image-build.log
