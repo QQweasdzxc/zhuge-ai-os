@@ -1071,6 +1071,7 @@ function renderDailyRows(){
  if(rows.some(r=>!r[1]))return;
  if(!isFamily()||!player){if(prog)prog.hidden=true;return}
  const day=dailyState.walletDay||taipeiDay();
+ dailyState.renderedDay=day;
  let finished=0;
  for(const [world,a,isle] of rows){
   const task=dailyPick(world,player.name,day),done=!!dailyState.done[world];
@@ -1121,6 +1122,8 @@ async function refreshDailyState(){
 new MutationObserver(()=>decorateDailyReviewButtons()).observe($('dailyLearning'),{childList:true,subtree:true});
 document.addEventListener('archipelago:coin-updated',()=>{dailyState.at=0;refreshDailyState()});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){dailyState.at=0;refreshDailyState()}});
+/* 每日任務以台灣日曆天為準：頁面開著跨午夜也要刷新任務與完成狀態。 */
+setInterval(()=>{const d=taipeiDay();if(dailyState.renderedDay&&d!==dailyState.renderedDay){dailyState.at=0;refreshDailyState()}},30000);
 /* v3.3.0 corner dock + drawers (profile/history/parent/board + daily tasks) */
 (function initDock(){
  const pd=$('profileDrawer'),td=$('tasksDrawer'),chipFace=$('chipFace');
