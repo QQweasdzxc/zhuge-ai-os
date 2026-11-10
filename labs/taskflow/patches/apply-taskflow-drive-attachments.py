@@ -59,6 +59,8 @@ def apply(root,overlay):
  mt=mt.replace('"github.com/multica-ai/multica/server/internal/selfhosttelemetry"','"github.com/multica-ai/multica/server/internal/selfhosttelemetry"\n"github.com/multica-ai/multica/server/internal/storage"',1).replace(main_anchor,worker+main_anchor,1)
  main.write_text(mt)
  router.write_text(rt.replace(old,new,1).replace(callback_old,callback_new,1).replace(setup_old,setup_new,1))
+ ft=ft.replace('DownloadURL   string  `json:"download_url"`', 'DownloadURL   string  `json:"download_url"`\n\tPrivateStorage bool `json:"private_storage,omitempty"`',1)
+ ft=ft.replace('\t// Only CloudFront mode overrides', '\tif _,private:=h.Storage.(*storage.TaskFlowDriveStorage);private{resp.PrivateStorage=true}\n\t// Only CloudFront mode overrides',1)
  file.write_text(ft.replace(admission_old,admission_new,1).replace(parse_old,parse_new,1).replace(read_old,read_new,1).replace(upload_old,upload_new,1).replace(metadata_old,metadata_new,1).replace(reader_old,reader_new,1))
  for dest,text in files.items():dest.write_text(text)
 if __name__=='__main__':
