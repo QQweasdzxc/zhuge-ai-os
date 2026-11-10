@@ -148,6 +148,7 @@ function lockQuizStage(){document.documentElement.classList.add('quiz-locked');s
 function unlockQuizStage(){document.documentElement.classList.remove('quiz-locked');const q=$('screen-quiz');if(q)q.style.height='';closeExplain();}
 function sizeQuizStage(){const el=$('screen-quiz');if(!el||!el.classList.contains('active'))return;const docTop=el.getBoundingClientRect().top+window.scrollY;el.style.height=Math.max(360,window.innerHeight-docTop)+'px';}
 window.addEventListener('resize',()=>{if(document.documentElement.classList.contains('quiz-locked'))sizeQuizStage();});
+function resetPageScroll(){const h=document.documentElement;const prev=h.style.scrollBehavior;h.style.scrollBehavior='auto';window.scrollTo(0,0);h.style.scrollBehavior=prev;}
 function openExplain(){$('explainBackdrop').hidden=false;$('explainSheet').hidden=false;}
 function closeExplain(){const b=$('explainBackdrop'),s=$('explainSheet');if(b)b.hidden=true;if(s)s.hidden=true;}
 function setSelect(group,key,value){config[key]=value;document.querySelectorAll('#'+group+' .pill').forEach(el=>el.classList.toggle('selected',el.dataset[key]===String(value)));}
@@ -197,6 +198,7 @@ function renderQuestion(){
   fb.className='feedback dock-idle';
   fb.textContent='作答後，這裡會顯示結果和「下一題」按鈕。';
   $('quizMid').scrollTop=0;
+  resetPageScroll();
   $('choices').innerHTML='';
   current.choices.forEach((label,i)=>{
     const btn=document.createElement('button');
@@ -233,6 +235,7 @@ function answer(i){
   $('speakWord').addEventListener('click',()=>speak(word.word));
   $('nextBtn').addEventListener('click',nextQuestion);
   $('progressFill').style.width=(100*(game.index+1)/game.items.length)+'%';
+  resetPageScroll();
 }
 function nextQuestion(){
   window.chengyuStopSpeaking?.();
