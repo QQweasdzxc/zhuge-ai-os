@@ -144,10 +144,10 @@ const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'
 const shuffle=arr=>{const out=[...arr];for(let i=out.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[out[i],out[j]]=[out[j],out[i]];}return out;};
 const scrollTop=()=>window.scrollTo({top:0,behavior:'smooth'});
 function show(screen){document.querySelectorAll('.screen').forEach(el=>el.classList.toggle('active',el.id==='screen-'+screen));window.scrollTo(0,0);if(screen==='quiz')lockQuizStage();else unlockQuizStage();if(screen==='library')renderLibrary();}
-function lockQuizStage(){document.body.classList.add('quiz-locked');sizeQuizStage();}
-function unlockQuizStage(){document.body.classList.remove('quiz-locked');const q=$('screen-quiz');if(q)q.style.height='';closeExplain();}
+function lockQuizStage(){document.documentElement.classList.add('quiz-locked');sizeQuizStage();}
+function unlockQuizStage(){document.documentElement.classList.remove('quiz-locked');const q=$('screen-quiz');if(q)q.style.height='';closeExplain();}
 function sizeQuizStage(){const el=$('screen-quiz');if(!el||!el.classList.contains('active'))return;const docTop=el.getBoundingClientRect().top+window.scrollY;el.style.height=Math.max(360,window.innerHeight-docTop)+'px';}
-window.addEventListener('resize',()=>{if(document.body.classList.contains('quiz-locked'))sizeQuizStage();});
+window.addEventListener('resize',()=>{if(document.documentElement.classList.contains('quiz-locked'))sizeQuizStage();});
 function openExplain(){$('explainBackdrop').hidden=false;$('explainSheet').hidden=false;}
 function closeExplain(){const b=$('explainBackdrop'),s=$('explainSheet');if(b)b.hidden=true;if(s)s.hidden=true;}
 function setSelect(group,key,value){config[key]=value;document.querySelectorAll('#'+group+' .pill').forEach(el=>el.classList.toggle('selected',el.dataset[key]===String(value)));}
@@ -408,7 +408,7 @@ html:not(.entry-playing) #homebtn{display:none!important}html.entry-playing #hom
 
 #app>[hidden]{display:none!important}
 </style><style id="quiz-stable-20261110">/* Stable quiz frame (2026-11-10): question, choices, feedback and next button share one fixed screen; full explanation opens as an overlay sheet instead of pushing the page. */
-body.quiz-locked{overflow:hidden}
+html.quiz-locked,html.quiz-locked body{overflow:hidden}
 .quiz-screen.active{display:flex;flex-direction:column}
 .quiz-mid{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding-bottom:2px}
 .quiz-dock{flex:0 0 auto;display:flex;min-height:120px;margin-top:14px}
