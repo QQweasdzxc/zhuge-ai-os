@@ -1,0 +1,43 @@
+name: TF private attachment image qualification
+on:
+  push:
+    branches: ['review/tf-drive-qualification-20261110']
+    paths: ['1-taskflow-private-drive-source.patch', '.github/workflows/taskflow-drive-qualification.yml']
+permissions:
+  contents: read
+jobs:
+  image:
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [backend, web]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: candidate
+      - uses: actions/checkout@v4
+        with:
+          ref: e158874a2e3110992672d1367506e298a7a73942
+          path: baseline
+      - name: Apply source-only candidate to the pinned baseline
+        working-directory: baseline
+        run: |
+          test "$(git rev-parse HEAD)" = e158874a2e3110992672d1367506e298a7a73942
+          git apply --check ../candidate/1-taskflow-private-drive-source.patch
+          git apply ../candidate/1-taskflow-private-drive-source.patch
+          git diff --check
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s labs/taskflow/tests -v
+      - name: Build image without any deployment or private credentials
+        working-directory: baseline
+        env:
+          IMAGE: ${{ matrix.image }}
+        run: |
+          set -o pipefail
+          docker build --progress=plain -f "labs/taskflow/Dockerfile.$IMAGE" -t "tf-private-drive-$IMAGE:qualification" . 2>&1 | tee ../image-build.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: image-build-${{ matrix.image }}
+          path: image-build.log
