@@ -42,7 +42,13 @@ GRANT SELECT,INSERT,DELETE ON taskflow.attachment TO taskflow_runtime;
 -- Existing native wakeup triggers read these tables even for empty fixtures.
 GRANT SELECT ON taskflow.agent_task_queue,taskflow.issue_wakeup TO taskflow_runtime;
 SQL
-{ printf 'SET ROLE taskflow_migrator;\n'; cat "$SQL_DIR/taskflow_drive_metadata_candidate.sql"; } | psql "$NATIVE_URL" -X -v ON_ERROR_STOP=1
+INSTALL_URL="${NATIVE_URL}&options=-crole%3Dtaskflow_migrator"
+TASKFLOW_DRIVE_INSTALL_METADATA=1 TASKFLOW_MIGRATION_DATABASE_URL="$INSTALL_URL" TASKFLOW_DRIVE_METADATA_FILE="$SQL_DIR/taskflow_drive_metadata_candidate.sql" sh /tmp/taskflow-drive-install-metadata.sh
+TASKFLOW_DRIVE_INSTALL_METADATA=1 TASKFLOW_MIGRATION_DATABASE_URL="$INSTALL_URL" TASKFLOW_DRIVE_METADATA_FILE="$SQL_DIR/taskflow_drive_metadata_candidate.sql" sh /tmp/taskflow-drive-install-metadata.sh
+if TASKFLOW_DRIVE_INSTALL_METADATA=1 TASKFLOW_MIGRATION_DATABASE_URL="$NATIVE_URL" TASKFLOW_DRIVE_METADATA_FILE="$SQL_DIR/taskflow_drive_metadata_candidate.sql" sh /tmp/taskflow-drive-install-metadata.sh; then
+ echo 'elevated metadata installer unexpectedly passed';exit 1
+fi
+echo 'GATE private_drive_installer: first/repeat/restricted-role PASS'
 psql "$NATIVE_URL" -X -v ON_ERROR_STOP=1 -f /tmp/test-drive-native-schema.sql
 log=/tmp/taskflow-drive-storage.log
 TASKFLOW_DRIVE_TEST_DATABASE_URL="$LEDGER_URL" GOMEMLIMIT=256MiB CGO_ENABLED=0 go test ./internal/storage -run '^TestTaskFlowDrive' -count=1 -v > "$log" 2>&1 || { cat "$log";exit 1; }

@@ -151,6 +151,7 @@ COPY labs/taskflow/sql/taskflow_service_agent_tokens_postflight.sql /tmp/sat-sql
 COPY labs/taskflow/patches/run-parity-tests.sh /tmp/run-parity-tests.sh
 COPY labs/taskflow/patches/run-drive-attachment-tests.sh /tmp/run-drive-attachment-tests.sh
 COPY labs/taskflow/patches/test-drive-native-schema.sql /tmp/test-drive-native-schema.sql
+COPY labs/taskflow/overrides/taskflow-drive-install-metadata.sh /tmp/taskflow-drive-install-metadata.sh
 COPY labs/taskflow/sql/taskflow_drive_metadata_candidate.sql /tmp/drive-sql/taskflow_drive_metadata_candidate.sql
 RUN sh /tmp/run-parity-tests.sh /src/server \
  && PARITY_DATABASE_URL='postgres://postgres@127.0.0.1:5432/multica?sslmode=disable' sh /tmp/run-drive-attachment-tests.sh /src/server /tmp/drive-sql
@@ -172,6 +173,9 @@ COPY --from=builder /src/server/bin/backfill_task_usage_hourly .
 COPY --from=builder /src/server/bin/backfill_codex_usage_cache .
 COPY --from=source /taskflow-staged-migrations/ ./migrations/
 COPY --from=source /src/LICENSE /src/NOTICE ./
+COPY labs/taskflow/overrides/taskflow-drive-install-metadata.sh ./taskflow-drive-install-metadata.sh
+COPY labs/taskflow/sql/taskflow_drive_metadata_candidate.sql ./taskflow-drive-metadata.sql
+RUN chmod +x ./taskflow-drive-install-metadata.sh
 COPY labs/taskflow/overrides/taskflow-entrypoint.sh ./taskflow-entrypoint.sh
 COPY labs/taskflow/overrides/taskflow-migrate.sh ./taskflow-migrate.sh
 RUN sed -i 's/\r$//' taskflow-entrypoint.sh taskflow-migrate.sh \

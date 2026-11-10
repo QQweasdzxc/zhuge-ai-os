@@ -10,6 +10,12 @@ if [ "${TASKFLOW_MIGRATE_BEFORE_START:-false}" = "true" ]; then
   ./taskflow-migrate.sh
 fi
 
+# Private Drive metadata is a separately gated, restricted one-shot release step.
+if [ "${TASKFLOW_DRIVE_INSTALL_METADATA:-0}" = 1 ]; then
+  ./taskflow-drive-install-metadata.sh
+fi
+unset TASKFLOW_DRIVE_INSTALL_METADATA TASKFLOW_DRIVE_METADATA_FILE
+
 # Never pass the one-shot migration credential or mode flag into the long-lived
 # API process, including when migration mode is disabled.
 unset TASKFLOW_MIGRATION_DATABASE_URL TASKFLOW_MIGRATE_BEFORE_START
