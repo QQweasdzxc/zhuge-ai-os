@@ -38,7 +38,7 @@
 
 .spelling-listen{background:#edf2ff;border:1px solid #d7e0ff;border-radius:16px;margin-top:12px;padding:14px 13px;text-align:center}.spelling-listen .listen-label{font-size:14px;font-weight:850;color:#334a85}.spelling-listen .listen-buttons{display:flex;justify-content:center;align-items:center;gap:10px;margin:10px 0}.spelling-listen .listen-buttons .pill{min-height:44px;flex:1;font-size:14px;font-weight:800}.spelling-listen .listen-status{font-size:12px;margin:5px 0 0;color:var(--muted)}@media(max-width:380px){.spelling-listen .listen-buttons{gap:6px}.spelling-listen .listen-buttons .pill{font-size:12px;padding:9px 7px}}
 /* Stable quiz frame (2026-11-10): question, options and answer feedback share one fixed screen; no page growth or jumping while answering. */
-body.quiz-locked{overflow:hidden}
+html.quiz-locked,html.quiz-locked body{overflow:hidden}
 .quiz-stage{display:flex;flex-direction:column}
 .quiz-mid{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding-bottom:2px}
 .fx-dock{flex:0 0 auto;height:238px;display:flex;flex-direction:column;margin-top:10px}
@@ -531,7 +531,7 @@ function opts(){
  var order=shuffled([id].concat(others.slice(0,3)));
  s.choiceKey=key;s.choiceList=order;return order
 }
-function setQuizLock(on){document.body.classList.toggle("quiz-locked",!!on)}
+function setQuizLock(on){document.documentElement.classList.toggle("quiz-locked",!!on)}
 function sizeQuizStage(){
  var st=document.querySelector(".quiz-stage");if(!st)return;
  var top=st.getBoundingClientRect().top+(window.pageYOffset||document.documentElement.scrollTop||0);
@@ -539,7 +539,7 @@ function sizeQuizStage(){
  var reserve=(f&&window.getComputedStyle(f).position==="fixed")?f.offsetHeight+8:8;
  st.style.height=Math.max(360,window.innerHeight-top-reserve)+"px";
 }
-window.addEventListener("resize",function(){if(document.body.classList.contains("quiz-locked"))sizeQuizStage()});
+window.addEventListener("resize",function(){if(document.documentElement.classList.contains("quiz-locked"))sizeQuizStage()});
 function question(){var w=current(),spell=s.stage===1||s.retry;var prompt=s.retry||s.stage===1?safe(w[1]):s.stage===0?w[0]:safe(w[2]).replace("____","_____");var total=s.order.length;var hearts=s.retry?'<div class="lives">📖 錯字自由複習（不計命）</div>':'<div class="lives" role="status" aria-label="剩餘 '+s.lives+' 條命"><span class="hearts">'+Array.from({length:3},function(_,i){return '<span class="heart-unit '+(i>=s.lives&&i===s.lives?'lost':'')+'">'+(i<s.lives?'❤️':'🖤')+'</span>'}).join('')+'</span><small>剩餘 '+s.lives+' / 3 條命</small></div>';var h='<div class="quiz-stage"><div class="row"><div><h1 class="title">'+stageName()+'</h1><div class="muted">第 '+(s.q+1)+' / '+total+' 題</div></div><strong>⭐ '+s.score+' 分</strong></div>'+hearts+'<div class="progress"><div class="bar" style="width:'+((s.q+(s.answered?1:0))/total*100)+'%"></div></div><div class="quiz-mid"><div class="question"><div class="muted">'+(spell?"先看中文，再聽英文發音拼字":s.stage===0?"選出單字的中文意思":"先聽整句英文，再選出填空單字")+'</div><h2 class="'+(s.stage===2&&!s.retry?"sentence":"")+'">'+prompt+'</h2>'+(!spell?'<div><button class="pill" data-action="sound">'+(s.stage===2?"🔊 整句朗讀":"🔊 聽單字")+'</button> <button class="pill" data-action="slow">'+(s.stage===2?"🐢 整句慢速":"🐢 單字慢速")+'</button></div>':'')+'</div>';
 if(spell){h+='<section class="spelling-listen" aria-label="第二關英文聽力拼字"><div class="listen-label">🎧 聽英文發音，試著拼出單字</div><div class="listen-buttons"><button class="pill" data-action="sound" type="button" aria-label="聽英文單字或片語發音">🔊 聽英文</button><button class="pill" data-action="slow" type="button" aria-label="用慢速聽英文單字或片語發音">🐢 慢速聽</button></div><p class="listen-status" id="audio-status" role="status">可重複聆聽，不扣生命，也不顯示英文答案</p></section><input class="input" id="spelling" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="在這裡輸入英文" aria-label="輸入英文拼字" '+(s.answered?"disabled":"")+' value="'+safe(s.typed)+'"><div class="flex">'+btn("💡 提示","hint","outline",s.clue||s.answered?"disabled":"")+btn("確認拼字","submit","primary",s.answered?"disabled":"")+'</div>'+(s.clue?'<div class="help">提示：字首 '+w[0][0].toUpperCase()+'，共 '+w[0].length+' 個英文字母。</div>':'')}else{h+='<div class="grid2">'+opts().map(function(i){var c=s.answered?(i===s.order[s.q]?"good":s.selected===i?"bad":""):"";return '<button class="option '+c+'" data-action="choose" data-index="'+i+'" '+(s.answered?"disabled":"")+'>'+(s.stage===0?safe(words[i][1]):words[i][0])+'</button>'}).join("")+'</div>'}
 if(s.stage===2&&!s.retry)h+='<p class="muted center" id="audio-status" role="status">按「整句朗讀」聽完整英文句子</p>';
