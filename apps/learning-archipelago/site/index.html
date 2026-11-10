@@ -1090,7 +1090,8 @@ function decorateDailyReviewButtons(){
  for(const b of box.querySelectorAll('[data-review-world]')){
   const w=b.dataset.reviewWorld,done=!!dailyState.reviewDone[w];
   b.classList.toggle('done',done);
-  b.textContent=(done?'✅ ':'')+(w==='chengyu'?'成語島':'英文島')+'訂正／複習'+(done?' 已完成':' +3');
+  const label=(done?'✅ ':'')+(w==='chengyu'?'成語島':'英文島')+'訂正／複習'+(done?' 已完成':' +3');
+  if(b.textContent!==label)b.textContent=label;
  }
 }
 async function refreshDailyState(){
