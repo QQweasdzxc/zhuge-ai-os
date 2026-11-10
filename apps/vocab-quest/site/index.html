@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#f4f6ff"><title>英文單字闖關王｜V2.8.3</title><script src="./wordbank.js"></script><link rel="preconnect" href="https://ssl.gstatic.com" crossorigin><link rel="preconnect" href="https://api.dictionaryapi.dev" crossorigin>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#f4f6ff"><title>英文單字闖關王｜V2.8.6</title><script src="./wordbank.js"></script><link rel="preconnect" href="https://ssl.gstatic.com" crossorigin><link rel="preconnect" href="https://api.dictionaryapi.dev" crossorigin>
 <style>
 :root{--bg:#f4f6ff;--ink:#263554;--muted:#697a94;--line:#e0e6f4;--blue:#5165d8;--blue2:#7a57d7;--white:#fff;--green:#1d8a68;--red:#ca4e66;--gold:#d4a032}
 *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--ink);background:radial-gradient(ellipse at top left,#e2edff,transparent 44%),radial-gradient(ellipse at top right,#fff0e1,transparent 40%),var(--bg);font-family:system-ui,-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;line-height:1.5}button,input{font:inherit}button{cursor:pointer;-webkit-tap-highlight-color:transparent}button:disabled{opacity:.5;cursor:default}.shell{margin:auto;max-width:760px;padding:21px 18px 65px;min-height:100dvh}.top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:20px}.brand{display:flex;align-items:center;gap:9px;font-weight:900;font-size:18px}.mark{background:#e7eafe;border-radius:13px;padding:9px}.headbtn{border:1px solid var(--line);background:white;border-radius:12px;padding:9px 13px;font-weight:700;color:var(--ink)}.hero{background:linear-gradient(120deg,#506de0,#8661d0);color:white;padding:28px 24px;border-radius:24px;box-shadow:0 14px 30px #526de133}.hero h1{font-size:clamp(28px,7vw,39px);margin:0 0 8px;line-height:1.2}.hero p{margin:0;color:#eff1ff;font-size:14px}.tag{display:inline-block;background:#ffffff2b;border-radius:99px;padding:5px 11px;font-size:12px;margin-bottom:12px}.stats,.triple{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:16px 0}.stat,.mini{background:white;border:1px solid var(--line);padding:13px 7px;border-radius:16px;text-align:center}.stat b{display:block;font-size:23px}.stat small,.mini small{display:block;font-size:11px;color:var(--muted)}.panel{background:white;border-radius:23px;border:1px solid var(--line);padding:21px;margin-top:16px;box-shadow:0 9px 24px #3049680e}.panel h2{font-size:19px;margin:0 0 10px}.panel p{color:var(--muted);font-size:13px;margin:3px 0 13px}.btn{border:0;border-radius:14px;padding:13px 15px;font-weight:800;min-height:49px;display:inline-flex;align-items:center;justify-content:center;gap:7px}.wide{width:100%}.primary{color:#fff;background:var(--blue)}.secondary{background:#e9edff;color:#3a4aa2}.outline{background:white;border:1px solid var(--line);color:var(--ink)}.actions{display:grid;gap:10px;margin-top:14px}.notice{font-size:12px;color:#7b6570;background:#fff5f1;border:1px solid #f9dfd3;border-radius:12px;padding:11px 13px;margin-top:16px}.muted{color:var(--muted);font-size:13px}.row{display:flex;align-items:center;justify-content:space-between;gap:12px}.title{font-size:24px;line-height:1.3;margin:0}.progress{background:#e7ebf6;height:9px;border-radius:9px;margin:16px 0;overflow:hidden}.bar{background:linear-gradient(90deg,#6d8cec,#8365d3);height:100%;border-radius:9px;transition:width .2s}.question{background:linear-gradient(135deg,#f0f5ff,#fff);border:1px solid #e0e8ff;border-radius:21px;text-align:center;padding:26px 17px;min-height:190px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}.question h2{font-size:clamp(27px,6vw,38px);margin:0;overflow-wrap:anywhere}.question h2.sentence{font-size:clamp(19px,4.4vw,27px)}.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:16px 0}.option{min-height:75px;border:1.5px solid #dee5f3;border-radius:15px;background:white;padding:12px 8px;font-size:15px;font-weight:700;color:var(--ink);overflow-wrap:anywhere}.option:hover{border-color:#98ace7;background:#f7f9ff}.option.good{background:#e7f8ee;border-color:#4fb68d}.option.bad{background:#fff0f1;border-color:#e69bab}.pill{border:1px solid #dce4f9;background:white;color:var(--blue);border-radius:99px;padding:8px 15px;font-size:13px;font-weight:800}.input{width:100%;border:2px solid #dfe5f5;border-radius:14px;padding:14px;font-size:22px;color:var(--ink);text-align:center;margin:15px 0 10px}.help{background:#fff6e6;border-radius:12px;padding:11px;font-size:13px;margin:8px 0;color:#86631f}.feedback{background:#eaf9f2;border:1px solid #c3e7d4;border-radius:15px;padding:14px;margin-top:15px}.feedback.wrong{background:#fff2f3;border-color:#f1d4da}.feedback strong{display:block;font-size:17px}.feedback p{margin:8px 0 0;font-size:13px;color:#4c6077}.card{width:100%;background:linear-gradient(145deg,#eef3ff,#fff);border:1px solid #dfe7fb;border-radius:24px;min-height:270px;padding:30px 15px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:var(--ink)}.card b{font-size:clamp(30px,8vw,45px)}.card .trans{font-size:23px;font-weight:800}.flex{display:flex;gap:9px;justify-content:space-between;align-items:center;margin-top:14px}.flex>.btn{flex:1}.table-row{border-bottom:1px solid #edf0f7;padding:10px 0;display:flex;justify-content:space-between;align-items:center;gap:10px}.table-row:last-child{border:0}.small{font-size:12px;color:var(--muted)}.success{color:var(--green)}.danger{color:var(--red)}.trophy{font-size:56px;text-align:center}.star{color:var(--gold);font-size:24px}.center{text-align:center}button:focus-visible,input:focus-visible{outline:3px solid #89a0f2;outline-offset:2px}
@@ -51,13 +51,13 @@ html.quiz-locked,html.quiz-locked body{overflow:hidden}
 @media(max-width:380px){.fx-dock{height:224px}}
 @media(max-width:750px){.question{min-height:120px;padding:16px 12px}.option{min-height:58px}.fx-dock{height:200px}}
 @media(max-width:750px) and (max-height:560px){.question{min-height:64px;padding:8px 10px;gap:6px}.question h2{font-size:22px}.spelling-listen{margin-top:6px;padding:8px}.spelling-listen .listen-buttons{margin:6px 0}.input{padding:8px;font-size:18px;margin:8px 0 6px}.fx-dock{height:150px}.answer-fx{padding:8px 10px}.progress{margin:8px 0}.lives{margin:4px 0}}
-</style><script>if(new URLSearchParams(location.hash.slice(1)).get("p"))document.documentElement.classList.add("app-resuming");</script><style>html.app-resuming #playerGate,html.app-resuming #vocabPlayerGate{display:none!important}</style></head><body><main class="shell"><header class="top"><button class="brand brand-action" id="homebtn" aria-label="返回首頁"><span class="mark">🎮</span><span>單字闖關王</span></button><label class="top-picker-wrap"><span class="top-picker-label">測驗項目</span><select id="scope-picker" aria-label="選擇測驗項目"></select></label></header><div id="app" aria-live="polite"></div></main><footer class="release-footer" id="release-footer" aria-label="網站版本資訊"><span class="release-version" id="release-version">V2.8.5</span><span class="release-cloud" id="release-cloud" role="status">☁️ 檢查字庫中</span><span id="release-date">程式更新 2026/11/10 11:05</span><button id="release-check" type="button">檢查新版</button><span class="release-notice" id="release-notice" role="status" aria-live="polite"></span></footer>
+</style><script>if(new URLSearchParams(location.hash.slice(1)).get("p"))document.documentElement.classList.add("app-resuming");</script><style>html.app-resuming #playerGate,html.app-resuming #vocabPlayerGate{display:none!important}</style></head><body><main class="shell"><header class="top"><button class="brand brand-action" id="homebtn" aria-label="返回首頁"><span class="mark">🎮</span><span>單字闖關王</span></button><label class="top-picker-wrap"><span class="top-picker-label">測驗項目</span><select id="scope-picker" aria-label="選擇測驗項目"></select></label></header><div id="app" aria-live="polite"></div></main><footer class="release-footer" id="release-footer" aria-label="網站版本資訊"><span class="release-version" id="release-version">V2.8.6</span><span class="release-cloud" id="release-cloud" role="status">☁️ 檢查字庫中</span><span id="release-date">程式更新 2026/11/10 20:40</span><button id="release-check" type="button">檢查新版</button><span class="release-notice" id="release-notice" role="status" aria-live="polite"></span></footer>
 <script>
 (function(){
 "use strict";
 /* Every published release updates this identity together with release.json.
    All data remains in Supabase; this is only the frontend version stamp. */
-var PAGE_RELEASE={version:"2.8.5",build:"20261110-1105",updatedLabel:"2026/11/10 11:05"};
+var PAGE_RELEASE={version:"2.8.6",build:"20261110-2040",updatedLabel:"2026/11/10 20:40"};
 var latestRelease=null;
 function updateReleaseNotice(message,hasUpdate){
  var node=document.getElementById("release-notice");
@@ -917,4 +917,80 @@ function polish(){
 if(idiom)new MutationObserver(polish).observe($('#screen-result'),{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
 arrange();polish();sync();
 })();
-</script><style>#app [data-action="report"][hidden]{display:none!important}</style></body></html>
+</script><style>#app [data-action="report"][hidden]{display:none!important}</style><script>
+/* 每日任務：與學習總部相同的每日任務演算法（同一玩家＋同一個台北日期一定相同，
+   且不會和昨天重複）。今天的練習主卡跟著每日任務走；預習日先翻單字卡，
+   翻完最後一張回來後，主卡改導向今天搭配的挑戰關。這裡不寫入任何雲端資料。 */
+(function(){
+'use strict';
+var TASKS=[['match','中英配對'],['spell','英文拼字'],['fill','句子填空'],['preview','單字卡預習']];
+var STAGE_OF={match:0,spell:1,fill:2};
+var NOTE_OF={match:'看英文，找中文',spell:'聽發音，拼出英文',fill:'聽句子，選出填空單字'};
+var KEY_OF_MODE={meaning:'match',spelling:'spell',sentence:'fill'};
+var HINTS=['看英文，找中文','聽發音，拼出英文','聽句子，選出填空單字'];
+function dailyHash(s){var h=5381;for(var i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))>>>0;return h}
+function dailyShiftDay(day,off){var d=new Date(day+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+off);return d.toISOString().slice(0,10)}
+function taipeiDay(d){try{return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei'}).format(d||new Date())}catch(e){return new Date().toISOString().slice(0,10)}}
+function dailyPick(name,day){
+ var prev='';
+ for(var off=14;off>=0;off--){
+  var d=dailyShiftDay(day,-off),raw=dailyHash('vocab|'+name+'|'+d)%TASKS.length,key=TASKS[raw][0];
+  if(key===prev)key=TASKS[(raw+1)%TASKS.length][0];prev=key;
+ }
+ return prev;
+}
+function dailyCompanion(name,day){var modes=['meaning','spelling','sentence'];return modes[dailyHash('vocab-companion|'+name+'|'+day)%3]}
+function playerName(){
+ try{
+  var st=window.vocabProgressState&&window.vocabProgressState();
+  if(!st||!st.selectedId)return'';
+  var l=(st.learners||[]).find(function(x){return x.id===st.selectedId});
+  return l&&l.name||'';
+ }catch(e){return''}
+}
+function previewDone(name,day){try{return !!window.localStorage&&localStorage.getItem('vocab-daily-preview')===name+'|'+day}catch(e){return false}}
+document.addEventListener('click',function(e){
+ if(!e.target.closest('[data-study-exit]'))return;
+ var n=playerName();if(!n)return;
+ try{localStorage.setItem('vocab-daily-preview',n+'|'+taipeiDay())}catch(_){}
+},true);
+function label(key){for(var i=0;i<TASKS.length;i++)if(TASKS[i][0]===key)return TASKS[i][1];return key}
+var btnHome={};
+function decorate(){
+ var app=document.getElementById('app');if(!app)return;
+ var mission=app.querySelector('.entry-mission');if(!mission)return;
+ var name=playerName();if(!name)return;
+ var day=taipeiDay(),task=dailyPick(name,day),eff=task,afterPreview=false;
+ if(task==='preview'&&previewDone(name,day)){eff=KEY_OF_MODE[dailyCompanion(name,day)];afterPreview=true}
+ var sig=name+'|'+day+'|'+task+'|'+eff;
+ if(mission.dataset.dailyTask===sig)return;
+ mission.dataset.dailyTask=sig;
+ var action=eff==='preview'?'study':'stage'+STAGE_OF[eff];
+ var btn=app.querySelector('[data-action="'+action+'"]');
+ var launch=mission.querySelector('.entry-launch');
+ if(btn&&launch){
+  var cur=launch.querySelector('[data-action]');
+  if(cur&&cur!==btn){
+   btnHome[btn.dataset.action]={parent:btn.parentElement,next:btn.nextSibling};
+   launch.append(btn);
+   var h=btnHome[cur.dataset.action];
+   if(h&&h.parent&&h.parent.isConnected)h.parent.insertBefore(cur,(h.next&&h.next.isConnected)?h.next:null);
+   else{var challenge=app.querySelector('.entry-other-modes .actions');if(challenge)challenge.insertBefore(cur,challenge.firstChild)}
+  }
+  btn.textContent=eff==='preview'?'開始預習 →':'開始'+label(eff)+' →';
+ }
+ var h2=mission.querySelector('h2');if(h2)h2.textContent=eff==='preview'?(afterPreview?label(eff):'先用單字卡預習'):label(eff);
+ var kicker=mission.querySelector('.entry-kicker');if(kicker)kicker.textContent='今天的練習 · 每日任務';
+ var scope=mission.querySelector('.entry-scope');
+ if(scope){
+  var parts=scope.textContent.split(' · ');
+  while(parts.length&&(HINTS.indexOf(parts[parts.length-1])>=0||parts[parts.length-1]==='先翻卡片記單字，準備好再上場'||parts[parts.length-1].indexOf('預習完成，接著挑戰')===0))parts.pop();
+  scope.textContent=parts.join(' · ')+' · '+(afterPreview?'預習完成，接著挑戰'+label(eff):eff==='preview'?'先翻卡片記單字，準備好再上場':NOTE_OF[eff]);
+ }
+}
+var appEl=document.getElementById('app');
+if(appEl)new MutationObserver(function(){queueMicrotask(decorate)}).observe(appEl,{childList:true});
+decorate();
+})();
+</script>
+</body></html>
