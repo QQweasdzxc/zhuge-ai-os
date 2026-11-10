@@ -27,6 +27,7 @@ jobs:
           test "$(git rev-parse HEAD^{tree}:labs/taskflow)" = "$(git rev-parse 8188b6ac4e3345a4d840c83309dd7fb1a8098d8c^{tree}:labs/taskflow)"
           git apply --check tf-drive-release-transport.patch
           git apply tf-drive-release-transport.patch
+          sed -i 's/[[:blank:]]*$//' labs/taskflow/patches/run-drive-attachment-tests.sh
           git diff --check
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
