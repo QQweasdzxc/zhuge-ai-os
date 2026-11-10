@@ -427,18 +427,18 @@ function frame(){
  '<p id="audio-status" role="status" class="muted"></p></details>'
 }
 function cards(){
- var w=words[s.cardOrder[s.card]],chinese=s.view==="studyCN",front=chinese?"先看中文，聽英文發音再猜拼寫":"先看英文，猜猜中文意思";
+ var w=words[s.cardOrder[s.card]],chinese=s.view==="studyCN",front=chinese?"先看中文，想想英文怎麼說":"先看英文，猜猜中文意思";
  var showCN=chinese||s.flipped,showEN=!chinese||s.flipped;
  var content=(showCN?'<span class="trans">'+safe(w[1])+'</span>':'')+
   (showEN?'<b>'+w[0]+'</b><span class="muted">/'+w[4]+'/</span>':'');
- app.innerHTML='<div class="row"><h1 class="title">'+(chinese?'🎧 中文聽力單字卡':'📖 英文學習單字卡')+'</h1><span class="muted">'+(s.card+1)+' / '+s.cardOrder.length+'</span></div>'+
+ app.innerHTML='<div class="row"><h1 class="title">'+(chinese?'📖 看中文想英文':'📖 看英文想中文')+'</h1><span class="muted">'+(s.card+1)+' / '+s.cardOrder.length+'</span></div>'+
  '<div class="progress"><div class="bar" style="width:'+((s.card+1)/s.cardOrder.length*100)+'%"></div></div>'+
  '<button class="card" data-action="flip"><span class="muted">'+(s.flipped?'點一下重新隱藏答案':front)+'</span>'+
- content+'<span class="small">'+(s.flipped?safe(w[3]):(chinese?'聽完後點卡片，揭曉英文':'點卡片，揭曉中文'))+'</span></button>'+
+ content+'<span class="small">'+(s.flipped?safe(w[3]):(chinese?'想好後點卡片，揭曉英文':'點卡片，揭曉中文'))+'</span></button>'+
  '<div class="flex">'+btn("🔊 英文發音","sound","secondary")+btn("🐢 慢速朗讀","slow","secondary")+'</div>'+
  '<p id="audio-status" role="status" class="muted center">按喇叭播放英文單字。</p>'+
  '<div class="flex">'+btn("← 上一張","prev","outline",s.card===0?"disabled":"")+btn("下一張 →","nextcard","outline",s.card===s.cardOrder.length-1?"disabled":"")+'</div>'+
- '<div class="actions">'+btn("🔀 重新洗牌","shuffleCards","outline wide")+btn(chinese?"切換一般單字卡":"切換中文聽力卡",chinese?"study":"studyCN","outline wide")+btn(s.card===s.cardOrder.length-1?"🎯 預習完成，去挑戰":"🎯 選擇練習關卡","home","primary wide",s.card===s.cardOrder.length-1?'data-study-exit="1"':"")+'</div>'
+ '<div class="actions">'+btn("🔀 重新洗牌","shuffleCards","outline wide")+btn(chinese?"切換看英文想中文":"切換看中文想英文",chinese?"study":"studyCN","outline wide")+btn(s.card===s.cardOrder.length-1?"🎯 預習完成，去挑戰":"🎯 選擇練習關卡","home","primary wide",s.card===s.cardOrder.length-1?'data-study-exit="1"':"")+'</div>'
 }
 function listing(){
  var out='<h1 class="title">📚 教材單字庫</h1><p class="muted">依教材系列、週次分類；測驗預設只使用選定的當週內容。</p>';
