@@ -253,6 +253,17 @@ def apply(root: Path) -> None:
     path.write_text(patch(path.read_text()))
     hook = root / INLINE_MEDIA_TARGET
     hook.write_text(patch_inline_media(hook.read_text()))
+    attachment = root / "packages/views/editor/attachment.tsx"
+    text = attachment.read_text()
+    text = replace_once(text,
+        '  const dl = record.download_url ?? "";',
+        '  // Private Drive retains object references, but raw /uploads is not public.\n  if (record.private_storage) return record.markdown_url || record.download_url || fallback;\n  const dl = record.download_url ?? "";',
+        "private storage canonical authenticated preview")
+    attachment.write_text(text)
+    types = root / "packages/core/types/attachment.ts"
+    types.write_text(replace_once(types.read_text(), 'export interface Attachment {',
+        'export interface Attachment {\n  private_storage?: boolean;',
+        "private storage response marker"))
 
 
 def main() -> None:
