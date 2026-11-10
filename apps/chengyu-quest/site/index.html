@@ -521,5 +521,55 @@ function polish(){
 if(idiom)new MutationObserver(polish).observe($('#screen-result'),{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
 arrange();polish();sync();
 })();
-</script></body>
+</script><script>
+/* 每日任務：與學習總部相同的每日任務演算法（同一玩家＋同一個台北日期一定相同，
+   且不會和昨天重複）。今天預設的出題模式每天在四種之間變化；關卡仍由冒險進度
+   自動帶出目前的挑戰關，玩家隨時可以手動改模式。這裡不寫入任何雲端資料。 */
+(function(){
+'use strict';
+var TASKS=[['mixed','混合練習'],['meaning','看成語，選意思'],['context','情境填空'],['reverse','看意思，選成語']];
+function dailyHash(s){var h=5381;for(var i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))>>>0;return h}
+function dailyShiftDay(day,off){var d=new Date(day+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+off);return d.toISOString().slice(0,10)}
+function taipeiDay(d){try{return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei'}).format(d||new Date())}catch(e){return new Date().toISOString().slice(0,10)}}
+function dailyPick(name,day){
+ var prev='';
+ for(var off=14;off>=0;off--){
+  var d=dailyShiftDay(day,-off),raw=dailyHash('chengyu|'+name+'|'+d)%TASKS.length,key=TASKS[raw][0];
+  if(key===prev)key=TASKS[(raw+1)%TASKS.length][0];prev=key;
+ }
+ return prev;
+}
+function playerName(){
+ try{
+  var st=window.chengyuProgressState&&window.chengyuProgressState();
+  if(!st||!st.selectedId)return'';
+  var l=(st.learners||[]).find(function(x){return x.id===st.selectedId});
+  return l&&l.name||'';
+ }catch(e){return''}
+}
+var applied='';
+function applyDaily(){
+ var name=playerName();if(!name)return;
+ var day=taipeiDay(),task=dailyPick(name,day),sig=name+'|'+day+'|'+task;
+ var mission=document.querySelector('#screen-home .entry-mission');
+ if(mission){var k=mission.querySelector('.entry-kicker');if(k&&(k.textContent==='繼續你的冒險'||k.textContent==='你的下一場冒險'))k.textContent='今天的練習 · 每日任務'}
+ if(applied===sig)return;
+ applied=sig;
+ try{if(typeof setSelect!=='function')return;setSelect('modes','mode',task)}catch(e){return}
+ var modeBtn=document.querySelector('#modes .pill[data-mode="'+task+'"]');
+ var count=document.querySelector('#counts .selected');
+ var countText=count?count.textContent.trim():'10題';
+ var modeText=modeBtn?modeBtn.textContent.trim().replace('🎲 ',''):'綜合隨機';
+ var note=document.getElementById('entryMissionNote');
+ if(note)note.textContent=countText+' · '+modeText+' · 達80%解鎖下一關';
+ var summary=document.querySelector('.entry-options>summary');
+ if(summary&&summary.firstChild)summary.firstChild.textContent='挑戰設定 · '+countText+' / '+modeText;
+}
+var origRefresh=window.chengyuProgressRefresh;
+window.chengyuProgressRefresh=function(){if(origRefresh)origRefresh();applyDaily()};
+applyDaily();
+setInterval(applyDaily,2500);
+})();
+</script>
+</body>
 </html>
