@@ -532,6 +532,7 @@ function opts(){
  s.choiceKey=key;s.choiceList=order;return order
 }
 function setQuizLock(on){document.documentElement.classList.toggle("quiz-locked",!!on)}
+function resetPageScroll(){var h=document.documentElement;var prev=h.style.scrollBehavior;h.style.scrollBehavior="auto";window.scrollTo(0,0);h.style.scrollBehavior=prev}
 function sizeQuizStage(){
  var st=document.querySelector(".quiz-stage");if(!st)return;
  var top=st.getBoundingClientRect().top+(window.pageYOffset||document.documentElement.scrollTop||0);
@@ -554,7 +555,7 @@ if(s.answered){
 else h+='<div class="fx-placeholder">選好答案，結果會顯示在這裡。</div>';
 h+='</div></div>';
 app.innerHTML=h;
-setQuizLock(true);sizeQuizStage();
+setQuizLock(true);sizeQuizStage();resetPageScroll();
 }
 function report(){
  setQuizLock(false);
