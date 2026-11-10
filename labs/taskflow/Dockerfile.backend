@@ -122,6 +122,10 @@ COPY labs/taskflow/overrides/taskflow_zh_hant_language_test.go /taskflow-zh-hant
 RUN python3 /tmp/apply-taskflow-zh-hant.py --target backend --root /src --overlays /taskflow-zh-hant \
  && test -f /src/server/internal/handler/taskflow_zh_hant_language_test.go
 
+COPY labs/taskflow/patches/apply-taskflow-drive-attachments.py /tmp/apply-taskflow-drive-attachments.py
+COPY labs/taskflow/patches/drive-attachments/ /tmp/drive-attachments/
+RUN python3 /tmp/apply-taskflow-drive-attachments.py --root /src --overlays /tmp/drive-attachments
+
 FROM golang:1.26-alpine AS builder
 ARG MULTICA_SOURCE_SHA
 ARG VERSION=taskflow-parity
@@ -145,7 +149,11 @@ COPY labs/taskflow/patches/run-service-agent-token-tests.sh /tmp/run-service-age
 COPY labs/taskflow/sql/taskflow_service_agent_tokens_candidate.sql /tmp/sat-sql/taskflow_service_agent_tokens_candidate.sql
 COPY labs/taskflow/sql/taskflow_service_agent_tokens_postflight.sql /tmp/sat-sql/taskflow_service_agent_tokens_postflight.sql
 COPY labs/taskflow/patches/run-parity-tests.sh /tmp/run-parity-tests.sh
-RUN sh /tmp/run-parity-tests.sh /src/server
+COPY labs/taskflow/patches/run-drive-attachment-tests.sh /tmp/run-drive-attachment-tests.sh
+COPY labs/taskflow/patches/test-drive-native-schema.sql /tmp/test-drive-native-schema.sql
+COPY labs/taskflow/sql/taskflow_drive_metadata_candidate.sql /tmp/drive-sql/taskflow_drive_metadata_candidate.sql
+RUN sh /tmp/run-parity-tests.sh /src/server \
+ && PARITY_DATABASE_URL='postgres://postgres@127.0.0.1:5432/multica?sslmode=disable' sh /tmp/run-drive-attachment-tests.sh /src/server /tmp/drive-sql
 RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}" -o bin/server ./cmd/server
 RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${DATE}" -o bin/multica ./cmd/multica
 RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w" -o bin/migrate ./cmd/migrate
