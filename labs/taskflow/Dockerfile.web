@@ -201,9 +201,11 @@ COPY --from=source /src/package.json /src/turbo.json /src/pnpm-workspace.yaml ./
 COPY --from=source /src/apps/web/ apps/web/
 COPY --from=source /src/packages/ packages/
 RUN pnpm install --frozen-lockfile --offline
+COPY labs/taskflow/overrides/taskflow-private-drive-inline.test.tsx /tmp/taskflow-private-drive-inline.test.tsx
 COPY labs/taskflow/overrides/taskflow-attachment-preview-token-auth.test.tsx /tmp/taskflow-attachment-preview-token-auth.test.tsx
 RUN cp /tmp/taskflow-attachment-preview-token-auth.test.tsx /app/packages/views/editor/taskflow-attachment-preview-token-auth.test.tsx \
- && pnpm --filter @multica/views exec vitest run editor/taskflow-attachment-preview-token-auth.test.tsx
+ && cp /tmp/taskflow-private-drive-inline.test.tsx /app/packages/views/editor/taskflow-private-drive-inline.test.tsx \
+ && pnpm --filter @multica/views exec vitest run editor/taskflow-attachment-preview-token-auth.test.tsx editor/taskflow-private-drive-inline.test.tsx
 RUN pnpm --filter @multica/core exec vitest run issues/taskflow-row-query.test.ts \
  && pnpm --filter @multica/core exec vitest run i18n/pick-locale.test.ts i18n/user-locale-sync.test.tsx i18n/taskflow-locale.test.ts i18n/taskflow-locale-browser.test.ts i18n/taskflow-locale-sync.test.tsx \
  && pnpm --filter @multica/views exec vitest run issues/components/taskflow-list-load-more-footer.test.tsx \
@@ -221,12 +223,14 @@ RUN pnpm --filter @multica/views exec vitest run locales/parity.test.ts -t "loca
 RUN pnpm --filter @multica/views exec vitest run modals/create-issue.test.tsx issues/components/pickers/taskflow-backlog-assignment.test.tsx issues/components/pickers/assignee-picker.keyboard.test.tsx issues/components/pickers/deferred-trigger.test.tsx issues/components/batch-action-toolbar.test.tsx issues/components/batch-action-toolbar.confirm.test.tsx
 RUN pnpm --filter @multica/web exec vitest run lib/locale-routing.test.ts lib/taskflow-locale-routing.test.ts lib/docs-href.test.ts app/global-error.test.tsx features/landing/i18n/dictionary.test.ts features/landing/components/inline-links.test.ts features/landing/components/changelog-page-client.test.ts lib/use-case-locale-fallback.test.ts lib/taskflow-html-lang.test.ts
 ARG NEXT_PUBLIC_APP_VERSION=taskflow-parity
+ARG RENDER_GIT_COMMIT
+COPY version.json /tmp/taskflow-release.json
 ENV NEXT_PUBLIC_APP_VERSION=${NEXT_PUBLIC_APP_VERSION} \
     STANDALONE=true
 # Verify the owner connection page reaches the actual compiled app, outside /auth proxy routes.
 RUN test -s /app/apps/web/app/taskflow-drive/connect/page.tsx \
  && test ! -e /app/apps/web/app/auth/taskflow-drive/connect/page.tsx \
- && pnpm --filter @multica/web build \
+ && NEXT_PUBLIC_APP_VERSION="$(node -p 'const v=require("/tmp/taskflow-release.json");v.version+"+"+v.build')${RENDER_GIT_COMMIT:+@${RENDER_GIT_COMMIT}}" pnpm --filter @multica/web build \
  && test -s /app/apps/web/.next/server/app/taskflow-drive/connect/page.js
 
 FROM node:22-alpine AS runtime

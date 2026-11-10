@@ -127,6 +127,8 @@ ARG MULTICA_SOURCE_SHA
 ARG VERSION=taskflow-parity
 ARG COMMIT=${MULTICA_SOURCE_SHA}
 ARG DATE=unknown
+ARG RENDER_GIT_COMMIT
+COPY version.json /tmp/taskflow-release.json
 RUN apk add --no-cache git postgresql16 postgresql16-contrib postgresql16-client
 WORKDIR /src
 COPY --from=source /src /src
@@ -146,7 +148,11 @@ COPY labs/taskflow/sql/taskflow_service_agent_tokens_candidate.sql /tmp/sat-sql/
 COPY labs/taskflow/sql/taskflow_service_agent_tokens_postflight.sql /tmp/sat-sql/taskflow_service_agent_tokens_postflight.sql
 COPY labs/taskflow/patches/run-parity-tests.sh /tmp/run-parity-tests.sh
 RUN sh /tmp/run-parity-tests.sh /src/server
-RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}" -o bin/server ./cmd/server
+RUN VERSION="$(sed -n 's/.*"version": "\([^"]*\)".*/\1/p' /tmp/taskflow-release.json)" \
+ && BUILD="$(sed -n 's/.*"build": "\([^"]*\)".*/\1/p' /tmp/taskflow-release.json)" \
+ && test -n "${VERSION}" && test -n "${BUILD}" \
+ && COMMIT="${RENDER_GIT_COMMIT:-${COMMIT}}" \
+ && cd server && CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=${VERSION}+${BUILD} -X main.commit=${COMMIT}" -o bin/server ./cmd/server
 RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${DATE}" -o bin/multica ./cmd/multica
 RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w" -o bin/migrate ./cmd/migrate
 RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w" -o bin/maintenance ./cmd/maintenance

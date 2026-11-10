@@ -25,7 +25,7 @@ SPEC.loader.exec_module(PATCH)
 
 class TaskFlowAttachmentPreviewOverlayTests(unittest.TestCase):
     def test_staged_patch_re_signs_token_mode_and_fails_closed_without_exposing_raw_media_url(self) -> None:
-        vendor_files = [VENDOR / TARGET, VENDOR / INLINE_MEDIA_TARGET]
+        vendor_files = [VENDOR / TARGET, VENDOR / INLINE_MEDIA_TARGET, VENDOR / "packages/views/editor/attachment.tsx", VENDOR / "packages/core/types/attachment.ts"]
         before = {path: hashlib.sha256(path.read_bytes()).hexdigest() for path in vendor_files}
         with tempfile.TemporaryDirectory(prefix="taskflow-attachment-preview-") as temporary:
             staged_root = Path(temporary)
@@ -36,6 +36,8 @@ class TaskFlowAttachmentPreviewOverlayTests(unittest.TestCase):
             PATCH.apply(Path(temporary))
             modal = (staged_root / TARGET).read_text()
             hook = (staged_root / INLINE_MEDIA_TARGET).read_text()
+            self.assertIn("if (record.private_storage)", (staged_root / "packages/views/editor/attachment.tsx").read_text())
+            self.assertIn("private_storage?: boolean", (staged_root / "packages/core/types/attachment.ts").read_text())
             self.assertIn("TASKFLOW_AUTHENTICATED_PDF_PREVIEW", modal)
             self.assertIn("mediaUrl={pdfPreviewUrl}", modal)
             self.assertIn("mediaUnavailable={pdfNeedsAuthenticatedFallback}", modal)
