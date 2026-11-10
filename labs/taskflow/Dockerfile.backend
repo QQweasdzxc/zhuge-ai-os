@@ -131,6 +131,8 @@ ARG MULTICA_SOURCE_SHA
 ARG VERSION=taskflow-parity
 ARG COMMIT=${MULTICA_SOURCE_SHA}
 ARG DATE=unknown
+ARG RENDER_GIT_COMMIT
+COPY version.json /tmp/taskflow-release.json
 RUN apk add --no-cache git postgresql16 postgresql16-contrib postgresql16-client
 WORKDIR /src
 COPY --from=source /src /src
@@ -155,7 +157,13 @@ COPY labs/taskflow/overrides/taskflow-drive-install-metadata.sh /tmp/taskflow-dr
 COPY labs/taskflow/sql/taskflow_drive_metadata_candidate.sql /tmp/drive-sql/taskflow_drive_metadata_candidate.sql
 RUN sh /tmp/run-parity-tests.sh /src/server \
  && PARITY_DATABASE_URL='postgres://postgres@127.0.0.1:5432/multica?sslmode=disable' sh /tmp/run-drive-attachment-tests.sh /src/server /tmp/drive-sql
-RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}" -o bin/server ./cmd/server
+RUN TF_RELEASE_VERSION="$(sed -n 's/.*"version": "\([^"]*\)".*/\1/p' /tmp/taskflow-release.json)" \
+ && TF_RELEASE_BUILD="$(sed -n 's/.*"build": "\([^"]*\)".*/\1/p' /tmp/taskflow-release.json)" \
+ && test -n "${TF_RELEASE_VERSION}" && test -n "${TF_RELEASE_BUILD}" \
+ && TF_RELEASE_SHA="${RENDER_GIT_COMMIT:-${COMMIT}}" \
+ && cd server && CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=${TF_RELEASE_VERSION}+${TF_RELEASE_BUILD} -X main.commit=${TF_RELEASE_SHA}" -o bin/server ./cmd/server \
+ && grep -aFq "${TF_RELEASE_VERSION}+${TF_RELEASE_BUILD}" bin/server \
+ && grep -aFq "${TF_RELEASE_SHA}" bin/server
 RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${DATE}" -o bin/multica ./cmd/multica
 RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w" -o bin/migrate ./cmd/migrate
 RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w" -o bin/maintenance ./cmd/maintenance
