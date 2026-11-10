@@ -186,6 +186,8 @@ RUN corepack enable \
  && corepack prepare "$PNPM_VERSION" --activate \
  && pnpm install --frozen-lockfile
 
+COPY labs/taskflow/overrides/taskflow-drive-connect-page.tsx /src/apps/web/app/auth/taskflow-drive/connect/page.tsx
+
 FROM node:22-alpine AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1 \
