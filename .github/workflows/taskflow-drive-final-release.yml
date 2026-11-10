@@ -1,0 +1,83 @@
+name: TF scoped metadata installer and preserved frontend qualification
+on:
+  push:
+    branches: ['review/tf-drive-qualification-20261110']
+    paths: ['.github/workflows/taskflow-drive-final-release.yml']
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    outputs:
+      backend: ${{ steps.compose.outputs.backend }}
+      web: ${{ steps.compose.outputs.web }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: review/tf-drive-qualification-20261110
+          fetch-depth: 0
+      - name: Compose narrow release transport on each live baseline
+        id: compose
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum tf-drive-release-transport.patch | cut -d' ' -f1)" = b1edd776c99383d36c4229bd15cf3404c24f5b1c58d4e39b511287478d4cd3e3
+          test "$(git rev-parse HEAD^{tree}:labs/taskflow)" = "$(git rev-parse 8188b6ac4e3345a4d840c83309dd7fb1a8098d8c^{tree}:labs/taskflow)"
+          git apply --check tf-drive-release-transport.patch
+          git apply tf-drive-release-transport.patch
+          git diff --check
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add labs/taskflow
+          git commit -m 'Add explicitly gated restricted metadata installer without storage activation'
+          git push origin HEAD:review/tf-drive-qualification-20261110
+          backend=$(git rev-parse HEAD)
+          echo "backend=$backend" >> "$GITHUB_OUTPUT"
+          git switch --detach 5ee0eb828ba9b701c77e5c754246fd775a3c10c6
+          git show "$backend:labs/taskflow/overrides/taskflow-drive-connect-page.tsx" > labs/taskflow/overrides/taskflow-drive-connect-page.tsx
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('labs/taskflow/Dockerfile.web')
+          s=p.read_text()
+          a='FROM node:22-alpine AS builder'
+          assert s.count(a)==1
+          s=s.replace(a,'COPY labs/taskflow/overrides/taskflow-drive-connect-page.tsx /src/apps/web/app/auth/taskflow-drive/connect/page.tsx\n\n'+a)
+          p.write_text(s)
+          PY
+          git diff --check
+          git add labs/taskflow/Dockerfile.web labs/taskflow/overrides/taskflow-drive-connect-page.tsx
+          git commit -m 'Add only private Drive connection page on current frontend baseline'
+          git push origin HEAD:review/tf-drive-web-current-baseline-20261110
+          echo "web=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+  image:
+    needs: source
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: backend
+            sha: ${{ needs.source.outputs.backend }}
+          - image: web
+            sha: ${{ needs.source.outputs.web }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.sha }}
+      - name: Test source composition
+        run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s labs/taskflow/tests -v
+      - name: Build qualified source without deployment or private credentials
+        env:
+          IMAGE: ${{ matrix.image }}
+        shell: bash
+        run: |
+          set -o pipefail
+          docker build --progress=plain -f "labs/taskflow/Dockerfile.$IMAGE" -t "tf-drive-$IMAGE:final-release-qualification" . 2>&1 | tee image-build.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: final-build-${{ matrix.image }}
+          path: image-build.log
