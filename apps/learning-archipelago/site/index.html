@@ -622,7 +622,7 @@ window.ArchipelagoDaily={mount({container,request,worlds=['chengyu','vocab']}){
   <div class="map-footer"><span>⛵ 已開放 2 / 6 座學習島</span><span>✨ 同一位冒險者，所有島嶼共用總 XP</span></div>
  </div>
 </section>
-<div hidden aria-hidden="true"><p id="connect"></p><p id="welcomeMessage"></p><button id="goExplore"></button></div></main><footer class="footer">學習冒險島 · BUILD 2026.11.09.08 · 家庭雲端紀錄由 Supabase 保存<br>本網站不要求登入；家庭專用網址含私人存取金鑰，請只分享給家人。</footer>
+<div hidden aria-hidden="true"><p id="connect"></p><p id="welcomeMessage"></p><button id="goExplore"></button></div></main><footer class="footer">學習冒險島 · BUILD 2026.11.10.01 · 家庭雲端紀錄由 Supabase 保存<br>本網站不要求登入；家庭專用網址含私人存取金鑰，請只分享給家人。</footer>
 </div></div>
 <div class="dock" aria-label="快捷入口">
  <button class="dock-chip" id="shopChip" type="button" aria-label="金幣商店"><span class="chip-ic" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="#ffd873" stroke="#8a6d1f" stroke-width="2"/><circle cx="12" cy="12" r="5.5" fill="none" stroke="#c9982f" stroke-width="1.6"/><path d="M12 8.8l.9 1.9 2.1.3-1.5 1.5.3 2.1-1.8-1-1.8 1 .3-2.1-1.5-1.5 2.1-.3z" fill="#c9982f"/></svg></span><span class="dock-chip-label pixel">金幣商店</span></button>
@@ -659,6 +659,7 @@ window.ArchipelagoDaily={mount({container,request,worlds=['chengyu','vocab']}){
   </div>
  </div>
 </div>
+<style>.quest-mini-row.done{background:#e9f7e4;border-color:#8fc47a}.quest-mini-row.done .qmr-text{color:#2f5d22}.quest-mini-row .qmr-done{color:#2f8f3a;font-weight:900;margin-left:4px}.quest-progress{font-size:11px;color:#6b7a4a;margin:8px 2px 0}.daily-learning>button.done{background:#e9f7e4;border-color:#8fc47a;color:#2f5d22}</style>
 <div class="drawer" id="tasksDrawer" hidden>
  <div class="drawer-card pixel-panel" role="dialog" aria-modal="true" aria-label="今日任務">
   <button class="drawer-close" id="tasksClose" type="button" aria-label="關閉">✕</button>
@@ -667,6 +668,7 @@ window.ArchipelagoDaily={mount({container,request,worlds=['chengyu','vocab']}){
   <div id="dailyLearning"></div><div class="quest-mini">
    <a class="quest-mini-row" data-quest="chengyu" href="https://chengyu-quest-family.onrender.com/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4a2 2 0 0 1 2-2h12v15H7a2 2 0 0 0-2 2V4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M19 17v5H7a2 2 0 0 1 0-4h12z" fill="currentColor" opacity=".28"/></svg><span class="qmr-text"><strong>成語島</strong> · 1 回合成語練習</span><span class="qmr-go" aria-hidden="true">›</span></a>
    <a class="quest-mini-row" data-quest="english" href="https://vocab-quest-family.onrender.com/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18 12 4l6 14M8.4 13h7.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="qmr-text"><strong>英文島</strong> · 1 回合單字練習</span><span class="qmr-go" aria-hidden="true">›</span></a>
+   <p class="quest-progress" id="questProgress" hidden></p>
    <details class="quest-more"><summary>每日領獎規則</summary><p class="drawer-note">每日先完成一回合，再完成訂正或少量複習可領3幣，愛心用完完成訂正也可領。通關每島每天前3回合各5幣，XP不變。</p></details>
   </div>
  </div>
@@ -827,7 +829,7 @@ function addPlayerForm(){
 }
 async function selectPlayer(id){
  const found=players.find(p=>p.id===id);if(!found)return;
- if(coinCatalog){coinCatalog.destroy();coinCatalog=null;}if(dailyLearning){dailyLearning.destroy();dailyLearning=null;}
+ if(coinCatalog){coinCatalog.destroy();coinCatalog=null;}if(dailyLearning){dailyLearning.destroy();dailyLearning=null;}resetDailyState();renderDailyRows();refreshDailyState();
  player=found;hero=null;stats=null;try{history.replaceState(null,'',location.pathname+location.search+'#f='+encodeURIComponent(token)+'&p='+encodeURIComponent(found.name))}catch(e){}render();
  show('<div class="dialog-icon">⚔️</div><h2 id="dialogTitle">正在召喚冒險者…</h2><p>讀取 '+esc(found.name)+' 的職業、總 XP 與晉級記錄。</p>','loading');
  try{
@@ -1016,6 +1018,107 @@ $('examButton').onclick=startExam;
 document.addEventListener('archipelago:coin-updated',async()=>{try{const d=await call('getWallet');if(stats){stats.wallet=d.wallet;render();}}catch{}});
 window.addEventListener('pageshow',()=>{if(player&&!$('overlay').hidden)return;if(player)refresh()});
 const forgetFamily=document.createElement('button');forgetFamily.type='button';forgetFamily.className='btn secondary';forgetFamily.id='forgetFamilyDevice';forgetFamily.textContent='切換家庭／清除此裝置記住的家庭';forgetFamily.onclick=()=>{if(!window.confirm('只清除此裝置記住的家庭入口，不會刪除雲端冒險者或進度。確認退出並換家庭？'))return;forgetDeviceFamily();location.replace(location.pathname+location.search)};document.querySelector('#profileDrawer .drawer-card')?.appendChild(forgetFamily);render();loadPlayers();
+/* Daily island tasks: deterministic per player + Taipei day, mirrored in both island apps.
+   Completion reads the islands' own cloud attempts (exact activity mode) and the server wallet
+   ledger (訂正／複習). Read-only here: this code never writes family data. */
+const DAILY_CLOUD={chengyu:'https://lenpbbhwxyyfwgvjcozf.supabase.co/functions/v1/chengyu-family-cloud',vocab:'https://lenpbbhwxyyfwgvjcozf.supabase.co/functions/v1/vocab-family-cloud'};
+const DAILY_TASKS={chengyu:[['mixed','混合練習'],['meaning','看成語，選意思'],['context','情境填空'],['reverse','看意思，選成語']],vocab:[['match','中英配對'],['spell','英文拼字'],['fill','句子填空'],['preview','單字卡預習']]};
+const DAILY_VOCAB_MODE={match:'meaning',spell:'spelling',fill:'sentence'};
+const DAILY_VOCAB_MODE_LABEL={meaning:'中英配對',spelling:'英文拼字',sentence:'句子填空'};
+let dailyState={at:0,loading:false,walletDay:'',done:{chengyu:false,vocab:false},reviewDone:{chengyu:false,vocab:false}};
+function dailyHash(s){let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))>>>0;return h}
+function dailyShiftDay(day,off){const d=new Date(day+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+off);return d.toISOString().slice(0,10)}
+function taipeiDay(d){try{return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei'}).format(d||new Date())}catch(e){return new Date().toISOString().slice(0,10)}}
+function dailyPick(world,name,day){
+ const list=DAILY_TASKS[world];let prev='';
+ for(let off=14;off>=0;off--){
+  const d=dailyShiftDay(day,-off),raw=dailyHash(world+'|'+name+'|'+d)%list.length;
+  let key=list[raw][0];if(key===prev)key=list[(raw+1)%list.length][0];prev=key;
+ }
+ return prev;
+}
+function dailyVocabCompanion(name,day){const modes=['meaning','spelling','sentence'];return modes[dailyHash('vocab-companion|'+name+'|'+day)%3]}
+function dailyTaskLabel(world,key,name,day){
+ if(world==='vocab'&&key==='preview')return '預習單字卡＋'+DAILY_VOCAB_MODE_LABEL[dailyVocabCompanion(name,day)];
+ const found=DAILY_TASKS[world].find(t=>t[0]===key);return found?found[1]:key;
+}
+function resetDailyState(){dailyState.at=0;dailyState.walletDay='';dailyState.done={chengyu:false,vocab:false};dailyState.reviewDone={chengyu:false,vocab:false}}
+function dailyLearnerId(world,learners){
+ if(!player)return'';
+ if(world==='chengyu'){const byId=(learners||[]).find(l=>l.id===player.id);if(byId)return byId.id}
+ const same=(learners||[]).filter(l=>l.name===player.name);
+ return same.length===1?same[0].id:'';
+}
+async function dailyIslandLoad(world){
+ const res=await fetch(DAILY_CLOUD[world],{method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',body:JSON.stringify({action:'load',token})});
+ const data=await res.json().catch(()=>null);
+ if(!res.ok||!data?.ok)throw Error('暫時無法讀取學習島紀錄');
+ return data;
+}
+function dailyAttemptDone(world,attempts,learnerId,taskKey,day,playerName){
+ if(!learnerId)return false;
+ const want=world==='vocab'?(taskKey==='preview'?dailyVocabCompanion(playerName,day):DAILY_VOCAB_MODE[taskKey]):taskKey;
+ return (attempts||[]).some(a=>{
+  if(a.learner_id!==learnerId||a.result_status!=='completed')return false;
+  if(taipeiDay(new Date(a.created_at))!==day)return false;
+  if(world==='vocab'&&a.mode==='all')return true;
+  return a.mode===want;
+ });
+}
+function renderDailyRows(){
+ const prog=$('questProgress');
+ const rows=[['chengyu',document.querySelector('[data-quest=chengyu]'),'成語島'],['vocab',document.querySelector('[data-quest=english]'),'英文島']];
+ if(rows.some(r=>!r[1]))return;
+ if(!isFamily()||!player){if(prog)prog.hidden=true;return}
+ const day=dailyState.walletDay||taipeiDay();
+ let finished=0;
+ for(const [world,a,isle] of rows){
+  const task=dailyPick(world,player.name,day),done=!!dailyState.done[world];
+  a.href=childLink(world)+'&t='+task;
+  a.classList.toggle('done',done);
+  const text=a.querySelector('.qmr-text'),go=a.querySelector('.qmr-go');
+  if(text)text.innerHTML='<strong>'+esc(isle)+'</strong> · 今天：'+esc(dailyTaskLabel(world,task,player.name,day))+(done?' <span class="qmr-done">已完成</span>':'');
+  if(go)go.textContent=done?'✅':'›';
+  if(done)finished++;
+ }
+ for(const w of ['chengyu','vocab'])if(dailyState.reviewDone[w])finished++;
+ if(prog){prog.hidden=false;prog.textContent='今天已完成 '+finished+' / 4 個每日任務'}
+ decorateDailyReviewButtons();
+}
+function decorateDailyReviewButtons(){
+ const box=$('dailyLearning');if(!box)return;
+ for(const b of box.querySelectorAll('[data-review-world]')){
+  const w=b.dataset.reviewWorld,done=!!dailyState.reviewDone[w];
+  b.classList.toggle('done',done);
+  b.textContent=(done?'✅ ':'')+(w==='chengyu'?'成語島':'英文島')+'訂正／複習'+(done?' 已完成':' +3');
+ }
+}
+async function refreshDailyState(){
+ if(!isFamily()||!player||dailyState.loading)return;
+ if(Date.now()-dailyState.at<30000){renderDailyRows();return}
+ dailyState.loading=true;
+ const pid=player.id;
+ try{
+  const [walletRes,vocabRes,chengyuRes]=await Promise.all([
+   call('getWallet').catch(()=>null),
+   dailyIslandLoad('vocab').catch(()=>null),
+   dailyIslandLoad('chengyu').catch(()=>null)
+  ]);
+  if(!player||player.id!==pid)return;
+  if(walletRes?.wallet){dailyState.walletDay=walletRes.wallet.day||'';if(stats)stats.wallet=walletRes.wallet}
+  const day=dailyState.walletDay||taipeiDay();
+  if(vocabRes)dailyState.done.vocab=dailyAttemptDone('vocab',vocabRes.attempts,dailyLearnerId('vocab',vocabRes.learners),dailyPick('vocab',player.name,day),day,player.name);
+  if(chengyuRes)dailyState.done.chengyu=dailyAttemptDone('chengyu',chengyuRes.attempts,dailyLearnerId('chengyu',chengyuRes.learners),dailyPick('chengyu',player.name,day),day,player.name);
+  const hist=walletRes?.wallet?.history||[];
+  for(const w of ['chengyu','vocab'])dailyState.reviewDone[w]=hist.some(x=>x.kind==='daily_task'&&x.world===w&&String(x.day)===day);
+  dailyState.at=Date.now();
+ }finally{
+  dailyState.loading=false;
+  renderDailyRows();
+ }
+}
+new MutationObserver(()=>decorateDailyReviewButtons()).observe($('dailyLearning'),{childList:true,subtree:true});
+document.addEventListener('archipelago:coin-updated',()=>{dailyState.at=0;refreshDailyState()});
 /* v3.3.0 corner dock + drawers (profile/history/parent/board + daily tasks) */
 (function initDock(){
  const pd=$('profileDrawer'),td=$('tasksDrawer'),chipFace=$('chipFace');
@@ -1046,6 +1149,8 @@ const forgetFamily=document.createElement('button');forgetFamily.type='button';f
   const c=$('islandChengyu'),e=$('islandEnglish');
   if(c){document.querySelectorAll('[data-quest=chengyu]').forEach(a=>{a.href=c.href})}
   if(e){document.querySelectorAll('[data-quest=english]').forEach(a=>{a.href=e.href})}
+  renderDailyRows();
+  refreshDailyState();
  }
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('overlay').hidden)openDrawer(null)});
  $('tasksChip').onclick=()=>{td.classList.toggle('peek',matchMedia('(max-width:690px)').matches);if(td.hidden){refreshTasks();openDrawer('tasks')}else openDrawer(null)};
