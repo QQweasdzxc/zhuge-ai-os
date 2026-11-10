@@ -37,13 +37,25 @@
 @media(prefers-reduced-motion:reduce){.answer-fx,.answer-fx *, .lives .heart-unit.lost{animation:none!important}}
 
 .spelling-listen{background:#edf2ff;border:1px solid #d7e0ff;border-radius:16px;margin-top:12px;padding:14px 13px;text-align:center}.spelling-listen .listen-label{font-size:14px;font-weight:850;color:#334a85}.spelling-listen .listen-buttons{display:flex;justify-content:center;align-items:center;gap:10px;margin:10px 0}.spelling-listen .listen-buttons .pill{min-height:44px;flex:1;font-size:14px;font-weight:800}.spelling-listen .listen-status{font-size:12px;margin:5px 0 0;color:var(--muted)}@media(max-width:380px){.spelling-listen .listen-buttons{gap:6px}.spelling-listen .listen-buttons .pill{font-size:12px;padding:9px 7px}}
-</style><script>if(new URLSearchParams(location.hash.slice(1)).get("p"))document.documentElement.classList.add("app-resuming");</script><style>html.app-resuming #playerGate,html.app-resuming #vocabPlayerGate{display:none!important}</style></head><body><main class="shell"><header class="top"><button class="brand brand-action" id="homebtn" aria-label="返回首頁"><span class="mark">🎮</span><span>單字闖關王</span></button><label class="top-picker-wrap"><span class="top-picker-label">測驗項目</span><select id="scope-picker" aria-label="選擇測驗項目"></select></label></header><div id="app" aria-live="polite"></div></main><footer class="release-footer" id="release-footer" aria-label="網站版本資訊"><span class="release-version" id="release-version">V2.8.4</span><span class="release-cloud" id="release-cloud" role="status">☁️ 檢查字庫中</span><span id="release-date">程式更新 2026/11/10 09:40</span><button id="release-check" type="button">檢查新版</button><span class="release-notice" id="release-notice" role="status" aria-live="polite"></span></footer>
+/* Stable quiz frame (2026-11-10): question, options and answer feedback share one fixed screen; no page growth or jumping while answering. */
+body.quiz-locked{overflow:hidden}
+.quiz-stage{display:flex;flex-direction:column}
+.quiz-mid{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+.fx-dock{flex:0 0 auto;height:238px;display:flex;flex-direction:column;margin-top:10px}
+.fx-dock .answer-fx{margin-top:0;flex:1;display:flex;flex-direction:column;justify-content:center;overflow-y:auto;padding:13px 14px}
+.fx-dock .answer-fx .fx-emoji{font-size:30px}
+.fx-dock .answer-fx h3{font-size:19px}
+.fx-dock .answer-fx .fx-boom{font-size:12px}
+.fx-dock .answer-fx .fx-hint{margin:8px auto 2px;padding:8px 10px}
+.fx-placeholder{flex:1;border:1.5px dashed #dde3f2;border-radius:15px;color:#9aa5bd;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;text-align:center;padding:14px}
+@media(max-width:380px){.fx-dock{height:224px}}
+</style><script>if(new URLSearchParams(location.hash.slice(1)).get("p"))document.documentElement.classList.add("app-resuming");</script><style>html.app-resuming #playerGate,html.app-resuming #vocabPlayerGate{display:none!important}</style></head><body><main class="shell"><header class="top"><button class="brand brand-action" id="homebtn" aria-label="返回首頁"><span class="mark">🎮</span><span>單字闖關王</span></button><label class="top-picker-wrap"><span class="top-picker-label">測驗項目</span><select id="scope-picker" aria-label="選擇測驗項目"></select></label></header><div id="app" aria-live="polite"></div></main><footer class="release-footer" id="release-footer" aria-label="網站版本資訊"><span class="release-version" id="release-version">V2.8.5</span><span class="release-cloud" id="release-cloud" role="status">☁️ 檢查字庫中</span><span id="release-date">程式更新 2026/11/10 11:05</span><button id="release-check" type="button">檢查新版</button><span class="release-notice" id="release-notice" role="status" aria-live="polite"></span></footer>
 <script>
 (function(){
 "use strict";
 /* Every published release updates this identity together with release.json.
    All data remains in Supabase; this is only the frontend version stamp. */
-var PAGE_RELEASE={version:"2.8.3",build:"20261107-2332",updatedLabel:"2026/11/07 23:32"};
+var PAGE_RELEASE={version:"2.8.5",build:"20261110-1105",updatedLabel:"2026/11/10 11:05"};
 var latestRelease=null;
 function updateReleaseNotice(message,hasUpdate){
  var node=document.getElementById("release-notice");
@@ -519,8 +531,19 @@ function opts(){
  var order=shuffled([id].concat(others.slice(0,3)));
  s.choiceKey=key;s.choiceList=order;return order
 }
-function question(){var w=current(),spell=s.stage===1||s.retry;var prompt=s.retry||s.stage===1?safe(w[1]):s.stage===0?w[0]:safe(w[2]).replace("____","_____");var total=s.order.length;var hearts=s.retry?'<div class="lives">📖 錯字自由複習（不計命）</div>':'<div class="lives" role="status" aria-label="剩餘 '+s.lives+' 條命"><span class="hearts">'+Array.from({length:3},function(_,i){return '<span class="heart-unit '+(i>=s.lives&&i===s.lives?'lost':'')+'">'+(i<s.lives?'❤️':'🖤')+'</span>'}).join('')+'</span><small>剩餘 '+s.lives+' / 3 條命</small></div>';var h='<div class="row"><div><h1 class="title">'+stageName()+'</h1><div class="muted">第 '+(s.q+1)+' / '+total+' 題</div></div><strong>⭐ '+s.score+' 分</strong></div>'+hearts+'<div class="progress"><div class="bar" style="width:'+((s.q+(s.answered?1:0))/total*100)+'%"></div></div><div class="question"><div class="muted">'+(spell?"先看中文，再聽英文發音拼字":s.stage===0?"選出單字的中文意思":"先聽整句英文，再選出填空單字")+'</div><h2 class="'+(s.stage===2&&!s.retry?"sentence":"")+'">'+prompt+'</h2>'+(!spell?'<div><button class="pill" data-action="sound">'+(s.stage===2?"🔊 整句朗讀":"🔊 聽單字")+'</button> <button class="pill" data-action="slow">'+(s.stage===2?"🐢 整句慢速":"🐢 單字慢速")+'</button></div>':'')+'</div>';
+function setQuizLock(on){document.body.classList.toggle("quiz-locked",!!on)}
+function sizeQuizStage(){
+ var st=document.querySelector(".quiz-stage");if(!st)return;
+ var top=st.getBoundingClientRect().top+(window.pageYOffset||document.documentElement.scrollTop||0);
+ var f=document.getElementById("release-footer");
+ var reserve=(f&&window.getComputedStyle(f).position==="fixed")?f.offsetHeight+8:8;
+ st.style.height=Math.max(360,window.innerHeight-top-reserve)+"px";
+}
+window.addEventListener("resize",function(){if(document.body.classList.contains("quiz-locked"))sizeQuizStage()});
+function question(){var w=current(),spell=s.stage===1||s.retry;var prompt=s.retry||s.stage===1?safe(w[1]):s.stage===0?w[0]:safe(w[2]).replace("____","_____");var total=s.order.length;var hearts=s.retry?'<div class="lives">📖 錯字自由複習（不計命）</div>':'<div class="lives" role="status" aria-label="剩餘 '+s.lives+' 條命"><span class="hearts">'+Array.from({length:3},function(_,i){return '<span class="heart-unit '+(i>=s.lives&&i===s.lives?'lost':'')+'">'+(i<s.lives?'❤️':'🖤')+'</span>'}).join('')+'</span><small>剩餘 '+s.lives+' / 3 條命</small></div>';var h='<div class="quiz-stage"><div class="row"><div><h1 class="title">'+stageName()+'</h1><div class="muted">第 '+(s.q+1)+' / '+total+' 題</div></div><strong>⭐ '+s.score+' 分</strong></div>'+hearts+'<div class="progress"><div class="bar" style="width:'+((s.q+(s.answered?1:0))/total*100)+'%"></div></div><div class="quiz-mid"><div class="question"><div class="muted">'+(spell?"先看中文，再聽英文發音拼字":s.stage===0?"選出單字的中文意思":"先聽整句英文，再選出填空單字")+'</div><h2 class="'+(s.stage===2&&!s.retry?"sentence":"")+'">'+prompt+'</h2>'+(!spell?'<div><button class="pill" data-action="sound">'+(s.stage===2?"🔊 整句朗讀":"🔊 聽單字")+'</button> <button class="pill" data-action="slow">'+(s.stage===2?"🐢 整句慢速":"🐢 單字慢速")+'</button></div>':'')+'</div>';
 if(spell){h+='<section class="spelling-listen" aria-label="第二關英文聽力拼字"><div class="listen-label">🎧 聽英文發音，試著拼出單字</div><div class="listen-buttons"><button class="pill" data-action="sound" type="button" aria-label="聽英文單字或片語發音">🔊 聽英文</button><button class="pill" data-action="slow" type="button" aria-label="用慢速聽英文單字或片語發音">🐢 慢速聽</button></div><p class="listen-status" id="audio-status" role="status">可重複聆聽，不扣生命，也不顯示英文答案</p></section><input class="input" id="spelling" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="在這裡輸入英文" aria-label="輸入英文拼字" '+(s.answered?"disabled":"")+' value="'+safe(s.typed)+'"><div class="flex">'+btn("💡 提示","hint","outline",s.clue||s.answered?"disabled":"")+btn("確認拼字","submit","primary",s.answered?"disabled":"")+'</div>'+(s.clue?'<div class="help">提示：字首 '+w[0][0].toUpperCase()+'，共 '+w[0].length+' 個英文字母。</div>':'')}else{h+='<div class="grid2">'+opts().map(function(i){var c=s.answered?(i===s.order[s.q]?"good":s.selected===i?"bad":""):"";return '<button class="option '+c+'" data-action="choose" data-index="'+i+'" '+(s.answered?"disabled":"")+'>'+(s.stage===0?safe(words[i][1]):words[i][0])+'</button>'}).join("")+'</div>'}
+if(s.stage===2&&!s.retry)h+='<p class="muted center" id="audio-status" role="status">按「整句朗讀」聽完整英文句子</p>';
+h+='</div><div class="fx-dock">';
 if(s.answered){
  var msg=s.correct?"太棒了！答對了！":s.retry?"🥺 小失誤，再記起來就好！":"🥺 哎呀～蹦！少一條命";
  var fx=s.correct?
@@ -528,10 +551,13 @@ if(s.answered){
   '<div class="answer-fx bad-fx" role="status" aria-live="polite"><span class="fx-emoji">💥</span><div class="fx-boom">BOOM!</div><h3>'+msg+'</h3><p>'+(s.retry?"自由練習不扣命":"剩餘 "+s.lives+" / 3 條命")+'</p><div class="fx-hint"><small>💡 學習提示</small>'+assistedHint(s.order[s.q])+'</div><p class="fx-next">'+(s.lives===0&&!s.retry?"即將顯示 Game Over…":"即將自動下一題…")+'</p></div>';
  h+=fx
 }
-if(s.stage===2&&!s.retry)h+='<p class="muted center" id="audio-status" role="status">按「整句朗讀」聽完整英文句子</p>';
+else h+='<div class="fx-placeholder">選好答案，結果會顯示在這裡。</div>';
+h+='</div></div>';
 app.innerHTML=h;
+setQuizLock(true);sizeQuizStage();
 }
 function report(){
+ setQuizLock(false);
  var a=s.attempts,n=a.length,c=a.filter(function(x){return x.good}).length;
  var names=["中英配對","英文拼字","句子填空"];
  var h='<h1 class="title">📊 '+(s.gameOver?"本次 Game Over":s.challengeMode==="single"?"本關通關成績":"三關通關成績")+'</h1>'+
@@ -604,6 +630,7 @@ function endGameOver(){
  saveCloudResult("game_over")
 }
 function gameOverScreen(){
+ setQuizLock(false);
  var w=s.lastWrongIndex>=0?words[s.lastWrongIndex]:null;
  var target=s.challengeMode==="all"?s.pool.length*3:s.pool.length;
  app.innerHTML='<section class="game-over"><div class="skull">💀</div>'+
