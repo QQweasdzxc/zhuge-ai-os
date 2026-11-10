@@ -1,0 +1,2931 @@
+diff --git a/labs/taskflow/Dockerfile.backend b/labs/taskflow/Dockerfile.backend
+index 1af1270..1a3fc2e 100644
+--- a/labs/taskflow/Dockerfile.backend
++++ b/labs/taskflow/Dockerfile.backend
+@@ -122,6 +122,10 @@ COPY labs/taskflow/overrides/taskflow_zh_hant_language_test.go /taskflow-zh-hant
+ RUN python3 /tmp/apply-taskflow-zh-hant.py --target backend --root /src --overlays /taskflow-zh-hant \
+  && test -f /src/server/internal/handler/taskflow_zh_hant_language_test.go
+ 
++COPY labs/taskflow/patches/apply-taskflow-drive-attachments.py /tmp/apply-taskflow-drive-attachments.py
++COPY labs/taskflow/patches/drive-attachments/ /tmp/drive-attachments/
++RUN python3 /tmp/apply-taskflow-drive-attachments.py --root /src --overlays /tmp/drive-attachments
++
+ FROM golang:1.26-alpine AS builder
+ ARG MULTICA_SOURCE_SHA
+ ARG VERSION=taskflow-parity
+@@ -145,7 +149,11 @@ COPY labs/taskflow/patches/run-service-agent-token-tests.sh /tmp/run-service-age
+ COPY labs/taskflow/sql/taskflow_service_agent_tokens_candidate.sql /tmp/sat-sql/taskflow_service_agent_tokens_candidate.sql
+ COPY labs/taskflow/sql/taskflow_service_agent_tokens_postflight.sql /tmp/sat-sql/taskflow_service_agent_tokens_postflight.sql
+ COPY labs/taskflow/patches/run-parity-tests.sh /tmp/run-parity-tests.sh
+-RUN sh /tmp/run-parity-tests.sh /src/server
++COPY labs/taskflow/patches/run-drive-attachment-tests.sh /tmp/run-drive-attachment-tests.sh
++COPY labs/taskflow/patches/test-drive-native-schema.sql /tmp/test-drive-native-schema.sql
++COPY labs/taskflow/sql/taskflow_drive_metadata_candidate.sql /tmp/drive-sql/taskflow_drive_metadata_candidate.sql
++RUN sh /tmp/run-parity-tests.sh /src/server \
++ && PARITY_DATABASE_URL='postgres://postgres@127.0.0.1:5432/multica?sslmode=disable' sh /tmp/run-drive-attachment-tests.sh /src/server /tmp/drive-sql
+ RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}" -o bin/server ./cmd/server
+ RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${DATE}" -o bin/multica ./cmd/multica
+ RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w" -o bin/migrate ./cmd/migrate
+diff --git a/labs/taskflow/Dockerfile.web b/labs/taskflow/Dockerfile.web
+index 0644626..96ffa60 100644
+--- a/labs/taskflow/Dockerfile.web
++++ b/labs/taskflow/Dockerfile.web
+@@ -144,6 +144,8 @@ RUN python3 /tmp/apply-taskflow-workspace-groups.py --root /src --overlays /task
+  && grep -q 'projectPartition="human"' /src/packages/views/issues/components/issues-page.tsx \
+  && grep -q 'projectPartition="ai"' /src/packages/views/common/taskflow-ai-tasks-page.tsx
+ 
++COPY labs/taskflow/overrides/taskflow-drive-connect-page.tsx /src/apps/web/app/auth/taskflow-drive/connect/page.tsx
++
+ FROM node:22-alpine AS deps
+ WORKDIR /app
+ ENV NEXT_TELEMETRY_DISABLED=1 \
+diff --git a/labs/taskflow/overrides/taskflow-drive-connect-page.tsx b/labs/taskflow/overrides/taskflow-drive-connect-page.tsx
+new file mode 100644
+index 0000000..3248153
+--- /dev/null
++++ b/labs/taskflow/overrides/taskflow-drive-connect-page.tsx
+@@ -0,0 +1,54 @@
++"use client";
++
++import { useState } from "react";
++
++export default function TaskFlowDriveConnection() {
++  const [busy, setBusy] = useState(false);
++  const [error, setError] = useState("");
++  async function connect() {
++    setBusy(true);
++    setError("");
++    try {
++      const cookies = Object.fromEntries(document.cookie.split("; ").map((part) => {
++        const i = part.indexOf("=");
++        return [part.slice(0, i), part.slice(i + 1)];
++      }));
++      const csrf = cookies.multica_csrf_session || cookies.multica_csrf;
++      if (!csrf) throw new Error("請先登入 TF，再回到這個連線頁面。");
++      const response = await fetch("/api/taskflow-drive/setup", {
++        method: "POST", credentials: "same-origin", cache: "no-store",
++        headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf },
++        body: "{}",
++      });
++      if (!response.ok) {
++        if (response.status === 401) throw new Error("請先登入 TF，再回到這個連線頁面。");
++        if (response.status === 403) throw new Error("這個連線只限 TF 擁有者操作。請使用原本的擁有者帳號登入。");
++        throw new Error("專用連線尚未準備完成，沒有啟用儲存。請回原對話告訴我。");
++      }
++      const data = await response.json();
++      const url = new URL(data.authorization_url);
++      if (url.origin !== "https://accounts.google.com" || url.pathname !== "/o/oauth2/v2/auth" || url.searchParams.get("scope") !== "https://www.googleapis.com/auth/drive.file") {
++        throw new Error("連線入口檢查未通過，沒有啟用儲存。請回原對話告訴我。");
++      }
++      window.location.assign(url.href);
++    } catch (err) {
++      setError(err instanceof Error ? err.message : "目前無法建立連線，請稍後再試。");
++      setBusy(false);
++    }
++  }
++  return <main style={{ boxSizing: "border-box", minHeight: "100dvh", display: "grid", placeItems: "center", padding: "24px 16px", background: "#f5f6fa", color: "#182033", fontFamily: "system-ui, sans-serif" }}>
++    <section style={{ boxSizing: "border-box", width: "100%", maxWidth: 520, border: "1px solid #dde1eb", borderRadius: 20, background: "#fff", padding: "clamp(24px, 6vw, 40px)", boxShadow: "0 12px 36px #14203b0a" }}>
++      <p style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.12em", color: "#526079", margin: "0 0 18px" }}>TRQN / TF</p>
++      <h1 style={{ fontSize: 28, lineHeight: 1.35, margin: "0 0 16px" }}>連接私人附件資料夾</h1>
++      <p style={{ lineHeight: 1.85, margin: "0 0 20px" }}>連線後，TF 會在你的 Google Drive 建立「TRQN TF 附件」私人資料夾，用來保存之後上傳的附件。任務內仍可直接看圖和下載，不用公開分享。</p>
++      <ul style={{ paddingLeft: 22, lineHeight: 1.85, margin: "0 0 24px", color: "#4c586f" }}>
++        <li>只授權這個應用程式建立或選取的檔案，不是整個雲端硬碟。</li>
++        <li>請在 Google 畫面確認你要使用的帳號與權限。</li>
++        <li>完成授權後仍需檢查，還不代表附件修復已完成。舊附件另行查核。</li>
++      </ul>
++      <button disabled={busy} onClick={connect} style={{ width: "100%", minHeight: 48, border: 0, borderRadius: 10, background: busy ? "#6c7da1" : "#284eaa", color: "#fff", fontSize: 16, fontWeight: 600, cursor: busy ? "wait" : "pointer" }}>{busy ? "正在開啟 Google…" : "前往 Google 授權"}</button>
++      {error && <p role="alert" style={{ margin: "18px 0 0", lineHeight: 1.7, color: "#a12332" }}>{error}</p>}
++      <p style={{ margin: "18px 0 0", fontSize: 13, lineHeight: 1.7, color: "#626e84" }}>不想連線可以直接關閉。這裡不會要求你提供 Google 密碼。</p>
++    </section>
++  </main>;
++}
+diff --git a/labs/taskflow/patches/apply-taskflow-drive-attachments.py b/labs/taskflow/patches/apply-taskflow-drive-attachments.py
+new file mode 100644
+index 0000000..a566785
+--- /dev/null
++++ b/labs/taskflow/patches/apply-taskflow-drive-attachments.py
+@@ -0,0 +1,65 @@
++#!/usr/bin/env python3
++"""Private Drive backend overlay; never edits the frozen vendor tree."""
++import argparse
++from pathlib import Path
++
++def apply(root,overlay):
++ if 'third_party/multica' in str(root.resolve()):raise SystemExit('frozen vendor refused')
++ router=root/'server/cmd/server/router.go';file=root/'server/internal/handler/file.go'
++ rt=router.read_text();ft=file.read_text()
++ old='\t// Initialize storage with S3 as primary, fallback to local\n\tvar store storage.Storage\n\ts3 := storage.NewS3StorageFromEnv()\n\tif s3 != nil {'
++ new='''\t// Drive is explicit and fails closed, never ephemeral fallback.
++\tvar store storage.Storage
++\tdriveMode:=strings.TrimSpace(os.Getenv("TASKFLOW_ATTACHMENT_STORAGE"))
++\tif driveMode=="drive"||driveMode=="drive-readonly" {
++\t\tctx,cancel:=context.WithTimeout(context.Background(),30*time.Second)
++\t\tprivateDrive,err:=storage.TaskFlowDriveStorageFromEnv(ctx,pool);cancel()
++\t\tif err!=nil{panic("private Drive store is not ready; refusing ephemeral fallback")};store=privateDrive
++\t} else if driveMode!=""&&driveMode!="local" {panic("unsupported storage mode; refusing fallback")
++\t} else if s3:=storage.NewS3StorageFromEnv();s3!=nil {'''
++ callback_old='\t// Health / readiness checks\n'
++ callback_new='''\t// Public OAuth callback carries only expiring single-use state + PKCE.
++\t// All ordinary task/file routes retain their existing authorization.
++\tif driveSetup,err:=storage.TaskFlowDriveSetupFromEnv(pool);err!=nil {
++\t\tpanic("private Drive connection configuration invalid")
++\t} else if driveSetup!=nil {r.Get(storage.TaskFlowDriveCallbackPath,driveSetup.Callback)}
++
++'''+callback_old
++ setup_old='\t\tr.Post("/api/upload-file", h.UploadFile)'
++ setup_new='\t\tr.With(handler.RequireHumanActor).Post("/api/taskflow-drive/setup",h.StartTaskFlowDriveSetup)\n'+setup_old
++ admission_old='\tworkspaceID := h.resolveWorkspaceID(r)\n\n\tr.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)'
++ admission_new='''\tworkspaceID := h.resolveWorkspaceID(r)
++\tif drive,ok:=h.Storage.(*storage.TaskFlowDriveStorage);ok {
++\t\tctx,release,err:=drive.BeginUpload(r.Context());if err!=nil {writeError(w,http.StatusServiceUnavailable,"Drive 附件連線尚未就緒，這次未完成上傳。");return};defer release();r=r.WithContext(ctx)
++\t}
++\tr.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)'''
++ parse_old='\tif err := r.ParseMultipartForm(maxUploadSize); err != nil {'
++ parse_new='\tmultipartMemory:=int64(maxUploadSize);if _,drive:=h.Storage.(*storage.TaskFlowDriveStorage);drive{multipartMemory=1<<20}\n\tif err := r.ParseMultipartForm(multipartMemory); err != nil {'
++ read_old='\tdata, err := io.ReadAll(file)'
++ read_new='\tvar data []byte\n\tif _,drive:=h.Storage.(*storage.TaskFlowDriveStorage);drive{data,err=storage.ReadTaskFlowDriveUpload(file,header.Size)}else{data,err=io.ReadAll(file)}'
++ upload_old='\t\t\tslog.Error("file upload failed", "error", err)\n\t\t\twriteError(w, http.StatusInternalServerError, "upload failed")'
++ upload_new='\t\t\tslog.Error("file upload failed", "error", err)\n\t\t\tif _,drive:=h.Storage.(*storage.TaskFlowDriveStorage);drive{writeError(w,http.StatusServiceUnavailable,"Drive 附件未完成儲存，請稍後再試。");return}\n\t\t\twriteError(w, http.StatusInternalServerError, "upload failed")'
++ metadata_old='\t\t\tslog.Error("failed to create attachment record", "error", err)\n'
++ metadata_new=metadata_old+'\t\t\tif _,drive:=h.Storage.(*storage.TaskFlowDriveStorage);drive{writeError(w,http.StatusServiceUnavailable,"檔案已保留，但任務附件記錄未完成，請稍後重試。");return}\n'
++ reader_old='\t\tslog.Error("failed to open attachment for download", "id", uuidToString(att.ID), "key", key, "error", err)\n'
++ reader_new=reader_old+'\t\tif errors.Is(err,storage.ErrTaskFlowDriveIntegrity){writeError(w,http.StatusBadGateway,"原附件完整性檢查未通過，未顯示可能錯誤的內容。");return}\n\t\tif errors.Is(err,storage.ErrTaskFlowDriveUnavailable){writeError(w,http.StatusServiceUnavailable,"Drive 連線暫時無法使用，原附件記錄仍保留。");return}\n'
++ patches=[(rt,old),(rt,callback_old),(rt,setup_old),(ft,admission_old),(ft,parse_old),(ft,read_old),(ft,upload_old),(ft,metadata_old),(ft,reader_old)]
++ if any(text.count(anchor)!=1 for text,anchor in patches):raise SystemExit('Drive overlay source anchor missing/ambiguous')
++ files={}
++ for source in overlay.glob('*.go'):
++  directory='handler' if '_handler' in source.name else 'storage'
++  dest=(root/'server/cmd/server'/source.name) if '_router' in source.name else (root/'server/internal'/directory/source.name)
++  if dest.exists():raise SystemExit('Drive overlay destination exists')
++  files[dest]=source.read_text()
++ main=root/'server/cmd/server/main.go';mt=main.read_text()
++ main_anchor='\t// Channel inbound supervisor (MUL-3620): holds the §4.4 WS lease per'
++ if mt.count(main_anchor)!=1:raise SystemExit('Drive worker lifetime anchor missing')
++ worker='\t// Private Drive pending-trash retry uses the normal shutdown-bound worker context.\n\tif drive,ok:=h.Storage.(*storage.TaskFlowDriveStorage);ok {go drive.RunTrashWorker(sweepCtx)}\n\n'
++ if mt.count('"github.com/multica-ai/multica/server/internal/selfhosttelemetry"')!=1:raise SystemExit('Drive storage import anchor missing')
++ mt=mt.replace('"github.com/multica-ai/multica/server/internal/selfhosttelemetry"','"github.com/multica-ai/multica/server/internal/selfhosttelemetry"\n"github.com/multica-ai/multica/server/internal/storage"',1).replace(main_anchor,worker+main_anchor,1)
++ main.write_text(mt)
++ router.write_text(rt.replace(old,new,1).replace(callback_old,callback_new,1).replace(setup_old,setup_new,1))
++ file.write_text(ft.replace(admission_old,admission_new,1).replace(parse_old,parse_new,1).replace(read_old,read_new,1).replace(upload_old,upload_new,1).replace(metadata_old,metadata_new,1).replace(reader_old,reader_new,1))
++ for dest,text in files.items():dest.write_text(text)
++if __name__=='__main__':
++ p=argparse.ArgumentParser();p.add_argument('--root',required=True,type=Path);p.add_argument('--overlays',type=Path,default=Path(__file__).parent/'drive-attachments');a=p.parse_args();apply(a.root,a.overlays)
+diff --git a/labs/taskflow/patches/drive-attachments/taskflow_drive.go b/labs/taskflow/patches/drive-attachments/taskflow_drive.go
+new file mode 100644
+index 0000000..5f09ffb
+--- /dev/null
++++ b/labs/taskflow/patches/drive-attachments/taskflow_drive.go
+@@ -0,0 +1,432 @@
++package storage
++
++// Private candidate. No router registration or credential setup is included.
++import (
++	"bytes"
++	"context"
++	"crypto/sha256"
++	"encoding/hex"
++	"encoding/json"
++	"errors"
++	"io"
++	"log/slog"
++	"mime/multipart"
++	"net/http"
++	"net/textproto"
++	"net/url"
++	"os"
++	"path"
++	"strconv"
++	"strings"
++	"sync"
++)
++
++const TaskFlowDriveMaxObjectBytes int64 = 100 * 1024 * 1024
++
++var ErrTaskFlowDriveReadOnly = errors.New("private Drive uploads temporarily read-only")
++
++func validTaskFlowDriveObjectKey(key string) bool {
++	if key == "" || len(key) > 1024 || strings.ContainsAny(key, "\\\x00?#%") || strings.HasPrefix(key, "/") || path.Clean(key) != key {
++		return false
++	}
++	p := strings.Split(key, "/")
++	if len(p) < 3 || (p[0] != "workspaces" && p[0] != "users") {
++		return false
++	}
++	for _, v := range p {
++		if v == "" || v == "." || v == ".." {
++			return false
++		}
++	}
++	return true
++}
++
++var ErrTaskFlowDriveUnavailable = errors.New("private Drive storage unavailable")
++var ErrTaskFlowDriveIntegrity = errors.New("original Drive file integrity mismatch; no bytes served")
++var ErrTaskFlowDriveMissing = errors.New("original Drive object missing or moved; no replacement served")
++
++// Reserve atomically inserts a binding or returns the immutable prior binding.
++// It must not change an existing key's file ID/hash/size, including after deletion.
++type TaskFlowDriveBinding struct {
++	Key, FileID, SHA256, FolderID string
++	Size                          int64
++	Ready, Deleted                bool
++}
++type TaskFlowDriveIndex interface {
++	Lookup(context.Context, string) (TaskFlowDriveBinding, error)
++	Reserve(context.Context, TaskFlowDriveBinding) (TaskFlowDriveBinding, error)
++	MarkReady(context.Context, string) error
++	MarkDeleted(context.Context, string) error
++}
++type TaskFlowDriveToken interface {
++	AccessToken(context.Context) (string, error)
++}
++type TaskFlowDriveStorage struct {
++	trashEnabled bool
++	client       *http.Client
++	tokens       TaskFlowDriveToken
++	index        TaskFlowDriveIndex
++	folder, base string
++	transfers    chan struct{}
++	readOnly     bool
++}
++
++func NewTaskFlowDriveStorage(c *http.Client, t TaskFlowDriveToken, i TaskFlowDriveIndex, folder string) (*TaskFlowDriveStorage, error) {
++	if c == nil || t == nil || i == nil || !validDriveID(folder) {
++		return nil, errors.New("incomplete private Drive configuration")
++	}
++	cc := *c
++	// Never forward credentials to a redirect supplied by a remote response.
++	cc.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
++	return &TaskFlowDriveStorage{client: &cc, tokens: t, index: i, folder: folder, base: "https://www.googleapis.com", transfers: make(chan struct{}, 1)}, nil
++}
++func validDriveID(v string) bool {
++	if len(v) < 1 || len(v) > 256 {
++		return false
++	}
++	for _, r := range v {
++		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '-') {
++			return false
++		}
++	}
++	return true
++}
++func (s *TaskFlowDriveStorage) SetReadOnly()      { s.readOnly = true }
++func (s *TaskFlowDriveStorage) CdnDomain() string { return "" }
++func (s *TaskFlowDriveStorage) ObjectURL(k string) string {
++	if !validTaskFlowDriveObjectKey(k) {
++		return ""
++	}
++	return "/uploads/" + k
++}
++func (s *TaskFlowDriveStorage) KeyFromURL(raw string) string {
++	u, e := url.Parse(raw)
++	if e != nil || u.RawQuery != "" || u.Fragment != "" || !strings.HasPrefix(u.Path, "/uploads/") {
++		return ""
++	}
++	k := strings.TrimPrefix(u.Path, "/uploads/")
++	if !validTaskFlowDriveObjectKey(k) {
++		return ""
++	}
++	return k
++}
++
++type taskFlowDrivePermit struct{}
++
++func (s *TaskFlowDriveStorage) BeginTransfer(ctx context.Context) (context.Context, func(), error) {
++	if ctx.Value(taskFlowDrivePermit{}) == s {
++		return ctx, func() {}, nil
++	}
++	if e := ctx.Err(); e != nil {
++		return ctx, func() {}, e
++	}
++	select {
++	case s.transfers <- struct{}{}:
++		var once sync.Once
++		return context.WithValue(ctx, taskFlowDrivePermit{}, s), func() { once.Do(func() { <-s.transfers }) }, nil
++	case <-ctx.Done():
++		return ctx, func() {}, ctx.Err()
++	}
++}
++func (s *TaskFlowDriveStorage) BeginUpload(ctx context.Context) (context.Context, func(), error) {
++	if s.readOnly {
++		return ctx, func() {}, ErrTaskFlowDriveReadOnly
++	}
++	return s.BeginTransfer(ctx)
++}
++func (s *TaskFlowDriveStorage) request(ctx context.Context, method, path string, body io.Reader, contentType string) (*http.Response, error) {
++	token, e := s.tokens.AccessToken(ctx)
++	if e != nil || token == "" {
++		return nil, ErrTaskFlowDriveUnavailable
++	}
++	req, e := http.NewRequestWithContext(ctx, method, s.base+path, body)
++	if e != nil {
++		return nil, ErrTaskFlowDriveUnavailable
++	}
++	req.Header.Set("Authorization", "Bearer "+token)
++	if contentType != "" {
++		req.Header.Set("Content-Type", contentType)
++	}
++	response, e := s.client.Do(req)
++	if e != nil {
++		return nil, ErrTaskFlowDriveUnavailable
++	}
++	return response, nil
++}
++func closeDriveResponse(r *http.Response) {
++	io.Copy(io.Discard, io.LimitReader(r.Body, 4096))
++	r.Body.Close()
++}
++
++// Reject public/shared or foreign-owned folders rather than silently expanding
++// the task audience through inherited Drive permissions.
++func (s *TaskFlowDriveStorage) checkFolder(ctx context.Context) error {
++	r, e := s.request(ctx, http.MethodGet, "/drive/v3/files/"+s.folder+"?fields=id,mimeType,trashed,shared,ownedByMe", nil, "")
++	if e != nil {
++		return e
++	}
++	defer closeDriveResponse(r)
++	if r.StatusCode != 200 {
++		return ErrTaskFlowDriveUnavailable
++	}
++	var f struct {
++		ID      string `json:"id"`
++		Mime    string `json:"mimeType"`
++		Trashed bool   `json:"trashed"`
++		Shared  *bool  `json:"shared"`
++		Owned   bool   `json:"ownedByMe"`
++	}
++	if json.NewDecoder(io.LimitReader(r.Body, 8192)).Decode(&f) != nil || f.ID != s.folder || f.Mime != "application/vnd.google-apps.folder" || f.Trashed || f.Shared == nil || *f.Shared || !f.Owned {
++		return errors.New("Drive folder must remain private and owned by the authorized account")
++	}
++	return nil
++}
++func (s *TaskFlowDriveStorage) generateID(ctx context.Context) (string, error) {
++	r, e := s.request(ctx, http.MethodGet, "/drive/v3/files/generateIds?count=1&space=drive&type=files", nil, "")
++	if e != nil {
++		return "", e
++	}
++	defer closeDriveResponse(r)
++	var x struct {
++		IDs []string `json:"ids"`
++	}
++	if r.StatusCode != 200 || json.NewDecoder(io.LimitReader(r.Body, 8192)).Decode(&x) != nil || len(x.IDs) != 1 || !validDriveID(x.IDs[0]) {
++		return "", ErrTaskFlowDriveUnavailable
++	}
++	return x.IDs[0], nil
++}
++
++type driveObjectMeta struct {
++	Owned   bool     `json:"ownedByMe"`
++	Shared  *bool    `json:"shared"`
++	ID      string   `json:"id"`
++	Size    string   `json:"size"`
++	SHA256  string   `json:"sha256Checksum"`
++	Parents []string `json:"parents"`
++	Trashed bool     `json:"trashed"`
++}
++
++func (s *TaskFlowDriveStorage) verifyMeta(ctx context.Context, b TaskFlowDriveBinding) error {
++	r, e := s.request(ctx, http.MethodGet, "/drive/v3/files/"+b.FileID+"?fields=id,size,sha256Checksum,parents,trashed,shared,ownedByMe", nil, "")
++	if e != nil {
++		return e
++	}
++	defer closeDriveResponse(r)
++	if r.StatusCode == 404 {
++		return ErrTaskFlowDriveMissing
++	}
++	if r.StatusCode != 200 {
++		return ErrTaskFlowDriveUnavailable
++	}
++	var m driveObjectMeta
++	if json.NewDecoder(io.LimitReader(r.Body, 8192)).Decode(&m) != nil {
++		return ErrTaskFlowDriveUnavailable
++	}
++	parent := false
++	for _, p := range m.Parents {
++		if p == s.folder {
++			parent = true
++		}
++	}
++	if m.ID != b.FileID || m.Size != strconv.FormatInt(b.Size, 10) || m.Trashed || m.Shared == nil || *m.Shared || !m.Owned || !parent {
++		return ErrTaskFlowDriveMissing
++	}
++	// Some Drive objects omit SHA256; the download is still verified before serving.
++	if m.SHA256 != "" && m.SHA256 != b.SHA256 {
++		return ErrTaskFlowDriveIntegrity
++	}
++	return nil
++}
++func (s *TaskFlowDriveStorage) Upload(ctx context.Context, key string, data []byte, contentType, filename string) (string, error) {
++	ctx, release, e := s.BeginUpload(ctx)
++	if e != nil {
++		return "", e
++	}
++	defer release()
++	if !validTaskFlowDriveObjectKey(key) || len(data) > int(TaskFlowDriveMaxObjectBytes) {
++		return "", errors.New("invalid attachment key or size")
++	}
++	if e = s.checkFolder(ctx); e != nil {
++		return "", e
++	}
++	sum := sha256.Sum256(data)
++	hash := hex.EncodeToString(sum[:])
++	b, e := s.index.Lookup(ctx, key)
++	if errors.Is(e, os.ErrNotExist) {
++		id, err := s.generateID(ctx)
++		if err != nil {
++			return "", err
++		}
++		b, e = s.index.Reserve(ctx, TaskFlowDriveBinding{Key: key, FileID: id, SHA256: hash, FolderID: s.folder, Size: int64(len(data))})
++	}
++	if e != nil {
++		return "", ErrTaskFlowDriveUnavailable
++	}
++	if b.Size < 0 || b.Size > TaskFlowDriveMaxObjectBytes || b.Deleted || b.SHA256 != hash || b.Size != int64(len(data)) || b.FolderID != s.folder || !validDriveID(b.FileID) {
++		return "", errors.New("immutable attachment binding mismatch")
++	}
++	if b.Ready {
++		if e = s.verifyMeta(ctx, b); e != nil {
++			return "", e
++		}
++		r, err := s.verifiedReader(ctx, b)
++		if err != nil {
++			return "", err
++		}
++		r.Close()
++		return s.ObjectURL(key), nil
++	}
++	// Multipart data are streamed with a small metadata prefix/suffix. The file ID
++	// was durably reserved before the request so a lost response can be retried
++	// without creating a duplicate object. A conflict is never taken as proof.
++	var pre bytes.Buffer
++	mw := multipart.NewWriter(&pre)
++	h := textproto.MIMEHeader{}
++	h.Set("Content-Type", "application/json; charset=UTF-8")
++	p, _ := mw.CreatePart(h)
++	meta := map[string]any{"id": b.FileID, "name": filename, "parents": []string{s.folder}, "mimeType": contentType}
++	json.NewEncoder(p).Encode(meta)
++	h = textproto.MIMEHeader{}
++	h.Set("Content-Type", "application/octet-stream")
++	mw.CreatePart(h)
++	prefix := append([]byte(nil), pre.Bytes()...)
++	pre.Reset()
++	mw.Close()
++	suffix := append([]byte(nil), pre.Bytes()...)
++	reader := io.MultiReader(bytes.NewReader(prefix), bytes.NewReader(data), bytes.NewReader(suffix))
++	r, e := s.request(ctx, http.MethodPost, "/upload/drive/v3/files?uploadType=multipart&fields=id", reader, "multipart/related; boundary="+mw.Boundary())
++	if e != nil {
++		return "", e
++	}
++	status := r.StatusCode
++	closeDriveResponse(r)
++	if status != 200 && status != 201 && status != 409 {
++		return "", ErrTaskFlowDriveUnavailable
++	}
++	if e = s.verifyMeta(ctx, b); e != nil {
++		return "", e
++	}
++	// Verify actual bytes before acknowledging success, including409 retries.
++	verified, e := s.verifiedReader(ctx, b)
++	if e != nil {
++		return "", e
++	}
++	verified.Close()
++	if e = s.index.MarkReady(ctx, key); e != nil {
++		return "", ErrTaskFlowDriveUnavailable
++	}
++	return s.ObjectURL(key), nil
++}
++
++type taskFlowDriveReader struct {
++	*os.File
++	release func()
++	once    sync.Once
++}
++
++func (r *taskFlowDriveReader) Close() error {
++	var err error
++	r.once.Do(func() { err = r.File.Close(); os.Remove(r.File.Name()); r.release() })
++	return err
++}
++func (s *TaskFlowDriveStorage) verifiedReader(ctx context.Context, b TaskFlowDriveBinding) (io.ReadCloser, error) {
++	r, e := s.request(ctx, http.MethodGet, "/drive/v3/files/"+b.FileID+"?alt=media", nil, "")
++	if e != nil {
++		return nil, e
++	}
++	defer closeDriveResponse(r)
++	if r.StatusCode == 404 {
++		return nil, ErrTaskFlowDriveMissing
++	}
++	if r.StatusCode != 200 {
++		return nil, ErrTaskFlowDriveUnavailable
++	}
++	file, e := os.CreateTemp("", "tf-drive-read-*")
++	if e != nil {
++		return nil, e
++	}
++	fail := func(err error) (io.ReadCloser, error) { file.Close(); os.Remove(file.Name()); return nil, err }
++	hash := sha256.New()
++	n, e := io.Copy(io.MultiWriter(file, hash), io.LimitReader(r.Body, b.Size+1))
++	if e != nil {
++		return fail(ErrTaskFlowDriveUnavailable)
++	}
++	if n != b.Size || hex.EncodeToString(hash.Sum(nil)) != b.SHA256 {
++		return fail(ErrTaskFlowDriveIntegrity)
++	}
++	if _, e = file.Seek(0, io.SeekStart); e != nil {
++		return fail(e)
++	}
++	return &taskFlowDriveReader{File: file, release: func() {}}, nil
++}
++func (s *TaskFlowDriveStorage) GetReader(ctx context.Context, key string) (io.ReadCloser, error) {
++	if !validTaskFlowDriveObjectKey(key) {
++		return nil, errors.New("invalid attachment key")
++	}
++	ctx, release, e := s.BeginTransfer(ctx)
++	if e != nil {
++		return nil, e
++	}
++	if e = s.checkFolder(ctx); e != nil {
++		release()
++		return nil, e
++	}
++	b, e := s.index.Lookup(ctx, key)
++	if e != nil {
++		release()
++		if errors.Is(e, os.ErrNotExist) {
++			return nil, ErrTaskFlowDriveMissing
++		}
++		return nil, ErrTaskFlowDriveUnavailable
++	}
++	if b.Size < 0 || b.Size > TaskFlowDriveMaxObjectBytes || !b.Ready || b.Deleted || b.FolderID != s.folder || !validDriveID(b.FileID) {
++		release()
++		return nil, ErrTaskFlowDriveMissing
++	}
++	if e = s.verifyMeta(ctx, b); e != nil {
++		release()
++		return nil, e
++	}
++	r, e := s.verifiedReader(ctx, b)
++	if e != nil {
++		release()
++		return nil, e
++	}
++	r.(*taskFlowDriveReader).release = release
++	return r, nil
++}
++func (s *TaskFlowDriveStorage) DeleteObject(ctx context.Context, key string) error {
++	if !validTaskFlowDriveObjectKey(key) {
++		return errors.New("invalid attachment key")
++	}
++	return s.tryTrash(ctx, key)
++}
++
++func (s *TaskFlowDriveStorage) Delete(ctx context.Context, key string) {
++	if err := s.DeleteObject(ctx, key); err != nil {
++		slog.Warn("private Drive cleanup remains pending")
++	}
++}
++func (s *TaskFlowDriveStorage) DeleteKeys(ctx context.Context, keys []string) {
++	for _, k := range keys {
++		s.Delete(ctx, k)
++	}
++}
++
++var _ Storage = (*TaskFlowDriveStorage)(nil)
++
++func ReadTaskFlowDriveUpload(r io.Reader, size int64) ([]byte, error) {
++	if size < 0 || size > TaskFlowDriveMaxObjectBytes {
++		return nil, errors.New("invalid attachment size")
++	}
++	b := make([]byte, int(size))
++	if _, e := io.ReadFull(r, b); e != nil {
++		return nil, e
++	}
++	var extra [1]byte
++	n, e := r.Read(extra[:])
++	if n != 0 || e != io.EOF {
++		return nil, errors.New("attachment stream size mismatch")
++	}
++	return b, nil
++}
+diff --git a/labs/taskflow/patches/drive-attachments/taskflow_drive_env.go b/labs/taskflow/patches/drive-attachments/taskflow_drive_env.go
+new file mode 100644
+index 0000000..344a883
+--- /dev/null
++++ b/labs/taskflow/patches/drive-attachments/taskflow_drive_env.go
+@@ -0,0 +1,88 @@
++package storage
++
++import (
++	"context"
++	"encoding/json"
++	"errors"
++	"net/http"
++	"net/url"
++	"os"
++	"strings"
++	"time"
++)
++
++const TaskFlowDriveCallbackPath = "/auth/taskflow-drive/callback"
++
++func TaskFlowDriveSetupFromEnv(db TaskFlowDriveDB) (*TaskFlowDriveOAuthSetup, error) {
++	if os.Getenv("TASKFLOW_DRIVE_SETUP_ENABLED") != "1" {
++		return nil, nil
++	}
++	s := &TaskFlowDriveOAuthSetup{Client: &http.Client{Timeout: 30 * time.Second}, ClientID: os.Getenv("TASKFLOW_DRIVE_CLIENT_ID"), ClientSecret: os.Getenv("TASKFLOW_DRIVE_CLIENT_SECRET"), MasterSecret: os.Getenv("TASKFLOW_DRIVE_MASTER_SECRET"), OwnerEmail: os.Getenv("TASKFLOW_DRIVE_OWNER_EMAIL"), CallbackURL: os.Getenv("TASKFLOW_DRIVE_CALLBACK_URL"), Store: TaskFlowSQLDriveSetup{db}}
++	u, e := url.Parse(s.CallbackURL)
++	if e != nil || u.Path != TaskFlowDriveCallbackPath {
++		return nil, errors.New("private Drive callback path mismatch")
++	}
++	if e = s.validate(); e != nil {
++		return nil, e
++	}
++	return s, nil
++}
++func TaskFlowDriveStorageFromEnv(ctx context.Context, db TaskFlowDriveDB) (*TaskFlowDriveStorage, error) {
++	mode := strings.TrimSpace(os.Getenv("TASKFLOW_ATTACHMENT_STORAGE"))
++	if mode != "drive" && mode != "drive-readonly" {
++		return nil, errors.New("unsupported private Drive storage mode")
++	}
++	setup, e := TaskFlowDriveSetupFromEnv(db)
++	if e != nil || setup == nil {
++		return nil, errors.New("private Drive setup unavailable; refusing ephemeral fallback")
++	}
++	sealed, owner, e := (TaskFlowSQLDriveSetup{db}).LoadGrant(ctx)
++	if e != nil || !strings.EqualFold(owner, setup.OwnerEmail) {
++		return nil, errors.New("private Drive grant missing or wrong account")
++	}
++	plain, e := openDriveGrant(setup.MasterSecret, sealed)
++	if e != nil {
++		return nil, errors.New("private Drive grant unavailable")
++	}
++	defer clearDriveBytes(plain)
++	var grant struct {
++		Refresh string `json:"refresh_token"`
++		Scope   string `json:"scope"`
++		Owner   string `json:"owner_email"`
++		Folder  string `json:"folder_id"`
++	}
++	if json.Unmarshal(plain, &grant) != nil || grant.Refresh == "" || grant.Scope != TaskFlowDriveScope || !strings.EqualFold(grant.Owner, setup.OwnerEmail) {
++		return nil, errors.New("private Drive grant scope mismatch")
++	}
++	tokens := &TaskFlowDriveOAuthToken{Client: setup.Client, ClientID: setup.ClientID, ClientSecret: setup.ClientSecret, RefreshToken: grant.Refresh}
++	tokens.PersistRefresh = func(ctx context.Context, refresh string) error {
++		payload, _ := json.Marshal(map[string]string{"refresh_token": refresh, "scope": TaskFlowDriveScope, "owner_email": grant.Owner, "folder_id": grant.Folder})
++		defer clearDriveBytes(payload)
++		sealed, e := sealDriveGrant(setup.MasterSecret, payload)
++		if e != nil {
++			return e
++		}
++		return (TaskFlowSQLDriveSetup{db}).SaveGrant(ctx, sealed, grant.Owner)
++	}
++	folder := os.Getenv("TASKFLOW_DRIVE_FOLDER_ID")
++	if folder != "" && folder != grant.Folder {
++		return nil, errors.New("Drive folder differs from authorized app folder")
++	}
++	folder = grant.Folder
++	store, e := NewTaskFlowDriveStorage(setup.Client, tokens, TaskFlowSQLDriveIndex{db}, folder)
++	if e != nil {
++		return nil, e
++	}
++	if e = store.checkFolder(ctx); e != nil {
++		return nil, e
++	}
++	policy := os.Getenv("TASKFLOW_DRIVE_DELETE_POLICY")
++	if policy != "" && policy != "trash30" {
++		return nil, errors.New("unsupported Drive deletion policy")
++	}
++	store.trashEnabled = policy == "trash30"
++	if mode == "drive-readonly" {
++		store.SetReadOnly()
++	}
++	return store, nil
++}
+diff --git a/labs/taskflow/patches/drive-attachments/taskflow_drive_folder.go b/labs/taskflow/patches/drive-attachments/taskflow_drive_folder.go
+new file mode 100644
+index 0000000..8e8e1e4
+--- /dev/null
++++ b/labs/taskflow/patches/drive-attachments/taskflow_drive_folder.go
+@@ -0,0 +1,87 @@
++package storage
++
++import (
++	"context"
++	"encoding/json"
++	"errors"
++	"io"
++	"net/http"
++	"strings"
++)
++
++// A pre-generated folder ID is reserved before creation. Retries reuse that
++// immutable ID rather than creating another folder with a look-alike name.
++func (s *TaskFlowDriveOAuthSetup) provisionFolder(ctx context.Context, client *http.Client, access string) (string, error) {
++	base := "https://www.googleapis.com"
++	if s.driveEndpoint != "" {
++		base = s.driveEndpoint
++	}
++	call := func(method, path, body string) (*http.Response, error) {
++		req, e := http.NewRequestWithContext(ctx, method, base+path, strings.NewReader(body))
++		if e != nil {
++			return nil, e
++		}
++		req.Header.Set("Authorization", "Bearer "+access)
++		if body != "" {
++			req.Header.Set("Content-Type", "application/json")
++		}
++		return client.Do(req)
++	}
++	res, e := call("GET", "/drive/v3/files/generateIds?count=1&space=drive&type=files", "")
++	if e != nil {
++		return "", e
++	}
++	var ids struct {
++		IDs []string `json:"ids"`
++	}
++	e = json.NewDecoder(io.LimitReader(res.Body, 8192)).Decode(&ids)
++	closeDriveResponse(res)
++	if e != nil || res.StatusCode != 200 || len(ids.IDs) != 1 || !validDriveID(ids.IDs[0]) {
++		return "", errors.New("Drive folder ID unavailable")
++	}
++	id, e := s.Store.ReserveFolder(ctx, ids.IDs[0])
++	if e != nil || !validDriveID(id) {
++		return "", errors.New("Drive folder reservation unavailable")
++	}
++	payload, _ := json.Marshal(map[string]any{"id": id, "name": "TRQN TF 附件", "mimeType": "application/vnd.google-apps.folder", "parents": []string{"root"}, "appProperties": map[string]string{"taskflow_private_attachments": "v1"}})
++	res, e = call("POST", "/drive/v3/files?fields=id", string(payload))
++	if e != nil {
++		return "", e
++	}
++	status := res.StatusCode
++	closeDriveResponse(res)
++	if status != 200 && status != 201 && status != 409 {
++		return "", errors.New("private Drive folder creation incomplete")
++	}
++	res, e = call("GET", "/drive/v3/files/"+id+"?fields=id,mimeType,trashed,shared,ownedByMe,appProperties", "")
++	if e != nil {
++		return "", e
++	}
++	var m struct {
++		ID         string            `json:"id"`
++		Mime       string            `json:"mimeType"`
++		Trashed    bool              `json:"trashed"`
++		Shared     *bool             `json:"shared"`
++		Owned      bool              `json:"ownedByMe"`
++		Properties map[string]string `json:"appProperties"`
++	}
++	e = json.NewDecoder(io.LimitReader(res.Body, 8192)).Decode(&m)
++	closeDriveResponse(res)
++	if e != nil || res.StatusCode != 200 || m.ID != id || m.Mime != "application/vnd.google-apps.folder" || m.Trashed || m.Shared == nil || *m.Shared || !m.Owned || m.Properties["taskflow_private_attachments"] != "v1" {
++		return "", errors.New("Drive folder is not private and app-owned")
++	}
++	return id, nil
++}
++
++func (s TaskFlowSQLDriveSetup) ReserveFolder(ctx context.Context, proposed string) (string, error) {
++	if !validDriveID(proposed) {
++		return "", errors.New("invalid Drive folder ID")
++	}
++	_, e := s.DB.Exec(ctx, `INSERT INTO taskflow.attachment_drive_folder(id,file_id) VALUES(1,$1) ON CONFLICT(id) DO NOTHING`, proposed)
++	if e != nil {
++		return "", e
++	}
++	var id string
++	e = s.DB.QueryRow(ctx, `SELECT file_id FROM taskflow.attachment_drive_folder WHERE id=1`).Scan(&id)
++	return id, e
++}
+diff --git a/labs/taskflow/patches/drive-attachments/taskflow_drive_handler.go b/labs/taskflow/patches/drive-attachments/taskflow_drive_handler.go
+new file mode 100644
+index 0000000..861f71e
+--- /dev/null
++++ b/labs/taskflow/patches/drive-attachments/taskflow_drive_handler.go
+@@ -0,0 +1,37 @@
++package handler
++
++import (
++	"github.com/multica-ai/multica/server/internal/storage"
++	"net/http"
++	"os"
++)
++
++// This route is mounted ONLY inside the existing authenticated/CSRF group.
++// A task-agent, plugin or service credential cannot start owner authorization.
++func (h *Handler) StartTaskFlowDriveSetup(w http.ResponseWriter, r *http.Request) {
++	w.Header().Set("Cache-Control", "no-store")
++	user, ok := requireUserID(w, r)
++	if !ok {
++		return
++	}
++	if r.Header.Get("Authorization") != "" || r.Header.Get("X-Actor-Source") != "" {
++		writeError(w, http.StatusForbidden, "owner browser session required")
++		return
++	}
++	owner := os.Getenv("TASKFLOW_DRIVE_SETUP_OWNER_USER_ID")
++	if owner == "" || user != owner {
++		writeError(w, http.StatusForbidden, "owner browser session required")
++		return
++	}
++	setup, e := storage.TaskFlowDriveSetupFromEnv(h.DB)
++	if e != nil || setup == nil {
++		writeError(w, http.StatusServiceUnavailable, "Drive 專用連線尚未準備完成。")
++		return
++	}
++	entry, e := setup.NewConnectionURL(r.Context())
++	if e != nil {
++		writeError(w, http.StatusServiceUnavailable, "Drive 授權入口尚未建立，請稍後再試。")
++		return
++	}
++	writeJSON(w, http.StatusOK, map[string]string{"authorization_url": entry})
++}
+diff --git a/labs/taskflow/patches/drive-attachments/taskflow_drive_handler_test.go b/labs/taskflow/patches/drive-attachments/taskflow_drive_handler_test.go
+new file mode 100644
+index 0000000..f01d60f
+--- /dev/null
++++ b/labs/taskflow/patches/drive-attachments/taskflow_drive_handler_test.go
+@@ -0,0 +1,367 @@
++package handler
++
++import (
++	"bytes"
++	"context"
++	"crypto/sha256"
++	"encoding/hex"
++	"encoding/json"
++	"errors"
++	"fmt"
++	"github.com/multica-ai/multica/server/internal/storage"
++	"io"
++	"mime"
++	"mime/multipart"
++	"net/http"
++	"net/http/httptest"
++	"net/url"
++	"os"
++	"strconv"
++	"strings"
++	"sync"
++	"testing"
++)
++
++type nativeDriveToken struct{}
++
++func (nativeDriveToken) AccessToken(context.Context) (string, error) { return "fixture-access", nil }
++
++type nativeDriveTransport struct {
++	target *url.URL
++	http.RoundTripper
++}
++
++func (t nativeDriveTransport) RoundTrip(r *http.Request) (*http.Response, error) {
++	c := r.Clone(r.Context())
++	u := *r.URL
++	u.Scheme = t.target.Scheme
++	u.Host = t.target.Host
++	c.URL = &u
++	c.Host = t.target.Host
++	return t.RoundTripper.RoundTrip(c)
++}
++
++type nativeDriveIndex struct {
++	sync.Mutex
++	rows map[string]storage.TaskFlowDriveBinding
++}
++
++func (i *nativeDriveIndex) Lookup(_ context.Context, k string) (storage.TaskFlowDriveBinding, error) {
++	i.Lock()
++	defer i.Unlock()
++	b, ok := i.rows[k]
++	if !ok {
++		return b, os.ErrNotExist
++	}
++	return b, nil
++}
++func (i *nativeDriveIndex) Reserve(_ context.Context, b storage.TaskFlowDriveBinding) (storage.TaskFlowDriveBinding, error) {
++	i.Lock()
++	defer i.Unlock()
++	if prior, ok := i.rows[b.Key]; ok {
++		return prior, nil
++	}
++	i.rows[b.Key] = b
++	return b, nil
++}
++func (i *nativeDriveIndex) MarkReady(_ context.Context, k string) error {
++	i.Lock()
++	defer i.Unlock()
++	b, ok := i.rows[k]
++	if !ok {
++		return errors.New("missing binding")
++	}
++	b.Ready = true
++	i.rows[k] = b
++	return nil
++}
++func (i *nativeDriveIndex) MarkDeleted(_ context.Context, k string) error {
++	i.Lock()
++	defer i.Unlock()
++	b := i.rows[k]
++	b.Deleted = true
++	i.rows[k] = b
++	return nil
++}
++
++type nativeDriveRemote struct {
++	sync.Mutex
++	dir           string
++	count, status int
++	hashes        map[string]string
++	sizes         map[string]int64
++}
++
++func (d *nativeDriveRemote) ServeHTTP(w http.ResponseWriter, r *http.Request) {
++	d.Lock()
++	defer d.Unlock()
++	if d.status != 0 {
++		w.WriteHeader(d.status)
++		return
++	}
++	if r.Header.Get("Authorization") != "Bearer fixture-access" {
++		w.WriteHeader(401)
++		return
++	}
++	if strings.Contains(r.URL.Path, "generateIds") {
++		d.count++
++		json.NewEncoder(w).Encode(map[string]any{"ids": []string{fmt.Sprintf("fixture-%d", d.count)}})
++		return
++	}
++	if r.URL.Path == "/drive/v3/files/folder" {
++		json.NewEncoder(w).Encode(map[string]any{"id": "folder", "mimeType": "application/vnd.google-apps.folder", "trashed": false, "shared": false, "ownedByMe": true})
++		return
++	}
++	if strings.HasPrefix(r.URL.Path, "/upload/") {
++		_, params, e := mime.ParseMediaType(r.Header.Get("Content-Type"))
++		if e != nil {
++			w.WriteHeader(400)
++			return
++		}
++		m := multipart.NewReader(r.Body, params["boundary"])
++		p, e := m.NextPart()
++		if e != nil {
++			w.WriteHeader(400)
++			return
++		}
++		var meta struct {
++			ID string `json:"id"`
++		}
++		if json.NewDecoder(p).Decode(&meta) != nil || !strings.HasPrefix(meta.ID, "fixture-") {
++			w.WriteHeader(400)
++			return
++		}
++		if _, exists := d.hashes[meta.ID]; exists {
++			w.WriteHeader(409)
++			return
++		}
++		p, e = m.NextPart()
++		if e != nil {
++			w.WriteHeader(400)
++			return
++		}
++		f, e := os.Create(d.dir + "/" + meta.ID)
++		if e != nil {
++			w.WriteHeader(500)
++			return
++		}
++		h := sha256.New()
++		n, e := io.Copy(io.MultiWriter(f, h), p)
++		f.Close()
++		if e != nil {
++			w.WriteHeader(500)
++			return
++		}
++		d.hashes[meta.ID] = hex.EncodeToString(h.Sum(nil))
++		d.sizes[meta.ID] = n
++		json.NewEncoder(w).Encode(map[string]any{"id": meta.ID})
++		return
++	}
++	id := strings.TrimPrefix(r.URL.Path, "/drive/v3/files/")
++	hash, ok := d.hashes[id]
++	if !ok {
++		w.WriteHeader(404)
++		return
++	}
++	if r.URL.Query().Get("alt") == "media" {
++		f, e := os.Open(d.dir + "/" + id)
++		if e != nil {
++			w.WriteHeader(500)
++			return
++		}
++		defer f.Close()
++		io.Copy(w, f)
++		return
++	}
++	json.NewEncoder(w).Encode(map[string]any{"id": id, "size": strconv.FormatInt(d.sizes[id], 10), "sha256Checksum": hash, "parents": []string{"folder"}, "shared": false, "ownedByMe": true, "trashed": false})
++}
++func nativeDriveFixture(t *testing.T) (*storage.TaskFlowDriveStorage, *nativeDriveRemote, *nativeDriveIndex, *http.Client) {
++	t.Helper()
++	remote := &nativeDriveRemote{dir: t.TempDir(), hashes: map[string]string{}, sizes: map[string]int64{}}
++	server := httptest.NewServer(remote)
++	t.Cleanup(server.Close)
++	target, _ := url.Parse(server.URL)
++	client := &http.Client{Transport: nativeDriveTransport{target, server.Client().Transport}}
++	index := &nativeDriveIndex{rows: map[string]storage.TaskFlowDriveBinding{}}
++	store, e := storage.NewTaskFlowDriveStorage(client, nativeDriveToken{}, index, "folder")
++	if e != nil {
++		t.Fatal(e)
++	}
++	return store, remote, index, client
++}
++func TestTaskFlowDriveNativeAttachmentHTTP(t *testing.T) {
++	original := testHandler.Storage
++	defer func() { testHandler.Storage = original }()
++	store, remote, index, client := nativeDriveFixture(t)
++	testHandler.Storage = store
++	issue := createIssueForTest(t, map[string]any{"title": "isolated Drive native roundtrip", "status": "backlog"})
++	data := []byte("original private Drive attachment")
++	upload := func(name string) *httptest.ResponseRecorder {
++		var body bytes.Buffer
++		m := multipart.NewWriter(&body)
++		p, _ := m.CreateFormFile("file", name)
++		p.Write(data)
++		m.WriteField("issue_id", issue.ID)
++		m.Close()
++		req := httptest.NewRequest("POST", "/api/upload-file", &body)
++		req.Header.Set("Content-Type", m.FormDataContentType())
++		req.Header.Set("X-User-ID", testUserID)
++		req.Header.Set("X-Workspace-ID", testWorkspaceID)
++		w := httptest.NewRecorder()
++		testHandler.UploadFile(w, req)
++		return w
++	}
++	w := upload("private-original.txt")
++	if w.Code != 200 {
++		t.Fatal(w.Code, w.Body.String())
++	}
++	var a AttachmentResponse
++	if e := json.Unmarshal(w.Body.Bytes(), &a); e != nil {
++		t.Fatal(e)
++	}
++	if a.ID == "" || a.SizeBytes != int64(len(data)) || a.IssueID == nil || *a.IssueID != issue.ID {
++		t.Fatal("native row mismatch", a)
++	}
++	// Only the remote objects and index survive a reconstructed backend.
++	reopened, e := storage.NewTaskFlowDriveStorage(client, nativeDriveToken{}, index, "folder")
++	if e != nil {
++		t.Fatal(e)
++	}
++	testHandler.Storage = reopened
++	request := func(user, rangeHeader string) *httptest.ResponseRecorder {
++		r := withURLParam(httptest.NewRequest("GET", "/api/attachments/"+a.ID+"/download", nil), "id", a.ID)
++		if user != "" {
++			r.Header.Set("X-User-ID", user)
++		}
++		if rangeHeader != "" {
++			r.Header.Set("Range", rangeHeader)
++		}
++		w := httptest.NewRecorder()
++		testHandler.DownloadAttachment(w, r)
++		return w
++	}
++	w = request(testUserID, "")
++	if w.Code != 200 || !bytes.Equal(w.Body.Bytes(), data) || w.Header().Get("Cache-Control") != "no-store" {
++		t.Fatal("reopened original not private/exact", w.Code)
++	}
++	w = request(testUserID, "bytes=0-7")
++	if w.Code != 206 || !bytes.Equal(w.Body.Bytes(), data[:8]) {
++		t.Fatal("range failed", w.Code)
++	}
++	if w = request("", ""); w.Code != 401 {
++		t.Fatal("anonymous served", w.Code)
++	}
++	if w = request("00000000-0000-0000-0000-000000000099", ""); w.Code != 404 {
++		t.Fatal("nonmember served", w.Code)
++	}
++	r := httptest.NewRequest("GET", a.URL, nil)
++	w = httptest.NewRecorder()
++	testHandler.ServeLocalUpload(w, r)
++	if w.Code != 404 {
++		t.Fatal("raw Drive object served publicly", w.Code)
++	}
++	remote.Lock()
++	remote.status = 401
++	remote.Unlock()
++	if w = request(testUserID, ""); w.Code != 503 {
++		t.Fatal("revoked connection misreported", w.Code, w.Body.String())
++	}
++	remote.Lock()
++	remote.status = 0
++	remote.Unlock()
++	reopened.SetReadOnly()
++	if w = upload("maintenance.txt"); w.Code != 503 {
++		t.Fatal("readonly accepted upload", w.Code)
++	}
++	if w = request(testUserID, ""); w.Code != 200 {
++		t.Fatal("readonly lost original", w.Code)
++	}
++}
++func TestTaskFlowDriveSetupOwnerGuard(t *testing.T) {
++	for _, kind := range []string{"anonymous", "wrong-owner", "machine", "bearer", "disabled"} {
++		t.Run(kind, func(t *testing.T) {
++			t.Setenv("TASKFLOW_DRIVE_SETUP_OWNER_USER_ID", testUserID)
++			t.Setenv("TASKFLOW_DRIVE_SETUP_ENABLED", "0")
++			r := httptest.NewRequest("POST", "/api/taskflow-drive/setup", nil)
++			if kind != "anonymous" {
++				r.Header.Set("X-User-ID", testUserID)
++			}
++			want := 403
++			switch kind {
++			case "anonymous":
++				want = 401
++			case "wrong-owner":
++				r.Header.Set("X-User-ID", "wrong")
++			case "machine":
++				r.Header.Set("X-Actor-Source", "task_token")
++			case "bearer":
++				r.Header.Set("Authorization", "Bearer fixture")
++			case "disabled":
++				want = 503
++			}
++			w := httptest.NewRecorder()
++			testHandler.StartTaskFlowDriveSetup(w, r)
++			if w.Code != want {
++				t.Fatal(kind, w.Code, w.Body.String())
++			}
++		})
++	}
++}
++
++func TestTaskFlowDriveLargeNativeUploads(t *testing.T) {
++	original := testHandler.Storage
++	defer func() { testHandler.Storage = original }()
++	store, remote, _, _ := nativeDriveFixture(t)
++	testHandler.Storage = store
++	issue := createIssueForTest(t, map[string]any{"title": "isolated Drive concurrent large uploads", "status": "backlog"})
++	var wg sync.WaitGroup
++	for n := 0; n < 3; n++ {
++		wg.Add(1)
++		go func() {
++			defer wg.Done()
++			f, e := os.CreateTemp("", "tf-drive-http-large-*")
++			if e != nil {
++				t.Error(e)
++				return
++			}
++			defer f.Close()
++			defer os.Remove(f.Name())
++			m := multipart.NewWriter(f)
++			p, e := m.CreateFormFile("file", "isolated-large.bin")
++			if e != nil {
++				t.Error(e)
++				return
++			}
++			chunk := bytes.Repeat([]byte{0x4b}, 1<<20)
++			for i := 0; i < 80; i++ {
++				if _, e = p.Write(chunk); e != nil {
++					t.Error(e)
++					return
++				}
++			}
++			m.WriteField("issue_id", issue.ID)
++			m.Close()
++			f.Seek(0, 0)
++			req := httptest.NewRequest("POST", "/api/upload-file", f)
++			req.Header.Set("Content-Type", m.FormDataContentType())
++			req.Header.Set("X-User-ID", testUserID)
++			req.Header.Set("X-Workspace-ID", testWorkspaceID)
++			w := httptest.NewRecorder()
++			testHandler.UploadFile(w, req)
++			if w.Code != 200 {
++				t.Errorf("large native upload=%d %s", w.Code, w.Body.String())
++			}
++		}()
++	}
++	wg.Wait()
++	remote.Lock()
++	defer remote.Unlock()
++	if len(remote.hashes) != 3 {
++		t.Fatal("lost concurrent object", len(remote.hashes))
++	}
++	for _, size := range remote.sizes {
++		if size != 80*1024*1024 {
++			t.Fatal("truncated original", size)
++		}
++	}
++}
+diff --git a/labs/taskflow/patches/drive-attachments/taskflow_drive_index.go b/labs/taskflow/patches/drive-attachments/taskflow_drive_index.go
+new file mode 100644
+index 0000000..d225e06
+--- /dev/null
++++ b/labs/taskflow/patches/drive-attachments/taskflow_drive_index.go
+@@ -0,0 +1,42 @@
++package storage
++
++import (
++	"context"
++	"errors"
++	"github.com/jackc/pgx/v5"
++	"github.com/jackc/pgx/v5/pgconn"
++	"os"
++)
++
++type TaskFlowDriveDB interface {
++	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
++	QueryRow(context.Context, string, ...any) pgx.Row
++}
++type TaskFlowSQLDriveIndex struct{ DB TaskFlowDriveDB }
++
++func (i TaskFlowSQLDriveIndex) Lookup(ctx context.Context, key string) (TaskFlowDriveBinding, error) {
++	b := TaskFlowDriveBinding{Key: key}
++	e := i.DB.QueryRow(ctx, `SELECT file_id,sha256,folder_id,size_bytes,ready,deleted FROM taskflow.attachment_drive_object WHERE object_key=$1`, key).Scan(&b.FileID, &b.SHA256, &b.FolderID, &b.Size, &b.Ready, &b.Deleted)
++	if errors.Is(e, pgx.ErrNoRows) {
++		return b, os.ErrNotExist
++	}
++	return b, e
++}
++func (i TaskFlowSQLDriveIndex) Reserve(ctx context.Context, b TaskFlowDriveBinding) (TaskFlowDriveBinding, error) {
++	_, e := i.DB.Exec(ctx, `INSERT INTO taskflow.attachment_drive_object(object_key,file_id,sha256,folder_id,size_bytes) VALUES($1,$2,$3,$4,$5) ON CONFLICT(object_key) DO NOTHING`, b.Key, b.FileID, b.SHA256, b.FolderID, b.Size)
++	if e != nil {
++		return TaskFlowDriveBinding{}, e
++	}
++	return i.Lookup(ctx, b.Key)
++}
++func (i TaskFlowSQLDriveIndex) MarkReady(ctx context.Context, key string) error {
++	r, e := i.DB.Exec(ctx, `UPDATE taskflow.attachment_drive_object SET ready=true WHERE object_key=$1 AND NOT deleted`, key)
++	if e == nil && r.RowsAffected() != 1 {
++		return errors.New("attachment Drive binding not active")
++	}
++	return e
++}
++func (i TaskFlowSQLDriveIndex) MarkDeleted(ctx context.Context, key string) error {
++	_, e := i.DB.Exec(ctx, `UPDATE taskflow.attachment_drive_object SET deleted=true WHERE object_key=$1`, key)
++	return e
++}
+diff --git a/labs/taskflow/patches/drive-attachments/taskflow_drive_index_test.go b/labs/taskflow/patches/drive-attachments/taskflow_drive_index_test.go
+new file mode 100644
+index 0000000..3bff169
+--- /dev/null
++++ b/labs/taskflow/patches/drive-attachments/taskflow_drive_index_test.go
+@@ -0,0 +1,159 @@
++package storage
++
++import (
++	"bytes"
++	"context"
++	"errors"
++	"github.com/jackc/pgx/v5/pgxpool"
++	"os"
++	"strings"
++	"testing"
++	"time"
++)
++
++func TestTaskFlowDriveSQLLedger(t *testing.T) {
++	dsn := os.Getenv("TASKFLOW_DRIVE_TEST_DATABASE_URL")
++	if dsn == "" {
++		t.Skip("isolated Drive ledger database required")
++	}
++	ctx := context.Background()
++	p, e := pgxpool.New(ctx, dsn)
++	if e != nil {
++		t.Fatal(e)
++	}
++	defer p.Close()
++	if _, e = p.Exec(ctx, "TRUNCATE taskflow.attachment_drive_object,taskflow.attachment_drive_setup_state,taskflow.attachment_drive_grant,taskflow.attachment_drive_folder,taskflow.attachment CASCADE"); e != nil {
++		t.Fatal(e)
++	}
++	runtimeCfg, e := pgxpool.ParseConfig(dsn)
++	if e != nil {
++		t.Fatal(e)
++	}
++	runtimeCfg.ConnConfig.RuntimeParams["role"] = "taskflow_runtime"
++	runtime, e := pgxpool.NewWithConfig(ctx, runtimeCfg)
++	if e != nil {
++		t.Fatal(e)
++	}
++	defer runtime.Close()
++	i := TaskFlowSQLDriveIndex{runtime}
++	setup := TaskFlowSQLDriveSetup{runtime}
++	if f, e := setup.ReserveFolder(ctx, "first-folder"); e != nil || f != "first-folder" {
++		t.Fatal("folder reserve", e)
++	}
++	if f, e := setup.ReserveFolder(ctx, "second-folder"); e != nil || f != "first-folder" {
++		t.Fatal("folder reservation changed", e)
++	}
++	if _, e := runtime.Exec(ctx, "UPDATE taskflow.attachment_drive_folder SET file_id='replacement'"); e == nil {
++		t.Fatal("folder replacement allowed")
++	}
++	hash := strings.Repeat("a", 64)
++	verifier := bytes.Repeat([]byte{42}, 64)
++	if e = setup.Issue(ctx, hash, time.Now().Add(time.Minute), verifier); e != nil {
++		t.Fatal(e)
++	}
++	if v, e := setup.Claim(ctx, hash, time.Now()); e != nil || !bytes.Equal(v, verifier) {
++		t.Fatal("state claim", e)
++	}
++	if _, e = setup.Claim(ctx, hash, time.Now()); e == nil {
++		t.Fatal("state replay allowed")
++	}
++	sealed := bytes.Repeat([]byte{7}, 80)
++	if e = setup.SaveGrant(ctx, sealed, "owner@example.invalid"); e != nil {
++		t.Fatal(e)
++	}
++	if b, owner, e := setup.LoadGrant(ctx); e != nil || owner != "owner@example.invalid" || !bytes.Equal(b, sealed) {
++		t.Fatal("grant store", e)
++	}
++
++	b := TaskFlowDriveBinding{Key: "workspaces/ws/key", FileID: "first-file", FolderID: "folder", SHA256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", Size: 8}
++	got, e := i.Reserve(ctx, b)
++	if e != nil || got.FileID != b.FileID || got.Ready {
++		t.Fatal("reserve", got, e)
++	}
++	other := b
++	other.FileID = "replacement"
++	got, e = i.Reserve(ctx, other)
++	if e != nil || got.FileID != "first-file" {
++		t.Fatal("immutable retry failed", got, e)
++	}
++	if e = i.MarkReady(ctx, b.Key); e != nil {
++		t.Fatal(e)
++	}
++	got, e = i.Lookup(ctx, b.Key)
++	if e != nil || !got.Ready {
++		t.Fatal(e)
++	}
++	for _, q := range []string{"UPDATE taskflow.attachment_drive_object SET file_id='changed'", "DELETE FROM taskflow.attachment_drive_object", "ALTER TABLE taskflow.attachment_drive_object ADD COLUMN x text"} {
++		if _, e = runtime.Exec(ctx, q); e == nil {
++			t.Fatal("runtime exceeded authority", q)
++		}
++	}
++
++	// Queue is created by the native attachment deletion transaction, never by
++	// arbitrary runtime INSERT, and rolls back together with a failed delete.
++	if _, e = runtime.Exec(ctx, "INSERT INTO taskflow.attachment_drive_delete_queue(object_key) VALUES($1)", b.Key); e == nil {
++		t.Fatal("runtime manufactured deletion authority")
++	}
++	if _, e = runtime.Exec(ctx, "INSERT INTO taskflow.attachment(id,url) VALUES('a',$1),('b',$1)", "/uploads/"+b.Key); e != nil {
++		t.Fatal(e)
++	}
++	tx, e := runtime.Begin(ctx)
++	if e != nil {
++		t.Fatal(e)
++	}
++	if _, e = tx.Exec(ctx, "DELETE FROM taskflow.attachment WHERE id='a'"); e != nil {
++		t.Fatal(e)
++	}
++	tx.Rollback(ctx)
++	keys, e := i.PendingTrash(ctx, 10)
++	if e != nil || len(keys) != 0 {
++		t.Fatal("rollback leaked trash request", e, keys)
++	}
++	if _, e = runtime.Exec(ctx, "DELETE FROM taskflow.attachment WHERE id='a'"); e != nil {
++		t.Fatal(e)
++	}
++	if _, e = i.TrashBinding(ctx, b.Key); e == nil {
++		t.Fatal("surviving attachment reference eligible for trash")
++	}
++	if _, e = runtime.Exec(ctx, "DELETE FROM taskflow.attachment WHERE id='b'"); e != nil {
++		t.Fatal(e)
++	}
++	pending, e := i.TrashBinding(ctx, b.Key)
++	if e != nil || pending.FileID != b.FileID {
++		t.Fatal("committed native delete not queued", e)
++	}
++	if _, e = runtime.Exec(ctx, "INSERT INTO taskflow.attachment(id,url) VALUES('late',$1)", "/uploads/"+b.Key); e == nil {
++		t.Fatal("new reference raced into claimed trash")
++	}
++	if e = i.MarkTrashed(ctx, b.Key); e != nil {
++		t.Fatal(e)
++	}
++	keys, e = i.PendingTrash(ctx, 10)
++	if e != nil || len(keys) != 0 {
++		t.Fatal("completed trash repeated", e)
++	}
++	if e = i.MarkDeleted(ctx, b.Key); e != nil {
++		t.Fatal(e)
++	}
++	if _, e = runtime.Exec(ctx, "UPDATE taskflow.attachment_drive_object SET deleted=false"); e == nil {
++		t.Fatal("deleted key resurrected")
++	}
++	if e = i.MarkReady(ctx, b.Key); e == nil {
++		t.Fatal("deleted key accepted")
++	}
++	if _, e = i.Lookup(ctx, "workspaces/ws/missing"); !errors.Is(e, os.ErrNotExist) {
++		t.Fatal(e)
++	}
++	for _, role := range []string{"anon", "authenticated"} {
++		cfg, _ := pgxpool.ParseConfig(dsn)
++		cfg.ConnConfig.RuntimeParams["role"] = role
++		r, e := pgxpool.NewWithConfig(ctx, cfg)
++		if e != nil {
++			t.Fatal(e)
++		}
++		if _, e = r.Exec(ctx, "SELECT * FROM taskflow.attachment_drive_grant"); e == nil {
++			t.Fatal("API role read private ledger", role)
++		}
++		r.Close()
++	}
++}
+diff --git a/labs/taskflow/patches/drive-attachments/taskflow_drive_oauth.go b/labs/taskflow/patches/drive-attachments/taskflow_drive_oauth.go
+new file mode 100644
+index 0000000..c29c3de
+--- /dev/null
++++ b/labs/taskflow/patches/drive-attachments/taskflow_drive_oauth.go
+@@ -0,0 +1,214 @@
++package storage
++
++import (
++	"context"
++	"crypto/aes"
++	"crypto/cipher"
++	"crypto/rand"
++	"crypto/sha256"
++	"encoding/base64"
++	"encoding/hex"
++	"encoding/json"
++	"errors"
++	"io"
++	"net/http"
++	"net/url"
++	"strings"
++	"time"
++)
++
++// The connection starter is called only by an operator-owned setup command.
++// No public start endpoint, arbitrary redirect or user-supplied account is used.
++type TaskFlowDriveSetupStore interface {
++	Issue(context.Context, string, time.Time, []byte) error
++	Claim(context.Context, string, time.Time) ([]byte, error)
++	SaveGrant(context.Context, []byte, string) error
++	ReserveFolder(context.Context, string) (string, error)
++}
++type TaskFlowDriveOAuthSetup struct {
++	Client                                                    *http.Client
++	ClientID, ClientSecret, CallbackURL, OwnerEmail           string
++	MasterSecret                                              string
++	Store                                                     TaskFlowDriveSetupStore
++	authEndpoint, tokenEndpoint, aboutEndpoint, driveEndpoint string
++}
++
++func (s *TaskFlowDriveOAuthSetup) validate() error {
++	u, e := url.Parse(s.CallbackURL)
++	if e != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || s.Client == nil || s.ClientID == "" || s.ClientSecret == "" || s.OwnerEmail == "" || len(s.MasterSecret) < 32 || s.Store == nil {
++		return errors.New("private Drive connection setup incomplete")
++	}
++	return nil
++}
++func driveStateHash(state string) string {
++	sum := sha256.Sum256([]byte(state))
++	return hex.EncodeToString(sum[:])
++}
++func (s *TaskFlowDriveOAuthSetup) NewConnectionURL(ctx context.Context) (string, error) {
++	if e := s.validate(); e != nil {
++		return "", e
++	}
++	b := make([]byte, 32)
++	if _, e := rand.Read(b); e != nil {
++		return "", e
++	}
++	state := base64.RawURLEncoding.EncodeToString(b)
++	verifierBytes := make([]byte, 32)
++	if _, e := rand.Read(verifierBytes); e != nil {
++		return "", e
++	}
++	verifier := base64.RawURLEncoding.EncodeToString(verifierBytes)
++	challengeBytes := sha256.Sum256([]byte(verifier))
++	challenge := base64.RawURLEncoding.EncodeToString(challengeBytes[:])
++	sealedVerifier, e := sealDriveGrant(s.MasterSecret, []byte(verifier))
++	if e != nil {
++		return "", e
++	}
++	if e := s.Store.Issue(ctx, driveStateHash(state), time.Now().Add(15*time.Minute), sealedVerifier); e != nil {
++		return "", errors.New("cannot prepare private Drive connection")
++	}
++	base := "https://accounts.google.com/o/oauth2/v2/auth"
++	if s.authEndpoint != "" {
++		base = s.authEndpoint
++	}
++	q := url.Values{"client_id": {s.ClientID}, "redirect_uri": {s.CallbackURL}, "response_type": {"code"}, "scope": {TaskFlowDriveScope}, "access_type": {"offline"}, "prompt": {"consent"}, "include_granted_scopes": {"false"}, "login_hint": {s.OwnerEmail}, "state": {state}, "code_challenge": {challenge}, "code_challenge_method": {"S256"}}
++	return base + "?" + q.Encode(), nil
++}
++func sealDriveGrant(secret string, plain []byte) ([]byte, error) {
++	sum := sha256.Sum256([]byte(secret))
++	block, e := aes.NewCipher(sum[:])
++	if e != nil {
++		return nil, e
++	}
++	g, e := cipher.NewGCM(block)
++	if e != nil {
++		return nil, e
++	}
++	nonce := make([]byte, g.NonceSize())
++	if _, e = rand.Read(nonce); e != nil {
++		return nil, e
++	}
++	return g.Seal(nonce, nonce, plain, []byte("TF-private-Drive-grant-v1")), nil
++}
++func openDriveGrant(secret string, sealed []byte) ([]byte, error) {
++	sum := sha256.Sum256([]byte(secret))
++	block, e := aes.NewCipher(sum[:])
++	if e != nil {
++		return nil, e
++	}
++	g, e := cipher.NewGCM(block)
++	if e != nil || len(sealed) < g.NonceSize() {
++		return nil, errors.New("Drive grant cannot be decrypted")
++	}
++	return g.Open(nil, sealed[:g.NonceSize()], sealed[g.NonceSize():], []byte("TF-private-Drive-grant-v1"))
++}
++func (s *TaskFlowDriveOAuthSetup) Callback(w http.ResponseWriter, r *http.Request) {
++	w.Header().Set("Cache-Control", "no-store")
++	w.Header().Set("Referrer-Policy", "no-referrer")
++	w.Header().Set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
++	w.Header().Set("X-Content-Type-Options", "nosniff")
++	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
++	fail := func() {
++		w.WriteHeader(http.StatusBadRequest)
++		io.WriteString(w, "Drive 連線尚未完成。未啟用附件儲存，請回原對話重新取得授權入口。")
++	}
++	if r.Method != http.MethodGet || s.validate() != nil {
++		fail()
++		return
++	}
++	q := r.URL.Query()
++	state := q.Get("state")
++	code := q.Get("code")
++	if len(q["state"]) != 1 || len(q["code"]) != 1 || len(state) != 43 || len(code) < 1 || len(code) > 4096 || q.Get("error") != "" {
++		fail()
++		return
++	}
++	sealedVerifier, e := s.Store.Claim(r.Context(), driveStateHash(state), time.Now())
++	if e != nil {
++		fail()
++		return
++	}
++	verifier, e := openDriveGrant(s.MasterSecret, sealedVerifier)
++	if e != nil {
++		fail()
++		return
++	}
++	defer clearDriveBytes(verifier)
++	client := *s.Client
++	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
++	endpoint := "https://oauth2.googleapis.com/token"
++	if s.tokenEndpoint != "" {
++		endpoint = s.tokenEndpoint
++	}
++	form := url.Values{"client_id": {s.ClientID}, "client_secret": {s.ClientSecret}, "redirect_uri": {s.CallbackURL}, "grant_type": {"authorization_code"}, "code": {code}, "code_verifier": {string(verifier)}}
++	req, e := http.NewRequestWithContext(r.Context(), http.MethodPost, endpoint, strings.NewReader(form.Encode()))
++	if e != nil {
++		fail()
++		return
++	}
++	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
++	res, e := client.Do(req)
++	if e != nil {
++		fail()
++		return
++	}
++	defer res.Body.Close()
++	var grant struct {
++		Access  string `json:"access_token"`
++		Refresh string `json:"refresh_token"`
++		Scope   string `json:"scope"`
++		Type    string `json:"token_type"`
++	}
++	if res.StatusCode != 200 || json.NewDecoder(io.LimitReader(res.Body, 16384)).Decode(&grant) != nil || grant.Access == "" || grant.Refresh == "" || grant.Scope != TaskFlowDriveScope || !strings.EqualFold(grant.Type, "Bearer") {
++		fail()
++		return
++	}
++	about := "https://www.googleapis.com/drive/v3/about?fields=user(emailAddress)"
++	if s.aboutEndpoint != "" {
++		about = s.aboutEndpoint
++	}
++	req, e = http.NewRequestWithContext(r.Context(), http.MethodGet, about, nil)
++	if e != nil {
++		fail()
++		return
++	}
++	req.Header.Set("Authorization", "Bearer "+grant.Access)
++	res2, e := client.Do(req)
++	if e != nil {
++		fail()
++		return
++	}
++	defer res2.Body.Close()
++	var identity struct {
++		User struct {
++			Email string `json:"emailAddress"`
++		} `json:"user"`
++	}
++	if res2.StatusCode != 200 || json.NewDecoder(io.LimitReader(res2.Body, 8192)).Decode(&identity) != nil || !strings.EqualFold(identity.User.Email, s.OwnerEmail) {
++		fail()
++		return
++	}
++	folder, e := s.provisionFolder(r.Context(), &client, grant.Access)
++	if e != nil {
++		fail()
++		return
++	}
++	// Only the app's refresh grant is sealed, not access tokens or raw responses.
++	payload, _ := json.Marshal(map[string]string{"refresh_token": grant.Refresh, "scope": TaskFlowDriveScope, "owner_email": identity.User.Email, "folder_id": folder})
++	sealed, e := sealDriveGrant(s.MasterSecret, payload)
++	clearDriveBytes(payload)
++	if e != nil {
++		fail()
++		return
++	}
++	if e = s.Store.SaveGrant(r.Context(), sealed, identity.User.Email); e != nil {
++		fail()
++		return
++	}
++	io.WriteString(w, "Drive 連線授權已保存。附件儲存尚未啟用，完成檢查後會在原對話通知。")
++}
++func clearDriveBytes(b []byte) {
++	for i := range b {
++		b[i] = 0
++	}
++}
+diff --git a/labs/taskflow/patches/drive-attachments/taskflow_drive_oauth_test.go b/labs/taskflow/patches/drive-attachments/taskflow_drive_oauth_test.go
+new file mode 100644
+index 0000000..bf2ab6c
+--- /dev/null
++++ b/labs/taskflow/patches/drive-attachments/taskflow_drive_oauth_test.go
+@@ -0,0 +1,164 @@
++package storage
++
++import (
++	"bytes"
++	"context"
++	"encoding/json"
++	"errors"
++	"net/http"
++	"net/http/httptest"
++	"net/url"
++	"strings"
++	"sync"
++	"testing"
++	"time"
++)
++
++type driveSetupTest struct {
++	sync.Mutex
++	state, folder     string
++	expiry            time.Time
++	verifier, grant   []byte
++	claimed, failSave bool
++}
++
++func (s *driveSetupTest) Issue(_ context.Context, hash string, expiry time.Time, v []byte) error {
++	s.state = hash
++	s.expiry = expiry
++	s.verifier = v
++	return nil
++}
++func (s *driveSetupTest) Claim(_ context.Context, hash string, now time.Time) ([]byte, error) {
++	s.Lock()
++	defer s.Unlock()
++	if s.claimed || s.state != hash || !now.Before(s.expiry) {
++		return nil, errors.New("invalid state")
++	}
++	s.claimed = true
++	return s.verifier, nil
++}
++func (s *driveSetupTest) SaveGrant(_ context.Context, sealed []byte, email string) error {
++	if s.failSave {
++		return errors.New("DB unavailable")
++	}
++	s.grant = sealed
++	return nil
++}
++func (s *driveSetupTest) ReserveFolder(_ context.Context, id string) (string, error) {
++	if s.folder == "" {
++		s.folder = id
++	}
++	return s.folder, nil
++}
++func TestTaskFlowDriveOAuthSetup(t *testing.T) {
++	for _, mode := range []string{"success", "scope", "owner", "state", "expired", "save", "redirect", "replay", "folder-shared", "folder-outage"} {
++		t.Run(mode, func(t *testing.T) {
++			store := &driveSetupTest{}
++			tokenCalls := 0
++			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++				if r.URL.Path == "/token" {
++					tokenCalls++
++					r.ParseForm()
++					if len(r.Form.Get("code_verifier")) != 43 {
++						t.Error("PKCE missing")
++					}
++					if mode == "redirect" {
++						w.Header().Set("Location", "https://untrusted.invalid/")
++						w.WriteHeader(307)
++						return
++					}
++					scope := TaskFlowDriveScope
++					if mode == "scope" {
++						scope = "https://www.googleapis.com/auth/drive"
++					}
++					json.NewEncoder(w).Encode(map[string]any{"access_token": "fixture-access", "refresh_token": "fixture-refresh", "scope": scope, "token_type": "Bearer"})
++					return
++				}
++
++				if strings.HasPrefix(r.URL.Path, "/drive/") {
++					if mode == "folder-outage" {
++						w.WriteHeader(503)
++						return
++					}
++					if strings.Contains(r.URL.Path, "generateIds") {
++						json.NewEncoder(w).Encode(map[string]any{"ids": []string{"test-folder"}})
++						return
++					}
++					if r.Method == "POST" {
++						json.NewEncoder(w).Encode(map[string]string{"id": "test-folder"})
++						return
++					}
++					json.NewEncoder(w).Encode(map[string]any{"id": "test-folder", "mimeType": "application/vnd.google-apps.folder", "ownedByMe": true, "shared": mode == "folder-shared", "appProperties": map[string]string{"taskflow_private_attachments": "v1"}})
++					return
++				}
++				owner := "owner@example.invalid"
++				if mode == "owner" {
++					owner = "wrong@example.invalid"
++				}
++				json.NewEncoder(w).Encode(map[string]any{"user": map[string]string{"emailAddress": owner}})
++			}))
++			defer server.Close()
++			setup := &TaskFlowDriveOAuthSetup{Client: server.Client(), ClientID: "fixture-client", ClientSecret: "fixture-client-secret", CallbackURL: "https://tf.example.invalid/auth/private-drive/callback", OwnerEmail: "owner@example.invalid", MasterSecret: strings.Repeat("m", 32), Store: store, tokenEndpoint: server.URL + "/token", aboutEndpoint: server.URL + "/about", driveEndpoint: server.URL}
++			entry, e := setup.NewConnectionURL(context.Background())
++			if e != nil {
++				t.Fatal(e)
++			}
++			u, _ := url.Parse(entry)
++			if u.Query().Get("scope") != TaskFlowDriveScope || u.Query().Get("code_challenge_method") != "S256" || u.Query().Get("include_granted_scopes") != "false" {
++				t.Fatal("wrong scope/link")
++			}
++			state := u.Query().Get("state")
++			if strings.Contains(entry, setup.ClientSecret) || store.state == state {
++				t.Fatal("secret/raw state persisted")
++			}
++			if mode == "state" {
++				state = strings.Repeat("x", 43)
++			}
++			if mode == "expired" {
++				store.expiry = time.Now().Add(-time.Second)
++			}
++			if mode == "save" {
++				store.failSave = true
++			}
++			request := func() *httptest.ResponseRecorder {
++				req := httptest.NewRequest("GET", setup.CallbackURL+"?"+url.Values{"state": {state}, "code": {"fixture-code"}}.Encode(), nil)
++				w := httptest.NewRecorder()
++				setup.Callback(w, req)
++				return w
++			}
++			w := request()
++			if mode == "success" || mode == "replay" {
++				if w.Code != 200 {
++					t.Fatal(w.Code, w.Body.String())
++				}
++				if bytes.Contains(store.grant, []byte("fixture-refresh")) {
++					t.Fatal("plaintext persisted")
++				}
++				plain, e := openDriveGrant(setup.MasterSecret, store.grant)
++				if e != nil || !bytes.Contains(plain, []byte("fixture-refresh")) {
++					t.Fatal("cannot decrypt own grant")
++				}
++				if mode == "replay" {
++					if w = request(); w.Code == 200 || tokenCalls != 1 {
++						t.Fatal("state replay accepted")
++					}
++				}
++			} else if w.Code == 200 || store.grant != nil {
++				t.Fatal("unsafe grant stored")
++			}
++			if strings.Contains(w.Body.String(), "fixture-") || w.Header().Get("Cache-Control") != "no-store" {
++				t.Fatal("secret leaked/cache allowed")
++			}
++		})
++	}
++}
++func TestTaskFlowDriveGrantCipherTamper(t *testing.T) {
++	sealed, e := sealDriveGrant(strings.Repeat("a", 32), []byte("fixture-grant"))
++	if e != nil {
++		t.Fatal(e)
++	}
++	sealed[len(sealed)-1] ^= 1
++	if _, e = openDriveGrant(strings.Repeat("a", 32), sealed); e == nil {
++		t.Fatal("tampered grant accepted")
++	}
++}
+diff --git a/labs/taskflow/patches/drive-attachments/taskflow_drive_router_test.go b/labs/taskflow/patches/drive-attachments/taskflow_drive_router_test.go
+new file mode 100644
+index 0000000..8693ac8
+--- /dev/null
++++ b/labs/taskflow/patches/drive-attachments/taskflow_drive_router_test.go
+@@ -0,0 +1,46 @@
++package main
++
++import (
++	"github.com/go-chi/chi/v5"
++	"github.com/multica-ai/multica/server/internal/analytics"
++	"github.com/multica-ai/multica/server/internal/storage"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"testing"
++)
++
++func TestTaskFlowDriveFinalRouter(t *testing.T) {
++	t.Setenv("TASKFLOW_DRIVE_SETUP_ENABLED", "1")
++	t.Setenv("TASKFLOW_DRIVE_CLIENT_ID", "fixture-client")
++	t.Setenv("TASKFLOW_DRIVE_CLIENT_SECRET", "fixture-secret")
++	t.Setenv("TASKFLOW_DRIVE_MASTER_SECRET", strings.Repeat("x", 32))
++	t.Setenv("TASKFLOW_DRIVE_OWNER_EMAIL", "owner@example.invalid")
++	t.Setenv("TASKFLOW_DRIVE_CALLBACK_URL", "https://api.example.invalid"+storage.TaskFlowDriveCallbackPath)
++	router, _ := NewRouterWithOptions(nil, nil, nil, analytics.NoopClient{}, nil, RouterOptions{})
++	callbackCount, setupCount := 0, 0
++	chi.Walk(router, func(method, path string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
++		if method == "GET" && path == storage.TaskFlowDriveCallbackPath {
++			callbackCount++
++		}
++		if method == "POST" && path == "/api/taskflow-drive/setup" {
++			setupCount++
++		}
++		return nil
++	})
++	if callbackCount != 1 || setupCount != 1 {
++		t.Fatal("incorrect registration", callbackCount, setupCount)
++	}
++	w := httptest.NewRecorder()
++	router.ServeHTTP(w, httptest.NewRequest("GET", "https://api.example.invalid"+storage.TaskFlowDriveCallbackPath+"?state=wrong&code=fake", nil))
++	if w.Code != 400 || w.Header().Get("Cache-Control") != "no-store" {
++		t.Fatal("callback not exact/failclosed", w.Code)
++	}
++	req := httptest.NewRequest("POST", "/api/taskflow-drive/setup", strings.NewReader("{}"))
++	req.Header.Set("X-User-ID", "owner-spoof")
++	w = httptest.NewRecorder()
++	router.ServeHTTP(w, req)
++	if w.Code != 401 {
++		t.Fatal("owner setup unauthenticated", w.Code)
++	}
++}
+diff --git a/labs/taskflow/patches/drive-attachments/taskflow_drive_setup_store.go b/labs/taskflow/patches/drive-attachments/taskflow_drive_setup_store.go
+new file mode 100644
+index 0000000..3a0c89f
+--- /dev/null
++++ b/labs/taskflow/patches/drive-attachments/taskflow_drive_setup_store.go
+@@ -0,0 +1,36 @@
++package storage
++
++import (
++	"context"
++	"errors"
++	"time"
++)
++
++type TaskFlowSQLDriveSetup struct{ DB TaskFlowDriveDB }
++
++func (s TaskFlowSQLDriveSetup) Issue(ctx context.Context, stateHash string, expiry time.Time, sealedVerifier []byte) error {
++	_, e := s.DB.Exec(ctx, `DELETE FROM taskflow.attachment_drive_setup_state WHERE expires_at<clock_timestamp()`)
++	if e != nil {
++		return e
++	}
++	_, e = s.DB.Exec(ctx, `INSERT INTO taskflow.attachment_drive_setup_state(state_hash,expires_at,verifier_cipher) VALUES($1,$2,$3)`, stateHash, expiry, sealedVerifier)
++	return e
++}
++func (s TaskFlowSQLDriveSetup) Claim(ctx context.Context, stateHash string, now time.Time) ([]byte, error) {
++	var cipher []byte
++	e := s.DB.QueryRow(ctx, `UPDATE taskflow.attachment_drive_setup_state SET claimed=true WHERE state_hash=$1 AND NOT claimed AND expires_at>$2 RETURNING verifier_cipher`, stateHash, now).Scan(&cipher)
++	if e != nil {
++		return nil, errors.New("Drive connection entry invalid or expired")
++	}
++	return cipher, nil
++}
++func (s TaskFlowSQLDriveSetup) SaveGrant(ctx context.Context, cipher []byte, owner string) error {
++	_, e := s.DB.Exec(ctx, `INSERT INTO taskflow.attachment_drive_grant(id,grant_cipher,owner_email) VALUES(1,$1,$2) ON CONFLICT(id) DO UPDATE SET grant_cipher=EXCLUDED.grant_cipher,owner_email=EXCLUDED.owner_email,updated_at=clock_timestamp()`, cipher, owner)
++	return e
++}
++func (s TaskFlowSQLDriveSetup) LoadGrant(ctx context.Context) ([]byte, string, error) {
++	var cipher []byte
++	var owner string
++	e := s.DB.QueryRow(ctx, `SELECT grant_cipher,owner_email FROM taskflow.attachment_drive_grant WHERE id=1`).Scan(&cipher, &owner)
++	return cipher, owner, e
++}
+diff --git a/labs/taskflow/patches/drive-attachments/taskflow_drive_test.go b/labs/taskflow/patches/drive-attachments/taskflow_drive_test.go
+new file mode 100644
+index 0000000..d6b8231
+--- /dev/null
++++ b/labs/taskflow/patches/drive-attachments/taskflow_drive_test.go
+@@ -0,0 +1,301 @@
++package storage
++
++import (
++	"bytes"
++	"context"
++	"crypto/sha256"
++	"encoding/hex"
++	"encoding/json"
++	"errors"
++	"io"
++	"mime"
++	"mime/multipart"
++	"net/http"
++	"net/http/httptest"
++	"os"
++	"strings"
++	"sync"
++	"testing"
++	"time"
++)
++
++type driveTokenTest struct{ fail bool }
++
++func (t driveTokenTest) AccessToken(context.Context) (string, error) {
++	if t.fail {
++		return "", errors.New("revoked")
++	}
++	return "fixture-token", nil
++}
++
++type driveIndexTest struct {
++	sync.Mutex
++	m         map[string]TaskFlowDriveBinding
++	failReady bool
++}
++
++func (i *driveIndexTest) Lookup(_ context.Context, k string) (TaskFlowDriveBinding, error) {
++	i.Lock()
++	defer i.Unlock()
++	b, ok := i.m[k]
++	if !ok {
++		return b, os.ErrNotExist
++	}
++	return b, nil
++}
++func (i *driveIndexTest) Reserve(_ context.Context, b TaskFlowDriveBinding) (TaskFlowDriveBinding, error) {
++	i.Lock()
++	defer i.Unlock()
++	if x, ok := i.m[b.Key]; ok {
++		return x, nil
++	}
++	i.m[b.Key] = b
++	return b, nil
++}
++func (i *driveIndexTest) MarkReady(_ context.Context, k string) error {
++	i.Lock()
++	defer i.Unlock()
++	if i.failReady {
++		return errors.New("ledger down")
++	}
++	b := i.m[k]
++	b.Ready = true
++	i.m[k] = b
++	return nil
++}
++func (i *driveIndexTest) MarkDeleted(_ context.Context, k string) error {
++	i.Lock()
++	defer i.Unlock()
++	b, ok := i.m[k]
++	if !ok {
++		return nil
++	}
++	b.Deleted = true
++	i.m[k] = b
++	return nil
++}
++
++type driveFixture struct {
++	sync.Mutex
++	body                                                            []byte
++	uploads, ids                                                    int
++	folderShared, fileShared, corrupt, missing, dropUpload, trashed bool
++	status                                                          int
++}
++
++func (f *driveFixture) ServeHTTP(w http.ResponseWriter, r *http.Request) {
++	f.Lock()
++	defer f.Unlock()
++	if r.Header.Get("Authorization") != "Bearer fixture-token" {
++		http.Error(w, "unauth", 401)
++		return
++	}
++	if f.status != 0 {
++		w.WriteHeader(f.status)
++		return
++	}
++	switch {
++	case r.URL.Path == "/drive/v3/files/folder":
++		json.NewEncoder(w).Encode(map[string]any{"id": "folder", "mimeType": "application/vnd.google-apps.folder", "trashed": false, "shared": f.folderShared, "ownedByMe": true})
++	case strings.Contains(r.URL.Path, "generateIds"):
++		f.ids++
++		json.NewEncoder(w).Encode(map[string]any{"ids": []string{"generated-file"}})
++	case strings.HasPrefix(r.URL.Path, "/upload/"):
++		if f.body != nil {
++			w.WriteHeader(409)
++			return
++		}
++		_, p, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
++		m := multipart.NewReader(r.Body, p["boundary"])
++		meta, _ := m.NextPart()
++		var v map[string]any
++		json.NewDecoder(meta).Decode(&v)
++		if v["id"] != "generated-file" {
++			http.Error(w, "ID missing", 400)
++			return
++		}
++		data, e := m.NextPart()
++		if e != nil {
++			http.Error(w, "part missing", 400)
++			return
++		}
++		f.body, _ = io.ReadAll(data)
++		f.uploads++
++		if f.dropUpload {
++			w.WriteHeader(503)
++			return
++		}
++		json.NewEncoder(w).Encode(map[string]any{"id": "generated-file"})
++	case r.URL.Path == "/drive/v3/files/generated-file":
++		if r.Method == http.MethodPatch {
++			var v struct {
++				Trashed bool `json:"trashed"`
++			}
++			json.NewDecoder(r.Body).Decode(&v)
++			if !v.Trashed {
++				w.WriteHeader(400)
++				return
++			}
++			f.trashed = true
++			json.NewEncoder(w).Encode(map[string]any{"id": "generated-file", "trashed": true})
++			return
++		}
++
++		if f.missing || f.body == nil {
++			w.WriteHeader(404)
++			return
++		}
++		if r.URL.Query().Get("alt") == "media" {
++			if f.corrupt {
++				w.Write([]byte("corrupt"))
++			} else {
++				w.Write(f.body)
++			}
++			return
++		}
++		h := sha256.Sum256(f.body)
++		json.NewEncoder(w).Encode(map[string]any{"id": "generated-file", "size": stringMustJSONLen(len(f.body)), "sha256Checksum": hex.EncodeToString(h[:]), "parents": []string{"folder"}, "shared": f.fileShared, "ownedByMe": true, "trashed": f.trashed})
++	default:
++		http.NotFound(w, r)
++	}
++}
++func stringMustJSONLen(n int) string { b, _ := json.Marshal(n); return string(b) }
++func fixtureDrive(t *testing.T) (*TaskFlowDriveStorage, *driveFixture, *driveIndexTest) {
++	t.Helper()
++	f := &driveFixture{}
++	server := httptest.NewServer(f)
++	t.Cleanup(server.Close)
++	i := &driveIndexTest{m: map[string]TaskFlowDriveBinding{}}
++	s, e := NewTaskFlowDriveStorage(server.Client(), driveTokenTest{}, i, "folder")
++	if e != nil {
++		t.Fatal(e)
++	}
++	s.base = server.URL
++	return s, f, i
++}
++func TestTaskFlowDrivePrivateRoundtrip(t *testing.T) {
++	s, f, i := fixtureDrive(t)
++	ctx := context.Background()
++	key := "workspaces/ws/attachment.png"
++	data := []byte("original file bytes")
++	if raw, e := s.Upload(ctx, key, data, "image/png", "原圖.png"); e != nil || raw != "/uploads/"+key {
++		t.Fatal(raw, e)
++	}
++	// Reconstruct the driver with only durable ledger and remote bytes.
++	reopened, _ := NewTaskFlowDriveStorage(s.client, s.tokens, i, "folder")
++	reopened.base = s.base
++	r, e := reopened.GetReader(ctx, key)
++	if e != nil {
++		t.Fatal(e)
++	}
++	filename := r.(*taskFlowDriveReader).Name()
++	b, _ := io.ReadAll(r)
++	if !bytes.Equal(data, b) {
++		t.Fatal("bytes changed")
++	}
++	if _, ok := r.(io.ReadSeeker); !ok {
++		t.Fatal("range support lost")
++	}
++	r.Close()
++	r.Close()
++	if _, e = os.Stat(filename); !os.IsNotExist(e) {
++		t.Fatal("temp retained")
++	}
++	if _, e = s.Upload(ctx, key, data, "image/png", "rename.png"); e != nil {
++		t.Fatal(e)
++	}
++	if f.uploads != 1 || f.ids != 1 {
++		t.Fatal("duplicate object created")
++	}
++	if _, e = s.Upload(ctx, key, []byte("changed"), "x", "x"); e == nil {
++		t.Fatal("immutable overwrite allowed")
++	}
++	if e = s.DeleteObject(ctx, key); e == nil {
++		t.Fatal("unapproved deletion falsely succeeded")
++	}
++
++	if f.body == nil {
++		t.Fatal("original permanently deleted")
++	}
++}
++func TestTaskFlowDriveAmbiguousUploadRetry(t *testing.T) {
++	s, f, i := fixtureDrive(t)
++	ctx := context.Background()
++	key := "workspaces/ws/id"
++	f.dropUpload = true
++	if _, e := s.Upload(ctx, key, []byte("original"), "x", "x"); e == nil {
++		t.Fatal("503 acknowledged")
++	}
++	f.dropUpload = false
++	if _, e := s.Upload(ctx, key, []byte("original"), "x", "x"); e != nil {
++		t.Fatal(e)
++	}
++	if f.uploads != 1 || f.ids != 1 {
++		t.Fatal("retry duplicated bytes")
++	}
++	b, _ := i.Lookup(ctx, key)
++	if !b.Ready {
++		t.Fatal("ledger not ready")
++	}
++}
++func TestTaskFlowDriveFailsClosed(t *testing.T) {
++	for _, kind := range []string{"folder-share", "file-share", "missing", "corrupt", "revoked", "rate-limit", "ledger"} {
++		t.Run(kind, func(t *testing.T) {
++			s, f, i := fixtureDrive(t)
++			ctx := context.Background()
++			key := "workspaces/ws/id"
++			if _, e := s.Upload(ctx, key, []byte("original"), "x", "x"); e != nil {
++				t.Fatal(e)
++			}
++			switch kind {
++			case "folder-share":
++				f.folderShared = true
++			case "file-share":
++				f.fileShared = true
++			case "missing":
++				f.missing = true
++			case "corrupt":
++				f.corrupt = true
++			case "revoked":
++				s.tokens = driveTokenTest{true}
++			case "rate-limit":
++				f.status = 429
++			case "ledger":
++				i.Lock()
++				b := i.m[key]
++				b.Ready = false
++				i.m[key] = b
++				i.Unlock()
++			}
++			if r, e := s.GetReader(ctx, key); e == nil {
++				r.Close()
++				t.Fatal("unsafe bytes served")
++			}
++			wait, cancel := context.WithTimeout(ctx, time.Second)
++			defer cancel()
++			_, release, e := s.BeginTransfer(wait)
++			if e != nil {
++				t.Fatal("permit leaked", e)
++			}
++			release()
++		})
++	}
++}
++func TestTaskFlowDriveAdmissionAndRollback(t *testing.T) {
++	s, _, _ := fixtureDrive(t)
++	ctx := context.Background()
++	_, release, _ := s.BeginTransfer(ctx)
++	wait, cancel := context.WithTimeout(ctx, 10*time.Millisecond)
++	defer cancel()
++	if _, _, e := s.BeginTransfer(wait); !errors.Is(e, context.DeadlineExceeded) {
++		t.Fatal(e)
++	}
++	release()
++	s.SetReadOnly()
++	if _, e := s.Upload(ctx, "workspaces/ws/id", []byte("a"), "x", "x"); !errors.Is(e, ErrTaskFlowDriveReadOnly) {
++		t.Fatal(e)
++	}
++	if s.CdnDomain() != "" {
++		t.Fatal("public URL advertised")
++	}
++}
+diff --git a/labs/taskflow/patches/drive-attachments/taskflow_drive_token.go b/labs/taskflow/patches/drive-attachments/taskflow_drive_token.go
+new file mode 100644
+index 0000000..cdbd2d2
+--- /dev/null
++++ b/labs/taskflow/patches/drive-attachments/taskflow_drive_token.go
+@@ -0,0 +1,79 @@
++package storage
++
++import (
++	"context"
++	"encoding/json"
++	"errors"
++	"io"
++	"net/http"
++	"net/url"
++	"strings"
++	"sync"
++	"time"
++)
++
++const TaskFlowDriveScope = "https://www.googleapis.com/auth/drive.file"
++
++// Credentials must come only from the app's own approved runtime secret store,
++// never a browser cookie, another app's connection or the public repository.
++type TaskFlowDriveOAuthToken struct {
++	mu                                   sync.Mutex
++	Client                               *http.Client
++	ClientID, ClientSecret, RefreshToken string
++	access                               string
++	expiry                               time.Time
++	endpoint                             string
++	PersistRefresh                       func(context.Context, string) error
++}
++
++func (t *TaskFlowDriveOAuthToken) AccessToken(ctx context.Context) (string, error) {
++	t.mu.Lock()
++	defer t.mu.Unlock()
++	if t.access != "" && time.Until(t.expiry) > time.Minute {
++		return t.access, nil
++	}
++	if t.Client == nil || t.ClientID == "" || t.ClientSecret == "" || t.RefreshToken == "" {
++		return "", ErrTaskFlowDriveUnavailable
++	}
++	endpoint := "https://oauth2.googleapis.com/token"
++	if t.endpoint != "" {
++		endpoint = t.endpoint
++	}
++	values := url.Values{"grant_type": {"refresh_token"}, "client_id": {t.ClientID}, "client_secret": {t.ClientSecret}, "refresh_token": {t.RefreshToken}}
++	req, e := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(values.Encode()))
++	if e != nil {
++		return "", ErrTaskFlowDriveUnavailable
++	}
++	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
++	client := *t.Client
++	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
++	r, e := client.Do(req)
++	if e != nil {
++		return "", ErrTaskFlowDriveUnavailable
++	}
++	defer r.Body.Close()
++	var result struct {
++		Access  string `json:"access_token"`
++		Expires int64  `json:"expires_in"`
++		Type    string `json:"token_type"`
++		Scope   string `json:"scope"`
++		Refresh string `json:"refresh_token"`
++	}
++	if r.StatusCode != 200 || json.NewDecoder(io.LimitReader(r.Body, 16384)).Decode(&result) != nil || result.Access == "" || !strings.EqualFold(result.Type, "Bearer") || result.Expires < 60 || result.Expires > 86400 {
++		return "", ErrTaskFlowDriveUnavailable
++	}
++	if result.Scope != "" && result.Scope != TaskFlowDriveScope {
++		return "", errors.New("TF Drive grant must have only the approved per-file scope")
++	}
++	// Persist a rotated grant before acknowledging the new token. If durable
++	// sealing fails, fail closed rather than silently lose the refresh grant.
++	if result.Refresh != "" && result.Refresh != t.RefreshToken {
++		if t.PersistRefresh == nil || t.PersistRefresh(ctx, result.Refresh) != nil {
++			return "", ErrTaskFlowDriveUnavailable
++		}
++		t.RefreshToken = result.Refresh
++	}
++	t.access = result.Access
++	t.expiry = time.Now().Add(time.Duration(result.Expires) * time.Second)
++	return t.access, nil
++}
+diff --git a/labs/taskflow/patches/drive-attachments/taskflow_drive_token_test.go b/labs/taskflow/patches/drive-attachments/taskflow_drive_token_test.go
+new file mode 100644
+index 0000000..0beea5b
+--- /dev/null
++++ b/labs/taskflow/patches/drive-attachments/taskflow_drive_token_test.go
+@@ -0,0 +1,84 @@
++package storage
++
++import (
++	"context"
++	"encoding/json"
++	"fmt"
++	"net/http"
++	"net/http/httptest"
++	"sync"
++	"testing"
++)
++
++func TestTaskFlowDriveRefreshSingleFlight(t *testing.T) {
++	calls := 0
++	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		calls++
++		r.ParseForm()
++		if r.Form.Get("grant_type") != "refresh_token" || r.Form.Get("client_secret") != "test-secret" {
++			t.Error("wrong token request")
++		}
++		json.NewEncoder(w).Encode(map[string]any{"access_token": "fixture-access", "token_type": "Bearer", "expires_in": 3600, "scope": TaskFlowDriveScope})
++	}))
++	defer server.Close()
++	tok := &TaskFlowDriveOAuthToken{Client: server.Client(), ClientID: "fixture-client", ClientSecret: "test-secret", RefreshToken: "fixture-refresh", endpoint: server.URL}
++	var wg sync.WaitGroup
++	for n := 0; n < 10; n++ {
++		wg.Add(1)
++		go func() {
++			defer wg.Done()
++			v, e := tok.AccessToken(context.Background())
++			if e != nil || v != "fixture-access" {
++				t.Error("refresh failed")
++			}
++		}()
++	}
++	wg.Wait()
++	if calls != 1 {
++		t.Fatal("refresh duplicated", calls)
++	}
++}
++func TestTaskFlowDriveRefreshRejectsFailures(t *testing.T) {
++	for _, mode := range []string{"revoked", "broad-scope", "rotate", "redirect", "rotate-persist", "rotate-persist-fails"} {
++		t.Run(mode, func(t *testing.T) {
++			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++				switch mode {
++				case "revoked":
++					w.WriteHeader(400)
++					fmt.Fprint(w, `{"error":"invalid_grant"}`)
++				case "redirect":
++					w.Header().Set("Location", "https://untrusted.invalid/token")
++					w.WriteHeader(307)
++				case "broad-scope":
++					json.NewEncoder(w).Encode(map[string]any{"access_token": "a", "token_type": "Bearer", "expires_in": 3600, "scope": "https://www.googleapis.com/auth/drive"})
++				case "rotate", "rotate-persist", "rotate-persist-fails":
++					json.NewEncoder(w).Encode(map[string]any{"access_token": "a", "token_type": "Bearer", "expires_in": 3600, "refresh_token": "rotated-fixture"})
++				}
++			}))
++			defer server.Close()
++			tok := &TaskFlowDriveOAuthToken{Client: server.Client(), ClientID: "fixture-client", ClientSecret: "test-secret", RefreshToken: "fixture-refresh", endpoint: server.URL}
++			saved := ""
++			if mode == "rotate-persist" || mode == "rotate-persist-fails" {
++				tok.PersistRefresh = func(_ context.Context, v string) error {
++					if mode == "rotate-persist-fails" {
++						return fmt.Errorf("store unavailable")
++					}
++					saved = v
++					return nil
++				}
++			}
++			access, e := tok.AccessToken(context.Background())
++			if mode == "rotate-persist" {
++				if e != nil || access != "a" || saved != "rotated-fixture" || tok.RefreshToken != saved {
++					t.Fatal("rotation not durably saved", e)
++				}
++			} else if e == nil {
++				t.Fatal("unsafe refresh accepted")
++			}
++			if mode == "rotate-persist-fails" && tok.RefreshToken != "fixture-refresh" {
++				t.Fatal("failed persistence replaced grant")
++			}
++
++		})
++	}
++}
+diff --git a/labs/taskflow/patches/drive-attachments/taskflow_drive_trash.go b/labs/taskflow/patches/drive-attachments/taskflow_drive_trash.go
+new file mode 100644
+index 0000000..0039854
+--- /dev/null
++++ b/labs/taskflow/patches/drive-attachments/taskflow_drive_trash.go
+@@ -0,0 +1,136 @@
++package storage
++
++import (
++	"context"
++	"encoding/json"
++	"errors"
++	"io"
++	"log/slog"
++	"net/http"
++	"strconv"
++	"strings"
++	"time"
++)
++
++// Outbox rows are created by the attachment DELETE transaction. The worker
++// cannot manufacture a request to delete an arbitrary Drive file.
++type TaskFlowDriveTrashIndex interface {
++	PendingTrash(context.Context, int) ([]string, error)
++	TrashBinding(context.Context, string) (TaskFlowDriveBinding, error)
++	MarkTrashed(context.Context, string) error
++}
++
++func (i TaskFlowSQLDriveIndex) PendingTrash(ctx context.Context, limit int) ([]string, error) {
++	var data []byte
++	e := i.DB.QueryRow(ctx, `SELECT coalesce(json_agg(object_key),'[]'::json) FROM (SELECT object_key FROM taskflow.attachment_drive_delete_queue WHERE NOT done ORDER BY queued_at LIMIT $1)x`, limit).Scan(&data)
++	if e != nil {
++		return nil, e
++	}
++	var keys []string
++	e = json.Unmarshal(data, &keys)
++	return keys, e
++}
++func (i TaskFlowSQLDriveIndex) TrashBinding(ctx context.Context, key string) (TaskFlowDriveBinding, error) {
++	b := TaskFlowDriveBinding{Key: key}
++	e := i.DB.QueryRow(ctx, `SELECT file_id,sha256,folder_id,size_bytes,ready,deleted FROM taskflow.claim_drive_trash($1)`, key).Scan(&b.FileID, &b.SHA256, &b.FolderID, &b.Size, &b.Ready, &b.Deleted)
++	return b, e
++}
++func (i TaskFlowSQLDriveIndex) MarkTrashed(ctx context.Context, key string) error {
++	_, e := i.DB.Exec(ctx, `UPDATE taskflow.attachment_drive_delete_queue SET done=true,finished_at=clock_timestamp() WHERE object_key=$1`, key)
++	return e
++}
++func (s *TaskFlowDriveStorage) tryTrash(ctx context.Context, key string) error {
++	if !s.trashEnabled {
++		return errors.New("Drive trash policy not enabled; original retained")
++	}
++	queue, ok := s.index.(TaskFlowDriveTrashIndex)
++	if !ok {
++		return errors.New("Drive transactional delete queue unavailable")
++	}
++	b, e := queue.TrashBinding(ctx, key)
++	if e != nil {
++		return errors.New("Drive delete is not queued or surviving reference exists")
++	}
++	if !b.Ready || b.FolderID != s.folder || !validDriveID(b.FileID) {
++		return errors.New("unsafe Drive delete binding")
++	}
++	if e = s.checkFolder(ctx); e != nil {
++		return e
++	}
++	r, e := s.request(ctx, http.MethodGet, "/drive/v3/files/"+b.FileID+"?fields=id,size,sha256Checksum,parents,trashed,shared,ownedByMe", nil, "")
++	if e != nil {
++		return e
++	}
++	if r.StatusCode != 200 {
++		closeDriveResponse(r)
++		return ErrTaskFlowDriveUnavailable
++	}
++	var m driveObjectMeta
++	e = json.NewDecoder(io.LimitReader(r.Body, 8192)).Decode(&m)
++	closeDriveResponse(r)
++	if e != nil {
++		return ErrTaskFlowDriveUnavailable
++	}
++	parent := false
++	for _, p := range m.Parents {
++		if p == s.folder {
++			parent = true
++		}
++	}
++	if m.ID != b.FileID || m.Shared == nil || *m.Shared || !m.Owned || !parent || m.SHA256 != b.SHA256 || m.Size != strconv.FormatInt(b.Size, 10) {
++		return errors.New("Drive trash refused: original ownership/integrity changed")
++	}
++	// The queue was committed with the native deletion. Only that unique original
++	// is eligible; no Drive permanent-delete or empty-trash endpoint is used.
++	if !m.Trashed {
++		r, e = s.request(ctx, http.MethodPatch, "/drive/v3/files/"+b.FileID+"?fields=id,trashed", strings.NewReader(`{"trashed":true}`), "application/json")
++		if e != nil {
++			return e
++		}
++		if r.StatusCode != 200 {
++			closeDriveResponse(r)
++			return ErrTaskFlowDriveUnavailable
++		}
++		var result struct {
++			ID      string `json:"id"`
++			Trashed bool   `json:"trashed"`
++		}
++		e = json.NewDecoder(io.LimitReader(r.Body, 8192)).Decode(&result)
++		closeDriveResponse(r)
++		if e != nil || result.ID != b.FileID || !result.Trashed {
++			return ErrTaskFlowDriveUnavailable
++		}
++	}
++	if e = s.index.MarkDeleted(ctx, key); e != nil {
++		return e
++	}
++	return queue.MarkTrashed(ctx, key)
++}
++func (s *TaskFlowDriveStorage) RunTrashWorker(ctx context.Context) {
++	if !s.trashEnabled || s.readOnly {
++		return
++	}
++	queue, ok := s.index.(TaskFlowDriveTrashIndex)
++	if !ok {
++		return
++	}
++	tick := time.NewTicker(time.Hour)
++	defer tick.Stop()
++	for {
++		cycle, cancel := context.WithTimeout(ctx, 45*time.Second)
++		keys, e := queue.PendingTrash(cycle, 10)
++		if e == nil {
++			for _, key := range keys {
++				if e = s.tryTrash(cycle, key); e != nil {
++					slog.Warn("private Drive cleanup remains pending")
++				}
++			}
++		}
++		cancel()
++		select {
++		case <-ctx.Done():
++			return
++		case <-tick.C:
++		}
++	}
++}
+diff --git a/labs/taskflow/patches/drive-attachments/taskflow_drive_trash_test.go b/labs/taskflow/patches/drive-attachments/taskflow_drive_trash_test.go
+new file mode 100644
+index 0000000..ab88ae5
+--- /dev/null
++++ b/labs/taskflow/patches/drive-attachments/taskflow_drive_trash_test.go
+@@ -0,0 +1,68 @@
++package storage
++
++import (
++	"context"
++	"errors"
++	"testing"
++)
++
++type driveTrashTest struct {
++	*driveIndexTest
++	key                     string
++	queued, done, surviving bool
++}
++
++func (i *driveTrashTest) PendingTrash(context.Context, int) ([]string, error) {
++	if i.queued && !i.done {
++		return []string{i.key}, nil
++	}
++	return nil, nil
++}
++func (i *driveTrashTest) TrashBinding(ctx context.Context, key string) (TaskFlowDriveBinding, error) {
++	if !i.queued || i.done || i.surviving || key != i.key {
++		return TaskFlowDriveBinding{}, errors.New("not eligible")
++	}
++	return i.Lookup(ctx, key)
++}
++func (i *driveTrashTest) MarkTrashed(context.Context, string) error { i.done = true; return nil }
++func TestTaskFlowDriveTransactionalTrash(t *testing.T) {
++	for _, mode := range []string{"success", "outage", "surviving", "unapproved", "shared"} {
++		t.Run(mode, func(t *testing.T) {
++			s, f, original := fixtureDrive(t)
++			ctx := context.Background()
++			key := "workspaces/ws/id"
++			if _, e := s.Upload(ctx, key, []byte("original"), "x", "x"); e != nil {
++				t.Fatal(e)
++			}
++			q := &driveTrashTest{driveIndexTest: original, key: key, queued: true}
++			s.index = q
++			s.trashEnabled = true
++			switch mode {
++			case "outage":
++				f.status = 503
++			case "surviving":
++				q.surviving = true
++			case "unapproved":
++				s.trashEnabled = false
++			case "shared":
++				f.fileShared = true
++			}
++			e := s.DeleteObject(ctx, key)
++			if mode == "success" {
++				if e != nil || !f.trashed || !q.done {
++					t.Fatal("confirmed trash not recorded", e)
++				}
++			} else {
++				if e == nil || f.trashed || q.done {
++					t.Fatal("unsafe trash/success")
++				}
++			}
++			if mode == "outage" {
++				f.status = 0
++				if e = s.tryTrash(ctx, key); e != nil || !f.trashed || !q.done {
++					t.Fatal("durable pending retry failed", e)
++				}
++			}
++		})
++	}
++}
+diff --git a/labs/taskflow/patches/run-drive-attachment-tests.sh b/labs/taskflow/patches/run-drive-attachment-tests.sh
+new file mode 100644
+index 0000000..40c1f51
+--- /dev/null
++++ b/labs/taskflow/patches/run-drive-attachment-tests.sh
+@@ -0,0 +1,62 @@
++#!/bin/sh
++# Disposable build fixtures only. Never run at production startup.
++set -eu
++SERVER_DIR="$1"
++SQL_DIR="$2"
++: "${PARITY_DATABASE_URL:?isolated parity PostgreSQL URL required}"
++LEDGER_URL="${PARITY_DATABASE_URL%%\?*}"
++LEDGER_URL="${LEDGER_URL%/*}/taskflow_drive_parity?sslmode=disable"
++psql "$PARITY_DATABASE_URL" -X -v ON_ERROR_STOP=1 <<'SQL'
++CREATE DATABASE taskflow_drive_parity;
++DO $$ BEGIN
++ IF NOT EXISTS(SELECT FROM pg_roles WHERE rolname='taskflow_migrator') THEN CREATE ROLE taskflow_migrator; END IF;
++ IF NOT EXISTS(SELECT FROM pg_roles WHERE rolname='taskflow_runtime') THEN CREATE ROLE taskflow_runtime; END IF;
++ IF NOT EXISTS(SELECT FROM pg_roles WHERE rolname='anon') THEN CREATE ROLE anon; END IF;
++ IF NOT EXISTS(SELECT FROM pg_roles WHERE rolname='authenticated') THEN CREATE ROLE authenticated; END IF;
++END $$;
++SQL
++psql "$LEDGER_URL" -X -v ON_ERROR_STOP=1 <<'SQL'
++CREATE SCHEMA taskflow AUTHORIZATION taskflow_migrator;
++GRANT USAGE ON SCHEMA taskflow TO taskflow_runtime;
++SET ROLE taskflow_migrator;
++CREATE TABLE taskflow.attachment(id text PRIMARY KEY,url text NOT NULL);
++GRANT SELECT,INSERT,DELETE ON taskflow.attachment TO taskflow_runtime;
++SQL
++{ printf 'SET ROLE taskflow_migrator;\n'; cat "$SQL_DIR/taskflow_drive_metadata_candidate.sql"; } | psql "$LEDGER_URL" -X -v ON_ERROR_STOP=1
++# Qualify the same migration against the full native schema too. The local
++# migrator runner creates native tables as postgres; match the verified existing
++# production attachment owner only in this disposable database.
++NATIVE_URL="${LEDGER_URL%%\?*}"
++NATIVE_URL="${NATIVE_URL%/*}/taskflow_drive_native_parity?sslmode=disable&options=-csearch_path%3Dtaskflow%2Cextensions"
++psql "$PARITY_DATABASE_URL" -X -v ON_ERROR_STOP=1 -c 'CREATE DATABASE taskflow_drive_native_parity'
++psql "$NATIVE_URL" -X -v ON_ERROR_STOP=1 <<'SQL'
++CREATE SCHEMA taskflow AUTHORIZATION taskflow_migrator;
++CREATE SCHEMA extensions;
++GRANT USAGE ON SCHEMA taskflow TO taskflow_runtime;
++SQL
++cd "$SERVER_DIR"
++DATABASE_URL="$NATIVE_URL" /tmp/parity-migrate up
++psql "$NATIVE_URL" -X -v ON_ERROR_STOP=1 <<'SQL'
++ALTER TABLE taskflow.attachment OWNER TO taskflow_migrator;
++GRANT SELECT,INSERT,DELETE ON taskflow.attachment TO taskflow_runtime;
++-- Existing native wakeup triggers read these tables even for empty fixtures.
++GRANT SELECT ON taskflow.agent_task_queue,taskflow.issue_wakeup TO taskflow_runtime;
++SQL
++{ printf 'SET ROLE taskflow_migrator;\n'; cat "$SQL_DIR/taskflow_drive_metadata_candidate.sql"; } | psql "$NATIVE_URL" -X -v ON_ERROR_STOP=1
++psql "$NATIVE_URL" -X -v ON_ERROR_STOP=1 -f /tmp/test-drive-native-schema.sql
++log=/tmp/taskflow-drive-storage.log
++TASKFLOW_DRIVE_TEST_DATABASE_URL="$LEDGER_URL" GOMEMLIMIT=256MiB CGO_ENABLED=0 go test ./internal/storage -run '^TestTaskFlowDrive' -count=1 -v > "$log" 2>&1 || { cat "$log";exit 1; }
++cat "$log"
++count=$(grep -cE '^--- PASS: TestTaskFlowDrive' "$log")
++[ "$count" -eq 10 ] || { echo "Drive storage expected10executed contracts, got$count";exit 1; }
++log=/tmp/taskflow-drive-http.log
++DATABASE_URL="$PARITY_DATABASE_URL" GOMEMLIMIT=256MiB CGO_ENABLED=0 go test ./internal/handler -run '^TestTaskFlowDrive' -count=1 -v > "$log" 2>&1 || { cat "$log";exit 1; }
++cat "$log"
++count=$(grep -cE '^--- PASS: TestTaskFlowDrive' "$log")
++[ "$count" -eq 3 ] || { echo "Drive native HTTP expected3executed contracts, got$count";exit 1; }
++log=/tmp/taskflow-drive-router.log
++TASKFLOW_ROUTER_CONTRACT_ONLY=1 CGO_ENABLED=0 go test ./cmd/server -run '^TestTaskFlowDriveFinalRouter$' -count=1 -v > "$log" 2>&1 || { cat "$log";exit 1; }
++cat "$log"
++count=$(grep -cE '^--- PASS: TestTaskFlowDriveFinalRouter' "$log")
++[ "$count" -eq 1 ] || { echo 'Drive final-router contract did not execute';exit 1; }
++echo 'GATE private_drive: storage10/nativeHTTP3/finalRouter1 PASS'
+diff --git a/labs/taskflow/patches/test-drive-native-schema.sql b/labs/taskflow/patches/test-drive-native-schema.sql
+new file mode 100644
+index 0000000..c492812
+--- /dev/null
++++ b/labs/taskflow/patches/test-drive-native-schema.sql
+@@ -0,0 +1,38 @@
++-- Disposable native-schema fixture only. This file is never a production migration.
++BEGIN;
++SET LOCAL search_path=taskflow,extensions,pg_catalog;
++INSERT INTO workspace(id,name,slug) VALUES('10000000-0000-0000-0000-000000000001','Drive gate','drive-gate');
++INSERT INTO issue(id,workspace_id,title,creator_type,creator_id) VALUES('10000000-0000-0000-0000-000000000002','10000000-0000-0000-0000-000000000001','Drive cascade gate','member','10000000-0000-0000-0000-000000000003');
++SET LOCAL ROLE taskflow_runtime;
++INSERT INTO attachment_drive_object(object_key,file_id,sha256,folder_id,size_bytes,ready) VALUES('native-gate','native-file',repeat('a',64),'native-folder',8,true);
++INSERT INTO attachment(id,workspace_id,issue_id,uploader_type,uploader_id,filename,url,content_type,size_bytes) VALUES
++('10000000-0000-0000-0000-000000000004','10000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000002','member','10000000-0000-0000-0000-000000000003','original.bin','/uploads/native-gate','application/octet-stream',8),
++('10000000-0000-0000-0000-000000000005','10000000-0000-0000-0000-000000000001',NULL,'member','10000000-0000-0000-0000-000000000003','copy.bin','/uploads/native-gate','application/octet-stream',8);
++SAVEPOINT before_delete;
++DELETE FROM attachment WHERE id='10000000-0000-0000-0000-000000000004';
++ROLLBACK TO before_delete;
++DO $$ BEGIN
++ IF EXISTS(SELECT FROM attachment_drive_delete_queue WHERE object_key='native-gate') THEN RAISE EXCEPTION 'native delete rollback leaked queue';END IF;
++END $$;
++-- An actual native issue cascade queues the object atomically.
++RESET ROLE;
++DELETE FROM issue WHERE id='10000000-0000-0000-0000-000000000002';
++SET LOCAL ROLE taskflow_runtime;
++DO $$ BEGIN
++ IF NOT EXISTS(SELECT FROM attachment_drive_delete_queue WHERE object_key='native-gate') THEN RAISE EXCEPTION 'native cascade failed to queue';END IF;
++ IF EXISTS(SELECT FROM claim_drive_trash('native-gate')) THEN RAISE EXCEPTION 'shared native reference eligible';END IF;
++END $$;
++DELETE FROM attachment WHERE id='10000000-0000-0000-0000-000000000005';
++DO $$ BEGIN
++ IF NOT EXISTS(SELECT FROM claim_drive_trash('native-gate')) THEN RAISE EXCEPTION 'last native reference did not become eligible';END IF;
++ BEGIN
++  INSERT INTO attachment(workspace_id,uploader_type,uploader_id,filename,url,content_type,size_bytes) VALUES('10000000-0000-0000-0000-000000000001','member','10000000-0000-0000-0000-000000000003','late.bin','/uploads/native-gate','application/octet-stream',8);
++  RAISE EXCEPTION 'late reference accepted' USING ERRCODE='XX000';
++ EXCEPTION WHEN raise_exception THEN NULL;END;
++END $$;
++RESET ROLE;
++DO $$ BEGIN
++ IF has_table_privilege('taskflow_runtime','taskflow.attachment','TRIGGER') OR has_table_privilege('taskflow_runtime','taskflow.attachment_drive_delete_queue','INSERT,DELETE') OR has_table_privilege('anon','taskflow.attachment_drive_grant','SELECT') OR has_table_privilege('authenticated','taskflow.attachment_drive_grant','SELECT') THEN RAISE EXCEPTION 'native ACL widened';END IF;
++END $$;
++ROLLBACK;
++SELECT 'native_schema/cascade/rollback/shared_reference/late_reference/ACL PASS' AS drive_gate;
+diff --git a/labs/taskflow/sql/taskflow_drive_metadata_candidate.sql b/labs/taskflow/sql/taskflow_drive_metadata_candidate.sql
+new file mode 100644
+index 0000000..47cadd2
+--- /dev/null
++++ b/labs/taskflow/sql/taskflow_drive_metadata_candidate.sql
+@@ -0,0 +1,153 @@
++-- Private Drive metadata only. No file bodies or plaintext OAuth secrets live here.
++BEGIN;
++SET LOCAL lock_timeout='3s';
++SET LOCAL statement_timeout='10s';
++DO $taskflow_migration_role_guard$
++BEGIN
++    IF current_user <> 'taskflow_migrator' THEN
++        RAISE EXCEPTION 'migration path requires taskflow_migrator, got %', current_user;
++    END IF;
++    IF EXISTS (
++        SELECT 1 FROM pg_catalog.pg_roles
++        WHERE rolname = current_user
++          AND (rolsuper OR rolbypassrls OR rolcreaterole OR rolcreatedb OR rolreplication)
++    ) THEN
++        RAISE EXCEPTION 'taskflow_migrator holds elevated attributes';
++    END IF;
++    IF NOT EXISTS (
++        SELECT 1 FROM pg_catalog.pg_namespace
++        WHERE nspname = 'taskflow' AND nspowner = current_user::regrole
++    ) THEN
++        RAISE EXCEPTION 'taskflow schema owner is not taskflow_migrator';
++    END IF;
++END
++$taskflow_migration_role_guard$;
++
++
++
++SET LOCAL search_path=taskflow,pg_catalog;
++CREATE TABLE taskflow.attachment_drive_object(
++ object_key text PRIMARY KEY CHECK(length(object_key) BETWEEN 1 AND 1024),
++ file_id text UNIQUE NOT NULL CHECK(length(file_id) BETWEEN 1 AND 256 AND file_id ~ '^[a-zA-Z0-9_-]+$'),
++ sha256 text NOT NULL CHECK(sha256 ~ '^[a-f0-9]{64}$'),
++ folder_id text NOT NULL CHECK(length(folder_id) BETWEEN 1 AND 256 AND folder_id ~ '^[a-zA-Z0-9_-]+$'),
++ size_bytes bigint NOT NULL CHECK(size_bytes BETWEEN 0 AND 104857600),
++ ready boolean NOT NULL DEFAULT false,
++ deleted boolean NOT NULL DEFAULT false,
++ created_at timestamptz NOT NULL DEFAULT clock_timestamp()
++);
++ALTER TABLE taskflow.attachment_drive_object ENABLE ROW LEVEL SECURITY;
++CREATE POLICY attachment_drive_runtime ON taskflow.attachment_drive_object FOR ALL TO taskflow_runtime USING(true) WITH CHECK(true);
++DO $acl$ DECLARE g record;BEGIN
++ FOR g IN SELECT DISTINCT x.grantee FROM pg_class c CROSS JOIN LATERAL aclexplode(coalesce(c.relacl,acldefault('r',c.relowner)))x WHERE c.oid='taskflow.attachment_drive_object'::regclass AND x.grantee<>c.relowner LOOP
++ EXECUTE format('REVOKE ALL ON taskflow.attachment_drive_object FROM %s',CASE WHEN g.grantee=0 THEN 'PUBLIC' ELSE quote_ident(pg_get_userbyid(g.grantee)) END);
++ END LOOP;
++END $acl$;
++GRANT SELECT,INSERT ON taskflow.attachment_drive_object TO taskflow_runtime;
++GRANT UPDATE(ready,deleted) ON taskflow.attachment_drive_object TO taskflow_runtime;
++CREATE FUNCTION taskflow.guard_drive_binding() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,taskflow AS $$
++BEGIN
++ IF NEW.object_key<>OLD.object_key OR NEW.file_id<>OLD.file_id OR NEW.sha256<>OLD.sha256 OR NEW.folder_id<>OLD.folder_id OR NEW.size_bytes<>OLD.size_bytes OR NEW.created_at<>OLD.created_at OR (OLD.ready AND NOT NEW.ready) OR (OLD.deleted AND NOT NEW.deleted) THEN
++ RAISE EXCEPTION 'Drive original binding is immutable';END IF;RETURN NEW;
++END $$;
++REVOKE ALL ON FUNCTION taskflow.guard_drive_binding() FROM PUBLIC;
++GRANT EXECUTE ON FUNCTION taskflow.guard_drive_binding() TO taskflow_runtime;
++CREATE TRIGGER attachment_drive_immutable BEFORE UPDATE ON taskflow.attachment_drive_object FOR EACH ROW EXECUTE FUNCTION taskflow.guard_drive_binding();
++DO $postflight$ BEGIN
++ IF (SELECT relowner<>current_user::regrole OR NOT relrowsecurity FROM pg_class WHERE oid='taskflow.attachment_drive_object'::regclass)
++ OR NOT has_table_privilege('taskflow_runtime','taskflow.attachment_drive_object','SELECT')
++ OR NOT has_table_privilege('taskflow_runtime','taskflow.attachment_drive_object','INSERT')
++ OR NOT has_column_privilege('taskflow_runtime','taskflow.attachment_drive_object','ready','UPDATE')
++ OR NOT has_column_privilege('taskflow_runtime','taskflow.attachment_drive_object','deleted','UPDATE')
++ OR has_table_privilege('taskflow_runtime','taskflow.attachment_drive_object','DELETE,UPDATE,TRUNCATE,REFERENCES,TRIGGER')
++ OR has_table_privilege('anon','taskflow.attachment_drive_object','SELECT,INSERT,UPDATE,DELETE')
++ OR has_table_privilege('authenticated','taskflow.attachment_drive_object','SELECT,INSERT,UPDATE,DELETE') THEN
++ RAISE EXCEPTION 'Drive attachment metadata ACL mismatch';END IF;
++END $postflight$;
++CREATE TABLE taskflow.attachment_drive_folder(id integer PRIMARY KEY CHECK(id=1),file_id text UNIQUE NOT NULL CHECK(length(file_id) BETWEEN 1 AND 256 AND file_id ~ '^[a-zA-Z0-9_-]+$'));
++ALTER TABLE taskflow.attachment_drive_folder ENABLE ROW LEVEL SECURITY;
++CREATE POLICY drive_folder_runtime ON taskflow.attachment_drive_folder FOR ALL TO taskflow_runtime USING(true) WITH CHECK(true);
++CREATE TABLE taskflow.attachment_drive_setup_state(
++ state_hash text PRIMARY KEY CHECK(state_hash ~ '^[a-f0-9]{64}$'),
++ expires_at timestamptz NOT NULL,
++ verifier_cipher bytea NOT NULL CHECK(octet_length(verifier_cipher) BETWEEN 40 AND 512),
++ claimed boolean NOT NULL DEFAULT false
++);
++CREATE TABLE taskflow.attachment_drive_grant(
++ id integer PRIMARY KEY CHECK(id=1),
++ grant_cipher bytea NOT NULL CHECK(octet_length(grant_cipher) BETWEEN 40 AND 16384),
++ owner_email text NOT NULL CHECK(length(owner_email) BETWEEN 3 AND 320),
++ updated_at timestamptz NOT NULL DEFAULT clock_timestamp()
++);
++ALTER TABLE taskflow.attachment_drive_setup_state ENABLE ROW LEVEL SECURITY;
++ALTER TABLE taskflow.attachment_drive_grant ENABLE ROW LEVEL SECURITY;
++CREATE POLICY drive_setup_runtime ON taskflow.attachment_drive_setup_state FOR ALL TO taskflow_runtime USING(true) WITH CHECK(true);
++CREATE POLICY drive_grant_runtime ON taskflow.attachment_drive_grant FOR ALL TO taskflow_runtime USING(true) WITH CHECK(true);
++DO $setup_acl$ DECLARE tab text;g record;BEGIN
++ FOREACH tab IN ARRAY ARRAY['attachment_drive_setup_state','attachment_drive_grant','attachment_drive_folder'] LOOP
++ FOR g IN SELECT DISTINCT x.grantee FROM pg_class c CROSS JOIN LATERAL aclexplode(coalesce(c.relacl,acldefault('r',c.relowner)))x WHERE c.oid=format('taskflow.%I',tab)::regclass AND x.grantee<>c.relowner LOOP
++ EXECUTE format('REVOKE ALL ON taskflow.%I FROM %s',tab,CASE WHEN g.grantee=0 THEN 'PUBLIC' ELSE quote_ident(pg_get_userbyid(g.grantee)) END);
++ END LOOP;END LOOP;
++END $setup_acl$;
++GRANT SELECT,INSERT ON taskflow.attachment_drive_folder TO taskflow_runtime;
++GRANT SELECT,INSERT,DELETE ON taskflow.attachment_drive_setup_state TO taskflow_runtime;
++GRANT UPDATE(claimed) ON taskflow.attachment_drive_setup_state TO taskflow_runtime;
++GRANT SELECT,INSERT ON taskflow.attachment_drive_grant TO taskflow_runtime;
++GRANT UPDATE(grant_cipher,owner_email,updated_at) ON taskflow.attachment_drive_grant TO taskflow_runtime;
++DO $setup_postflight$ DECLARE tab text;BEGIN
++ FOREACH tab IN ARRAY ARRAY['attachment_drive_setup_state','attachment_drive_grant','attachment_drive_folder'] LOOP
++ IF (SELECT relowner<>current_user::regrole OR NOT relrowsecurity FROM pg_class WHERE oid=format('taskflow.%I',tab)::regclass)
++ OR has_table_privilege('anon',format('taskflow.%I',tab),'SELECT,INSERT,UPDATE,DELETE')
++ OR has_table_privilege('authenticated',format('taskflow.%I',tab),'SELECT,INSERT,UPDATE,DELETE') THEN RAISE EXCEPTION 'private Drive setup ACL mismatch';END IF;
++ END LOOP;
++END $setup_postflight$;
++CREATE TABLE taskflow.attachment_drive_delete_queue(
++ object_key text PRIMARY KEY REFERENCES taskflow.attachment_drive_object(object_key),
++ queued_at timestamptz NOT NULL DEFAULT clock_timestamp(),
++ processing boolean NOT NULL DEFAULT false,
++ done boolean NOT NULL DEFAULT false,
++ finished_at timestamptz
++);
++ALTER TABLE taskflow.attachment_drive_delete_queue ENABLE ROW LEVEL SECURITY;
++CREATE POLICY drive_delete_runtime ON taskflow.attachment_drive_delete_queue FOR ALL TO taskflow_runtime USING(true) WITH CHECK(true);
++DO $queue_acl$ DECLARE g record;BEGIN
++ FOR g IN SELECT DISTINCT x.grantee FROM pg_class c CROSS JOIN LATERAL aclexplode(coalesce(c.relacl,acldefault('r',c.relowner)))x WHERE c.oid='taskflow.attachment_drive_delete_queue'::regclass AND x.grantee<>c.relowner LOOP
++ EXECUTE format('REVOKE ALL ON taskflow.attachment_drive_delete_queue FROM %s',CASE WHEN g.grantee=0 THEN 'PUBLIC' ELSE quote_ident(pg_get_userbyid(g.grantee)) END);END LOOP;
++END $queue_acl$;
++GRANT SELECT ON taskflow.attachment_drive_delete_queue TO taskflow_runtime;
++GRANT UPDATE(processing,done,finished_at) ON taskflow.attachment_drive_delete_queue TO taskflow_runtime;
++CREATE FUNCTION taskflow.queue_drive_attachment_delete() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,taskflow AS $$
++BEGIN
++ INSERT INTO taskflow.attachment_drive_delete_queue(object_key)
++ SELECT object_key FROM taskflow.attachment_drive_object WHERE OLD.url='/uploads/'||object_key AND ready AND NOT deleted
++ ON CONFLICT(object_key) DO NOTHING;
++ RETURN OLD;
++END $$;
++REVOKE ALL ON FUNCTION taskflow.queue_drive_attachment_delete() FROM PUBLIC;
++CREATE TRIGGER drive_attachment_delete AFTER DELETE ON taskflow.attachment FOR EACH ROW EXECUTE FUNCTION taskflow.queue_drive_attachment_delete();
++-- Serialize per-object native references with the cleanup claim. This avoids
++-- a new captured-context row racing between the last-reference check and trash.
++CREATE FUNCTION taskflow.guard_drive_attachment_reference() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,taskflow AS $$
++DECLARE k text;
++BEGIN
++ IF TG_OP='DELETE' THEN k:=substring(OLD.url FROM 10);ELSE k:=substring(NEW.url FROM 10);END IF;
++ IF (CASE WHEN TG_OP='DELETE' THEN OLD.url ELSE NEW.url END) LIKE '/uploads/%' THEN
++ PERFORM pg_advisory_xact_lock(hashtextextended(k,8925101002));
++ IF TG_OP<>'DELETE' AND EXISTS(SELECT 1 FROM taskflow.attachment_drive_delete_queue WHERE object_key=k AND (processing OR done)) THEN
++ RAISE EXCEPTION 'original attachment removal is already committed';END IF;
++ END IF;
++ IF TG_OP='DELETE' THEN RETURN OLD;ELSE RETURN NEW;END IF;
++END $$;
++REVOKE ALL ON FUNCTION taskflow.guard_drive_attachment_reference() FROM PUBLIC;
++CREATE TRIGGER drive_attachment_reference BEFORE INSERT OR UPDATE OF url OR DELETE ON taskflow.attachment FOR EACH ROW EXECUTE FUNCTION taskflow.guard_drive_attachment_reference();
++CREATE FUNCTION taskflow.claim_drive_trash(k text) RETURNS SETOF taskflow.attachment_drive_object LANGUAGE plpgsql SET search_path=pg_catalog,taskflow AS $$
++BEGIN
++ PERFORM pg_advisory_xact_lock(hashtextextended(k,8925101002));
++ IF EXISTS(SELECT 1 FROM taskflow.attachment WHERE url='/uploads/'||k) THEN RETURN;END IF;
++ UPDATE taskflow.attachment_drive_delete_queue SET processing=true WHERE object_key=k AND NOT done;
++ IF NOT FOUND THEN RETURN;END IF;
++ RETURN QUERY SELECT * FROM taskflow.attachment_drive_object WHERE object_key=k;
++END $$;
++REVOKE ALL ON FUNCTION taskflow.claim_drive_trash(text) FROM PUBLIC;
++GRANT EXECUTE ON FUNCTION taskflow.claim_drive_trash(text) TO taskflow_runtime;
++COMMIT;
+diff --git a/labs/taskflow/tests/test_taskflow_drive_attachments_overlay.py b/labs/taskflow/tests/test_taskflow_drive_attachments_overlay.py
+new file mode 100644
+index 0000000..27fd022
+--- /dev/null
++++ b/labs/taskflow/tests/test_taskflow_drive_attachments_overlay.py
+@@ -0,0 +1,26 @@
++import importlib.util
++from pathlib import Path
++import tempfile,shutil,unittest
++REPO=Path(__file__).resolve().parents[3]
++SCRIPT=REPO/'labs/taskflow/patches/apply-taskflow-drive-attachments.py'
++spec=importlib.util.spec_from_file_location('drive_overlay',SCRIPT);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
++class DriveOverlayTests(unittest.TestCase):
++ def fixture(self,root):
++  for name in ['server/cmd/server/router.go','server/cmd/server/main.go','server/internal/handler/file.go']:
++   p=root/name;p.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(REPO/'third_party/multica'/name,p)
++  (root/'server/internal/storage').mkdir(parents=True)
++ def test_apply_private_callback_and_no_db_body(self):
++  with tempfile.TemporaryDirectory() as tmp:
++   root=Path(tmp);self.fixture(root);before=(root/'server/internal/handler/file.go').read_text();module.apply(root,SCRIPT.parent/'drive-attachments');router=(root/'server/cmd/server/router.go').read_text();after=(root/'server/internal/handler/file.go').read_text()
++   self.assertIn('refusing ephemeral fallback',router);self.assertIn('drive-readonly',router);self.assertIn('TaskFlowDriveCallbackPath',router);self.assertIn('RequireHumanActor).Post("/api/taskflow-drive/setup"',router);self.assertNotIn('attachment_object',router)
++   self.assertIn('multipartMemory=1<<20',after);self.assertIn('RunTrashWorker(sweepCtx)',(root/'server/cmd/server/main.go').read_text())
++   # All native membership/delete authorization is preserved.
++   self.assertEqual(before[before.index('func (h *Handler) DeleteAttachment'):],after[after.index('func (h *Handler) DeleteAttachment'):])
++   with self.assertRaises(SystemExit):module.apply(root,SCRIPT.parent/'drive-attachments')
++ def test_missing_anchor_no_partial_write(self):
++  with tempfile.TemporaryDirectory() as tmp:
++   root=Path(tmp);self.fixture(root);main=root/'server/cmd/server/main.go';main.write_text('bad anchor');router=root/'server/cmd/server/router.go';before=router.read_bytes()
++   with self.assertRaises(SystemExit):module.apply(root,SCRIPT.parent/'drive-attachments')
++   self.assertEqual(before,router.read_bytes());self.assertFalse((root/'server/internal/storage/taskflow_drive.go').exists())
++ def test_vendor_is_readonly(self):
++  with self.assertRaises(SystemExit):module.apply(REPO/'third_party/multica',SCRIPT.parent/'drive-attachments')
+diff --git a/labs/taskflow/tests/test_taskflow_drive_setup_page.py b/labs/taskflow/tests/test_taskflow_drive_setup_page.py
+new file mode 100644
+index 0000000..6063fe8
+--- /dev/null
++++ b/labs/taskflow/tests/test_taskflow_drive_setup_page.py
+@@ -0,0 +1,14 @@
++from pathlib import Path
++import unittest
++REPO=Path(__file__).resolve().parents[3]
++class DriveSetupPageTests(unittest.TestCase):
++ def test_cookie_only_csrf_and_narrow_external_url(self):
++  s=(REPO/'labs/taskflow/overrides/taskflow-drive-connect-page.tsx').read_text()
++  for fragment in ['X-CSRF-Token','credentials: "same-origin"','/api/taskflow-drive/setup','https://accounts.google.com','https://www.googleapis.com/auth/drive.file','response.status === 401','response.status === 403','role="alert"','boxSizing: "border-box"']:
++   self.assertIn(fragment,s)
++  self.assertNotIn('Bearer',s)
++  self.assertNotIn('client_secret',s)
++  self.assertNotIn('trash30',s)
++ def test_web_image_installs_page_without_frozen_vendor_edits(self):
++  s=(REPO/'labs/taskflow/Dockerfile.web').read_text()
++  self.assertIn('COPY labs/taskflow/overrides/taskflow-drive-connect-page.tsx /src/apps/web/app/auth/taskflow-drive/connect/page.tsx',s)
