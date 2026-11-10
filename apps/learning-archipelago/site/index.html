@@ -1119,6 +1119,7 @@ async function refreshDailyState(){
 }
 new MutationObserver(()=>decorateDailyReviewButtons()).observe($('dailyLearning'),{childList:true,subtree:true});
 document.addEventListener('archipelago:coin-updated',()=>{dailyState.at=0;refreshDailyState()});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){dailyState.at=0;refreshDailyState()}});
 /* v3.3.0 corner dock + drawers (profile/history/parent/board + daily tasks) */
 (function initDock(){
  const pd=$('profileDrawer'),td=$('tasksDrawer'),chipFace=$('chipFace');
@@ -1149,6 +1150,7 @@ document.addEventListener('archipelago:coin-updated',()=>{dailyState.at=0;refres
   const c=$('islandChengyu'),e=$('islandEnglish');
   if(c){document.querySelectorAll('[data-quest=chengyu]').forEach(a=>{a.href=c.href})}
   if(e){document.querySelectorAll('[data-quest=english]').forEach(a=>{a.href=e.href})}
+  dailyState.at=0;
   renderDailyRows();
   refreshDailyState();
  }
