@@ -1,0 +1,12 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const source=fs.readFileSync(process.argv[2],'utf8');
+let code=source.slice(source.indexOf('  async function connect()'),source.indexOf('  return <main')).replace('err instanceof Error ? err.message','err instanceof Error ? err.message');
+assert(!/localStorage\.(setItem|removeItem|clear)|document\.cookie\s*=/.test(source));
+async function run(cookie,token,status,url){let calls=[],redirects=[],errors=[],reads=0;let sandbox={Error,URL,Object,document:{cookie},window:{localStorage:{getItem(k){assert.equal(k,'multica_token');reads++;return token}},location:{assign(u){redirects.push(u)}}},setBusy(){},setError(e){errors.push(e)},fetch:async(u,o)=>{calls.push([u,o]);return {ok:status===200,status,json:async()=>({authorization_url:url})}}};vm.createContext(sandbox);await vm.runInContext(code+';connect()',sandbox);return {calls,redirects,errors,reads}}
+(async()=>{let good='https://accounts.google.com/o/oauth2/v2/auth?scope='+encodeURIComponent('https://www.googleapis.com/auth/drive.file');
+let x=await run('',null,200,good);assert.equal(x.calls.length,0);
+x=await run('','fixture-token',200,good);assert.equal(x.calls.length,1);assert.equal(x.calls[0][0],'/api/taskflow-drive/setup');assert.equal(x.calls[0][1].headers.Authorization,'Bearer fixture-token');assert.equal(x.calls[0][1].headers['X-TaskFlow-Drive-Setup'],'1');assert.equal(x.calls[0][1].credentials,'omit');assert.equal(x.calls[0][1].body,'{}');assert(!JSON.stringify(x.redirects).includes('fixture-token'));assert.equal(x.redirects.length,1);
+x=await run('multica_csrf_session=fixture-csrf','unused',200,good);assert.equal(x.reads,0);assert.equal(x.calls[0][1].headers['X-CSRF-Token'],'fixture-csrf');assert.equal(x.calls[0][1].headers.Authorization,undefined);assert.equal(x.calls[0][1].credentials,'same-origin');
+for(const status of [401,403,503]){x=await run('','fixture-token',status,good);assert.equal(x.redirects.length,0);assert(x.errors.at(-1));}
+for(const bad of ['https://evil.example.test','https://accounts.google.com/o/oauth2/v2/auth?scope=all']){x=await run('','fixture-token',200,bad);assert.equal(x.redirects.length,0);assert(x.errors.at(-1));}
+console.log('PASS owner setup page: native, cookie, absent login,401,403,503,foreign origin,expanded scope; no persistent mutation');})().catch(e=>{console.error(e);process.exit(1)});

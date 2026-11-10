@@ -14,10 +14,13 @@ export default function TaskFlowDriveConnection() {
         return [part.slice(0, i), part.slice(i + 1)];
       }));
       const csrf = cookies.multica_csrf_session || cookies.multica_csrf;
-      if (!csrf) throw new Error("請先登入 TF，再回到這個連線頁面。");
+      const nativeToken = csrf ? null : window.localStorage.getItem("multica_token");
+      if (!csrf && !nativeToken) throw new Error("請先登入 TF，再回到這個連線頁面。");
       const response = await fetch("/api/taskflow-drive/setup", {
-        method: "POST", credentials: "same-origin", cache: "no-store",
-        headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf },
+        method: "POST", credentials: csrf ? "same-origin" : "omit", cache: "no-store",
+        headers: csrf
+          ? { "Content-Type": "application/json", "X-CSRF-Token": csrf }
+          : { "Content-Type": "application/json", "Authorization": "Bearer " + nativeToken, "X-TaskFlow-Drive-Setup": "1" },
         body: "{}",
       });
       if (!response.ok) {
