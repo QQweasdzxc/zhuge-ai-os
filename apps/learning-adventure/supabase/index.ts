@@ -707,8 +707,8 @@ Deno.serve(async (req)=>{
       }
       let label = "";
       if (cw === "chengyu") {
-        const hit = await db("learning_adventure_exam_bank", "word=eq." + encodeURIComponent(raw) + "&select=word&limit=1");
-        if (hit.length) label = hit[0].word;
+        // 成語字卡由小島自己的 DATA 出題；收藏是孩子的書籤，大考驗只從題庫比對出題，未入庫的字不影響出題。
+        label = raw;
       } else {
         const b = await db("learning_adventure_family_bindings", "world=eq.vocab&adventure_family_id=eq." + family.adventureFamilyId + "&select=source_family_id&limit=1");
         if (b.length) {
