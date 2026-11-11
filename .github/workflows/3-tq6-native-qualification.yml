@@ -21,8 +21,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(sha256sum 1-tq6-qualified-source-20261111.patch | cut -d' ' -f1)" = 7f3c04257552d3c07aa6d43ec07a255a41eea11195346e83fbd1ad422d0a087a
-          cp 1-tq6-qualified-source-20261111.patch /tmp/tq6.patch
+          test "$(sha256sum 1-tq6-native-v2-source.patch | cut -d' ' -f1)" = 07433a28a182271502c8e7ba21b4933836789d28e632605c4fa325d0dfc0b70f
+          cp 1-tq6-native-v2-source.patch /tmp/tq6.patch
           git switch --detach 7390d1f0111bb4d3e8dc19807013aae7c67e1838
           git apply --check /tmp/tq6.patch
           git apply /tmp/tq6.patch
@@ -31,7 +31,7 @@ jobs:
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add labs/taskflow modules/worklog/native supabase/functions/worklog-google-sync package.json package-lock.json
           git commit -m 'Integrate native WorkLog candidate preserving pinned workspace icon action'
-          git push origin HEAD:refs/heads/review/tq6-native-candidate-20261111
+          git push origin HEAD:refs/heads/review/tq6-native-candidate-v2-20261111
           echo "candidate=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
   verify:
     needs: compose
