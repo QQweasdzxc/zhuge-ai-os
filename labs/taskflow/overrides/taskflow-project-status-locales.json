@@ -25,12 +25,15 @@
     "admin_required": "Only workspace owners and admins can add a status.",
     "restore_defaults": "Restore default columns",
     "done": "Done",
-    "save_failed": "Couldn't save project status settings. Try again."
+    "save_failed": "Couldn't save project status settings. Try again.",
+    "drag_status": "Drag to reorder {{name}} column",
+    "move_up": "Move {{name}} earlier",
+    "move_down": "Move {{name}} later"
   },
   "zh-Hant": {
     "button": "專案狀態",
     "title": "專案狀態與欄位",
-    "description": "狀態欄只套用於此專案。隱藏欄位仍可在「隱藏欄位」面板中還原，不會刪除任務。七種內建狀態都會保留。",
+    "description": "狀態欄只套用於此專案。隱藏欄位仍可在「隱藏欄位」面板中還原，不會刪除任務。七種內建狀態都會保留。 拖曳把手或使用箭頭調整順序，只儲存此帳號在本專案的排列，不會移動卡片或影響其他專案。",
     "fields": "專案狀態欄位",
     "visibility": "顯示「{{name}}」狀態欄",
     "built_in": "內建",
@@ -53,7 +56,10 @@
     "admin_required": "只有工作空間擁有者與管理員可以新增狀態。",
     "restore_defaults": "還原預設欄位",
     "done": "完成",
-    "save_failed": "無法儲存專案狀態設定，請再試一次。"
+    "save_failed": "無法儲存專案狀態設定，請再試一次。",
+    "drag_status": "拖曳調整「{{name}}」欄位順序",
+    "move_up": "將「{{name}}」往前移",
+    "move_down": "將「{{name}}」往後移"
   },
   "zh-Hans": {
     "button": "项目状态",
@@ -81,7 +87,10 @@
     "admin_required": "只有工作空间所有者和管理员可以新增状态。",
     "restore_defaults": "恢复默认字段",
     "done": "完成",
-    "save_failed": "无法保存项目状态设置，请重试。"
+    "save_failed": "无法保存项目状态设置，请重试。",
+    "drag_status": "Drag to reorder {{name}} column",
+    "move_up": "Move {{name}} earlier",
+    "move_down": "Move {{name}} later"
   },
   "ja": {
     "button": "プロジェクトのステータス",
@@ -109,7 +118,10 @@
     "admin_required": "ステータスを追加できるのはワークスペースのオーナーと管理者のみです。",
     "restore_defaults": "既定の列に戻す",
     "done": "完了",
-    "save_failed": "プロジェクトのステータス設定を保存できませんでした。もう一度お試しください。"
+    "save_failed": "プロジェクトのステータス設定を保存できませんでした。もう一度お試しください。",
+    "drag_status": "Drag to reorder {{name}} column",
+    "move_up": "Move {{name}} earlier",
+    "move_down": "Move {{name}} later"
   },
   "fr": {
     "button": "Statuts du projet",
@@ -137,6 +149,9 @@
     "admin_required": "Seuls les propriétaires et les administrateurs de l’espace peuvent ajouter un statut.",
     "restore_defaults": "Restaurer les colonnes par défaut",
     "done": "Terminé",
-    "save_failed": "Impossible d’enregistrer les paramètres de statut du projet. Réessayez."
+    "save_failed": "Impossible d’enregistrer les paramètres de statut du projet. Réessayez.",
+    "drag_status": "Drag to reorder {{name}} column",
+    "move_up": "Move {{name}} earlier",
+    "move_down": "Move {{name}} later"
   }
 }
