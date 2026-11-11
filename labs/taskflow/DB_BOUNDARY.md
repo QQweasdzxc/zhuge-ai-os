@@ -43,3 +43,14 @@ entry path through the copied `/auth/zhuge` overlay. Identity verification uses
 Supabase Auth `/auth/v1/user` only and carries the exact Auth UUID into
 TaskFlow-owned membership; it does not call Zhuge public RPCs. Task, agent, and
 run records stay in `taskflow`.
+
+## Original WorkLog owner boundary
+
+TQ6 mounts the original WorkLog module from `modules/worklog/native`, not a
+TaskFlow database adapter. It uses a separately verified Supabase owner session
+and the original WorkLog RLS and APPROVED access check. It never reuses a native
+TaskFlow JWT or gives `taskflow_runtime` access to public data. The standalone
+Google worker uses service-role credentials only for private sync metadata and
+identity checks; original work rows always use the owner's WorkLog session.
+Its reviewed SQL is not part of TaskFlow runtime migrations or API startup.
+The TaskFlow runtime public-schema firewall remains unchanged.
