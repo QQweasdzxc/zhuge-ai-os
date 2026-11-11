@@ -654,7 +654,7 @@ if(hub){
  },true);
  window.learningRoundReward=async function(attemptId,element,id){
   const box=document.createElement('p');box.className='round-coin-status';box.setAttribute('role','status');box.textContent='正在確認本回合金幣…';box.style.cssText='padding:12px 14px;background:#fff6cf;color:#473718;border-radius:12px;line-height:1.6;font-weight:700';element?.prepend(box);
-  try{const d=await request('getRoundReward',{attemptId},id);box.textContent=d.amount>0?'🪙 本回合 +'+d.amount+' 金幣 · 餘額 '+d.wallet.balance+' 金幣':!d.completed?'本回合未通關，沒有通關金幣':d.limitReached?'今天這座島的 3 回合通關金幣已領滿 · 本回合 +0 金幣 · 餘額 '+d.wallet.balance+' 金幣':'本回合 +0 金幣 · 餘額 '+d.wallet.balance+' 金幣';if(identity()===id)window.adventureProfileRefresh?.(world,id);}catch(e){box.textContent='金幣狀態尚未同步，請回總部查看金幣紀錄';}
+  try{const d=await request('getRoundReward',{attemptId},id);box.textContent=d.amount>0?'🪙 本回合 +'+d.amount+' 金幣 · 餘額 '+d.wallet.balance+' 金幣':!d.completed?'本回合未完成，沒有回合金幣':d.belowAccuracy?'本回合答對率未達 80%，沒有回合金幣 · 餘額 '+d.wallet.balance+' 金幣':d.limitReached?'今天這座島的 3 回合通關金幣已領滿 · 本回合 +0 金幣 · 餘額 '+d.wallet.balance+' 金幣':'本回合 +0 金幣 · 餘額 '+d.wallet.balance+' 金幣';if(identity()===id)window.adventureProfileRefresh?.(world,id);}catch(e){box.textContent='金幣狀態尚未同步，請回總部查看金幣紀錄';}
  };
 }
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh(true)});
