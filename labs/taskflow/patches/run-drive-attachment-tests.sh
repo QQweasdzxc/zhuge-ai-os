@@ -60,7 +60,7 @@ log=/tmp/taskflow-drive-storage.log
 TASKFLOW_DRIVE_TEST_DATABASE_URL="$LEDGER_URL" GOMEMLIMIT=256MiB CGO_ENABLED=0 go test ./internal/storage -run '^TestTaskFlowDrive' -count=1 -v > "$log" 2>&1 || { cat "$log";exit 1; }
 cat "$log"
 count=$(grep -cE '^--- PASS: TestTaskFlowDrive' "$log")
-[ "$count" -eq 10 ] || { echo "Drive storage expected10executed contracts, got$count";exit 1; }
+[ "$count" -eq 20 ] || { echo "Drive storage expected20executed contracts, got$count";exit 1; }
 log=/tmp/taskflow-drive-http.log
 DATABASE_URL="$PARITY_DATABASE_URL" GOMEMLIMIT=256MiB CGO_ENABLED=0 go test ./internal/handler -run '^TestTaskFlowDrive' -count=1 -v > "$log" 2>&1 || { cat "$log";exit 1; }
 cat "$log"
@@ -71,4 +71,4 @@ TASKFLOW_ROUTER_CONTRACT_ONLY=1 CGO_ENABLED=0 go test ./cmd/server -run '^TestTa
 cat "$log"
 count=$(grep -cE '^--- PASS: TestTaskFlowDriveFinalRouter' "$log")
 [ "$count" -eq 1 ] || { echo 'Drive final-router contract did not execute';exit 1; }
-echo 'GATE private_drive: storage10/nativeHTTP4/finalRouter1 PASS'
+echo 'GATE private_drive: storage16/nativeHTTP4/finalRouter1 PASS'
