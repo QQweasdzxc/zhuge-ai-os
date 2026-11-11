@@ -21,7 +21,7 @@ fs.mkdirSync(output, {recursive:true});
       const close=await dialog.getByRole('button',{name:'關閉',exact:true}).boundingBox();
       assert.equal(close.width,44); assert.equal(close.height,44);
       const start=await dialog.getByLabel('開始時間',{exact:true}).boundingBox();
-      const duration=await dialog.getByLabel('工時（分鐘）',{exact:true}).boundingBox();
+      const duration=await dialog.getByLabel('工時（小時）',{exact:true}).boundingBox();
       if(width<420) assert.ok(duration.y >= start.y+start.height, JSON.stringify({start,duration}));
       for (const bounds of [start,duration,close]) assert.ok(bounds.x>=0 && bounds.x+bounds.width<=width+1,JSON.stringify(bounds));
       assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
