@@ -171,6 +171,9 @@ RUN python3 /tmp/apply-taskflow-access-management.py --root /src --overlays /tas
 
 COPY labs/taskflow/overrides/taskflow-drive-connect-page.tsx /src/apps/web/app/taskflow-drive/connect/page.tsx
 
+COPY labs/taskflow/patches/apply-taskflow-workspace-icon-web.py /tmp/apply-taskflow-workspace-icon-web.py
+RUN python3 /tmp/apply-taskflow-workspace-icon-web.py --root /src
+
 FROM node:22-alpine AS deps
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1 \
@@ -202,6 +205,8 @@ COPY --from=source /src/apps/web/ apps/web/
 COPY --from=source /src/packages/ packages/
 RUN pnpm install --frozen-lockfile --offline
 COPY labs/taskflow/overrides/taskflow-private-drive-inline.test.tsx /tmp/taskflow-private-drive-inline.test.tsx
+COPY labs/taskflow/overrides/taskflow-workspace-icon-action.test.tsx /app/packages/views/settings/components/taskflow-workspace-icon-action.test.tsx
+RUN pnpm --filter @multica/views exec vitest run settings/components/taskflow-workspace-icon-action.test.tsx
 COPY labs/taskflow/overrides/taskflow-attachment-preview-token-auth.test.tsx /tmp/taskflow-attachment-preview-token-auth.test.tsx
 RUN cp /tmp/taskflow-attachment-preview-token-auth.test.tsx /app/packages/views/editor/taskflow-attachment-preview-token-auth.test.tsx \
  && cp /tmp/taskflow-private-drive-inline.test.tsx /app/packages/views/editor/taskflow-private-drive-inline.test.tsx \
