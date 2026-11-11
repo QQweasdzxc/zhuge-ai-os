@@ -59,7 +59,19 @@ Deno.serve(async req=>{
    if(!learner.length)return fail("找不到此測驗者",403);
    const level=clean(data.level,10),mode=clean(data.mode,20);
    const zone=data.zone==null?null:Number(data.zone);
-   if(zone!==null&&(!Number.isInteger(zone)||zone<1||zone>7))return fail("冒險關卡不正確");
+   if(zone!==null&&(!Number.isInteger(zone)||zone<1||zone>8))return fail("冒險關卡不正確");
+   if(zone&&zone>1&&zone<=7){
+    const b=await rest('learning_adventure_family_bindings','world=eq.chengyu&source_family_id=eq.'+familyId+'&select=adventure_family_id&limit=1');
+    const l=await rest('learning_adventure_hero_links','world=eq.chengyu&source_learner_id=eq.'+learnerId+'&select=hero_id&limit=1');
+    if(!b.length||!l.length)return fail('請先連結冒險者',403);
+    const r=await rest('learning_adventure_stage_exams','hero_id=eq.'+l[0].hero_id+'&world=eq.chengyu&stage=eq.'+(zone-1)+'&passed=eq.true&select=id&limit=1');
+    if(!r.length)return fail('新賽季請先從前一關過關',403);
+   }
+   if(zone===8){
+    const links=await rest('learning_adventure_hero_links','world=eq.chengyu&source_learner_id=eq.'+learnerId+'&select=hero_id&limit=1');
+    const passed=links.length?await rest('learning_adventure_village_exams','hero_id=eq.'+links[0].hero_id+'&world=eq.chengyu&passed=eq.true&select=id&limit=1'):[];
+    if(!passed.length)return fail('請先通過出村大考驗',403);
+   }
    if(!["國小","國中","進階","全部"].includes(level)||!["meaning","context","reverse","mixed"].includes(mode))return fail("題目設定不正確");
    const answers=Array.isArray(data.answers)?data.answers:[];
    const planned=Number(data.plannedCount),status=data.resultStatus;
