@@ -69,6 +69,12 @@ type TaskFlowDriveStorage struct {
 	folder, base string
 	transfers    chan struct{}
 	readOnly     bool
+	// filed records keys confirmed inside their task folder this process,
+	// so serve-time re-filing stays a cheap no-op instead of a Drive lookup.
+	filed sync.Map
+	// filingWarned records keys whose persistent filing failure already
+	// produced its one system comment, so retries never repost.
+	filingWarned sync.Map
 }
 
 func NewTaskFlowDriveStorage(c *http.Client, t TaskFlowDriveToken, i TaskFlowDriveIndex, folder string) (*TaskFlowDriveStorage, error) {
@@ -222,13 +228,12 @@ func (s *TaskFlowDriveStorage) verifyMeta(ctx context.Context, b TaskFlowDriveBi
 	if json.NewDecoder(io.LimitReader(r.Body, 8192)).Decode(&m) != nil {
 		return ErrTaskFlowDriveUnavailable
 	}
-	parent := false
-	for _, p := range m.Parents {
-		if p == s.folder {
-			parent = true
-		}
+	if m.ID != b.FileID || m.Size != strconv.FormatInt(b.Size, 10) || m.Trashed || m.Shared == nil || *m.Shared || !m.Owned {
+		return ErrTaskFlowDriveMissing
 	}
-	if m.ID != b.FileID || m.Size != strconv.FormatInt(b.Size, 10) || m.Trashed || m.Shared == nil || *m.Shared || !m.Owned || !parent {
+	// Root placement and verified task-subfolder placement are both
+	// authorized; anywhere else is treated as moved away.
+	if !s.authorizedParent(ctx, m.Parents) {
 		return ErrTaskFlowDriveMissing
 	}
 	// Some Drive objects omit SHA256; the download is still verified before serving.
@@ -249,6 +254,14 @@ func (s *TaskFlowDriveStorage) Upload(ctx context.Context, key string, data []by
 	if e = s.checkFolder(ctx); e != nil {
 		return "", e
 	}
+	// Attachments bound to a task are filed under that task's own subfolder;
+	// anything without a valid task label keeps the existing root placement.
+	target := s.folder
+	if label := taskFlowDriveFolderLabel(ctx); label != "" {
+		if target, e = s.ensureTaskFolder(ctx, label); e != nil {
+			return "", e
+		}
+	}
 	sum := sha256.Sum256(data)
 	hash := hex.EncodeToString(sum[:])
 	b, e := s.index.Lookup(ctx, key)
@@ -257,12 +270,15 @@ func (s *TaskFlowDriveStorage) Upload(ctx context.Context, key string, data []by
 		if err != nil {
 			return "", err
 		}
-		b, e = s.index.Reserve(ctx, TaskFlowDriveBinding{Key: key, FileID: id, SHA256: hash, FolderID: s.folder, Size: int64(len(data))})
+		b, e = s.index.Reserve(ctx, TaskFlowDriveBinding{Key: key, FileID: id, SHA256: hash, FolderID: target, Size: int64(len(data))})
 	}
 	if e != nil {
 		return "", ErrTaskFlowDriveUnavailable
 	}
-	if b.Size < 0 || b.Size > TaskFlowDriveMaxObjectBytes || b.Deleted || b.SHA256 != hash || b.Size != int64(len(data)) || b.FolderID != s.folder || !validDriveID(b.FileID) {
+	// The bound folder is pinned at reservation; retries complete into that
+	// same folder, and Ready objects are proven by verifyMeta regardless of
+	// which subfolder a later re-upload would choose today.
+	if b.Size < 0 || b.Size > TaskFlowDriveMaxObjectBytes || b.Deleted || b.SHA256 != hash || b.Size != int64(len(data)) || !validDriveID(b.FolderID) || !validDriveID(b.FileID) {
 		return "", errors.New("immutable attachment binding mismatch")
 	}
 	if b.Ready {
@@ -284,7 +300,7 @@ func (s *TaskFlowDriveStorage) Upload(ctx context.Context, key string, data []by
 	h := textproto.MIMEHeader{}
 	h.Set("Content-Type", "application/json; charset=UTF-8")
 	p, _ := mw.CreatePart(h)
-	meta := map[string]any{"id": b.FileID, "name": filename, "parents": []string{s.folder}, "mimeType": contentType}
+	meta := map[string]any{"id": b.FileID, "name": filename, "parents": []string{b.FolderID}, "mimeType": contentType}
 	json.NewEncoder(p).Encode(meta)
 	h = textproto.MIMEHeader{}
 	h.Set("Content-Type", "application/octet-stream")
@@ -379,7 +395,9 @@ func (s *TaskFlowDriveStorage) GetReader(ctx context.Context, key string) (io.Re
 		}
 		return nil, ErrTaskFlowDriveUnavailable
 	}
-	if b.Size < 0 || b.Size > TaskFlowDriveMaxObjectBytes || !b.Ready || b.Deleted || b.FolderID != s.folder || !validDriveID(b.FileID) {
+	// The bound folder is organizational; the object's live placement is
+	// verified against the authorized root tree in verifyMeta below.
+	if b.Size < 0 || b.Size > TaskFlowDriveMaxObjectBytes || !b.Ready || b.Deleted || !validDriveID(b.FolderID) || !validDriveID(b.FileID) {
 		release()
 		return nil, ErrTaskFlowDriveMissing
 	}
