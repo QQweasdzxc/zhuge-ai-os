@@ -5,8 +5,8 @@ from pathlib import Path
 
 def apply(root,overlay):
  if 'third_party/multica' in str(root.resolve()):raise SystemExit('frozen vendor refused')
- router=root/'server/cmd/server/router.go';file=root/'server/internal/handler/file.go'
- rt=router.read_text();ft=file.read_text()
+ router=root/'server/cmd/server/router.go';file=root/'server/internal/handler/file.go';issue=root/'server/internal/handler/issue.go';service=root/'server/internal/service/issue.go';handler=root/'server/internal/handler/handler.go'
+ rt=router.read_text();ft=file.read_text();it=issue.read_text();st=service.read_text();ht=handler.read_text()
  old='\t// Initialize storage with S3 as primary, fallback to local\n\tvar store storage.Storage\n\ts3 := storage.NewS3StorageFromEnv()\n\tif s3 != nil {'
  new='''\t// Drive is explicit and fails closed, never ephemeral fallback.
 \tvar store storage.Storage
@@ -41,9 +41,21 @@ def apply(root,overlay):
  upload_new='\t\t\tslog.Error("file upload failed", "error", err)\n\t\t\tif _,drive:=h.Storage.(*storage.TaskFlowDriveStorage);drive{writeError(w,http.StatusServiceUnavailable,"Drive 附件未完成儲存，請稍後再試。");return}\n\t\t\twriteError(w, http.StatusInternalServerError, "upload failed")'
  metadata_old='\t\t\tslog.Error("failed to create attachment record", "error", err)\n'
  metadata_new=metadata_old+'\t\t\tif _,drive:=h.Storage.(*storage.TaskFlowDriveStorage);drive{writeError(w,http.StatusServiceUnavailable,"檔案已保留，但任務附件記錄未完成，請稍後重試。");return}\n'
+ issue_old='\t\t\tparams.IssueID = issue.ID\n'
+ issue_new=issue_old+'\t\t\tif _,drive:=h.Storage.(*storage.TaskFlowDriveStorage);drive{r=r.WithContext(storage.WithTaskFlowDriveFolderLabel(r.Context(),h.getIssuePrefix(r.Context(),issue.WorkspaceID)+"-"+strconv.Itoa(int(issue.Number))))}\n'
  reader_old='\t\tslog.Error("failed to open attachment for download", "id", uuidToString(att.ID), "key", key, "error", err)\n'
  reader_new=reader_old+'\t\tif errors.Is(err,storage.ErrTaskFlowDriveIntegrity){writeError(w,http.StatusBadGateway,"原附件完整性檢查未通過，未顯示可能錯誤的內容。");return}\n\t\tif errors.Is(err,storage.ErrTaskFlowDriveUnavailable){writeError(w,http.StatusServiceUnavailable,"Drive 連線暫時無法使用，原附件記錄仍保留。");return}\n'
- patches=[(rt,old),(rt,callback_old),(rt,setup_old),(ft,admission_old),(ft,parse_old),(ft,read_old),(ft,upload_old),(ft,metadata_old),(ft,reader_old)]
+ bind_old='\th.broadcastCancelledWakeups(ctx, workspaceID, cancelledWakeups)\n\treturn issue, current, attachmentsChanged, nil\n'
+ bind_new='\th.broadcastCancelledWakeups(ctx, workspaceID, cancelledWakeups)\n\th.taskFlowDriveFileBoundAttachments(ctx, issue, attachmentIDs)\n\treturn issue, current, attachmentsChanged, nil\n'
+ svc_field_old='\tEntitlements entitlement.Provider\n}'
+ svc_field_new='\tEntitlements entitlement.Provider\n\t// Filer, when set, runs best-effort post-commit filing of newly linked\n\t// attachments (private Drive task folders). Nil in tests and non-Drive setups.\n\tFiler func(ctx context.Context, issue db.Issue, attachmentIDs []pgtype.UUID)\n}'
+ svc_call_old='\tattachments := s.linkAttachments(ctx, issue, p.AttachmentIDs)\n'
+ svc_call_new=svc_call_old+'\tif s.Filer != nil {\n\t\ts.Filer(ctx, issue, p.AttachmentIDs)\n\t}\n'
+ wire_old='\th.PRRefresh = ghsnapshot.NewManager(ghClient, queries, txStarter, h.broadcastPRSnapshotApplied)\n\n\treturn h'
+ wire_new='\th.PRRefresh = ghsnapshot.NewManager(ghClient, queries, txStarter, h.broadcastPRSnapshotApplied)\n\th.IssueService.Filer = h.taskFlowDriveFileBoundAttachments\n\n\treturn h'
+ serve_old='func (h *Handler) proxyAttachmentDownload(w http.ResponseWriter, r *http.Request, att db.Attachment, key string, forceAttachment bool) {\n\treader, err := h.Storage.GetReader(r.Context(), key)'
+ serve_new='func (h *Handler) proxyAttachmentDownload(w http.ResponseWriter, r *http.Request, att db.Attachment, key string, forceAttachment bool) {\n\tif _,drive:=h.Storage.(*storage.TaskFlowDriveStorage);drive&&att.IssueID.Valid{go h.taskFlowDriveFileAttachment(context.WithoutCancel(r.Context()),att)}\n\treader, err := h.Storage.GetReader(r.Context(), key)'
+ patches=[(rt,old),(rt,callback_old),(rt,setup_old),(ft,admission_old),(ft,parse_old),(ft,read_old),(ft,upload_old),(ft,metadata_old),(ft,reader_old),(ft,issue_old),(ft,serve_old),(it,bind_old),(st,svc_field_old),(st,svc_call_old),(ht,wire_old)]
  if any(text.count(anchor)!=1 for text,anchor in patches):raise SystemExit('Drive overlay source anchor missing/ambiguous')
  files={}
  for source in overlay.glob('*.go'):
@@ -61,7 +73,10 @@ def apply(root,overlay):
  router.write_text(rt.replace(old,new,1).replace(callback_old,callback_new,1).replace(setup_old,setup_new,1))
  ft=ft.replace('DownloadURL   string  `json:"download_url"`', 'DownloadURL   string  `json:"download_url"`\n\tPrivateStorage bool `json:"private_storage,omitempty"`',1)
  ft=ft.replace('\t// Only CloudFront mode overrides', '\tif _,private:=h.Storage.(*storage.TaskFlowDriveStorage);private{resp.PrivateStorage=true}\n\t// Only CloudFront mode overrides',1)
- file.write_text(ft.replace(admission_old,admission_new,1).replace(parse_old,parse_new,1).replace(read_old,read_new,1).replace(upload_old,upload_new,1).replace(metadata_old,metadata_new,1).replace(reader_old,reader_new,1))
+ file.write_text(ft.replace(admission_old,admission_new,1).replace(parse_old,parse_new,1).replace(read_old,read_new,1).replace(upload_old,upload_new,1).replace(metadata_old,metadata_new,1).replace(reader_old,reader_new,1).replace(issue_old,issue_new,1).replace(serve_old,serve_new,1))
+ issue.write_text(it.replace(bind_old,bind_new,1))
+ service.write_text(st.replace(svc_field_old,svc_field_new,1).replace(svc_call_old,svc_call_new,1))
+ handler.write_text(ht.replace(wire_old,wire_new,1))
  for dest,text in files.items():dest.write_text(text)
 if __name__=='__main__':
  p=argparse.ArgumentParser();p.add_argument('--root',required=True,type=Path);p.add_argument('--overlays',type=Path,default=Path(__file__).parent/'drive-attachments');a=p.parse_args();apply(a.root,a.overlays)
