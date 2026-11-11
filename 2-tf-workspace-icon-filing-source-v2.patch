@@ -1,0 +1,469 @@
+diff --git a/labs/taskflow/Dockerfile.web b/labs/taskflow/Dockerfile.web
+index 8ab94e701..5e41d602b 100644
+--- a/labs/taskflow/Dockerfile.web
++++ b/labs/taskflow/Dockerfile.web
+@@ -146,6 +146,9 @@ RUN python3 /tmp/apply-taskflow-workspace-groups.py --root /src --overlays /task
+ 
+ COPY labs/taskflow/overrides/taskflow-drive-connect-page.tsx /src/apps/web/app/auth/taskflow-drive/connect/page.tsx
+ 
++COPY labs/taskflow/patches/apply-taskflow-workspace-icon-web.py /tmp/apply-taskflow-workspace-icon-web.py
++RUN python3 /tmp/apply-taskflow-workspace-icon-web.py --root /src
++
+ FROM node:22-alpine AS deps
+ WORKDIR /app
+ ENV NEXT_TELEMETRY_DISABLED=1 \
+diff --git a/labs/taskflow/patches/apply-taskflow-drive-attachments.py b/labs/taskflow/patches/apply-taskflow-drive-attachments.py
+index a6e31d47a..b08415a28 100644
+--- a/labs/taskflow/patches/apply-taskflow-drive-attachments.py
++++ b/labs/taskflow/patches/apply-taskflow-drive-attachments.py
+@@ -6,6 +6,9 @@ from pathlib import Path
+ def apply(root,overlay):
+  if 'third_party/multica' in str(root.resolve()):raise SystemExit('frozen vendor refused')
+  router=root/'server/cmd/server/router.go';file=root/'server/internal/handler/file.go';issue=root/'server/internal/handler/issue.go';service=root/'server/internal/service/issue.go';handler=root/'server/internal/handler/handler.go'
++ workspace=root/'server/internal/handler/workspace.go';wt=workspace.read_text()
++ workspace_anchor='\tslog.Info("workspace updated", append(logger.RequestAttrs(r), "workspace_id", id)...)'
++ if wt.count(workspace_anchor)!=1:raise SystemExit('workspace avatar filing anchor missing')
+  rt=router.read_text();ft=file.read_text();it=issue.read_text();st=service.read_text();ht=handler.read_text()
+  old='\t// Initialize storage with S3 as primary, fallback to local\n\tvar store storage.Storage\n\ts3 := storage.NewS3StorageFromEnv()\n\tif s3 != nil {'
+  new='''\t// Drive is explicit and fails closed, never ephemeral fallback.
+@@ -57,6 +60,8 @@ def apply(root,overlay):
+  serve_new='func (h *Handler) proxyAttachmentDownload(w http.ResponseWriter, r *http.Request, att db.Attachment, key string, forceAttachment bool) {\n\tif _,drive:=h.Storage.(*storage.TaskFlowDriveStorage);drive&&att.IssueID.Valid{go h.taskFlowDriveFileAttachment(context.WithoutCancel(r.Context()),att)}\n\treader, err := h.Storage.GetReader(r.Context(), key)'
+  patches=[(rt,old),(rt,callback_old),(rt,setup_old),(ft,admission_old),(ft,parse_old),(ft,read_old),(ft,upload_old),(ft,metadata_old),(ft,reader_old),(ft,issue_old),(ft,serve_old),(it,bind_old),(st,svc_field_old),(st,svc_call_old),(ht,wire_old)]
+  if any(text.count(anchor)!=1 for text,anchor in patches):raise SystemExit('Drive overlay source anchor missing/ambiguous')
++ route_anchor='\t\t\t\t\tr.Patch("/", h.UpdateWorkspace)'
++ if rt.count(route_anchor)!=1:raise SystemExit('workspace icon route anchor missing')
+  files={}
+  for source in overlay.glob('*.go'):
+   directory='handler' if '_handler' in source.name else 'storage'
+@@ -69,7 +74,9 @@ def apply(root,overlay):
+  worker='\t// Private Drive pending-trash retry uses the normal shutdown-bound worker context.\n\tif drive,ok:=h.Storage.(*storage.TaskFlowDriveStorage);ok {go drive.RunTrashWorker(sweepCtx)}\n\n'
+  if mt.count('"github.com/multica-ai/multica/server/internal/selfhosttelemetry"')!=1:raise SystemExit('Drive storage import anchor missing')
+  mt=mt.replace('"github.com/multica-ai/multica/server/internal/selfhosttelemetry"','"github.com/multica-ai/multica/server/internal/selfhosttelemetry"\n"github.com/multica-ai/multica/server/internal/storage"',1).replace(main_anchor,worker+main_anchor,1)
++ workspace.write_text(wt.replace(workspace_anchor,'\tif req.AvatarURL != nil { h.taskFlowDriveFileWorkspaceIcon(r.Context(), ws) }\n'+workspace_anchor,1))
+  main.write_text(mt)
++ rt=rt.replace(route_anchor,route_anchor+'\n\t\t\t\t\tr.With(handler.RequireHumanActor).Post("/organize-icon",h.OrganizeTaskFlowWorkspaceIcon)',1)
+  router.write_text(rt.replace(old,new,1).replace(callback_old,callback_new,1).replace(setup_old,setup_new,1))
+  ft=ft.replace('DownloadURL   string  `json:"download_url"`', 'DownloadURL   string  `json:"download_url"`\n\tPrivateStorage bool `json:"private_storage,omitempty"`',1)
+  ft=ft.replace('\t// Only CloudFront mode overrides', '\tif _,private:=h.Storage.(*storage.TaskFlowDriveStorage);private{resp.PrivateStorage=true}\n\t// Only CloudFront mode overrides',1)
+diff --git a/labs/taskflow/patches/apply-taskflow-workspace-icon-web.py b/labs/taskflow/patches/apply-taskflow-workspace-icon-web.py
+new file mode 100644
+index 000000000..409a5fae8
+--- /dev/null
++++ b/labs/taskflow/patches/apply-taskflow-workspace-icon-web.py
+@@ -0,0 +1,57 @@
++#!/usr/bin/env python3
++"""Explicit workspace-icon filing UI. No upload or read side effects."""
++from pathlib import Path
++import argparse
++
++def once(s,old,new):
++ if s.count(old)!=1: raise SystemExit('workspace icon UI anchor missing/ambiguous')
++ return s.replace(old,new,1)
++def apply(root):
++ if 'third_party/multica' in str(root.resolve()):raise SystemExit('frozen vendor refused')
++ p=root/'packages/core/api/client.ts';s=p.read_text()
++ a='  async getWorkspace(id: string): Promise<Workspace> {'
++ s=once(s,a,'''  async organizeWorkspaceIcon(id: string): Promise<{status: string; folder: string}> {
++    return this.fetch(`/api/workspaces/${id}/organize-icon`, { method: "POST" });
++  }
++
++'''+a);p.write_text(s)
++ p=root/'packages/views/settings/components/workspace-tab.tsx';s=p.read_text()
++ a='  const [name, setName] = useState(workspace?.name ?? "");'
++ s=once(s,a,'''  const [iconFiling, setIconFiling] = useState(false);
++  const [iconFilingMessage, setIconFilingMessage] = useState("");
++  const organizeIcon = async () => {
++    if (!workspace || iconFiling) return;
++    setIconFiling(true); setIconFilingMessage("");
++    try {
++      const result = await api.organizeWorkspaceIcon(workspace.id);
++      if (result.status !== "filed") throw new Error("圖示歸檔未完成，請稍後重試。");
++      setIconFilingMessage(`已歸入「${result.folder}」，原檔與圖示設定不變。`);
++    } catch (error) {
++      setIconFilingMessage(error instanceof Error ? error.message : "圖示歸檔未完成，請保留原檔後重試。");
++    } finally { setIconFiling(false); }
++  };
++'''+a)
++ a='''              />
++            </div>
++          </SettingsRow>
++
++          <SettingsRow
++            anchor="name"'''
++ s=once(s,a,'''              />
++              {canManageWorkspace && workspace.avatar_url && (
++                <div className="ml-3 max-w-xs text-left">
++                  <Button variant="outline" size="sm" disabled={iconFiling} onClick={organizeIcon}>
++                    {iconFiling ? "圖示歸檔中…" : "整理工作區圖示"}
++                  </Button>
++                  <p role="status" className="mt-2 text-xs text-muted-foreground">
++                    {iconFilingMessage || "把現有圖示歸入專用資料夾，不刪檔、不重傳。"}
++                  </p>
++                </div>
++              )}
++            </div>
++          </SettingsRow>
++
++          <SettingsRow
++            anchor="name"''');p.write_text(s)
++if __name__=='__main__':
++ p=argparse.ArgumentParser();p.add_argument('--root',type=Path,required=True);a=p.parse_args();apply(a.root)
+diff --git a/labs/taskflow/patches/drive-attachments/taskflow_drive_move.go b/labs/taskflow/patches/drive-attachments/taskflow_drive_move.go
+index 8dbb28f35..d5cbc2ec5 100644
+--- a/labs/taskflow/patches/drive-attachments/taskflow_drive_move.go
++++ b/labs/taskflow/patches/drive-attachments/taskflow_drive_move.go
+@@ -28,6 +28,26 @@ func (s *TaskFlowDriveStorage) FileUnderTaskFolder(ctx context.Context, key, lab
+ 	if !validTaskFlowDriveObjectKey(key) || label == "" {
+ 		return errors.New("invalid attachment key or task label")
+ 	}
++	return s.fileUnderPrivateFolder(ctx, key, label)
++}
++
++// FileWorkspaceIcon is deliberately separate from user-supplied task labels.
++func (s *TaskFlowDriveStorage) FileWorkspaceIcon(ctx context.Context, key string) error {
++	if !validTaskFlowDriveObjectKey(key) {
++		return errors.New("invalid workspace icon key")
++	}
++	return s.fileUnderPrivateFolder(ctx, key, WorkspaceIconFolderName)
++}
++
++func (s *TaskFlowDriveStorage) fileUnderPrivateFolder(ctx context.Context, key, label string) error {
++	if s.readOnly {
++		return errors.New("Drive storage is read-only")
++	}
++	ctx, release, err := s.BeginTransfer(ctx)
++	if err != nil {
++		return err
++	}
++	defer release()
+ 	if v, ok := s.filed.Load(key); ok && v == label {
+ 		return nil
+ 	}
+@@ -41,7 +61,7 @@ func (s *TaskFlowDriveStorage) FileUnderTaskFolder(ctx context.Context, key, lab
+ 	if b.Deleted || !b.Ready || !validDriveID(b.FileID) {
+ 		return nil
+ 	}
+-	target, e := s.ensureTaskFolder(ctx, label)
++	target, e := s.ensurePrivateFolder(ctx, label)
+ 	if e != nil {
+ 		return e
+ 	}
+diff --git a/labs/taskflow/patches/drive-attachments/taskflow_drive_subfolder.go b/labs/taskflow/patches/drive-attachments/taskflow_drive_subfolder.go
+index 28cfd2b9f..e85f0df09 100644
+--- a/labs/taskflow/patches/drive-attachments/taskflow_drive_subfolder.go
++++ b/labs/taskflow/patches/drive-attachments/taskflow_drive_subfolder.go
+@@ -120,7 +120,15 @@ func (s *TaskFlowDriveStorage) authorizedParent(ctx context.Context, parents []s
+ // response reuses the existing folder, and the single-transfer permit
+ // serializes creation within this process. An ambiguous or shared folder
+ // fails closed instead of mixing attachments into an untrusted location.
++// WorkspaceIconFolderName differs from the externally-created empty folder.
++// Only the app-owned connection creates or selects this dedicated destination.
++const WorkspaceIconFolderName = "工作區圖示（TF 管理）"
++
+ func (s *TaskFlowDriveStorage) ensureTaskFolder(ctx context.Context, label string) (string, error) {
++	return s.ensurePrivateFolder(ctx, label)
++}
++
++func (s *TaskFlowDriveStorage) ensurePrivateFolder(ctx context.Context, label string) (string, error) {
+ 	q := "'" + s.folder + "' in parents and mimeType = 'application/vnd.google-apps.folder' and name = '" + label + "' and trashed = false"
+ 	r, e := s.request(ctx, http.MethodGet, "/drive/v3/files?q="+url.QueryEscape(q)+"&pageSize=10&fields=files(id,name,mimeType,trashed,shared,ownedByMe,parents)", nil, "")
+ 	if e != nil {
+diff --git a/labs/taskflow/patches/drive-attachments/taskflow_drive_workspace_icon_handler.go b/labs/taskflow/patches/drive-attachments/taskflow_drive_workspace_icon_handler.go
+new file mode 100644
+index 000000000..1bcc3fe49
+--- /dev/null
++++ b/labs/taskflow/patches/drive-attachments/taskflow_drive_workspace_icon_handler.go
+@@ -0,0 +1,82 @@
++package handler
++
++import (
++	"context"
++	"github.com/multica-ai/multica/server/internal/storage"
++	db "github.com/multica-ai/multica/server/pkg/db/generated"
++	"log/slog"
++	"net/http"
++)
++
++// Called only after an authenticated workspace-avatar update commits.
++// No read endpoint files images and no task-bound attachment is accepted.
++func (h *Handler) taskFlowDriveFileWorkspaceIcon(ctx context.Context, ws db.Workspace) {
++	drive, ok := h.Storage.(*storage.TaskFlowDriveStorage)
++	if !ok || !ws.AvatarUrl.Valid {
++		return
++	}
++	key := h.Storage.KeyFromURL(ws.AvatarUrl.String)
++	id, ok := attachmentIDFromStorageKey(key)
++	if !ok {
++		return
++	}
++	att, err := h.Queries.GetAttachment(ctx, db.GetAttachmentParams{ID: id, WorkspaceID: ws.ID})
++	if err != nil || !taskFlowWorkspaceIconMatches(att, ws, key, h.Storage.KeyFromURL(att.Url)) {
++		return
++	}
++	if err := drive.FileWorkspaceIcon(ctx, key); err != nil {
++		slog.WarnContext(ctx, "Drive workspace-icon filing failed; original retained", "attachment_id", uuidToString(id), "error", err)
++	}
++}
++
++// Recheck owner workspace, standalone class, image type and immutable key.
++func taskFlowWorkspaceIconMatches(att db.Attachment, ws db.Workspace, key, attachmentKey string) bool {
++	return att.WorkspaceID == ws.ID && !attachmentIsBound(att) && key != "" && key == attachmentKey && avatarContentType(key) != ""
++}
++
++// OrganizeTaskFlowWorkspaceIcon is a deliberate human admin action. GETs and
++// startup never move files. The workspace setting and old records are unchanged.
++func (h *Handler) OrganizeTaskFlowWorkspaceIcon(w http.ResponseWriter, r *http.Request) {
++	workspaceID := workspaceIDFromURL(r, "id")
++	member, ok := h.workspaceMember(w, r, workspaceID)
++	if !ok {
++		return
++	}
++	if member.Role != "owner" && member.Role != "admin" {
++		writeError(w, 403, "insufficient permissions")
++		return
++	}
++	drive, ok := h.Storage.(*storage.TaskFlowDriveStorage)
++	if !ok {
++		writeError(w, 409, "目前儲存方式不支援圖示歸檔，原圖未變更。")
++		return
++	}
++	ws, err := h.Queries.GetWorkspace(r.Context(), member.WorkspaceID)
++	if err != nil || !ws.AvatarUrl.Valid {
++		writeError(w, 409, "工作區尚無可歸檔圖示。")
++		return
++	}
++	key := h.Storage.KeyFromURL(ws.AvatarUrl.String)
++	id, ok := attachmentIDFromStorageKey(key)
++	if !ok {
++		writeError(w, 409, "圖示不是可歸檔的私人上傳檔案。")
++		return
++	}
++	att, err := h.Queries.GetAttachment(r.Context(), db.GetAttachmentParams{ID: id, WorkspaceID: ws.ID})
++	if err != nil || !taskFlowWorkspaceIconMatches(att, ws, key, h.Storage.KeyFromURL(att.Url)) {
++		writeError(w, 409, "圖示紀錄不符，未搬動任何檔案。")
++		return
++	}
++	// Verify the current original before touching its placement.
++	reader, err := drive.GetReader(r.Context(), key)
++	if err != nil {
++		writeError(w, 409, "目前無法讀取圖示原檔，未搬動任何檔案。")
++		return
++	}
++	reader.Close()
++	if err := drive.FileWorkspaceIcon(r.Context(), key); err != nil {
++		writeError(w, 503, "圖示歸檔未完成，請保留原檔後重試；不要刪除或重傳。")
++		return
++	}
++	writeJSON(w, 200, map[string]string{"status": "filed", "folder": storage.WorkspaceIconFolderName})
++}
+diff --git a/labs/taskflow/patches/drive-attachments/taskflow_drive_workspace_icon_handler_test.go b/labs/taskflow/patches/drive-attachments/taskflow_drive_workspace_icon_handler_test.go
+new file mode 100644
+index 000000000..7fb710ec5
+--- /dev/null
++++ b/labs/taskflow/patches/drive-attachments/taskflow_drive_workspace_icon_handler_test.go
+@@ -0,0 +1,45 @@
++package handler
++
++import (
++	"github.com/jackc/pgx/v5/pgtype"
++	db "github.com/multica-ai/multica/server/pkg/db/generated"
++	"testing"
++)
++
++func TestTaskFlowWorkspaceIconIdentity(t *testing.T) {
++	id := pgtype.UUID{Bytes: [16]byte{1}, Valid: true}
++	other := pgtype.UUID{Bytes: [16]byte{2}, Valid: true}
++	ws := db.Workspace{ID: id}
++	base := db.Attachment{WorkspaceID: id}
++	key := "workspaces/ws/icon.webp"
++	if !taskFlowWorkspaceIconMatches(base, ws, key, key) {
++		t.Fatal("valid standalone icon refused")
++	}
++	for _, kind := range []string{"workspace", "issue", "comment", "chat", "task", "key", "type"} {
++		t.Run(kind, func(t *testing.T) {
++			a := base
++			k := key
++			ak := key
++			switch kind {
++			case "workspace":
++				a.WorkspaceID = other
++			case "issue":
++				a.IssueID = id
++			case "comment":
++				a.CommentID = id
++			case "chat":
++				a.ChatSessionID = id
++			case "task":
++				a.TaskID = id
++			case "key":
++				ak = "different.webp"
++			case "type":
++				k = "workspaces/ws/data.txt"
++				ak = k
++			}
++			if taskFlowWorkspaceIconMatches(a, ws, k, ak) {
++				t.Fatal("unrelated content filed as icon")
++			}
++		})
++	}
++}
+diff --git a/labs/taskflow/patches/drive-attachments/taskflow_drive_workspace_icon_test.go b/labs/taskflow/patches/drive-attachments/taskflow_drive_workspace_icon_test.go
+new file mode 100644
+index 000000000..28290787d
+--- /dev/null
++++ b/labs/taskflow/patches/drive-attachments/taskflow_drive_workspace_icon_test.go
+@@ -0,0 +1,81 @@
++package storage
++
++import (
++	"context"
++	"io"
++	"testing"
++)
++
++func TestTaskFlowWorkspaceIconPrivateFolder(t *testing.T) {
++	s, f, i := fixtureDriveSubfolder(t)
++	ctx := context.Background()
++	key := "workspaces/ws/icon.webp"
++	data := []byte("confirmed icon")
++	if _, e := s.Upload(ctx, key, data, "image/webp", "icon.webp"); e != nil {
++		t.Fatal(e)
++	}
++	// The old externally-created folder is not used or deleted.
++	f.folders["external-empty"] = driveFolderMeta{ID: "external-empty", Name: "工作區圖示", Mime: "application/vnd.google-apps.folder", Owned: true, Shared: sharedPtr(false), Parents: []string{"folder"}}
++	if e := s.FileWorkspaceIcon(ctx, key); e != nil {
++		t.Fatal(e)
++	}
++	b, _ := i.Lookup(ctx, key)
++	if b.FolderID != "folder" {
++		t.Fatal("immutable binding changed")
++	}
++	file := f.files[b.FileID]
++	if len(file.parents) != 1 || f.folders[file.parents[0]].Name != WorkspaceIconFolderName {
++		t.Fatal("wrong icon folder")
++	}
++	if _, ok := f.folders["external-empty"]; !ok {
++		t.Fatal("old folder removed")
++	}
++	r, e := s.GetReader(ctx, key)
++	if e != nil {
++		t.Fatal(e)
++	}
++	got, _ := io.ReadAll(r)
++	r.Close()
++	if string(got) != string(data) {
++		t.Fatal("bytes changed")
++	}
++	moves := f.moves
++	if e := s.FileWorkspaceIcon(ctx, key); e != nil {
++		t.Fatal(e)
++	}
++	if f.moves != moves {
++		t.Fatal("duplicate move")
++	}
++	if normalizeTaskFlowDriveFolderLabel(WorkspaceIconFolderName) != "" {
++		t.Fatal("icon label admitted as task")
++	}
++}
++func TestTaskFlowWorkspaceIconReadOnlyAndForeign(t *testing.T) {
++	for _, mode := range []string{"readonly", "foreign", "shared", "ambiguous"} {
++		t.Run(mode, func(t *testing.T) {
++			s, f, i := fixtureDriveSubfolder(t)
++			ctx := context.Background()
++			key := "workspaces/ws/icon.webp"
++			if _, e := s.Upload(ctx, key, []byte("icon"), "image/webp", "icon.webp"); e != nil {
++				t.Fatal(e)
++			}
++			b, _ := i.Lookup(ctx, key)
++			switch mode {
++			case "readonly":
++				s.SetReadOnly()
++			case "foreign":
++				f.files[b.FileID].parents = []string{"foreign"}
++			case "shared":
++				f.folderShared = true
++			case "ambiguous":
++				f.ambiguous = true
++			}
++			if e := s.FileWorkspaceIcon(ctx, key); e == nil {
++				t.Fatal("unsafe filing accepted")
++			}
++			if f.moves != 0 {
++				t.Fatal("unsafe file move")
++			}
++		})
++	}
++}
+diff --git a/labs/taskflow/patches/run-drive-attachment-tests.sh b/labs/taskflow/patches/run-drive-attachment-tests.sh
+index 29368f215..1d6a3819a 100644
+--- a/labs/taskflow/patches/run-drive-attachment-tests.sh
++++ b/labs/taskflow/patches/run-drive-attachment-tests.sh
+@@ -72,3 +72,13 @@ cat "$log"
+ count=$(grep -cE '^--- PASS: TestTaskFlowDriveFinalRouter' "$log")
+ [ "$count" -eq 1 ] || { echo 'Drive final-router contract did not execute';exit 1; }
+ echo 'GATE private_drive: storage16/nativeHTTP4/finalRouter1 PASS'
++
++log=/tmp/taskflow-workspace-icon-storage.log
++CGO_ENABLED=0 go test ./internal/storage -run '^TestTaskFlowWorkspaceIcon' -count=1 -v > "$log" 2>&1 || { cat "$log";exit 1; }
++cat "$log"
++[ "$(grep -cE '^--- PASS: TestTaskFlowWorkspaceIcon' "$log")" -eq 2 ] || exit 1
++log=/tmp/taskflow-workspace-icon-handler.log
++DATABASE_URL="$PARITY_DATABASE_URL" CGO_ENABLED=0 go test ./internal/handler -run '^TestTaskFlowWorkspaceIcon' -count=1 -v > "$log" 2>&1 || { cat "$log";exit 1; }
++cat "$log"
++[ "$(grep -cE '^--- PASS: TestTaskFlowWorkspaceIcon' "$log")" -eq 1 ] || exit 1
++echo 'GATE workspace_icon: same-file/retry/identity executed PASS'
+diff --git a/labs/taskflow/tests/test_taskflow_drive_attachments_overlay.py b/labs/taskflow/tests/test_taskflow_drive_attachments_overlay.py
+index a47b54c9e..11e1185da 100644
+--- a/labs/taskflow/tests/test_taskflow_drive_attachments_overlay.py
++++ b/labs/taskflow/tests/test_taskflow_drive_attachments_overlay.py
+@@ -6,7 +6,7 @@ SCRIPT=REPO/'labs/taskflow/patches/apply-taskflow-drive-attachments.py'
+ spec=importlib.util.spec_from_file_location('drive_overlay',SCRIPT);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+ class DriveOverlayTests(unittest.TestCase):
+  def fixture(self,root):
+-  for name in ['server/cmd/server/router.go','server/cmd/server/main.go','server/internal/handler/file.go','server/internal/handler/issue.go','server/internal/service/issue.go','server/internal/handler/handler.go']:
++  for name in ['server/cmd/server/router.go','server/cmd/server/main.go','server/internal/handler/file.go','server/internal/handler/workspace.go','server/internal/handler/issue.go','server/internal/service/issue.go','server/internal/handler/handler.go']:
+    p=root/name;p.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(REPO/'third_party/multica'/name,p)
+   (root/'server/internal/storage').mkdir(parents=True)
+  def test_apply_private_callback_and_no_db_body(self):
+diff --git a/labs/taskflow/tests/test_workspace_icon_filing.py b/labs/taskflow/tests/test_workspace_icon_filing.py
+new file mode 100644
+index 000000000..fbec59a66
+--- /dev/null
++++ b/labs/taskflow/tests/test_workspace_icon_filing.py
+@@ -0,0 +1,36 @@
++import importlib.util
++import pathlib
++import tempfile
++import shutil
++import unittest
++ROOT=pathlib.Path(__file__).resolve().parents[3]
++def module(name,file):
++ s=importlib.util.spec_from_file_location(name,file);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);return m
++class IconOverlay(unittest.TestCase):
++ def setUp(self):
++  self.tmp=tempfile.TemporaryDirectory();self.root=pathlib.Path(self.tmp.name)
++  shutil.copytree(ROOT/'third_party/multica/server',self.root/'server')
++  for f in ['packages/core/api/client.ts','packages/views/settings/components/workspace-tab.tsx']:
++   target=self.root/f;target.parent.mkdir(parents=True,exist_ok=True);shutil.copy(ROOT/'third_party/multica'/f,target)
++ def tearDown(self):self.tmp.cleanup()
++ def test_backend_route_and_no_read_side_effects(self):
++  m=module('drive',ROOT/'labs/taskflow/patches/apply-taskflow-drive-attachments.py');m.apply(self.root,ROOT/'labs/taskflow/patches/drive-attachments')
++  router=(self.root/'server/cmd/server/router.go').read_text()
++  self.assertIn('r.With(handler.RequireHumanActor).Post("/organize-icon",h.OrganizeTaskFlowWorkspaceIcon)',router)
++  self.assertIn('r.Use(middleware.RequireWorkspaceRoleFromURL(queries, "id", "owner", "admin"))',router)
++  avatar=(self.root/'server/internal/handler/avatar.go').read_text();self.assertNotIn('FileWorkspaceIcon',avatar)
++  action=(self.root/'server/internal/handler/taskflow_drive_workspace_icon_handler.go').read_text()
++  self.assertIn('member.Role != "owner" && member.Role != "admin"',action)
++  self.assertIn('drive.GetReader',action);self.assertNotIn('Delete(',action)
++ def test_web_explicit_action_and_safe_failure(self):
++  m=module('web',ROOT/'labs/taskflow/patches/apply-taskflow-workspace-icon-web.py');m.apply(self.root)
++  s=(self.root/'packages/views/settings/components/workspace-tab.tsx').read_text()
++  for text in ['整理工作區圖示','disabled={iconFiling}','onClick={organizeIcon}','role="status"','result.status !== "filed"']:
++   self.assertIn(text,s)
++  api=(self.root/'packages/core/api/client.ts').read_text();self.assertIn('/organize-icon`, { method: "POST" }',api)
++  with self.assertRaises(SystemExit):m.apply(self.root)
++ def test_missing_anchor_fails_closed(self):
++  p=self.root/'packages/core/api/client.ts';p.write_text('bad upstream')
++  m=module('webbad',ROOT/'labs/taskflow/patches/apply-taskflow-workspace-icon-web.py')
++  with self.assertRaises(SystemExit):m.apply(self.root)
++if __name__=='__main__':unittest.main()
