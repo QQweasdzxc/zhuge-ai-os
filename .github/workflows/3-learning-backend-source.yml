@@ -1,0 +1,31 @@
+name: Preserve deployed learning backend source
+on:
+  push:
+    branches: ['review/learning-daily-transport-20261111']
+    paths: ['.github/workflows/*learning-backend-source.yml']
+permissions:
+  contents: read
+jobs:
+  compose:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Compose source-only candidate, no deployment or database commands
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum 2-backend-source.patch | cut -d' ' -f1)" = 0ddb42365c4d51530dba3cfcdc09336bed33dd9d0e502b55fd3a1f9834e78b46
+          cp 2-backend-source.patch /tmp/backend-source.patch
+          git switch --detach fa55f560c9e0a54756716b25ef356e785c676132
+          git apply --check /tmp/backend-source.patch
+          git apply /tmp/backend-source.patch
+          git diff --check
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add apps/learning-adventure/supabase/index.ts apps/learning-adventure/supabase/daily-plans-20261111.sql
+          git commit -m 'Preserve deployed daily plans and round reward API source'
+          git push origin HEAD:refs/heads/review/learning-backend-source-20261111
