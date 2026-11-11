@@ -39,8 +39,8 @@ def patch_status_hook(source: str) -> str:
   // TASKFLOW_PROJECT_STATUS_SCOPE: project-owned keys are assignable only in
   // their Project surface; all rows remain available for historical labels.
   return useMemo(
-    () => scopeTaskFlowStatusCatalog(catalog, projectStatusSettings.projectId, projectStatusSettings.statusLabels),
-    [catalog, projectStatusSettings.projectId, projectStatusSettings.statusLabels],
+    () => scopeTaskFlowStatusCatalog(catalog, projectStatusSettings.projectId, projectStatusSettings.statusLabels, projectStatusSettings.statusOrder),
+    [catalog, projectStatusSettings.projectId, projectStatusSettings.statusLabels, projectStatusSettings.statusOrder],
   );''',
         "scope project-owned status choices",
     )
@@ -237,6 +237,14 @@ def patch_board_column(source: str) -> str:
         'onClick={hideStatus}',
         "board column hide click",
     )
+    source = replace_once(source,
+        'import { StatusHeading } from "./status-heading";\n',
+        'import { StatusHeading } from "./status-heading";\nimport { TaskFlowStatusDragHandle } from "./taskflow-status-drag-handle";\n',
+        "Project column drag handle import")
+    source = replace_once(source,
+        '<div className="mb-2 flex items-center justify-between px-1.5">',
+        '<div data-taskflow-status-header={status} className="mb-2 flex items-center justify-between px-1.5">\n        {status && projectStatusSettings.projectId && <TaskFlowStatusDragHandle status={status} />}',
+        "Project column drag handle")
     return source
 
 
@@ -434,6 +442,8 @@ def apply(root: Path, overlay: Path) -> None:
         status_scope: root / "packages/core/issue-statuses/taskflow-project-status-scope.tsx",
         overlay / "taskflow-project-status-scope.test.ts": root / "packages/core/issue-statuses/taskflow-project-status-scope.test.ts",
         overlay / "taskflow-project-status-preferences.test.tsx": root / "packages/core/issue-statuses/taskflow-project-status-preferences.test.tsx",
+        overlay / "taskflow-status-drag-handle.test.tsx": root / "packages/views/issues/components/taskflow-status-drag-handle.test.tsx",
+        overlay / "taskflow-status-drag-handle.tsx": root / "packages/views/issues/components/taskflow-status-drag-handle.tsx",
         settings_component: root / "packages/views/issues/components/taskflow-project-status-settings.tsx",
         overlay / "taskflow-project-status-settings.test.tsx": root / "packages/views/issues/components/taskflow-project-status-settings.test.tsx",
     }
