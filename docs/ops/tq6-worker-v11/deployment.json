@@ -1,0 +1,13 @@
+{
+  "slug": "worklog-google-sync",
+  "version": 11,
+  "status": "ACTIVE",
+  "verify_jwt": false,
+  "ezbr_sha256": "306e0a039e3e8b8eccdcd92ca7364c8fa7658e929a67926c1f70c8ebf635653b",
+  "source_commit": "5d1bc8e86ea041041197a8c196895adc83d8bec8",
+  "uploaded_source_sha256": "e59e03b29301a47913c3be22d2a9ecc5c1088b161cc371c2899db6a5e93bbe55",
+  "readback_at": "2026-11-11T16:57:48Z",
+  "owner_status_http": 200,
+  "owner_conflicts_http": 200,
+  "conflict_count": 0
+}
