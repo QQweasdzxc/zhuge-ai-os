@@ -16,6 +16,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -90,6 +91,8 @@ type nativeDriveRemote struct {
 	count, status int
 	hashes        map[string]string
 	sizes         map[string]int64
+	folders       map[string]map[string]any
+	parents       map[string][]string
 }
 
 func (d *nativeDriveRemote) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -112,6 +115,41 @@ func (d *nativeDriveRemote) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]any{"id": "folder", "mimeType": "application/vnd.google-apps.folder", "trashed": false, "shared": false, "ownedByMe": true})
 		return
 	}
+	if r.URL.Path == "/drive/v3/files" {
+		switch r.Method {
+		case http.MethodGet:
+			match := regexp.MustCompile(`name = '([^']*)'`).FindStringSubmatch(r.URL.Query().Get("q"))
+			out := []map[string]any{}
+			if len(match) == 2 {
+				for _, folder := range d.folders {
+					if folder["name"] == match[1] {
+						out = append(out, folder)
+					}
+				}
+			}
+			json.NewEncoder(w).Encode(map[string]any{"files": out})
+		case http.MethodPost:
+			var meta struct {
+				ID      string   `json:"id"`
+				Name    string   `json:"name"`
+				Mime    string   `json:"mimeType"`
+				Parents []string `json:"parents"`
+			}
+			if json.NewDecoder(r.Body).Decode(&meta) != nil || meta.ID == "" || meta.Name == "" || meta.Mime != "application/vnd.google-apps.folder" || len(meta.Parents) != 1 || meta.Parents[0] != "folder" {
+				http.Error(w, "invalid private task folder", 400)
+				return
+			}
+			d.folders[meta.ID] = map[string]any{"id": meta.ID, "name": meta.Name, "mimeType": meta.Mime, "parents": meta.Parents, "shared": false, "ownedByMe": true, "trashed": false}
+			json.NewEncoder(w).Encode(map[string]any{"id": meta.ID})
+		default:
+			http.Error(w, "unexpected folder method", 405)
+		}
+		return
+	}
+	if folder, ok := d.folders[strings.TrimPrefix(r.URL.Path, "/drive/v3/files/")]; ok {
+		json.NewEncoder(w).Encode(folder)
+		return
+	}
 	if strings.HasPrefix(r.URL.Path, "/upload/") {
 		_, params, e := mime.ParseMediaType(r.Header.Get("Content-Type"))
 		if e != nil {
@@ -125,7 +163,8 @@ func (d *nativeDriveRemote) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var meta struct {
-			ID string `json:"id"`
+			ID      string   `json:"id"`
+			Parents []string `json:"parents"`
 		}
 		if json.NewDecoder(p).Decode(&meta) != nil || !strings.HasPrefix(meta.ID, "fixture-") {
 			w.WriteHeader(400)
@@ -154,6 +193,7 @@ func (d *nativeDriveRemote) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		d.hashes[meta.ID] = hex.EncodeToString(h.Sum(nil))
 		d.sizes[meta.ID] = n
+		d.parents[meta.ID] = meta.Parents
 		json.NewEncoder(w).Encode(map[string]any{"id": meta.ID})
 		return
 	}
@@ -161,6 +201,26 @@ func (d *nativeDriveRemote) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	hash, ok := d.hashes[id]
 	if !ok {
 		w.WriteHeader(404)
+		return
+	}
+	if r.Method == http.MethodPatch {
+		add := r.URL.Query().Get("addParents")
+		if _, ok := d.folders[add]; !ok {
+			http.Error(w, "unknown task folder", 400)
+			return
+		}
+		drop := map[string]bool{}
+		for _, p := range strings.Split(r.URL.Query().Get("removeParents"), ",") {
+			drop[p] = true
+		}
+		keep := []string{}
+		for _, p := range d.parents[id] {
+			if !drop[p] {
+				keep = append(keep, p)
+			}
+		}
+		d.parents[id] = append(keep, add)
+		json.NewEncoder(w).Encode(map[string]any{"id": id, "parents": d.parents[id]})
 		return
 	}
 	if r.URL.Query().Get("alt") == "media" {
@@ -173,11 +233,11 @@ func (d *nativeDriveRemote) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		io.Copy(w, f)
 		return
 	}
-	json.NewEncoder(w).Encode(map[string]any{"id": id, "size": strconv.FormatInt(d.sizes[id], 10), "sha256Checksum": hash, "parents": []string{"folder"}, "shared": false, "ownedByMe": true, "trashed": false})
+	json.NewEncoder(w).Encode(map[string]any{"id": id, "size": strconv.FormatInt(d.sizes[id], 10), "sha256Checksum": hash, "parents": d.parents[id], "shared": false, "ownedByMe": true, "trashed": false})
 }
 func nativeDriveFixture(t *testing.T) (*storage.TaskFlowDriveStorage, *nativeDriveRemote, *nativeDriveIndex, *http.Client) {
 	t.Helper()
-	remote := &nativeDriveRemote{dir: t.TempDir(), hashes: map[string]string{}, sizes: map[string]int64{}}
+	remote := &nativeDriveRemote{dir: t.TempDir(), hashes: map[string]string{}, sizes: map[string]int64{}, folders: map[string]map[string]any{}, parents: map[string][]string{}}
 	server := httptest.NewServer(remote)
 	t.Cleanup(server.Close)
 	target, _ := url.Parse(server.URL)
@@ -222,6 +282,21 @@ func TestTaskFlowDriveNativeAttachmentHTTP(t *testing.T) {
 	if a.ID == "" || a.SizeBytes != int64(len(data)) || a.IssueID == nil || *a.IssueID != issue.ID {
 		t.Fatal("native row mismatch", a)
 	}
+	remote.Lock()
+	if len(remote.folders) != 1 {
+		t.Fatalf("expected one task folder, got %d", len(remote.folders))
+	}
+	for id, folder := range remote.folders {
+		if folder["name"] != issue.Identifier {
+			t.Fatalf("wrong task folder: %v", folder)
+		}
+		for _, parents := range remote.parents {
+			if len(parents) != 1 || parents[0] != id {
+				t.Fatalf("upload not filed under task: %v", parents)
+			}
+		}
+	}
+	remote.Unlock()
 	// Only the remote objects and index survive a reconstructed backend.
 	reopened, e := storage.NewTaskFlowDriveStorage(client, nativeDriveToken{}, index, "folder")
 	if e != nil {
@@ -358,6 +433,15 @@ func TestTaskFlowDriveLargeNativeUploads(t *testing.T) {
 	defer remote.Unlock()
 	if len(remote.hashes) != 3 {
 		t.Fatal("lost concurrent object", len(remote.hashes))
+	}
+	if len(remote.folders) != 1 {
+		t.Fatalf("concurrent uploads created %d task folders", len(remote.folders))
+	}
+	for id := range remote.hashes {
+		parents := remote.parents[id]
+		if len(parents) != 1 || remote.folders[parents[0]]["name"] != issue.Identifier {
+			t.Fatalf("concurrent upload filed incorrectly: %s %v", id, parents)
+		}
 	}
 	for _, size := range remote.sizes {
 		if size != 80*1024*1024 {
