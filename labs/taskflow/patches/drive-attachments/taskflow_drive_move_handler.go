@@ -36,8 +36,8 @@ func (h *Handler) taskFlowDriveFileBoundAttachments(ctx context.Context, issue d
 // is still outside its task folder. It is the self-healing backstop for
 // filings that raced a Drive outage: every preview or download of the
 // attachment retries the filing. A confirmed filing is cached in the storage
-// layer, so steady-state serves add no Drive traffic. A failure streak that
-// reaches the threshold posts one deduplicated system comment on the task so
+// layer, so steady-state serves add no Drive traffic. The first filing failure
+// posts one deduplicated system comment on the task so
 // the user sees the unfiled attachment without auditing Drive.
 func (h *Handler) taskFlowDriveFileAttachment(ctx context.Context, att db.Attachment) {
 	drive, ok := h.Storage.(*storage.TaskFlowDriveStorage)
