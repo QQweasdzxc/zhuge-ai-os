@@ -1,0 +1,4 @@
+import test from 'node:test';import assert from 'node:assert/strict';import{classifyNewEntry as c}from'./entry-classification.mjs';
+test('clear personal leave terms, timed phrase and explicit choice are recognized',()=>{for(const title of['特休','病假','事假','公假','婚假','喪假','補休','育嬰假','生理假','家庭照顧假','請假','休假','年假','產假','陪產假','產檢假','我今天請特休','今天09:00到10:00 特休','2026-11-12 上午09:00~10:00 病假','休假：回家照顧家人'])assert.equal(c(title).type,'leave',title)});
+test('leave administration and negation are work, never silently exempt tasks',()=>{for(const title of['處理請假單','協助同仁申請特休','統計休假人數','請假系統維護','核准病假','不請假照常上班','沒有請假','取消特休','工作：處理請假單'])assert.equal(c(title).type,'work',title)});
+test('mixed and unclear personal intent need confirmation rather than guessing',()=>{for(const title of['我請特休協助同仁','看醫生要請病假','特休或事假還沒決定','同意休假嗎'])assert.equal(c(title).type,'uncertain',title)});

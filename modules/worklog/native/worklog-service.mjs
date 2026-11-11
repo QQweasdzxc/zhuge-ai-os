@@ -1,3 +1,4 @@
+import {classifyNewEntry} from './entry-classification.mjs';
 import {PriorityEngine} from './priority-engine.mjs';
 import {createWorklogRules} from './legacy-rules.mjs';
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -39,7 +40,7 @@ export class WorklogService {
  if(input.cloudId&&existing&&['date','title','at','hours','ecpTask','note'].every(k=>(existing[k]||'')===(input[k]||''))){saved.push(existing);continue;}
  if(input.cloudId&&(!existing||existing.updatedAt!==input.updatedAt)){throw new WorklogError('STALE','這筆工時已在其他畫面更動，請重新載入再確認');}
  // Retain notes, task associations, event kind and original identity on edit.
- const item={...existing,...input};const rules=this.rules(date,{entries:current});const error=rules.validateEntry(item);if(error)throw new WorklogError('VALIDATION',error);
+ const item={...existing,...input};if(!existing){const type=input.entryType||classifyNewEntry(item.title).type;if(type==='uncertain')throw new WorklogError('ENTRY_TYPE_REQUIRED','請先確認這筆是本人休假還是工作事項');item.entryType=type;if(type==='leave')item.ecpTask='';}const rules=this.rules(date,{entries:current});const error=rules.validateEntry(item);if(error)throw new WorklogError('VALIDATION',error);
  if(!Number.isFinite(item.hours)||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(item.at)||dateKey(new Date(`${item.at}:00+08:00`))!==date||Number(item.at.slice(11,13))>23||Number(item.at.slice(14,16))>59)throw new WorklogError('VALIDATION','開始時間或時數格式不正確，尚未儲存');
  // Same operation identity retries never duplicate a prior successful insert.
  if(existing&&!input.cloudId){if(['title','at','hours','ecpTask','note'].some(k=>(existing[k]||'')!==(input[k]||'')))throw new WorklogError('STALE','這筆操作已儲存但內容不同，請重新載入確認');saved.push(existing);continue;}

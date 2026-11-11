@@ -1,5 +1,6 @@
 // Isolated mapping planner. No API, persistence, OAuth or event mutation here.
 // A selected WorkLog calendar is the second entry point for the same records.
+import {classifyNewEntry} from './entry-classification.mjs';
 import {createWorklogRules} from './legacy-rules.mjs';
 const localDate=instant=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).format(instant);
 const localClock=instant=>new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Taipei',hour:'2-digit',minute:'2-digit',hour12:false}).format(instant);
@@ -14,7 +15,9 @@ export function planSelectedCalendarEvent({entry,event,binding,entries=[],userId
  if(binding){if(!entry||binding.userId!==userId||binding.calendarId!==calendarId||binding.entryId!==entry.cloudId||binding.eventId!==event.id)return error('IDENTITY_CHANGED','事件與工時對應無法確認，原資料保留。');if(event.status==='cancelled')return {action:'remote-deleted',entryId:entry.cloudId,mutations:[]};if(entry.status==='deleted')return {action:'local-deleted',eventId:event.id,mutations:[]};if(event.etag===binding.eventEtag)return {action:'unchanged',mutations:[]};if(!event.etag)return error('STALE','日曆版本不完整，尚未覆寫資料。');if(entry.updatedAt!==binding.entryUpdatedAt){const local=Date.parse(entry.updatedAt),remote=Date.parse(event.updated);if(Number.isFinite(local)&&Number.isFinite(remote)&&local>remote)return {action:'local-newer',mutations:[]};if(!Number.isFinite(local)||!Number.isFinite(remote)||local===remote){const unsupportedKind=supported(event);if(unsupportedKind)return unsupportedKind;const remoteTime=mappedTime(event);if(remoteTime.action)return remoteTime;return bothSidesChanged({entry,event,time:remoteTime,operationId});}}}
  else if(event.status==='cancelled')return {action:'unchanged',mutations:[]};
  const unsupported=supported(event);if(unsupported)return unsupported;const time=mappedTime(event);if(time.action)return time;
- const proposed={...entry,id:entry?.id||operationId,date:time.date,at:time.at,hours:time.hours,title:String(event.summary||'').trim(),note:entry?.note||'',ecpTask:entry?(entry.ecpTask||''):defaultEcpTask,entryType:entry?.entryType||'work',status:entry?.status||'completed',source:entry?.source||'manual'};
+ // Ambiguous new Google events retain the original work-entry behavior. No new blocking workflow.
+ const classification=entry?null:classifyNewEntry(event.summary||'');
+ const proposed={...entry,id:entry?.id||operationId,date:time.date,at:time.at,hours:time.hours,title:String(event.summary||'').trim(),note:entry?.note||'',ecpTask:entry?(entry.ecpTask||''):classification?.type==='leave'?'':defaultEcpTask,entryType:entry?.entryType||(classification?.type==='leave'?'leave':'work'),status:entry?.status||'completed',source:entry?.source||'manual'};
  if(!proposed.id)return error('OPERATION_REQUIRED','新增操作身分尚未建立，尚未同步。');
  const invalid=validate(proposed,entries,profile);if(invalid)return invalid;
  return {action:entry?'update-entry':'create-entry',proposed,sourceEventId:event.id,requiresActualConfirmation:false,mutations:[]};

@@ -42,7 +42,7 @@ def apply(root:Path,source:Path,resources:Path):
         runtime.write_text(text.replace(anchor,replacement,1))
     common=root/'packages/views/common/taskflow-worklog'
     common.mkdir(parents=True,exist_ok=True)
-    for name in ('legacy-rules.mjs','priority-engine.mjs','holiday-reference.mjs','holiday-reference.d.mts','worklog-service.mjs','worklog-service.d.mts','worklog-connection.mjs','worklog-connection.d.mts','taskflow-worklog.tsx','taskflow-worklog-page.tsx','worklog-sync-conflicts.tsx','worklog.css'):
+    for name in ('entry-classification.mjs','entry-classification.d.mts','legacy-rules.mjs','priority-engine.mjs','holiday-reference.mjs','holiday-reference.d.mts','worklog-service.mjs','worklog-service.d.mts','worklog-connection.mjs','worklog-connection.d.mts','taskflow-worklog.tsx','taskflow-worklog-page.tsx','worklog-sync-conflicts.tsx','worklog.css'):
         shutil.copy2(source/name,common/name)
     package=root/'packages/views/package.json';data=json.loads(package.read_text())
     data['exports']['./common/taskflow-worklog']='./common/taskflow-worklog/taskflow-worklog-page.tsx'
