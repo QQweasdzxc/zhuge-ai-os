@@ -535,13 +535,15 @@ Deno.serve(async (req)=>{
     if(action === "getRoundReward") {
       if(!uuid(input.attemptId))return fail(req,'回合識別碼不正確');
       const link=await db('learning_adventure_hero_links','hero_id=eq.'+hero.id+'&world=eq.'+world+'&select=source_learner_id&limit=1');
-      const runs=link.length?await db(world+'_family_attempts','id=eq.'+input.attemptId+'&learner_id=eq.'+link[0].source_learner_id+'&family_id=eq.'+family.sourceFamilyId+'&select=id,result_status,created_at&limit=1'):[];
+      const runs=link.length?await db(world+'_family_attempts','id=eq.'+input.attemptId+'&learner_id=eq.'+link[0].source_learner_id+'&family_id=eq.'+family.sourceFamilyId+'&select=id,result_status,created_at,question_count,correct_count&limit=1'):[];
       if(!runs.length)return fail(req,'找不到自己的回合',403);
       const rows=await db('learning_adventure_coin_ledger','hero_id=eq.'+hero.id+'&world=eq.'+world+'&source_attempt_id=eq.'+input.attemptId+'&kind=eq.qualified_round&select=amount');
       const wallet=await db('rpc/learning_adventure_wallet','','POST',{p_family:family.adventureFamilyId,p_hero:hero.id,p_claim_login:false});
       const day=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei'}).format(new Date(runs[0].created_at));
       const used=await db('learning_adventure_coin_ledger','hero_id=eq.'+hero.id+'&world=eq.'+world+'&day=eq.'+day+'&kind=eq.qualified_round&select=id');
-      return respond(req,{ok:true,amount:rows.reduce((n,x)=>n+Number(x.amount),0),completed:runs[0].result_status==='completed',limitReached:used.length>=3,wallet});
+      const release=await db('learning_adventure_scoring_release','singleton=eq.true&select=starts_at');
+      const run=runs[0];const belowAccuracy=!!release.length&&new Date(run.created_at)>=new Date(release[0].starts_at)&&(!(run.question_count>0)||run.correct_count*100<run.question_count*80);
+      return respond(req,{ok:true,amount:rows.reduce((n,x)=>n+Number(x.amount),0),completed:run.result_status==='completed',belowAccuracy,requiredAccuracy:80,limitReached:used.length>=3,wallet});
     }
     if (action === "startDailyReview") {
       try {
