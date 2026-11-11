@@ -162,7 +162,9 @@ function setSelect(group,key,value){config[key]=value;document.querySelectorAll(
 $('levels').addEventListener('click',e=>{const b=e.target.closest('[data-level]');if(b)setSelect('levels','level',b.dataset.level);});
 $('counts').addEventListener('click',e=>{const b=e.target.closest('[data-count]');if(b)setSelect('counts','count',Number(b.dataset.count));});
 $('modes').addEventListener('click',e=>{const b=e.target.closest('[data-mode]');if(b)setSelect('modes','mode',b.dataset.mode);});
+const GENTLE_CHALLENGES=[{"z":1,"w":"一舉兩得","k":"usage","t":"想一想：哪個最貼切？","q":"小庭騎腳踏車去圖書館，同時完成還書，也有了運動的機會。哪個成語最貼切？","o":["一舉兩得","一心一意","全力以赴","急中生智"],"a":"一舉兩得","e":"同一件事同時帶來兩項好處，是一舉兩得；重點不是專心、用盡力氣或臨時想辦法。"},{"z":1,"w":"急中生智","k":"usage","t":"想一想：哪個最貼切？","q":"表演時道具突然壞了，小安立刻用現有紙箱代替，讓表演繼續。哪個成語最貼切？","o":["急中生智","腳踏實地","言而有信","目不轉睛"],"a":"急中生智","e":"突發狀況中迅速想出辦法，是急中生智；不是單指做事踏實或守信用。"},{"z":2,"w":"亡羊補牢","k":"usage","t":"想一想：哪個最貼切？","q":"班上漏交報名表後，班長馬上做一張確認清單，避免下次再漏。哪個成語最貼切？","o":["亡羊補牢","畫蛇添足","守株待兔","刻舟求劍"],"a":"亡羊補牢","e":"已經發生疏失後採取補救，是亡羊補牢；確認清單有實際用途，不是多此一舉。"},{"z":2,"w":"畫蛇添足","k":"usage","t":"想一想：哪個最貼切？","q":"海報的日期地點都很清楚，小文又把花紋畫滿文字四周，結果資訊反而難看清。哪個成語最貼切？","o":["畫蛇添足","錦上添花","畫龍點睛","雪中送炭"],"a":"畫蛇添足","e":"多做不必要的事而破壞效果，是畫蛇添足；錦上添花和畫龍點睛都應讓作品更好。"},{"z":3,"w":"事半功倍","k":"usage","t":"想一想：哪個最貼切？","q":"小組先把資料分類，再分工整理，用更少時間完成比原先更多的工作。哪個成語最貼切？","o":["事半功倍","事倍功半","南轅北轍","優柔寡斷"],"a":"事半功倍","e":"方法得當，花較少力氣取得更好成果，是事半功倍；不要把它和事倍功半顛倒。"},{"z":3,"w":"未雨綢繆","k":"usage","t":"想一想：哪個最貼切？","q":"露營前還沒下雨，大家就先查避雨地點、備妥防水袋。哪個成語最貼切？","o":["未雨綢繆","臨渴掘井","當機立斷","防微杜漸"],"a":"未雨綢繆","e":"事情尚未發生就先準備，是未雨綢繆；防微杜漸著重阻止剛出現的小問題擴大。"},{"z":4,"w":"因噎廢食","k":"usage","t":"想一想：哪個最貼切？","q":"小宇上台忘詞一次，就說以後完全不參加任何口頭報告。哪個成語最貼切？","o":["因噎廢食","投鼠忌器","杯弓蛇影","捨本逐末"],"a":"因噎廢食","e":"因一次挫折就把原本應做的事完全放棄，是因噎廢食；這裡不是顧忌牽連別人而不敢做。"},{"z":4,"w":"舉一反三","k":"usage","t":"想一想：哪個最貼切？","q":"學會一道長方形面積題後，小晴能自己把相同原理用在其他尺寸的題目。哪個成語最貼切？","o":["舉一反三","望梅止渴","過河拆橋","不脛而走"],"a":"舉一反三","e":"由一個例子推知其他相同道理的情況，是舉一反三；不是只把同一道題再做一次。"},{"z":5,"w":"釜底抽薪","k":"usage","t":"想一想：哪個最貼切？","q":"教室一直有蚊子，大家不只拍打蚊子，還把積水容器清空，減少蚊子滋生。哪個成語最貼切？","o":["釜底抽薪","隔靴搔癢","緣木求魚","抱殘守缺"],"a":"釜底抽薪","e":"從源頭去除問題的根本原因，是釜底抽薪；隔靴搔癢則沒有真正碰到問題要害。"},{"z":5,"w":"牽強附會","k":"usage","t":"想一想：哪個最貼切？","q":"同學只因兩篇故事都有一隻鳥，就硬說作者一定是在寫同一件事，卻拿不出其他證據。哪個成語最貼切？","o":["牽強附會","含沙射影","曲高和寡","旁敲側擊"],"a":"牽強附會","e":"把關聯薄弱的事情硬湊在一起解釋，是牽強附會；題目沒有暗中攻擊或試探別人的意思。"},{"z":6,"w":"矯枉過正","k":"usage","t":"想一想：哪個最貼切？","q":"為了改掉遲到，小傑規定自己每天凌晨三點就起床，結果精神更差。哪個成語最貼切？","o":["矯枉過正","揠苗助長","飲鴆止渴","因陋就簡"],"a":"矯枉過正","e":"糾正原有缺點卻做得超過合理程度，是矯枉過正；這裡著重把改正做過頭。"},{"z":6,"w":"因陋就簡","k":"usage","t":"想一想：哪個最貼切？","q":"學校沒有專業舞台，大家用現有桌椅布置，讓表演仍能順利進行。哪個成語最貼切？","o":["因陋就簡","捉襟見肘","杯水車薪","朝令夕改"],"a":"因陋就簡","e":"利用現有簡陋條件把事情辦好，是因陋就簡；不是只說資源不夠或命令常常改變。"}];
 function chooseQuestion(word,index){
+ if(game&&game.gentle&&index===3){const it=game.gentle,choices=shuffle(it.o);return {kind:it.k,word,title:it.t,prompt:it.q,choices,answer:choices.indexOf(it.a),voice:it.q,exp:it.e};}
  if(config.zone===8&&index>=3&&index%3===2){const it=VILLAGE_EIGHT.find(x=>x.w===word.word);if(it){const choices=shuffle(it.o);return {kind:'usage',word,title:'出村後：把成語用在情境',prompt:it.q,choices,answer:choices.indexOf(it.a),voice:it.q,exp:it.e};}}
   if(game&&game.angleIdx&&game.angleIdx.has(index)){const list=ANGLES.filter(x=>x.w===word.word);if(list.length){const it=list[Math.floor(Math.random()*list.length)];const choices=shuffle(it.o);return {kind:it.k,word,title:it.t,prompt:it.q,choices,answer:choices.indexOf(it.a),voice:it.q,exp:it.e};}}
   const kind=config.mode==='mixed'?game.mixedKinds[index%3]:config.mode;
@@ -183,17 +185,19 @@ function startGame(onlyWords){
   let pool=onlyWords?DATA.filter(v=>onlyWords.includes(v.word)):(window.chengyuAdventurePool?window.chengyuAdventurePool(DATA,config.zone):(config.level==='全部'?DATA:DATA.filter(v=>v.level===config.level)));
   const questions=shuffle(pool).slice(0,onlyWords?pool.length:Math.min(config.count,pool.length));
   if(!questions.length)return;
+  let gentle=null;
+  if(!onlyWords&&questions.length>=5){const eligible=GENTLE_CHALLENGES.filter(x=>(x.z===(config.zone||1)||(config.zone||1)>=7)&&pool.some(w=>w.word===x.w));if(eligible.length){gentle=shuffle(eligible)[0];const found=questions.findIndex(w=>w.word===gentle.w);if(found>=0){[questions[3],questions[found]]=[questions[found],questions[3]]}else questions[3]=pool.find(w=>w.word===gentle.w);}}
   const angleIdx=new Set();
   if(!onlyWords&&config.mode==='mixed'){
     const spare=shuffle(pool.filter(v=>ANGLE_WORDS.has(v.word)&&!questions.some(q=>q.word===v.word)));
     for(let pos=5;pos<questions.length;pos+=3){
       if(ANGLE_WORDS.has(questions[pos].word)){angleIdx.add(pos);continue;}
-      const alt=questions.findIndex((q,k)=>k!==pos&&k%3!==2&&ANGLE_WORDS.has(q.word));
+      const alt=questions.findIndex((q,k)=>k!==pos&&k!==3&&k%3!==2&&ANGLE_WORDS.has(q.word));
       if(spare.length){questions[pos]=spare.pop();angleIdx.add(pos);}
       else if(alt>=0){const t=questions[pos];questions[pos]=questions[alt];questions[alt]=t;angleIdx.add(pos);}
     }
   }
-  game={items:questions,index:0,correct:0,wrong:[],hearts:3,answered:false,angleIdx,mixedKinds:shuffle(['meaning','context','reverse']),angleOk:new Set()};lastWrong=[];
+  game={items:questions,index:0,correct:0,wrong:[],hearts:3,answered:false,angleIdx,gentle,mixedKinds:shuffle(['meaning','context','reverse']),angleOk:new Set()};lastWrong=[];
   if(window.chengyuCloudStart){window.chengyuCloudStart(game);game.cloudLevel=config.level;game.cloudMode=config.mode;game.cloudZone=onlyWords?null:(config.zone||null);}
   show('quiz');renderQuestion();
 }
