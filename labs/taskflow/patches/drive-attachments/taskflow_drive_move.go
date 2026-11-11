@@ -28,6 +28,26 @@ func (s *TaskFlowDriveStorage) FileUnderTaskFolder(ctx context.Context, key, lab
 	if !validTaskFlowDriveObjectKey(key) || label == "" {
 		return errors.New("invalid attachment key or task label")
 	}
+	return s.fileUnderPrivateFolder(ctx, key, label)
+}
+
+// FileWorkspaceIcon is deliberately separate from user-supplied task labels.
+func (s *TaskFlowDriveStorage) FileWorkspaceIcon(ctx context.Context, key string) error {
+	if !validTaskFlowDriveObjectKey(key) {
+		return errors.New("invalid workspace icon key")
+	}
+	return s.fileUnderPrivateFolder(ctx, key, WorkspaceIconFolderName)
+}
+
+func (s *TaskFlowDriveStorage) fileUnderPrivateFolder(ctx context.Context, key, label string) error {
+	if s.readOnly {
+		return errors.New("Drive storage is read-only")
+	}
+	ctx, release, err := s.BeginTransfer(ctx)
+	if err != nil {
+		return err
+	}
+	defer release()
 	if v, ok := s.filed.Load(key); ok && v == label {
 		return nil
 	}
@@ -41,7 +61,7 @@ func (s *TaskFlowDriveStorage) FileUnderTaskFolder(ctx context.Context, key, lab
 	if b.Deleted || !b.Ready || !validDriveID(b.FileID) {
 		return nil
 	}
-	target, e := s.ensureTaskFolder(ctx, label)
+	target, e := s.ensurePrivateFolder(ctx, label)
 	if e != nil {
 		return e
 	}
