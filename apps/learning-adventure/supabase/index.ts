@@ -144,6 +144,19 @@ function wrongPriority(attempts, key) {
       r: Math.random()
     })).sort((a, b)=>b.wrong - a.wrong || a.r - b.r).map((x)=>x.k);
 }
+// Wrong answers and collected items share one priority pool: alternate them (wrong first), no duplicates.
+function mergePriority(wrong, collected) {
+  const out = [], seen = new Set();
+  for (let i = 0; i < Math.max(wrong.length, collected.length); i++) {
+    for (const k of [wrong[i], collected[i]]) {
+      if (k && !seen.has(k)) {
+        seen.add(k);
+        out.push(k);
+      }
+    }
+  }
+  return out;
+}
 function pickWithPriority(pool, count, priority, key) {
   const cap = Math.ceil(count * 0.4);
   const byKey = new Map(pool.map((p)=>[key(p), p]));
@@ -151,7 +164,7 @@ function pickWithPriority(pool, count, priority, key) {
   for (const k of priority) {
     if (first.length >= cap) break;
     const p = byKey.get(k);
-    if (p) first.push(p);
+    if (p && !first.includes(p)) first.push(p);
   }
   const rest = shuffled(pool.filter((p)=>!first.includes(p)));
   return shuffled(first).concat(rest).slice(0, count);
@@ -267,7 +280,8 @@ async function buildQuestions(family, hero) {
     }
     const bank = await db("learning_adventure_exam_bank", "zone=lte." + Math.min(6, maxZone) + "&select=word,meaning,example,zone&limit=200");
     const wrongAttempts = linked.length ? await db("chengyu_family_attempts", "learner_id=eq." + linked[0].source_learner_id + "&select=answers&order=created_at.desc&limit=100") : [];
-    quiz.push(...idiomQuiz(bank, nChengyu, wrongPriority(wrongAttempts, (w)=>w)));
+    const collectedC = await db("learning_adventure_collections", "hero_id=eq." + hero.id + "&world=eq.chengyu&select=item_key&order=created_at.desc&limit=200");
+    quiz.push(...idiomQuiz(bank, nChengyu, mergePriority(wrongPriority(wrongAttempts, (w)=>w), shuffled(collectedC.map((x)=>x.item_key)))));
   }
   if (nVocab) {
     const b = await db("learning_adventure_family_bindings", "world=eq.vocab&adventure_family_id=eq." + family.adventureFamilyId + "&select=source_family_id&limit=1");
@@ -291,7 +305,8 @@ async function buildQuestions(family, hero) {
       });
     }
     const vocabAttempts = playerLinks.length ? await db("vocab_family_attempts", "learner_id=eq." + playerLinks[0].source_learner_id + "&select=answers&order=created_at.desc&limit=100") : [];
-    quiz.push(...englishQuiz(words, nVocab, wrongPriority(vocabAttempts, (w)=>w.toLowerCase())));
+    const collectedV = await db("learning_adventure_collections", "hero_id=eq." + hero.id + "&world=eq.vocab&select=item_key&order=created_at.desc&limit=200");
+    quiz.push(...englishQuiz(words, nVocab, mergePriority(wrongPriority(vocabAttempts, (w)=>w.toLowerCase()), shuffled(collectedV.map((x)=>x.item_key)))));
   }
   if (quiz.length !== 10) throw new Error("升級試煉題數不完整");
   return shuffled(quiz);
@@ -672,6 +687,45 @@ Deno.serve(async (req)=>{
       });
       if (!granted.ok) return fail(req, granted.error || "金幣未送出");
       return respond(req, granted);
+    }
+    if (action === "collectItem" || action === "uncollectItem" || action === "listCollections") {
+      const cw = family.world;
+      if (action === "listCollections") {
+        const rows = await db("learning_adventure_collections", "hero_id=eq." + hero.id + "&world=eq." + cw + "&select=item_key,label,created_at&order=created_at.desc&limit=200");
+        return respond(req, {
+          ok: true,
+          world: cw,
+          items: rows
+        });
+      }
+      const raw = safe(input.item, 60);
+      if (!raw) return fail(req, "請選擇要收藏的項目");
+      const key = cw === "vocab" ? raw.toLowerCase() : raw;
+      if (action === "uncollectItem") {
+        await db("learning_adventure_collections", "hero_id=eq." + hero.id + "&world=eq." + cw + "&item_key=eq." + encodeURIComponent(key), "DELETE");
+        return respond(req, { ok: true, removed: key });
+      }
+      let label = "";
+      if (cw === "chengyu") {
+        const hit = await db("learning_adventure_exam_bank", "word=eq." + encodeURIComponent(raw) + "&select=word&limit=1");
+        if (hit.length) label = hit[0].word;
+      } else {
+        const b = await db("learning_adventure_family_bindings", "world=eq.vocab&adventure_family_id=eq." + family.adventureFamilyId + "&select=source_family_id&limit=1");
+        if (b.length) {
+          const units = await db("vocab_family_units", "family_id=eq." + b[0].source_family_id + "&select=words&limit=150");
+          for (const u of units) for (const w of Array.isArray(u.words) ? u.words : []) if (!label && String(w.en || "").trim().toLowerCase() === key) label = safe(w.en, 50);
+        }
+      }
+      if (!label) return fail(req, "這個項目不在題庫裡，無法收藏");
+      const res = await db("rpc/learning_adventure_collect", "", "POST", {
+        p_family: family.adventureFamilyId,
+        p_hero: hero.id,
+        p_world: cw,
+        p_key: key,
+        p_label: label
+      });
+      if (!res.ok) return fail(req, res.error || "收藏未完成");
+      return respond(req, res);
     }
     if (action === "listOwnRedemptions") {
       const redemptions = await db("learning_adventure_redemptions", "adventure_family_id=eq." + family.adventureFamilyId + "&hero_id=eq." + hero.id + "&select=id,title,price,status,created_at,decided_at&order=created_at.desc&limit=100");
