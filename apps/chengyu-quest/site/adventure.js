@@ -62,6 +62,7 @@ function render(){
 window.chengyuAdventurePool=(all,zone)=>pool(Number(zone)||1);
 window.chengyuAdventureCanStart=(review)=>{
  if(Array.isArray(review))return true;
+ config.mode='mixed';
  if(config.zone===8&&!window.learningVillagePassed){alert('通過21星出村考驗後才開放第八關');return false}
  if(config.zone!==8&&config.zone>progress().next){alert('請先通過前一關90%總結測驗！');return false}
  return true;
