@@ -7,6 +7,16 @@ const currentUserUuid=()=>session?.user_uuid||session?.uuid||'';
 const fetch=context.fetch||globalThis.fetch.bind(globalThis);
 const saveAll=()=>{};
 const setWorkModels=items=>{DataService.workModelsState=items;};
+// Source: shared/app-config.js :: leaveTypeVocabulary
+const leaveTypeVocabulary = ["特休", "病假", "事假", "公假", "婚假", "喪假", "補休", "育嬰假", "生理假", "家庭照顧假", "請假"];
+
+// Source: shared/utils/shared-utils.js :: entryTypeFromDescription
+function entryTypeFromDescription(value = "") {
+  const text = String(value || "").trim();
+  if (!text) return "work";
+  return leaveTypeVocabulary.some(alias => text.includes(alias)) ? "leave" : "work";
+}
+
 // Source: modules/worklog/worklog-app.js :: worklogDescriptionLength
 function worklogDescriptionLength(value = "") {
   return Array.from(String(value || "")).length;
@@ -1066,16 +1076,6 @@ function parseAssistantPeriodDuration(text = "", hasSpecificTime = false) {
   return null;
 }
 
-// Source: shared/app-config.js :: leaveTypeVocabulary
-const leaveTypeVocabulary = ["特休", "病假", "事假", "公假", "婚假", "喪假", "補休", "育嬰假", "生理假", "家庭照顧假", "請假"];
-
-// Source: shared/utils/shared-utils.js :: entryTypeFromDescription
-function entryTypeFromDescription(value = "") {
-  const text = String(value || "").trim();
-  if (!text) return "work";
-  return leaveTypeVocabulary.some(alias => text.includes(alias)) ? "leave" : "work";
-}
-
 // Source: modules/worklog/worklog-app.js :: stripAssistantSlots
 function stripAssistantSlots(raw = "") {
   return String(raw || "")
@@ -1604,5 +1604,5 @@ async function exportByProfile(rows, profileConfig, month = selectedMonth) {
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
-return {validateEntry,resolveWorklogTime,normalizeWorkMemoryObject,makeSuggestions,entryFromCloud,workLogRowsForEcp,profileFromCloud,workProfileFromCloud,workProfileMissingFields,createEntry,recordSuggestionMetric,eventTypeCode,parseWorklogIntentLocal,buildAssistantEntry,exportByProfile,models:()=>DataService.workModelsState,feedback:()=>feedback};
+return {entryTypeFromDescription,validateEntry,resolveWorklogTime,normalizeWorkMemoryObject,makeSuggestions,entryFromCloud,workLogRowsForEcp,profileFromCloud,workProfileFromCloud,workProfileMissingFields,createEntry,recordSuggestionMetric,eventTypeCode,parseWorklogIntentLocal,buildAssistantEntry,exportByProfile,models:()=>DataService.workModelsState,feedback:()=>feedback};
 }

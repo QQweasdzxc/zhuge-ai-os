@@ -11,7 +11,12 @@
     "typecheck": "tsc -p tsconfig.json",
     "test:native-calendar": "node native-calendar.cjs",
     "test:mobile-editor": "node mobile-editor.cjs",
-    "test:conflicts": "node conflicts.cjs"
+    "test:conflicts": "node conflicts.cjs",
+    "test:editor-parity": "node editor-parity.cjs",
+    "test:ecp-inline": "node ecp-inline.cjs",
+    "test:task-markers": "node task-markers.cjs",
+    "test:export-parity": "node export-parity.cjs",
+    "test:learning-parity": "node learning-parity.cjs"
   },
   "devDependencies": {
     "@types/react": "19.2.14",
