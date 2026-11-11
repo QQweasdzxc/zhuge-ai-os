@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Check, Pencil, Settings2, X } from "lucide-react";
+import { Check, Pencil, Settings2, X, ArrowUp, ArrowDown } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@multica/ui/components/ui/button";
@@ -34,6 +34,8 @@ import {
 } from "@multica/core/issue-statuses/taskflow-project-status-scope";
 import type { IssueStatusCategory } from "@multica/core/types";
 import { useT } from "../../i18n";
+import { useStatusLabel } from "../utils/status-label";
+import { TaskFlowStatusDragHandle } from "./taskflow-status-drag-handle";
 
 const CATEGORIES: IssueStatusCategory[] = ["unstarted", "started", "done", "closed"];
 
@@ -46,6 +48,7 @@ export function TaskFlowProjectStatusSettings({ projectId }: { projectId: string
   const canManageStatuses = role === "owner" || role === "admin";
   const catalog = useIssueStatuses(workspaceId);
   const settings = useTaskFlowProjectStatusSettings();
+  const labelOf = useStatusLabel(workspaceId);
   const createStatus = useCreateIssueStatus();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -96,6 +99,14 @@ export function TaskFlowProjectStatusSettings({ projectId }: { projectId: string
     }
   };
 
+  const moveStatus = async (key: string, offset: number) => {
+    const keys = catalog.activeStatuses.map(status => status.key);
+    const from = keys.indexOf(key), to = from + offset;
+    if (from < 0 || to < 0 || to >= keys.length) return;
+    keys.splice(to, 0, ...keys.splice(from, 1));
+    try { await settings.setStatusOrder(keys); } catch { toast.error(t(($) => $.taskflow_project_status.save_failed)); }
+  };
+
   const saveStatusName = async (statusKey: string) => {
     const normalizedName = editingName.trim();
     if (!normalizedName || normalizedName.length > 64 || settings.isLoading) return;
@@ -124,7 +135,8 @@ export function TaskFlowProjectStatusSettings({ projectId }: { projectId: string
         <span className="hidden sm:inline">{t(($) => $.taskflow_project_status.button)}</span>
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[85dvh] w-[min(32rem,calc(100vw-2rem))] overflow-y-auto">
+        <DialogContent showCloseButton={false} className="max-h-[85dvh] w-[min(32rem,calc(100vw-2rem))] overflow-y-auto">
+          <Button type="button" variant="ghost" size="icon-sm" className="absolute top-2 right-2" aria-label={t(($) => $.taskflow_project_status.done)} onClick={() => setOpen(false)}><X className="size-4" /></Button>
           <DialogHeader>
             <DialogTitle>{t(($) => $.taskflow_project_status.title)}</DialogTitle>
             <DialogDescription>{t(($) => $.taskflow_project_status.description)}</DialogDescription>
@@ -136,7 +148,8 @@ export function TaskFlowProjectStatusSettings({ projectId }: { projectId: string
               const projectOwned = taskFlowProjectIdFromStatusKey(status.key) === projectId.toLowerCase();
               const checkboxId = `taskflow-status-${status.id}`;
               return (
-                <div key={status.key} className="flex min-h-10 items-center gap-2 rounded-md px-2 hover:bg-muted/50">
+                <div key={status.key} data-taskflow-status-header={status.key} className="flex min-h-10 items-center gap-2 rounded-md px-2 hover:bg-muted/50">
+                  <TaskFlowStatusDragHandle status={status.key} />
                   <input
                     id={checkboxId}
                     type="checkbox"
@@ -144,7 +157,7 @@ export function TaskFlowProjectStatusSettings({ projectId }: { projectId: string
                     disabled={settings.isLoading}
                     onChange={(event) => void saveVisibility(status.key, event.currentTarget.checked)}
                     aria-label={t(($) => $.taskflow_project_status.visibility, {
-                      name: settings.statusLabels[status.key] ?? status.name,
+                      name: labelOf(status.key),
                     })}
                     className="size-4 shrink-0 accent-primary"
                   />
@@ -166,9 +179,11 @@ export function TaskFlowProjectStatusSettings({ projectId }: { projectId: string
                     </div>
                   ) : (
                     <label htmlFor={checkboxId} className="min-w-0 flex-1 truncate py-1 text-body">
-                      {settings.statusLabels[status.key] ?? status.name}
+                      {labelOf(status.key)}
                     </label>
                   )}
+                  <Button type="button" variant="ghost" size="icon-sm" aria-label={t(($) => $.taskflow_project_status.move_up, { name: labelOf(status.key) })} disabled={settings.isLoading || catalog.activeStatuses[0]?.key === status.key} onClick={() => void moveStatus(status.key, -1)}><ArrowUp className="size-3.5" /></Button>
+                  <Button type="button" variant="ghost" size="icon-sm" aria-label={t(($) => $.taskflow_project_status.move_down, { name: labelOf(status.key) })} disabled={settings.isLoading || catalog.activeStatuses.at(-1)?.key === status.key} onClick={() => void moveStatus(status.key, 1)}><ArrowDown className="size-3.5" /></Button>
                   {status.is_system && (
                     <span className="shrink-0 text-caption text-muted-foreground">{t(($) => $.taskflow_project_status.built_in)}</span>
                   )}
@@ -203,7 +218,7 @@ export function TaskFlowProjectStatusSettings({ projectId }: { projectId: string
                         aria-label={t(($) => $.taskflow_project_status.edit_status)}
                         onClick={() => {
                           setEditingKey(status.key);
-                          setEditingName(settings.statusLabels[status.key] ?? status.name);
+                          setEditingName(labelOf(status.key));
                         }}
                       >
                         <Pencil className="size-4" />
