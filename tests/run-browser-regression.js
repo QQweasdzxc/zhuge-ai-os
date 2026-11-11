@@ -7,6 +7,7 @@ const browserTests = [
   "tests/learning-village-exam.test.cjs",
   "tests/learning-stage-exam.test.cjs",
   "tests/learning-stage-types.test.cjs",
+  "tests/learning-handwriting-browser.test.cjs",
   "tests/site-integration-browser.test.js",
   "tests/site-integration-contract.test.js",
   "tests/release-consistency.test.js",
