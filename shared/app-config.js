@@ -1,7 +1,7 @@
 // P5.2A-1 Foundation Split: configuration and static constants.
-const VERSION = "0.9.0-alpha.9.190";
+const VERSION = "0.9.0-alpha.9.192";
 const RELEASE_VERSION = VERSION;
-const BUILD_TIME = "20261110-2012";
+const BUILD_TIME = "20261111-0922";
 const DEPLOY_SOURCE = `worklog-app.js?v=${BUILD_TIME}`;
 const KNOWLEDGE_DEBUG_MODE = (() => {
   try { return new URLSearchParams(location.search).has("debugKnowledge") || localStorage.getItem("zhuge_debug_knowledge") === "1"; }
