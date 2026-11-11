@@ -562,37 +562,40 @@ async function request(action,args={},id=identity()){
 }
 function own(){return plan?.tasks.find(x=>x.world===world)}
 /* Collections: star toggle for one idiom / word. Server stores per hero and per island; no rewards involved. */
-const col={set:new Set(),id:'',loaded:false,busy:false,failed:false};
+const col={set:new Set(),id:'',loaded:false,busy:false,failed:false,loading:'',epoch:0};
 function colKey(v){return world==='vocab'?String(v).trim().toLowerCase():String(v).trim()}
 function colStatus(t){for(const el of document.querySelectorAll('[data-collect-status]'))if(el.textContent!==t)el.textContent=t}
 function colPaint(){
  const id=identity();
  for(const b of document.querySelectorAll('[data-collect]')){
-  const on=col.loaded&&col.set.has(colKey(b.dataset.collect));
-  const t=!id?'☆ 收藏（選擇冒險者後可用）':col.failed?'☆ 收藏（暫時無法同步）':!col.loaded?'☆ 收藏（讀取中…）':on?'★ 已收藏，再按一次移除':'☆ 收藏';
+  const ready=col.loaded&&col.id===id;
+  const on=ready&&col.set.has(colKey(b.dataset.collect));
+  const t=!id?'☆ 收藏（選擇冒險者後可用）':col.id===id&&col.failed?'☆ 收藏（暫時無法同步）':!ready?'☆ 收藏（讀取中…）':on?'★ 已收藏，再按一次移除':'☆ 收藏';
   if(b.textContent!==t)b.textContent=t;
   const p=String(on);if(b.getAttribute('aria-pressed')!==p)b.setAttribute('aria-pressed',p);
-  const d=!id||!col.loaded||col.busy;if(b.disabled!==d)b.disabled=d;
+  const d=!id||!ready||col.busy;if(b.disabled!==d)b.disabled=d;
  }
 }
 async function colLoad(){
  const id=identity();if(!id||!tokenValue()||col.busy)return;
- if(col.id===id&&(col.loaded||col.failed))return;
- col.id=id;col.loaded=false;col.failed=false;col.set=new Set();
- try{const d=await request('listCollections',{},id);if(identity()!==id)return;col.set=new Set((d.items||[]).map(x=>x.item_key));col.loaded=true}catch(e){if(identity()===id)col.failed=true}
- colPaint();
+ if(col.loading===id||col.id===id&&(col.loaded||col.failed))return;
+ const epoch=++col.epoch;col.loading=id;col.id=id;col.loaded=false;col.failed=false;col.set=new Set();
+ try{const d=await request('listCollections',{},id);if(identity()!==id||col.epoch!==epoch)return;col.set=new Set((d.items||[]).map(x=>x.item_key));col.loaded=true}
+ catch(e){if(identity()===id&&col.epoch===epoch)col.failed=true}
+ finally{if(col.epoch===epoch)col.loading='';colPaint()}
 }
 document.addEventListener('click',async e=>{
  const b=e.target.closest('[data-collect]');if(!b)return;e.preventDefault();
- if(col.busy||!col.loaded)return;
+ if(col.busy||!col.loaded||col.id!==identity())return;
  const id=identity(),item=b.dataset.collect,key=colKey(item),on=col.set.has(key);
- col.busy=true;colPaint();
- try{await request(on?'uncollectItem':'collectItem',{item},id);if(identity()===id){if(on)col.set.delete(key);else col.set.add(key);colStatus(on?'已從收藏移除。':'已收藏。')}}
- catch(err){colStatus('收藏未完成：'+(err.message||'暫時無法同步'))}
+ const epoch=col.epoch;col.busy=true;colPaint();
+ try{await request(on?'uncollectItem':'collectItem',{item},id);if(identity()===id&&col.epoch===epoch){if(on)col.set.delete(key);else col.set.add(key);colStatus(on?'已從收藏移除。':'已收藏。')}}
+ catch(err){if(identity()===id&&col.epoch===epoch)colStatus('收藏未完成：'+(err.message||'暫時無法同步'))}
  finally{col.busy=false;colPaint()}
 });
 new MutationObserver(()=>{if(document.querySelector('[data-collect]')){colLoad();colPaint()}}).observe(document.body,{childList:true,subtree:true});
-window.learningCollection={refresh:()=>{col.loaded=false;col.failed=false;col.id='';return colLoad()},paint:colPaint};
+window.learningCollection={refresh:()=>{++col.epoch;col.loading='';col.loaded=false;col.failed=false;col.id='';return colLoad()},paint:colPaint};
+
 function row(world,mode,done,preview){
  const a=document.createElement('a');a.className='quest-mini-row'+(done?' done':'');a.href=host.childLink(world)+'&t='+(preview?'preview':mode);a.dataset.dailyPart=world+':'+mode;
  const icon=document.createElement('span');icon.className='qmr-icon';icon.textContent=done?'✓':world==='vocab'?'英':'成';
@@ -661,4 +664,4 @@ setInterval(()=>{refresh();if(!hub)renderIsland()},2500);refresh();
 
 </script>
 </body>
-</html>
+  </html>
