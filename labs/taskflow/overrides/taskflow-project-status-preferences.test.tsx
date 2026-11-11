@@ -75,6 +75,8 @@ function Probe({ projectId, statusKey }: { projectId: string; statusKey: string 
       <button type="button" onClick={() => void settings.setStatusVisible(statusKey, true)}>
         Restore status
       </button>
+      <output data-testid="order">{settings.statusOrder.join(",")}</output>
+      <button onClick={() => void settings.setStatusOrder(["todo", "backlog", statusKey])}>Save order</button>
       <output data-testid="project">{projectId}</output>
     </>
   );
@@ -149,3 +151,17 @@ describe("TaskFlow Project status label persistence", () => {
     projectA.unmount();
   });
 });
+
+ describe("Project order persistence", () => {
+ beforeEach(() => {state.preferences.clear();state.preferences.set(PROJECT_A,preference(PROJECT_A));state.preferences.set(PROJECT_B,preference(PROJECT_B));state.get.mockReset().mockImplementation(async ({scope_id}:{scope_id:string})=>structuredClone(state.preferences.get(scope_id)));state.put.mockReset().mockImplementation(async (value:Preference)=>{state.preferences.set(value.scope_id,structuredClone(value));return structuredClone(value);});});
+ it("stores only this project's order, preserves unrelated fields and survives remount", async () => {
+ const view=mount(PROJECT_A,KEY_A);
+ fireEvent.click(screen.getByText("Save order"));
+ await waitFor(()=>expect(state.preferences.get(PROJECT_A)?.prefs.taskflow_project_status_order).toEqual(["todo","backlog",KEY_A]));
+ expect(state.preferences.get(PROJECT_A)?.prefs.order).toEqual(["board"]);
+ expect(state.preferences.get(PROJECT_A)?.prefs.preserved_setting).toBe("keep");
+ expect(state.preferences.get(PROJECT_B)?.prefs.taskflow_project_status_order).toBeUndefined();
+ view.unmount(); mount(PROJECT_A,KEY_A);
+ await waitFor(()=>expect(screen.getByTestId("order").textContent).toBe("todo,backlog,"+KEY_A));
+ });
+ });
