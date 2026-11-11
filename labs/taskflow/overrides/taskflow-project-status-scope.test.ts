@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  orderTaskFlowStatuses,
   encodeTaskFlowProjectStatusKey,
   excludeTaskFlowProjectStatuses,
   isTaskFlowProjectStatusKey,
@@ -110,3 +111,18 @@ describe("TaskFlow Project status scope", () => {
     expect(excludeTaskFlowProjectStatuses([])).toEqual([]);
   });
 });
+
+ describe("Project-only column ordering", () => {
+ it("keeps defaults until an order exists and appends new entries without losing hidden ones", () => {
+ const entries = [{key:"backlog"},{key:"todo"},{key:"in_review"},{key:"new"}];
+ expect(orderTaskFlowStatuses(entries, []).map(x=>x.key)).toEqual(entries.map(x=>x.key));
+ expect(orderTaskFlowStatuses(entries, ["in_review","todo","todo","ghost"]).map(x=>x.key)).toEqual(["in_review","todo","backlog","new"]);
+ });
+ it("does not change another project or the workspace default", () => {
+ const catalog=buildIssueStatusCatalog([status("backlog",true),status("todo",true)]);
+ const before=catalog.activeStatuses.map(s=>s.key);
+ expect(scopeTaskFlowStatusCatalog(catalog,PROJECT_A,{},["todo","backlog"]).activeStatuses.map(s=>s.key)).toEqual(["todo","backlog"]);
+ expect(scopeTaskFlowStatusCatalog(catalog,PROJECT_B).activeStatuses.map(s=>s.key)).toEqual(before);
+ expect(scopeTaskFlowStatusCatalog(catalog,null,{},["todo","backlog"]).activeStatuses.map(s=>s.key)).toEqual(before);
+ });
+ });
