@@ -66,7 +66,7 @@ Deno.serve(async req=>{
    if(!answers.length||answers.length>95||!Number.isInteger(planned)||planned<answers.length||planned>95)return fail("題目數量不正確");
    if(!["completed","game_over"].includes(status))return fail("闖關結果不正確");
    for(const a of answers){
-    if(!a||typeof a.word!=="string"||a.word.length>24||!["meaning","context","reverse"].includes(a.kind)||typeof a.correct!=="boolean"||typeof a.selected!=="string"||a.selected.length>350||typeof a.expected!=="string"||a.expected.length>350)return fail("答題紀錄格式不正確");
+    if(!a||typeof a.word!=="string"||a.word.length>24||!["meaning","context","reverse","sound","shape","radical","usage"].includes(a.kind)||typeof a.correct!=="boolean"||typeof a.selected!=="string"||a.selected.length>350||typeof a.expected!=="string"||a.expected.length>350)return fail("答題紀錄格式不正確");
    }
    const correct=answers.filter(a=>a.correct).length;
    if(status==="completed"&&answers.length!==planned)return fail("尚未完成全部題目");
