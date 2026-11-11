@@ -26,27 +26,35 @@ jobs:
           test "$(git rev-parse HEAD:labs/taskflow)" = "$(git rev-parse 347a1b8cc3ced2bdc29987ad64bf06226e56385e:labs/taskflow)"
           git apply --check 2-tf-workspace-icon-filing-source-v2.patch
           git apply 2-tf-workspace-icon-filing-source-v2.patch
+          test "$(sha256sum 1-tf-workspace-icon-ui-tests.patch | cut -d' ' -f1)" = 5aeaa207bd1ab4acee088220877c1ede4ca6f0f48a085a3113ca7d835fc1f95f
+          git apply --check 1-tf-workspace-icon-ui-tests.patch
+          git apply 1-tf-workspace-icon-ui-tests.patch
           git diff --check
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add labs/taskflow
           git commit -m 'Add explicit private workspace icon filing and regression checks'
-          git push origin HEAD:refs/heads/review/tf-workspace-icon-api-v2-20261111
+          git push origin HEAD:refs/heads/review/tf-workspace-icon-api-v3-20261111
           backend=$(git rev-parse HEAD)
           echo "backend=$backend" >> "$GITHUB_OUTPUT"
           git switch --detach 7390d1f0111bb4d3e8dc19807013aae7c67e1838
           git show "$backend:labs/taskflow/patches/apply-taskflow-workspace-icon-web.py" > labs/taskflow/patches/apply-taskflow-workspace-icon-web.py
+          git show "$backend:labs/taskflow/overrides/taskflow-workspace-icon-action.test.tsx" > labs/taskflow/overrides/taskflow-workspace-icon-action.test.tsx
           python3 - <<'PY'
           from pathlib import Path
           p=Path('labs/taskflow/Dockerfile.web');s=p.read_text();a='FROM node:22-alpine AS deps'
           assert s.count(a)==1
           s=s.replace(a,'COPY labs/taskflow/patches/apply-taskflow-workspace-icon-web.py /tmp/apply-taskflow-workspace-icon-web.py\nRUN python3 /tmp/apply-taskflow-workspace-icon-web.py --root /src\n\n'+a)
+          a='COPY labs/taskflow/overrides/taskflow-attachment-preview-token-auth.test.tsx'
+          assert s.count(a)==1
+          idx=s.index(a)
+          s=s[:idx]+'COPY labs/taskflow/overrides/taskflow-workspace-icon-action.test.tsx /app/packages/views/settings/components/taskflow-workspace-icon-action.test.tsx\nRUN pnpm --filter @multica/views exec vitest run settings/components/taskflow-workspace-icon-action.test.tsx\n'+s[idx:]
           p.write_text(s)
           PY
           git diff --check
           git add labs/taskflow
           git commit -m 'Add only workspace icon filing action on preserved live frontend'
-          git push origin HEAD:refs/heads/review/tf-workspace-icon-web-v2-20261111
+          git push origin HEAD:refs/heads/review/tf-workspace-icon-web-v3-20261111
           echo "web=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
   image:
     needs: source
