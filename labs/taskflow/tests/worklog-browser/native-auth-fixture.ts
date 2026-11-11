@@ -1,0 +1,1 @@
+import{useSyncExternalStore}from'react';const state={user:{id:'11111111-1111-4111-8111-111111111111'},status:'authenticated'};export function useAuthStore<T>(selector:(s:typeof state)=>T):T{return useSyncExternalStore(()=>()=>{},()=>selector(state),()=>selector(state))}
