@@ -1,0 +1,2513 @@
+diff --git a/docs/ops/tq6-worker-v11/README.md b/docs/ops/tq6-worker-v11/README.md
+new file mode 100644
+index 00000000..478a232e
+--- /dev/null
++++ b/docs/ops/tq6-worker-v11/README.md
+@@ -0,0 +1,21 @@
++# WorkLog worker v11 deployment record
++
++Exact uploaded single-file bundle is `index.ts`. SHA-256 is recorded in
++`deployment.json`, alongside the distinct platform bundle hash read back after
++deployment. Source commit is the qualified native candidate, not a main merge.
++
++The same existing function was updated after the private conflict table was
++created. No Google OAuth settings, calendar selection, credentials, scheduler,
++API deployment or automatic-deploy settings were changed by this update.
++Owner-authenticated status and conflict reads returned HTTP 200 after deploy;
++status remained connected and no conflict was present. These reads do not prove
++Google push delivery or full two-way live-edit acceptance.
++
++Added owner-only durable conflict review, guarded version choices and deletion
++race protection. Public owner API still verifies bearer and approved access
++within the function; only its outer platform JWT check remains disabled so
++Google notifications can reach the nonce-verified push receiver.
++
++Original scope excludes deletion cascade, historical backfill and recurring or
++all-day event conversion. No real or synthetic work record was edited for this
++deployment check.
+diff --git a/docs/ops/tq6-worker-v11/deployment.json b/docs/ops/tq6-worker-v11/deployment.json
+new file mode 100644
+index 00000000..4d51e358
+--- /dev/null
++++ b/docs/ops/tq6-worker-v11/deployment.json
+@@ -0,0 +1,13 @@
++{
++  "slug": "worklog-google-sync",
++  "version": 11,
++  "status": "ACTIVE",
++  "verify_jwt": false,
++  "ezbr_sha256": "306e0a039e3e8b8eccdcd92ca7364c8fa7658e929a67926c1f70c8ebf635653b",
++  "source_commit": "5d1bc8e86ea041041197a8c196895adc83d8bec8",
++  "uploaded_source_sha256": "e59e03b29301a47913c3be22d2a9ecc5c1088b161cc371c2899db6a5e93bbe55",
++  "readback_at": "2026-11-11T16:57:48Z",
++  "owner_status_http": 200,
++  "owner_conflicts_http": 200,
++  "conflict_count": 0
++}
+diff --git a/docs/ops/tq6-worker-v11/index.ts b/docs/ops/tq6-worker-v11/index.ts
+new file mode 100644
+index 00000000..d617ae23
+--- /dev/null
++++ b/docs/ops/tq6-worker-v11/index.ts
+@@ -0,0 +1,2461 @@
++// ../../../../modules/worklog/native/server/calendar-push.mjs
++async function nonceHash(value, crypto = globalThis.crypto) {
++  return [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)))].map((x) => x.toString(16).padStart(2, "0")).join("");
++}
++var CalendarPush = class {
++  constructor({ admin, provider, store, owner, calendar, address, crypto = globalThis.crypto, now = Date.now }) {
++    Object.assign(this, { admin, provider, store, owner, calendar, address, crypto, now });
++    const url = new URL(address);
++    if (url.protocol !== "https:" || url.username || url.password || url.hash) throw new Error("HTTPS push receiver required");
++  }
++  query() {
++    return "user_uuid=eq." + encodeURIComponent(this.owner) + "&calendar_id=eq." + encodeURIComponent(this.calendar);
++  }
++  async current() {
++    return (await this.admin.request("worklog_google_channels?select=*&" + this.query() + "&limit=1"))[0] || null;
++  }
++  async ensure() {
++    await this.store.assertLease();
++    const old = await this.current();
++    if (old && Date.parse(old.expires_at) > this.now() + 864e5) return { status: "active", expiresAt: old.expires_at };
++    const id = this.crypto.randomUUID(), nonce = this.crypto.randomUUID() + this.crypto.randomUUID();
++    const channel = await this.provider.watch(this.calendar, { id, token: nonce, type: "web_hook", address: this.address, params: { ttl: "604800" } });
++    if (channel.id !== id || !channel.resourceId || !Number.isFinite(Number(channel.expiration)) || Number(channel.expiration) <= this.now()) throw new Error("Invalid Google watch response");
++    try {
++      await this.store.assertLease();
++      await this.admin.request("worklog_google_channels?on_conflict=user_uuid,calendar_id", { method: "POST", prefer: "resolution=merge-duplicates", body: { user_uuid: this.owner, calendar_id: this.calendar, channel_id: id, last_message: "0", nonce_hash: await nonceHash(nonce, this.crypto), resource_id: channel.resourceId, expires_at: new Date(Number(channel.expiration)).toISOString(), updated_at: new Date(this.now()).toISOString() } });
++    } catch (error2) {
++      try {
++        await this.provider.stop({ id, resourceId: channel.resourceId });
++      } catch {
++      }
++      throw error2;
++    }
++    if (old) try {
++      await this.provider.stop({ id: old.channel_id, resourceId: old.resource_id });
++    } catch {
++    }
++    return { status: "active", expiresAt: new Date(Number(channel.expiration)).toISOString() };
++  }
++  async stop() {
++    await this.store.assertLease();
++    const old = await this.current();
++    if (old) await this.provider.stop({ id: old.channel_id, resourceId: old.resource_id });
++  }
++};
++function createPushReceiver({ admin, calendarId, runOwner, defer, crypto = globalThis.crypto, now = Date.now }) {
++  return async (request) => {
++    if (request.method !== "POST" || request.headers.has("Origin")) return new Response(null, { status: 403 });
++    const id = request.headers.get("X-Goog-Channel-ID") || "", nonce = request.headers.get("X-Goog-Channel-Token") || "", resource = request.headers.get("X-Goog-Resource-ID") || "", state = request.headers.get("X-Goog-Resource-State") || "", message = request.headers.get("X-Goog-Message-Number") || "";
++    if (!/^[a-zA-Z0-9-]{1,64}$/.test(id) || !nonce || nonce.length > 256 || !resource || resource.length > 256 || !["sync", "exists", "not_exists"].includes(state) || !/^\d{1,30}$/.test(message)) return new Response(null, { status: 403 });
++    try {
++      const row = (await admin.request("worklog_google_channels?select=*&channel_id=eq." + encodeURIComponent(id) + "&limit=1"))[0];
++      if (!row || row.calendar_id !== calendarId || row.resource_id !== resource || row.nonce_hash !== await nonceHash(nonce, crypto) || Date.parse(row.expires_at) <= now()) return new Response(null, { status: 403 });
++      const connection = await admin.connection(row.user_uuid);
++      if (!connection?.enabled || connection.calendar_id !== calendarId) return new Response(null, { status: 204 });
++      if (state !== "sync") {
++        const accepted = await admin.request("rpc/worklog_google_push_receipt", { method: "POST", body: { p_channel: id, p_message: message, p_now: new Date(now()).toISOString() } });
++        if (accepted) {
++          const task = Promise.resolve().then(() => runOwner(row.user_uuid)).catch(() => {
++          });
++          if (defer) defer(task);
++          else await task;
++        }
++      }
++      return new Response(null, { status: 204 });
++    } catch {
++      return new Response(null, { status: 503 });
++    }
++  };
++}
++
++// ../../../../modules/worklog/native/server/credential-envelope.mjs
++var bytes = (value) => Uint8Array.from(atob(value), (c) => c.charCodeAt(0));
++var base64 = (value) => btoa(String.fromCharCode(...new Uint8Array(value)));
++var CredentialEnvelope = class {
++  constructor({ key, crypto = globalThis.crypto }) {
++    const raw = bytes(key || "");
++    if (raw.length !== 32) throw new Error("WorkLog sync encryption key must be 32 bytes");
++    this.crypto = crypto;
++    this.key = this.crypto.subtle.importKey("raw", raw, "AES-GCM", false, ["encrypt", "decrypt"]);
++  }
++  async seal(owner, value) {
++    const iv = this.crypto.getRandomValues(new Uint8Array(12)), data = new TextEncoder().encode(JSON.stringify(value));
++    const cipher = await this.crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: new TextEncoder().encode("worklog-sync:v1:" + owner) }, await this.key, data);
++    return { v: 1, iv: base64(iv), ciphertext: base64(cipher) };
++  }
++  async open(owner, envelope) {
++    if (envelope?.v !== 1) throw new Error("Unsupported credential envelope");
++    const plain = await this.crypto.subtle.decrypt({ name: "AES-GCM", iv: bytes(envelope.iv), additionalData: new TextEncoder().encode("worklog-sync:v1:" + owner) }, await this.key, bytes(envelope.ciphertext));
++    return JSON.parse(new TextDecoder().decode(plain));
++  }
++};
++
++// ../../../../modules/worklog/native/server/durable-store.mjs
++var ownerError = () => new Error("WorkLog sync owner mismatch");
++async function operationIdentity(owner, calendar, id, kind = "import", crypto = globalThis.crypto) {
++  const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify([owner, calendar, id, kind]))));
++  return "tq6" + [...hash].map((x) => x.toString(16).padStart(2, "0")).join("");
++}
++var SyncAdmin = class {
++  constructor({ baseUrl, serviceKey, fetchImpl = globalThis.fetch }) {
++    const url = new URL(baseUrl);
++    if (url.protocol !== "https:" || url.pathname !== "/") throw new Error("Invalid WorkLog data origin");
++    this.base = url;
++    this.key = serviceKey;
++    this.fetch = fetchImpl;
++  }
++  async request(path, { method = "GET", body, prefer } = {}) {
++    if (!/^(worklog_google_(connections|bindings|failures|channels|conflicts)|rpc\/worklog_google_(acquire|release|advance|renew|connect|disconnect|push_receipt))(\?|$)/.test(path)) throw new Error("Unsupported sync metadata route");
++    const response = await this.fetch(new URL("/rest/v1/" + path, this.base), { method, headers: { apikey: this.key, Authorization: "Bearer " + this.key, "Content-Type": "application/json", ...prefer ? { Prefer: prefer } : {} }, ...body ? { body: JSON.stringify(body) } : {}, cache: "no-store", signal: AbortSignal.timeout(15e3) });
++    if (!response.ok) throw Object.assign(new Error("WorkLog sync metadata unavailable"), { code: "STORAGE_FAILED" });
++    return response.status === 204 ? null : response.json();
++  }
++  async connection(owner) {
++    const rows = await this.request("worklog_google_connections?select=*&user_uuid=eq." + encodeURIComponent(owner) + "&limit=1");
++    if (rows.length && rows[0].user_uuid !== owner) throw ownerError();
++    return rows[0] || null;
++  }
++  async saveConnection(value) {
++    return this.request("worklog_google_connections?on_conflict=user_uuid", { method: "POST", body: value, prefer: "resolution=merge-duplicates,return=representation" });
++  }
++  async credential(owner, envelope, lease) {
++    const rows = await this.request("worklog_google_connections?user_uuid=eq." + encodeURIComponent(owner) + "&lease_id=eq." + encodeURIComponent(lease), { method: "PATCH", body: { credentials: envelope, updated_at: (/* @__PURE__ */ new Date()).toISOString() }, prefer: "return=representation" });
++    if (rows.length !== 1) throw new Error("Sync lease lost before token persistence");
++  }
++};
++var DurableSyncStore = class {
++  constructor({ admin, owner, calendar, worklog, crypto = globalThis.crypto }) {
++    Object.assign(this, { admin, owner, calendar, worklog, crypto });
++    this.lease = null;
++  }
++  check(owner, calendar = this.calendar) {
++    if (owner !== this.owner || calendar !== this.calendar) throw ownerError();
++  }
++  query() {
++    return "user_uuid=eq." + encodeURIComponent(this.owner) + "&calendar_id=eq." + encodeURIComponent(this.calendar);
++  }
++  async acquire(owner, calendar) {
++    this.check(owner, calendar);
++    const id = this.crypto.randomUUID();
++    const ok = await this.admin.request("rpc/worklog_google_acquire", { method: "POST", body: { p_owner: owner, p_calendar: calendar, p_lease: id } });
++    if (!ok) return null;
++    this.lease = id;
++    return id;
++  }
++  async assertLease() {
++    if (!this.lease) throw new Error("Sync lease required");
++    const ok = await this.admin.request("rpc/worklog_google_renew", { method: "POST", body: { p_owner: this.owner, p_calendar: this.calendar, p_lease: this.lease } });
++    if (!ok) throw Object.assign(new Error("Sync lease expired, no further writes"), { code: "LEASE_LOST" });
++  }
++  async release(owner, calendar, id) {
++    this.check(owner, calendar);
++    await this.admin.request("rpc/worklog_google_release", { method: "POST", body: { p_owner: owner, p_calendar: calendar, p_lease: id } });
++    this.lease = null;
++  }
++  async state(owner, calendar) {
++    this.check(owner, calendar);
++    const row = await this.admin.connection(owner);
++    if (!row || row.calendar_id !== calendar || !row.enabled) throw new Error("Sync connection unavailable");
++    return { syncToken: row.sync_token, localCursor: row.local_cursor, lastSyncedAt: row.last_synced_at };
++  }
++  binding(row) {
++    if (!row) return null;
++    if (row.user_uuid !== this.owner || row.calendar_id !== this.calendar) throw ownerError();
++    return { userId: row.user_uuid, calendarId: row.calendar_id, eventId: row.event_id, entryId: row.entry_id, eventEtag: row.event_etag, entryUpdatedAt: row.entry_updated_at, operationId: row.operation_id };
++  }
++  async byEvent(owner, calendar, id) {
++    this.check(owner, calendar);
++    return this.binding((await this.admin.request("worklog_google_bindings?select=*&" + this.query() + "&event_id=eq." + encodeURIComponent(id) + "&limit=1"))[0]);
++  }
++  async byEntry(owner, calendar, id) {
++    this.check(owner, calendar);
++    return this.binding((await this.admin.request("worklog_google_bindings?select=*&" + this.query() + "&entry_id=eq." + encodeURIComponent(id) + "&limit=1"))[0]);
++  }
++  async operation(owner, calendar, id) {
++    this.check(owner, calendar);
++    return { id: await operationIdentity(owner, calendar, id, "import", this.crypto) };
++  }
++  async eventIdentity(owner, calendar, id) {
++    this.check(owner, calendar);
++    const key = await operationIdentity(owner, calendar, id, "export", this.crypto);
++    return { id: key, eventId: key.slice(3) };
++  }
++  map(row) {
++    return row ? { ...this.worklog.rules(row.work_date).entryFromCloud(row), updatedAt: row.updated_at || null } : null;
++  }
++  async entry(owner, id) {
++    this.check(owner);
++    return this.map((await this.worklog.rows("work_entries", "select=*&id=eq." + encodeURIComponent(id) + "&limit=1"))[0]);
++  }
++  async entryByOperation(owner, id) {
++    this.check(owner);
++    return this.map((await this.worklog.rows("work_entries", "select=*&legacy_id=eq." + encodeURIComponent(id) + "&limit=1"))[0]);
++  }
++  async bind(value) {
++    this.check(value.userId, value.calendarId);
++    await this.assertLease();
++    if (!await this.entry(value.userId, value.entryId)) throw new Error("WorkLog binding entry owner unverifiable");
++    await this.admin.request("worklog_google_bindings?on_conflict=user_uuid,calendar_id,event_id", { method: "POST", prefer: "resolution=merge-duplicates,return=representation", body: { user_uuid: value.userId, calendar_id: value.calendarId, event_id: value.eventId, entry_id: value.entryId, event_etag: value.eventEtag, entry_updated_at: value.entryUpdatedAt, operation_id: value.operationId, updated_at: (/* @__PURE__ */ new Date()).toISOString() } });
++  }
++  async failure(owner, id, code) {
++    this.check(owner);
++    await this.admin.request("worklog_google_failures?on_conflict=user_uuid,operation_id", { method: "POST", prefer: "resolution=merge-duplicates", body: { user_uuid: owner, operation_id: id, code: String(code).slice(0, 80), updated_at: (/* @__PURE__ */ new Date()).toISOString() } });
++  }
++  async cycleFailure(owner, calendar, failures) {
++    this.check(owner, calendar);
++    await this.assertLease();
++    await this.admin.request("worklog_google_connections?" + this.query() + "&lease_id=eq." + encodeURIComponent(this.lease), { method: "PATCH", body: { last_error: failures.map((f) => f.code).join(",").slice(0, 500) } });
++  }
++  async changedEntries(owner, { after, through }) {
++    this.check(owner);
++    if (!Number.isFinite(Date.parse(after)) || !Number.isFinite(Date.parse(through))) throw new Error("Invalid local sync cursor");
++    return (await this.worklog.rows("work_entries", "select=*&updated_at=gte." + encodeURIComponent(after) + "&updated_at=lte." + encodeURIComponent(through) + "&order=updated_at.asc,id.asc")).map((row) => this.map(row));
++  }
++  conflictFromRow(row) {
++    if (!row) return null;
++    if (row.user_uuid !== this.owner || row.calendar_id !== this.calendar) throw ownerError();
++    return { operationId: row.operation_id, eventId: row.event_id, entryId: row.entry_id, eventEtag: row.event_etag, entryUpdatedAt: row.entry_updated_at, eventUpdated: row.event_updated, local: row.local_version, remote: row.remote_version, status: row.status, updatedAt: row.updated_at };
++  }
++  async conflicts(owner, calendar) {
++    this.check(owner, calendar);
++    return (await this.admin.request("worklog_google_conflicts?select=*&" + this.query() + "&status=eq.pending&order=updated_at.asc&limit=50")).map((row) => this.conflictFromRow(row));
++  }
++  async conflict(owner, calendar, operationId) {
++    this.check(owner, calendar);
++    return this.conflictFromRow((await this.admin.request("worklog_google_conflicts?select=*&" + this.query() + "&operation_id=eq." + encodeURIComponent(operationId) + "&limit=1"))[0]);
++  }
++  // Pending conflicts keep only comparable public fields, never notes or credentials.
++  async saveConflict(value) {
++    this.check(value.userId, value.calendarId);
++    await this.assertLease();
++    await this.admin.request("worklog_google_conflicts?on_conflict=user_uuid,operation_id", { method: "POST", prefer: "resolution=merge-duplicates", body: { user_uuid: value.userId, calendar_id: value.calendarId, operation_id: value.operationId, event_id: value.eventId, entry_id: value.entryId, event_etag: value.eventEtag, entry_updated_at: value.entryUpdatedAt, event_updated: value.eventUpdated, local_version: value.local, remote_version: value.remote, status: "pending", updated_at: (/* @__PURE__ */ new Date()).toISOString() } });
++  }
++  async clearConflict(owner, calendar, operationId, fingerprint) {
++    this.check(owner, calendar);
++    await this.assertLease();
++    let filter = "worklog_google_conflicts?" + this.query() + "&operation_id=eq." + encodeURIComponent(operationId);
++    if (fingerprint) {
++      filter += "&event_etag=eq." + encodeURIComponent(fingerprint.eventEtag);
++      filter += fingerprint.entryUpdatedAt ? "&entry_updated_at=eq." + encodeURIComponent(fingerprint.entryUpdatedAt) : "&entry_updated_at=is.null";
++    }
++    const rows = await this.admin.request(filter, { method: "DELETE", prefer: "return=representation" });
++    if (fingerprint && (!Array.isArray(rows) || rows.length !== 1)) throw Object.assign(new Error("\u885D\u7A81\u5167\u5BB9\u5DF2\u6709\u66F4\u65B0\uFF0C\u8ACB\u91CD\u65B0\u78BA\u8A8D"), { code: "CONFLICT_CHANGED" });
++  }
++  async advance(owner, calendar, { syncToken, localCursor, lease }) {
++    this.check(owner, calendar);
++    const ok = await this.admin.request("rpc/worklog_google_advance", { method: "POST", body: { p_owner: owner, p_calendar: calendar, p_lease: lease, p_sync: syncToken, p_local: localCursor } });
++    if (!ok) throw new Error("Sync cursor not advanced: lease lost");
++  }
++};
++
++// ../../../../modules/worklog/native/server/owner-session.mjs
++var OwnerWorkerSession = class {
++  constructor({ baseUrl, anonKey, owner, credentials, envelope, admin, store, fetchImpl = globalThis.fetch, now = Date.now, googleClientId, googleClientSecret }) {
++    Object.assign(this, { baseUrl, anonKey, owner, credentials, envelope, admin, store, fetch: fetchImpl, now, googleClientId, googleClientSecret });
++    this.google = null;
++    this.flight = null;
++  }
++  async json(url, options) {
++    const response = await this.fetch(url, { ...options, cache: "no-store", signal: AbortSignal.timeout(15e3) });
++    if (!response.ok) throw Object.assign(new Error("\u5DE5\u6642\u540C\u6B65\u6388\u6B0A\u5DF2\u5931\u6548\uFF0C\u8ACB\u91CD\u65B0\u9023\u63A5\u65E5\u66C6"), { code: "RECONNECT" });
++    return response.json();
++  }
++  async persist() {
++    await this.admin.credential(this.owner, await this.envelope.seal(this.owner, this.credentials), this.store.lease);
++  }
++  async getSession() {
++    if (this.flight) return this.flight;
++    this.flight = (async () => {
++      await this.store.assertLease();
++      let session = this.credentials.session;
++      if (!session?.refresh_token) throw new Error("Worker-owned session required");
++      if (Number(session.expires_at) * 1e3 - this.now() < 12e4) {
++        session = await this.json(new URL("/auth/v1/token?grant_type=refresh_token", this.baseUrl), { method: "POST", headers: { apikey: this.anonKey, "Content-Type": "application/json" }, body: JSON.stringify({ refresh_token: session.refresh_token }) });
++        if (!session.access_token || !session.refresh_token) throw new Error("Incomplete worker refresh response");
++        session = { access_token: session.access_token, refresh_token: session.refresh_token, expires_at: Number(session.expires_at) || Math.floor(this.now() / 1e3) + Number(session.expires_in || 3600), user: { id: this.owner } };
++        this.credentials.session = session;
++        await this.persist();
++      }
++      const user = await this.json(new URL("/auth/v1/user", this.baseUrl), { headers: { apikey: this.anonKey, Authorization: "Bearer " + session.access_token } });
++      if (user.id !== this.owner) throw new Error("Worker session owner mismatch");
++      return { ...session, user: { id: user.id } };
++    })().finally(() => {
++      this.flight = null;
++    });
++    return this.flight;
++  }
++  async googleToken() {
++    await this.store.assertLease();
++    if (this.google && this.google.expiresAt - this.now() > 12e4) return this.google.accessToken;
++    if (!this.googleClientId || !this.googleClientSecret || !this.credentials.googleRefreshToken) throw Object.assign(new Error("Google\u6301\u7E8C\u540C\u6B65\u6388\u6B0A\u672A\u5B8C\u6210"), { code: "RECONNECT" });
++    const data = await this.json("https://oauth2.googleapis.com/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ client_id: this.googleClientId, client_secret: this.googleClientSecret, grant_type: "refresh_token", refresh_token: this.credentials.googleRefreshToken }).toString() });
++    if (!data.access_token) throw new Error("Incomplete Google token response");
++    this.google = { accessToken: data.access_token, expiresAt: this.now() + Number(data.expires_in || 3600) * 1e3 };
++    if (data.refresh_token) {
++      this.credentials.googleRefreshToken = data.refresh_token;
++      await this.persist();
++    }
++    return this.google.accessToken;
++  }
++};
++
++// ../../../../modules/worklog/native/server/sync-endpoint.mjs
++function createSyncEndpoint({ enabled = false, origins = [], schedulerSecret, verifyCaller, verifyRefreshSession, verifyGoogle, connect, status, disconnect, runOwner, runBatch, listConflicts, resolveConflict, reportFailure = () => {
++} }) {
++  const headers = (origin) => ({ "Content-Type": "application/json", "Cache-Control": "no-store", ...origins.includes(origin) ? { "Access-Control-Allow-Origin": origin, "Vary": "Origin", "Access-Control-Allow-Headers": "authorization,apikey,content-type", "Access-Control-Allow-Methods": "POST,OPTIONS" } : {} });
++  return async (request) => {
++    const origin = request.headers.get("Origin") || "", json = (body, status2 = 200) => new Response(JSON.stringify(body), { status: status2, headers: headers(origin) });
++    if (origin && !origins.includes(origin)) return json({ code: "ORIGIN_FORBIDDEN" }, 403);
++    if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: headers(origin) });
++    if (request.method !== "POST") return json({ code: "METHOD_NOT_ALLOWED" }, 405);
++    if (!enabled) return json({ code: "NOT_ENABLED" }, 503);
++    let stage = "request";
++    try {
++      const length = Number(request.headers.get("content-length") || 0);
++      if (length > 32768) return json({ code: "PAYLOAD_TOO_LARGE" }, 413);
++      const text = await request.text();
++      if (text.length > 32768) return json({ code: "PAYLOAD_TOO_LARGE" }, 413);
++      const body = JSON.parse(text), bearer = request.headers.get("Authorization") || "";
++      if (body.action === "scheduled-run") {
++        if (origin || !schedulerSecret || bearer !== "Bearer " + schedulerSecret) return json({ code: "FORBIDDEN" }, 403);
++        return json(await runBatch());
++      }
++      stage = "caller";
++      const caller = await verifyCaller(bearer);
++      if (!caller?.id) return json({ code: "AUTH_REQUIRED" }, 401);
++      if (body.action === "status") return json(await status(caller.id));
++      if (body.action === "disconnect") {
++        await disconnect(caller.id);
++        return json({ status: "disconnected", owner: caller.id });
++      }
++      if (body.action === "run") return json(await runOwner(caller.id));
++      if (body.action === "conflicts") return json(await listConflicts(caller.id));
++      if (body.action === "resolve-conflict") return json(await resolveConflict(caller.id, { operationId: String(body.operationId || ""), choice: body.choice, eventEtag: String(body.eventEtag || ""), entryUpdatedAt: body.entryUpdatedAt ?? null }));
++      if (body.action !== "connect") return json({ code: "ACTION_UNSUPPORTED" }, 400);
++      if (!body.session?.access_token || bearer !== "Bearer " + body.session.access_token || body.session.user?.id !== caller.id || !body.session.refresh_token || !body.googleAccessToken || !body.googleRefreshToken) return json({ code: "CONNECTION_INCOMPLETE" }, 400);
++      stage = "owner-refresh";
++      const session = await verifyRefreshSession(caller.id, body.session);
++      stage = "google-verify";
++      const google = await verifyGoogle(caller.id, body.googleAccessToken, body.googleRefreshToken);
++      stage = "credential-save";
++      const result = await connect({ owner: caller.id, session, googleRefreshToken: google.refreshToken, calendar: google.calendar });
++      return json({ status: "connected", owner: caller.id, calendarName: result.calendarName });
++    } catch (error2) {
++      try {
++        reportFailure({ stage, code: ["AUTH_REQUIRED", "OWNER_MISMATCH", "RECONNECT", "ACCESS_REQUIRED", "CALENDAR_FORBIDDEN", "CONNECTION_BUSY", "STORAGE_FAILED"].includes(error2?.code) ? error2.code : "SYNC_FAILED", detail: ["google-profile", "google-refresh", "owner-user"].includes(error2?.diagnosticStage) ? error2.diagnosticStage : null, status: Number.isInteger(error2?.upstreamStatus) ? error2.upstreamStatus : null, upstream: ["invalid_client", "invalid_grant", "unauthorized_client", "access_denied"].includes(error2?.upstreamCode) ? error2.upstreamCode : null });
++      } catch {
++      }
++      const code = ["AUTH_REQUIRED", "OWNER_MISMATCH", "RECONNECT", "ACCESS_REQUIRED", "CALENDAR_FORBIDDEN", "CONNECTION_BUSY", "CONFLICT", "CONFLICT_CHANGED", "CONFLICT_GONE", "CHOICE_REQUIRED", "REMOTE_CHANGED"].includes(error2?.code) ? error2.code : "SYNC_FAILED";
++      return json({ code, message: "\u5DE5\u6642\u65E5\u66C6\u9023\u7DDA\u6216\u540C\u6B65\u672A\u5B8C\u6210\uFF0C\u539F\u8CC7\u6599\u4FDD\u7559\u3002" }, code === "AUTH_REQUIRED" ? 401 : 409);
++    }
++  };
++}
++
++// ../../../../modules/worklog/native/priority-engine.mjs
++var scope = {};
++(function(global) {
++  const TIME_ZONE = "Asia/Taipei";
++  const AI_SCORE_DEFAULT = 0;
++  const PRIORITY_WEIGHT = Object.freeze({ p1: 400, p2: 300, p3: 200, p4: 100 });
++  const PRIORITY_META = Object.freeze({
++    p1: { label: "P1", icon: "\u{1F534}", reason: "\u{1F534} P1 \u9AD8\u512A\u5148" },
++    p2: { label: "P2", icon: "\u{1F7E0}", reason: "\u{1F7E0} P2 \u512A\u5148" },
++    p3: { label: "P3", icon: "\u{1F7E1}", reason: "\u{1F7E1} P3 \u4E00\u822C" },
++    p4: { label: "P4", icon: "\u26AA", reason: "\u26AA P4 \u4F4E\u512A\u5148" }
++  });
++  function dateKey2(value = /* @__PURE__ */ new Date()) {
++    const parts = new Intl.DateTimeFormat("zh-TW-u-ca-gregory", {
++      timeZone: TIME_ZONE,
++      year: "numeric",
++      month: "2-digit",
++      day: "2-digit"
++    }).formatToParts(value);
++    const map = Object.fromEntries(parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
++    return `${map.year}-${map.month}-${map.day}`;
++  }
++  function normalizePriority(value = "medium") {
++    const key = String(value || "medium").trim().toLowerCase();
++    return {
++      p1: "p1",
++      "1": "p1",
++      urgent: "p1",
++      high: "p1",
++      \u9AD8: "p1",
++      \u91CD\u8981: "p1",
++      p2: "p2",
++      "2": "p2",
++      medium: "p2",
++      \u4E2D: "p2",
++      p3: "p3",
++      "3": "p3",
++      low: "p3",
++      \u4F4E: "p3",
++      p4: "p4",
++      "4": "p4"
++    }[key] || "p2";
++  }
++  function calculateScore(task = {}, now = /* @__PURE__ */ new Date()) {
++    const today = dateKey2(now);
++    const due = String(task.dueDate || task.due_date || "").slice(0, 10);
++    const priority = normalizePriority(task.priority);
++    const priorityScore = PRIORITY_WEIGHT[priority] || PRIORITY_WEIGHT.p2;
++    const dueScore = due ? due < today ? 700 : due === today ? 600 : due <= dateKey2(new Date(now.getTime() + 7 * 864e5)) ? 250 : 40 : 0;
++    const pinScore = task.pin === true || task.userPinned === true || task.user_pinned === true ? 1e3 : 0;
++    const aiScore = Number(task.aiScore ?? task.ai_score ?? task.priorityScore ?? task.priority_score ?? AI_SCORE_DEFAULT) || AI_SCORE_DEFAULT;
++    return pinScore + dueScore + priorityScore + aiScore;
++  }
++  function rank(tasks = [], options = {}) {
++    const now = options instanceof Date ? options : options.now || /* @__PURE__ */ new Date();
++    const includeCompleted = options.includeCompleted === true;
++    return (Array.isArray(tasks) ? tasks : []).filter((task) => task && (includeCompleted || task.status !== "completed" && task.done !== true && task.completed !== true)).slice().sort((a, b) => {
++      if (includeCompleted && a.status !== b.status) return a.status === "completed" ? 1 : -1;
++      const scoreDelta = calculateScore(b, now) - calculateScore(a, now);
++      if (scoreDelta) return scoreDelta;
++      const dueA = String(a.dueDate || a.due_date || "9999-12-31");
++      const dueB = String(b.dueDate || b.due_date || "9999-12-31");
++      return dueA.localeCompare(dueB) || String(b.updatedAt || b.updated_at || "").localeCompare(String(a.updatedAt || a.updated_at || "")) || String(a.title || a.name || "").localeCompare(String(b.title || b.name || ""), "zh-Hant");
++    });
++  }
++  function getTopTask(tasks = [], options = {}) {
++    return rank(tasks, options)[0] || null;
++  }
++  function getReason(task = {}, now = /* @__PURE__ */ new Date()) {
++    const today = dateKey2(now);
++    const due = String(task.dueDate || task.due_date || "").slice(0, 10);
++    const priority = normalizePriority(task.priority);
++    if (due && due < today) return "\u26A0\uFE0F \u5DF2\u903E\u671F";
++    if (due === today) return "\u{1F525} \u4ECA\u5929\u5230\u671F";
++    if (task.pin === true || task.userPinned === true || task.user_pinned === true) return "\u{1F4CC} \u5DF2\u7F6E\u9802";
++    return PRIORITY_META[priority]?.reason || "\u4F9D\u76EE\u524D\u5DE5\u4F5C\u512A\u5148\u9806\u5E8F\u3002";
++  }
++  function getPriorityMeta(value) {
++    return PRIORITY_META[normalizePriority(value)] || PRIORITY_META.p2;
++  }
++  global.PriorityEngine = Object.freeze({
++    AI_SCORE_DEFAULT,
++    PRIORITY_WEIGHT,
++    dateKey: dateKey2,
++    normalizePriority,
++    getPriorityMeta,
++    calculateScore,
++    score: calculateScore,
++    rank,
++    getTopTask,
++    getReason,
++    reason: getReason
++  });
++})(scope);
++var PriorityEngine = scope.PriorityEngine;
++
++// ../../../../modules/worklog/native/legacy-rules.mjs
++function createWorklogRules(context = {}) {
++  let { entries = [], selected = /* @__PURE__ */ new Date(), selectedMonth = "", profile = null, workProfile = null, session = null, feedback = {} } = context;
++  const DataService = { workModelsState: context.models || [], ecpTasksState: context.ecpTasks || [], queueAutoSave: () => {
++  } }, PriorityEngine2 = context.priorityEngine;
++  const currentUserUuid = () => session?.user_uuid || session?.uuid || "";
++  const fetch = context.fetch || globalThis.fetch.bind(globalThis);
++  const saveAll = () => {
++  };
++  const setWorkModels = (items) => {
++    DataService.workModelsState = items;
++  };
++  function worklogDescriptionLength(value = "") {
++    return Array.from(String(value || "")).length;
++  }
++  const WORKLOG_DESCRIPTION_MAX_LENGTH = 50;
++  function minutesFromTime(value = "09:00") {
++    const [h = 9, m = 0] = String(value || "09:00").slice(0, 5).split(":").map(Number);
++    return h * 60 + (m || 0);
++  }
++  function entryStartMinutes(entry) {
++    const time = String(entry?.at || "").slice(11, 16);
++    return minutesFromTime(time || "09:00");
++  }
++  function entryEndMinutes(entry) {
++    return entryStartMinutes(entry) + Math.round(Number(entry?.hours || 0) * 60);
++  }
++  function worklogTimeConflicts(item = {}) {
++    const date = String(item.date || item.at || "").slice(0, 10);
++    const start = entryStartMinutes(item);
++    const end = start + Math.max(1, Math.round(Number(item.hours || 0) * 60));
++    return entries.some((entry) => {
++      if (entry.id === item.id || entry.status === "deleted" || entry.date !== date) return false;
++      const existingStart = entryStartMinutes(entry);
++      const existingEnd = entryEndMinutes(entry);
++      return start < existingEnd && end > existingStart;
++    });
++  }
++  function validateEntry(item) {
++    if (!item.title) return "\u8ACB\u8F38\u5165\u5DE5\u4F5C\u63CF\u8FF0";
++    if (worklogDescriptionLength(item.title) > WORKLOG_DESCRIPTION_MAX_LENGTH) return `\u5DE5\u4F5C\u63CF\u8FF0\u4E0D\u53EF\u8D85\u904E ${WORKLOG_DESCRIPTION_MAX_LENGTH} \u500B\u5B57\u5143`;
++    if (!item.at || Number.isNaN(new Date(item.at).getTime())) return "\u8ACB\u9078\u64C7\u6B63\u78BA\u6642\u9593";
++    if (!item.hours || item.hours <= 0) return "\u8ACB\u9078\u64C7\u5DE5\u6642";
++    if (item.hours > 8) return "\u55AE\u7B46\u5DE5\u6642\u4E0D\u53EF\u8D85\u904E 8 \u5C0F\u6642";
++    const sameDayHours = entries.filter((e) => e.date === item.date && e.id !== item.id).reduce((s, e) => s + Number(e.hours || 0), 0);
++    if (sameDayHours + Number(item.hours) > 12) return "\u540C\u65E5\u5DE5\u6642\u5DF2\u8D85\u904E 12 \u5C0F\u6642\uFF0C\u8ACB\u78BA\u8A8D\u662F\u5426\u8F38\u5165\u932F\u8AA4";
++    if (worklogTimeConflicts(item)) return "\u9019\u6BB5\u6642\u9593\u8207\u65E2\u6709\u5DE5\u6642\u91CD\u758A\uFF0C\u8ACB\u8ABF\u6574\u65E5\u671F\u6216\u958B\u59CB\u6642\u9593";
++    return "";
++  }
++  function key(d = selected) {
++    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
++  }
++  function parseWorkTimeRange(range = "09:00~18:00") {
++    const [start = "09:00", end = "18:00"] = String(range).split("~").map((x) => x.trim());
++    return { start, end };
++  }
++  function profileWorkSchedule() {
++    const work = parseWorkTimeRange(profile?.workHours || "09:00~18:00");
++    const lunch = parseWorkTimeRange(profile?.lunch || "12:00~13:00");
++    return {
++      workStart: minutesFromTime(work.start || "09:00"),
++      workEnd: minutesFromTime(work.end || "18:00"),
++      lunchStart: minutesFromTime(lunch.start || "12:00"),
++      lunchEnd: minutesFromTime(lunch.end || "13:00")
++    };
++  }
++  function workIntervalsForDate(dateKey2 = key(), excludeId = null, reserved = []) {
++    const persisted = entries.filter((entry) => entry.date === dateKey2 && entry.id !== excludeId && entry.status !== "deleted").map((entry) => ({
++      start: entryStartMinutes(entry),
++      end: entryEndMinutes(entry),
++      source: "worklog"
++    }));
++    const planned = (Array.isArray(reserved) ? reserved : []).map((interval) => ({
++      start: Number(interval?.start),
++      end: Number(interval?.end),
++      source: interval?.source || "reserved"
++    })).filter((interval) => Number.isFinite(interval.start) && Number.isFinite(interval.end) && interval.end > interval.start);
++    return [...persisted, ...planned];
++  }
++  const LUNCH_STATES = Object.freeze({
++    NORMAL: "NORMAL",
++    DELAYED: "DELAYED",
++    WAIVED: "WAIVED",
++    UNKNOWN: "UNKNOWN"
++  });
++  function mergeTimeIntervals(intervals = []) {
++    const sorted = intervals.filter((x) => Number.isFinite(x.start) && Number.isFinite(x.end) && x.end > x.start).sort((a, b) => a.start - b.start || a.end - b.end);
++    const merged = [];
++    for (const interval of sorted) {
++      const last = merged[merged.length - 1];
++      if (!last || interval.start > last.end) merged.push({ ...interval });
++      else last.end = Math.max(last.end, interval.end);
++    }
++    return merged;
++  }
++  function determineLunchState(intervals = [], schedule = profileWorkSchedule(), options = {}) {
++    const lunchStart = Number(schedule?.lunchStart);
++    const lunchEnd = Number(schedule?.lunchEnd);
++    if (!Number.isFinite(lunchStart) || !Number.isFinite(lunchEnd) || lunchEnd <= lunchStart) {
++      return { state: LUNCH_STATES.UNKNOWN, window: null, nominalWindow: null };
++    }
++    const nominalWindow = { start: lunchStart, end: lunchEnd };
++    if (options.completedEightHours) {
++      return { state: LUNCH_STATES.WAIVED, window: null, nominalWindow };
++    }
++    const merged = mergeTimeIntervals(intervals);
++    const lunchDuration = lunchEnd - lunchStart;
++    let window = { ...nominalWindow };
++    let delayed = false;
++    for (let attempt = 0; attempt <= merged.length; attempt += 1) {
++      const overlap = merged.find((interval) => interval.start < window.end && interval.end > window.start);
++      if (!overlap) break;
++      window = { start: overlap.end, end: overlap.end + lunchDuration };
++      delayed = true;
++    }
++    return { state: delayed ? LUNCH_STATES.DELAYED : LUNCH_STATES.NORMAL, window, nominalWindow };
++  }
++  function workScheduleContext(dateKey2 = key(), excludeId = null, reserved = []) {
++    const schedule = profileWorkSchedule();
++    const intervals = workIntervalsForDate(dateKey2, excludeId, reserved);
++    const persistedMinutes = entries.filter((entry) => entry.date === dateKey2 && entry.id !== excludeId && entry.status !== "deleted").reduce((sum, entry) => sum + Math.max(0, Math.round(Number(entry.hours || 0) * 60)), 0);
++    const reservedMinutes = (Array.isArray(reserved) ? reserved : []).reduce((sum, interval) => sum + Math.max(0, Number(interval?.end || 0) - Number(interval?.start || 0)), 0);
++    const workedMinutes = persistedMinutes + reservedMinutes;
++    const completedEightHours = workedMinutes >= 8 * 60;
++    const lunch = determineLunchState(intervals, schedule, { completedEightHours });
++    return {
++      dateKey: dateKey2,
++      schedule,
++      intervals,
++      mergedIntervals: mergeTimeIntervals(intervals),
++      lunchState: lunch.state,
++      lunchWindow: lunch.window,
++      nominalLunchWindow: lunch.nominalWindow,
++      workedMinutes,
++      completedEightHours
++    };
++  }
++  function timeResolutionContext(dateKey2 = key(), excludeId = null, reserved = []) {
++    return workScheduleContext(dateKey2, excludeId, reserved);
++  }
++  function finalizeTimeResolution(result = {}, hours2 = 1, excludeId = null, reserved = []) {
++    const dateKey2 = result.dateKey || String(result.at || "").slice(0, 10) || key();
++    const start = minutesFromTime(String(result.at || "").slice(11, 16) || "09:00");
++    const duration = Math.max(1, Math.round(Number(hours2 || 1) * 60));
++    const before = timeResolutionContext(dateKey2, excludeId, reserved);
++    const after = timeResolutionContext(dateKey2, excludeId, [
++      ...Array.isArray(reserved) ? reserved : [],
++      { start, end: start + duration, source: "candidate" }
++    ]);
++    return {
++      ...result,
++      dateKey: dateKey2,
++      previousLunchState: before.lunchState,
++      previousLunchWindow: before.lunchWindow,
++      lunchState: after.lunchState,
++      lunchWindow: after.lunchWindow,
++      previousCompletedEightHours: before.completedEightHours,
++      completedEightHours: after.completedEightHours
++    };
++  }
++  function assistantRelativeTimeSignal(raw = "") {
++    const text = String(raw || "");
++    if (/才完成|剛完成|剛剛完成|剛做完|剛結束|才做完/.test(text)) return "just_completed";
++    if (/剛剛|現在|此刻|剛才/.test(text)) return "now";
++    return "";
++  }
++  function roundedCurrentMinutes(now = /* @__PURE__ */ new Date()) {
++    return Math.floor((now.getHours() * 60 + now.getMinutes()) / 5) * 5;
++  }
++  function timeFromMinutes(total = 540) {
++    const h = Math.floor(total / 60);
++    const m = total % 60;
++    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
++  }
++  function availableStartMinutes(dateKey2 = key(), durationHours = 1, excludeId = null, reserved = []) {
++    const context2 = timeResolutionContext(dateKey2, excludeId, reserved);
++    const s = context2.schedule;
++    const duration = Math.max(1, Math.round(Number(durationHours || 1) * 60));
++    const merged = context2.mergedIntervals;
++    if (context2.completedEightHours) return null;
++    if (merged.some((interval) => interval.end > s.workEnd)) return null;
++    const normalizeAutomaticCandidate = (value) => {
++      const candidate2 = Math.max(Number(value || 0), s.workStart);
++      const lunchWindow = context2.lunchWindow;
++      if (!lunchWindow) return candidate2;
++      return candidate2 >= lunchWindow.start && candidate2 < lunchWindow.end ? lunchWindow.end : candidate2;
++    };
++    let candidate = normalizeAutomaticCandidate(s.workStart);
++    for (const interval of merged) {
++      if (interval.end <= candidate) continue;
++      if (interval.start > candidate) {
++        if (candidate + duration <= Math.min(interval.start, s.workEnd)) return candidate;
++        candidate = normalizeAutomaticCandidate(interval.end);
++      } else if (interval.end > candidate) {
++        candidate = normalizeAutomaticCandidate(interval.end);
++      }
++      if (candidate >= s.workEnd) break;
++    }
++    if (candidate + duration <= s.workEnd) return candidate;
++    if (candidate < s.workEnd) return candidate;
++    return null;
++  }
++  function dateFromWorkKey(dateKey2 = key()) {
++    const match = String(dateKey2 || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
++    if (!match) return /* @__PURE__ */ new Date();
++    return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12, 0, 0, 0);
++  }
++  function nextWorkdayKey(dateKey2 = key()) {
++    const next = dateFromWorkKey(dateKey2);
++    do
++      next.setDate(next.getDate() + 1);
++    while (next.getDay() === 0 || next.getDay() === 6);
++    return key(next);
++  }
++  function earliestAvailableWorkTime(dateKey2 = key(), durationHours = 1, excludeId = null, reserved = []) {
++    let candidateDate = dateKey2;
++    for (let attempt = 0; attempt < 15; attempt += 1) {
++      const start = availableStartMinutes(candidateDate, durationHours, excludeId, attempt === 0 ? reserved : []);
++      if (start != null) return { dateKey: candidateDate, minutes: start, at: `${candidateDate}T${timeFromMinutes(start)}` };
++      candidateDate = nextWorkdayKey(candidateDate);
++    }
++    const schedule = profileWorkSchedule();
++    return { dateKey: candidateDate, minutes: schedule.workStart, at: `${candidateDate}T${timeFromMinutes(schedule.workStart)}` };
++  }
++  function resolveWorklogTime({ raw = "", dateKey: dateKey2 = key(), hours: hours2 = 1, explicitAt = "", now = /* @__PURE__ */ new Date(), excludeId = null, reserved = [] } = {}) {
++    if (explicitAt) {
++      return finalizeTimeResolution({ at: explicitAt, dateKey: String(explicitAt).slice(0, 10), reason: "explicit" }, hours2, excludeId, reserved);
++    }
++    const relative = assistantRelativeTimeSignal(raw);
++    if (relative) {
++      const durationMinutes = Math.max(1, Math.round(Number(hours2 || 1) * 60));
++      const current = roundedCurrentMinutes(now);
++      const start = relative === "just_completed" ? Math.max(0, current - durationMinutes) : current;
++      return finalizeTimeResolution({ at: `${dateKey2}T${timeFromMinutes(start)}`, dateKey: dateKey2, reason: relative }, hours2, excludeId, reserved);
++    }
++    return finalizeTimeResolution({ ...earliestAvailableWorkTime(dateKey2, hours2, excludeId, reserved), reason: "earliest_gap" }, hours2, excludeId, reserved);
++  }
++  function arrayFromInput(value) {
++    if (Array.isArray(value)) return value.map((x) => String(x).trim()).filter(Boolean);
++    return String(value || "").split(/[,\n，]/).map((x) => x.trim()).filter(Boolean);
++  }
++  const DEFAULT_WORK_DURATION_MINUTES = 60;
++  function normalizeWorkDurationMinutes(value = DEFAULT_WORK_DURATION_MINUTES) {
++    const minutes = Number(value);
++    if (!Number.isFinite(minutes)) return DEFAULT_WORK_DURATION_MINUTES;
++    return Math.max(0, Math.min(1440, Math.round(minutes)));
++  }
++  function normalizeWorkMemoryObject(value = {}, index = 0, existing = null) {
++    const raw = typeof value === "string" ? { name: value } : value || {};
++    const name = String(raw.name || "").trim();
++    const base = existing || {};
++    const aliases = arrayFromInput(raw.aliases ?? base.aliases ?? []);
++    const keywords = arrayFromInput(raw.keywords ?? base.keywords ?? []);
++    const sourceReferencesRaw = raw.sourceReferences ?? raw.source_references ?? base.sourceReferences ?? [];
++    const sourceReferences = Array.isArray(sourceReferencesRaw) ? sourceReferencesRaw.filter(Boolean).map((reference) => typeof reference === "string" ? { label: reference } : reference) : [];
++    if (!sourceReferences.some((reference) => reference?.type === "role_profile")) {
++      const runtimeRole = typeof profile !== "undefined" ? profile?.role : "";
++      const primaryRole = String(raw.primaryRole || base.primaryRole || runtimeRole || "\u63A1\u8CFC");
++      const secondaryRole = String(raw.secondaryRole || raw.category || base.category || "\u4E00\u822C\u5DE5\u4F5C");
++      sourceReferences.push({
++        type: "role_profile",
++        primaryRole,
++        secondaryRoles: secondaryRole && secondaryRole !== primaryRole ? [{ role: secondaryRole, ratio: 0.3 }] : [],
++        primaryRatio: secondaryRole && secondaryRole !== primaryRole ? 0.7 : 1
++      });
++    }
++    return {
++      id: raw.id || raw.cloudId || base.id || base.cloudId || "",
++      cloudId: raw.cloudId || raw.id || base.cloudId || base.id || "",
++      userUuid: raw.userUuid || raw.user_uuid || base.userUuid || currentUserUuid() || "",
++      name,
++      description: String(raw.description ?? base.description ?? "").trim(),
++      category: String(raw.category ?? base.category ?? "\u4E00\u822C\u5DE5\u4F5C").trim() || "\u4E00\u822C\u5DE5\u4F5C",
++      aliases: [...new Set(aliases)],
++      source: String(raw.source ?? base.source ?? "manual").trim() || "manual",
++      sourceReferences,
++      keywords: [...new Set(keywords)],
++      isActive: Boolean(raw.isActive ?? raw.is_active ?? base.isActive ?? true),
++      familiarity: Math.min(5, Math.max(1, Number(raw.familiarity ?? base.familiarity ?? 1) || 1)),
++      lastUsedAt: raw.lastUsedAt || raw.last_used_at || base.lastUsedAt || "",
++      defaultDurationMinutes: normalizeWorkDurationMinutes(raw.defaultDurationMinutes ?? raw.default_duration_minutes ?? base.defaultDurationMinutes ?? base.default_duration_minutes ?? DEFAULT_WORK_DURATION_MINUTES),
++      sortOrder: Number(raw.sortOrder ?? raw.sort_order ?? base.sortOrder ?? index) || 0,
++      createdAt: raw.createdAt || raw.created_at || base.createdAt || "",
++      updatedAt: raw.updatedAt || raw.updated_at || base.updatedAt || ""
++    };
++  }
++  const roleTagMap = {
++    "\u63A1\u8CFC": ["\u63A1\u8CFC\u6848\u4EF6\u8655\u7406", "\u767C\u7968\u8ACB\u6B3E", "\u9A57\u6536\u8ACB\u6B3E", "\u4F9B\u61C9\u5546\u806F\u7E6B", "\u63A1\u8CFC\u9032\u5EA6\u8FFD\u8E64", "\u5408\u7D04\u8CC7\u6599\u6574\u7406", "\u6703\u8B70", "\u5C08\u6848\u8FFD\u8E64"],
++    "\u884C\u653F": ["\u5EB6\u52D9\u884C\u653F", "\u6587\u4EF6\u6574\u7406", "\u6703\u8B70\u5B89\u6392", "\u8CBB\u7528\u8ACB\u6B3E", "\u8CC7\u7522\u7BA1\u7406", "\u8DE8\u90E8\u9580\u806F\u7E6B", "Mail\u8655\u7406", "\u8CC7\u6599\u6574\u7406"],
++    "\u4EBA\u8CC7": ["\u62DB\u52DF\u4F5C\u696D", "\u9762\u8A66\u5B89\u6392", "\u54E1\u5DE5\u8CC7\u6599\u7DAD\u8B77", "\u51FA\u52E4\u78BA\u8A8D", "\u6559\u80B2\u8A13\u7DF4", "\u85AA\u8CC7\u8CC7\u6599\u6574\u7406", "\u5236\u5EA6\u516C\u544A", "\u8DE8\u90E8\u9580\u6E9D\u901A"],
++    "\u696D\u52D9": ["\u5BA2\u6236\u806F\u7E6B", "\u5831\u50F9\u8FFD\u8E64", "\u5546\u6A5F\u66F4\u65B0", "\u5408\u7D04\u78BA\u8A8D", "\u5BA2\u6236\u6703\u8B70", "\u92B7\u552E\u8CC7\u6599\u6574\u7406", "\u56DE\u6B3E\u8FFD\u8E64", "\u5C08\u6848\u8FFD\u8E64"],
++    "\u884C\u92B7": ["\u6D3B\u52D5\u898F\u5283", "\u5167\u5BB9\u88FD\u4F5C", "\u793E\u7FA4\u6392\u7A0B", "\u5EE3\u544A\u6210\u6548\u8FFD\u8E64", "\u5E02\u5834\u8CC7\u6599\u6574\u7406", "\u7D20\u6750\u78BA\u8A8D", "\u8DE8\u90E8\u9580\u6E9D\u901A", "\u5C08\u6848\u8FFD\u8E64"],
++    "IT": ["\u7CFB\u7D71\u7DAD\u8B77", "\u5E33\u865F\u6B0A\u9650\u8655\u7406", "\u554F\u984C\u6392\u67E5", "\u9700\u6C42\u8A2A\u8AC7", "\u7CFB\u7D71\u66F4\u65B0", "\u8CC7\u6599\u5099\u4EFD", "\u8CC7\u5B89\u6AA2\u67E5", "\u6280\u8853\u6587\u4EF6\u6574\u7406"],
++    "\u81EA\u8A02": ["\u81EA\u8A02\u5DE5\u4F5C", "Mail\u8655\u7406", "\u8CC7\u6599\u6574\u7406", "\u6703\u8B70", "\u5C08\u6848\u8FFD\u8E64", "\u8DE8\u90E8\u9580\u6E9D\u901A", "\u6587\u4EF6\u6574\u7406", "\u5F85\u8FA6\u8FFD\u8E64"]
++  };
++  const defaultTags = ["\u63A1\u8CFC\u6848\u4EF6\u8655\u7406", "\u767C\u7968\u8ACB\u6B3E", "\u9A57\u6536\u8ACB\u6B3E", "\u4F9B\u61C9\u5546\u806F\u7E6B", "Mail\u8655\u7406", "\u8CC7\u6599\u6574\u7406", "\u6703\u8B70", "\u5C08\u6848\u8FFD\u8E64"];
++  function tagsForRole(role) {
++    return roleTagMap[role] || defaultTags;
++  }
++  function workMemoryObjects() {
++    const state = Array.isArray(DataService.workModelsState) ? DataService.workModelsState : null;
++    const fallback = Array.isArray(profile?.tags) && profile.tags.length ? profile.tags : tagsForRole(profile?.role || "\u63A1\u8CFC");
++    const source = state || fallback;
++    return source.map((item, index) => normalizeWorkMemoryObject(item, index)).filter((item) => item.name);
++  }
++  function activeWorkMemoryObjects() {
++    const seen = /* @__PURE__ */ new Set();
++    return workMemoryObjects().filter((item) => {
++      if (item.isActive === false || seen.has(item.name)) return false;
++      seen.add(item.name);
++      return true;
++    });
++  }
++  function dayEntries() {
++    return entries.filter((e) => e.date === key()).sort((a, b) => new Date(a.at) - new Date(b.at));
++  }
++  function hours(list = dayEntries()) {
++    return list.reduce((s, e) => s + Number(e.hours || 0), 0);
++  }
++  function systemReference(model = {}, type = "") {
++    return (model.sourceReferences || []).find((reference) => reference?.type === type) || null;
++  }
++  function suggestionMetricsFor(model = {}) {
++    const value = systemReference(model, "suggestion_metrics") || {};
++    const usageEvents = Array.isArray(value.usageEvents) ? value.usageEvents.filter((event) => event?.at && event?.type).slice(-180) : [];
++    const now = Date.now();
++    const recentAddedCount = (days) => usageEvents.filter((event) => event.type === "added" && now - new Date(event.at).getTime() <= days * 864e5).length;
++    return {
++      suggestionCount: Number(value.suggestionCount || 0),
++      addedCount: Number(value.addedCount || 0),
++      editedCount: Number(value.editedCount || 0),
++      deletedCount: Number(value.deletedCount || 0),
++      lastUsedAt: value.lastUsedAt || model.lastUsedAt || "",
++      averageHours: Number(value.averageHours || 0),
++      commonTimes: value.commonTimes && typeof value.commonTimes === "object" ? value.commonTimes : {},
++      presentedDates: Array.isArray(value.presentedDates) ? value.presentedDates : [],
++      usageEvents,
++      recent7Days: Number(value.recent7Days ?? recentAddedCount(7)),
++      recent30Days: Number(value.recent30Days ?? recentAddedCount(30))
++    };
++  }
++  function roleProfileFor(model = {}) {
++    const value = systemReference(model, "role_profile") || {};
++    const primaryRole = String(value.primaryRole || profile?.role || "\u63A1\u8CFC");
++    const secondaryRoles = Array.isArray(value.secondaryRoles) ? value.secondaryRoles : [];
++    return {
++      primaryRole,
++      primaryRatio: Number(value.primaryRatio ?? (secondaryRoles.length ? 0.7 : 1)),
++      secondaryRoles,
++      usageByRole: value.usageByRole && typeof value.usageByRole === "object" ? value.usageByRole : { [primaryRole]: 1 }
++    };
++  }
++  function suggestionPriority(model = {}) {
++    const title = String(model.name || "");
++    const now = Date.now();
++    const todayWeekday = (/* @__PURE__ */ new Date()).getDay();
++    const matchingEntries = entries.filter((entry) => {
++      const entryTitle = String(entry.title || "");
++      return entryTitle.includes(title) || title.includes(entryTitle);
++    });
++    const recentUsage = matchingEntries.filter((entry) => now - new Date(entry.at || entry.date || 0).getTime() <= 90 * 864e5).length;
++    const weekdayUsage = matchingEntries.filter((entry) => new Date(entry.at || entry.date || 0).getDay() === todayWeekday).length;
++    const references = Array.isArray(model.sourceReferences) ? model.sourceReferences : [];
++    const knowledgeReferences = references.filter((reference) => String(reference?.type || "").includes("knowledge"));
++    const confidence = references.reduce((highest, reference) => Math.max(highest, Number(reference?.confidence || 0)), 0);
++    const lastUsedTime = new Date(model.lastUsedAt || 0).getTime();
++    const recencyScore = Number.isFinite(lastUsedTime) && lastUsedTime > 0 ? Math.max(0, 12 - Math.floor((now - lastUsedTime) / 864e5)) : 0;
++    const missingHours = Math.max(0, 8 - hours(dayEntries()));
++    const metrics = suggestionMetricsFor(model);
++    const roleProfile = roleProfileFor(model);
++    const primaryRoleMatch = roleProfile.primaryRole === profile?.role ? 1 : 0;
++    const secondaryRoleWeight = roleProfile.secondaryRoles.reduce((sum, item) => sum + Number(item?.ratio || 0), 0);
++    const usageFrequency = metrics.suggestionCount ? metrics.addedCount / metrics.suggestionCount : 0;
++    const currentMinutes = (/* @__PURE__ */ new Date()).getHours() * 60 + (/* @__PURE__ */ new Date()).getMinutes();
++    const commonTimeScore = Object.entries(metrics.commonTimes).reduce((highest, [clock, count]) => {
++      const distance = Math.abs(minutesFromTime(clock) - currentMinutes);
++      return Math.max(highest, distance <= 90 ? Math.min(8, Number(count || 0) * 2) : 0);
++    }, 0);
++    const score = Number(feedback[title] || 0) * 24 + recentUsage * 7 + weekdayUsage * 8 + metrics.addedCount * 10 + metrics.editedCount * 2 - metrics.deletedCount * 5 + metrics.recent7Days * 8 + metrics.recent30Days * 3 + usageFrequency * 18 + commonTimeScore + primaryRoleMatch * 10 + secondaryRoleWeight * 6 + Number(model.familiarity || 1) * 4 + knowledgeReferences.length * 3 + confidence * 10 + recencyScore + (missingHours > 0 ? 5 : 0);
++    let reason = "\u9019\u662F\u4F60\u5DF2\u78BA\u8A8D\u7684\u300C\u6211\u7684\u5DE5\u4F5C\u300D\uFF0C\u53EF\u76F4\u63A5\u52A0\u5165\u4ECA\u5929\u5DE5\u6642\u3002";
++    if (weekdayUsage > 0) reason = `\u4F60\u66FE\u5728\u76F8\u540C\u661F\u671F\u8A18\u9304\u9019\u9805\u5DE5\u4F5C ${weekdayUsage} \u6B21\u3002`;
++    else if (recentUsage > 0) reason = `\u4F60\u6700\u8FD1 90 \u5929\u66FE\u8A18\u9304\u9019\u9805\u5DE5\u4F5C ${recentUsage} \u6B21\u3002`;
++    else if (knowledgeReferences.length > 0) reason = "\u9019\u9805\u5DE5\u4F5C\u4F86\u81EA\u6700\u8FD1\u6574\u7406\u4E26\u7D93\u4F60\u78BA\u8A8D\u7684\u5DE5\u4F5C\u5167\u5BB9\u3002";
++    return { score, reason };
++  }
++  const defaultEcpTasks = ["\u63A1\u8CFC\u6848\u4EF6\u8655\u7406", "\u9A57\u6536\u8ACB\u6B3E", "\u767C\u7968\u8ACB\u6B3E", "\u4F9B\u61C9\u5546\u806F\u7E6B", "\u63A1\u8CFC\u9032\u5EA6\u8FFD\u8E64"];
++  function ecpTasks() {
++    if (Array.isArray(DataService.ecpTasksState)) return [...new Set(DataService.ecpTasksState.map((x) => String(x).trim()).filter(Boolean))];
++    const source = Array.isArray(profile?.ecpTasks) && profile.ecpTasks.length ? profile.ecpTasks : profile?.ecpTask ? [profile.ecpTask] : defaultEcpTasks;
++    return [...new Set(source.map((x) => String(x).trim()).filter(Boolean))];
++  }
++  function firstEcpTaskFor(title = "") {
++    const tasks = ecpTasks();
++    return tasks.find((task) => title && title.includes(task)) || tasks[0] || "";
++  }
++  function defaultEcpTaskName(title = "") {
++    return firstEcpTaskFor(title) || ecpTasks()[0] || "";
++  }
++  function makeSuggestions() {
++    if (!profile) return [];
++    const suggestions = activeWorkMemoryObjects().map((model) => {
++      const ranking = suggestionPriority(model);
++      const learnedConfidence = (model.sourceReferences || []).reduce((highest, reference) => Math.max(highest, Number(reference?.confidence || 0)), 0);
++      const defaultDurationMinutes = normalizeWorkDurationMinutes(model.defaultDurationMinutes);
++      const defaultHours = defaultDurationMinutes / 60;
++      return {
++        id: model.name,
++        title: model.name,
++        note: "",
++        hours: defaultHours,
++        defaultDurationMinutes,
++        at: resolveWorklogTime({ dateKey: key(), hours: defaultHours }).at,
++        ecpTask: defaultEcpTaskName(model.name),
++        sourceLabel: `\u{1F4C2} \u4F86\u6E90\uFF1A${model.name}`,
++        priority: model.priority || "p2",
++        aiScore: ranking.score,
++        reason: ranking.reason,
++        confidence: learnedConfidence > 0 ? learnedConfidence : 0.85,
++        sortOrder: model.sortOrder
++      };
++    });
++    return typeof PriorityEngine2 !== "undefined" ? PriorityEngine2.rank(suggestions, { includeCompleted: true }) : suggestions;
++  }
++  const BUSINESS_UTC_OFFSET = "+08:00";
++  function parseTaipeiBusinessDateTime(value, fallback = /* @__PURE__ */ new Date()) {
++    if (value instanceof Date) return Number.isNaN(value.getTime()) ? fallback : new Date(value.getTime());
++    const text = String(value || "").trim();
++    const localMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/);
++    const normalized = localMatch ? `${localMatch[1]}-${localMatch[2]}-${localMatch[3]}T${localMatch[4]}:${localMatch[5]}:${localMatch[6] || "00"}${BUSINESS_UTC_OFFSET}` : text;
++    const d = new Date(normalized);
++    return Number.isNaN(d.getTime()) ? fallback : d;
++  }
++  const BUSINESS_TIME_ZONE = "Asia/Taipei";
++  function taipeiDateTimeParts(value) {
++    const d = parseTaipeiBusinessDateTime(value);
++    const parts = new Intl.DateTimeFormat("zh-TW-u-ca-gregory", {
++      timeZone: BUSINESS_TIME_ZONE,
++      year: "numeric",
++      month: "2-digit",
++      day: "2-digit",
++      hour: "2-digit",
++      minute: "2-digit",
++      hour12: false
++    }).formatToParts(d);
++    return Object.fromEntries(parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
++  }
++  function formatTaipeiDateTimeInput(value) {
++    if (!value) return "";
++    const p = taipeiDateTimeParts(value);
++    return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
++  }
++  const eventTypeNameMap = { WORK: "work", MEETING: "work", TRAINING: "work", LEAVE: "leave", BUSINESS_TRIP: "work" };
++  function normalizeEntryType(value = "work") {
++    const raw = String(value || "work").trim();
++    const lower = raw.toLowerCase();
++    if (["work", "meeting", "holiday", "training"].includes(lower)) return "work";
++    if (lower === "leave") return "leave";
++    if (raw === "\u5DE5\u4F5C") return "work";
++    if (raw === "\u6703\u8B70") return "work";
++    if (raw === "\u6559\u80B2\u8A13\u7DF4") return "work";
++    if (["\u7279\u4F11", "\u4E8B\u5047", "\u75C5\u5047", "\u8ACB\u5047"].includes(raw)) return "leave";
++    if (raw === "\u5047\u65E5") return "work";
++    return "work";
++  }
++  const entryTypeOptions = [
++    { value: "work", label: "\u5DE5\u4F5C" },
++    { value: "leave", label: "\u8ACB\u5047" }
++  ];
++  function eventTypeLabel(value = "work") {
++    const normalized = normalizeEntryType(value);
++    return entryTypeOptions.find((option) => option.value === normalized)?.label || "\u5DE5\u4F5C";
++  }
++  function entryFromCloud(row) {
++    const localAt = formatTaipeiDateTimeInput(row.started_at);
++    const entryType = eventTypeNameMap[row.event_type || "WORK"] || "work";
++    return {
++      id: row.legacy_id || row.id,
++      cloudId: row.id,
++      date: row.work_date || localAt.slice(0, 10),
++      at: localAt,
++      title: row.title || "",
++      note: row.note || "",
++      ecpTask: row.ecp_task_name_snapshot || "",
++      hours: Number(row.hours || 0),
++      entryType,
++      type: eventTypeLabel(entryType),
++      status: row.status || "completed",
++      source: row.source || "manual",
++      taskUuid: row.task_uuid || "",
++      taskTitleSnapshot: row.task_title_snapshot || ""
++    };
++  }
++  function monthEntries() {
++    return entries.filter((e) => String(e.date || "").startsWith(selectedMonth)).sort((a, b) => new Date(a.at) - new Date(b.at));
++  }
++  function formatEcpDateTime(value) {
++    const p = taipeiDateTimeParts(value);
++    return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`;
++  }
++  function safeDate(value, fallback = /* @__PURE__ */ new Date()) {
++    return parseTaipeiBusinessDateTime(value, fallback);
++  }
++  function addHoursToDate(value, h) {
++    const d = safeDate(value);
++    d.setMinutes(d.getMinutes() + Math.round(Number(h || 0) * 60));
++    return d;
++  }
++  function workLogRowsForEcp() {
++    return monthEntries().map((entry) => ({
++      title: entry.title || "",
++      ecpTask: entry.ecpTask || "",
++      startAt: formatEcpDateTime(entry.at),
++      endAt: formatEcpDateTime(addHoursToDate(entry.at, entry.hours)),
++      hours: Number(entry.hours || 0),
++      ecpOwner: profile?.ecpOwner || "",
++      ecpDepartment: profile?.ecpDepartment || ""
++    }));
++  }
++  const roleCodeMap = { "\u63A1\u8CFC": "PROCUREMENT", "\u884C\u653F": "ADMIN", "\u4EBA\u8CC7": "HR", "\u8CA1\u52D9": "FINANCE", "\u696D\u52D9": "SALES", "\u884C\u92B7": "MARKETING", "IT": "IT", "\u81EA\u8A02": "CUSTOM" };
++  const roleNameMap = Object.fromEntries(Object.entries(roleCodeMap).map(([name, code]) => [code, name]));
++  function roleName(code = "PROCUREMENT") {
++    return roleNameMap[code] || code || "\u63A1\u8CFC";
++  }
++  function roleCode(roleName2 = "\u63A1\u8CFC") {
++    return roleCodeMap[roleName2] || roleName2 || "PROCUREMENT";
++  }
++  function profileFromCloud(cloudProfile, exportSettings, workModels, ecpTaskRows, options = {}) {
++    const workHours = `${String(cloudProfile?.work_start_time || "09:00").slice(0, 5)}~${String(cloudProfile?.work_end_time || "18:00").slice(0, 5)}`;
++    const lunch = `${String(cloudProfile?.lunch_start_time || "12:00").slice(0, 5)}~${String(cloudProfile?.lunch_end_time || "13:00").slice(0, 5)}`;
++    const fallbackRole = profile?.role || "\u63A1\u8CFC";
++    const fallbackTags = Array.isArray(profile?.tags) && profile.tags.length ? profile.tags : tagsForRole(fallbackRole);
++    const fallbackEcpTasks = Array.isArray(profile?.ecpTasks) && profile.ecpTasks.length ? profile.ecpTasks : defaultEcpTasks;
++    const cloudWorkModels = Array.isArray(workModels) ? workModels.filter((row) => row.is_active !== false && row.isActive !== false).map((row) => row.name).filter(Boolean) : [];
++    const cloudEcpTasks = Array.isArray(ecpTaskRows) ? ecpTaskRows.map((row) => row.name).filter(Boolean) : [];
++    return {
++      ...profile || {},
++      role: roleName(cloudProfile?.role_code || roleCode(fallbackRole)),
++      tags: options.workModelsLoaded ? cloudWorkModels : fallbackTags,
++      workHours,
++      lunch,
++      ecpOwner: exportSettings?.ecp_owner || profile?.ecpOwner || "",
++      ecpDepartment: exportSettings?.ecp_department || profile?.ecpDepartment || "",
++      ecpTasks: options.ecpTasksLoaded ? cloudEcpTasks : fallbackEcpTasks
++    };
++  }
++  function currentCalendarMonthKey() {
++    const now = /* @__PURE__ */ new Date();
++    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
++  }
++  function defaultWorkProfileSeed(baseProfile = profile) {
++    const firstTask = (Array.isArray(baseProfile?.ecpTasks) ? baseProfile.ecpTasks : []).find(Boolean) || baseProfile?.ecpTask || "";
++    const completed = !!(baseProfile?.ecpOwner && baseProfile?.ecpDepartment && firstTask);
++    return {
++      userUuid: currentUserUuid(),
++      ecpResponsiblePerson: baseProfile?.ecpOwner || "",
++      ecpDepartment: baseProfile?.ecpDepartment || "",
++      defaultTask: firstTask,
++      defaultWorkModel: (Array.isArray(baseProfile?.tags) ? baseProfile.tags : []).find(Boolean) || "",
++      profileCompleted: completed,
++      profileCompletedAt: completed ? (/* @__PURE__ */ new Date()).toISOString() : "",
++      lastProfileCheckDate: "",
++      lastProfilePromptDate: "",
++      taskEffectiveMonth: firstTask ? currentCalendarMonthKey() : "",
++      taskVerifiedAt: firstTask ? (/* @__PURE__ */ new Date()).toISOString() : "",
++      expiresAt: ""
++    };
++  }
++  function normalizeWorkProfile(value = {}, baseProfile = profile) {
++    const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
++    const seed = defaultWorkProfileSeed(baseProfile);
++    const pick = (camel, snake, fallback = "") => {
++      if (Object.prototype.hasOwnProperty.call(source, camel)) return source[camel] ?? "";
++      if (Object.prototype.hasOwnProperty.call(source, snake)) return source[snake] ?? "";
++      return fallback;
++    };
++    const result = {
++      userUuid: pick("userUuid", "user_uuid", seed.userUuid),
++      ecpResponsiblePerson: pick("ecpResponsiblePerson", "ecp_responsible_person", seed.ecpResponsiblePerson),
++      ecpDepartment: pick("ecpDepartment", "ecp_department", seed.ecpDepartment),
++      defaultTask: pick("defaultTask", "default_task", seed.defaultTask),
++      defaultWorkModel: pick("defaultWorkModel", "default_work_model", seed.defaultWorkModel),
++      profileCompleted: Boolean(source.profileCompleted ?? source.profile_completed ?? seed.profileCompleted),
++      profileCompletedAt: pick("profileCompletedAt", "profile_completed_at", seed.profileCompletedAt),
++      lastProfileCheckDate: pick("lastProfileCheckDate", "last_profile_check_date", seed.lastProfileCheckDate),
++      lastProfilePromptDate: pick("lastProfilePromptDate", "last_profile_prompt_date", seed.lastProfilePromptDate),
++      taskEffectiveMonth: pick("taskEffectiveMonth", "task_effective_month", seed.taskEffectiveMonth),
++      taskVerifiedAt: pick("taskVerifiedAt", "task_verified_at", seed.taskVerifiedAt),
++      expiresAt: pick("expiresAt", "expires_at", seed.expiresAt)
++    };
++    result.profileCompleted = !!(result.ecpResponsiblePerson && result.ecpDepartment && result.defaultTask);
++    if (!result.profileCompleted) result.profileCompletedAt = "";
++    if (result.profileCompleted && !result.profileCompletedAt) result.profileCompletedAt = (/* @__PURE__ */ new Date()).toISOString();
++    if (result.defaultTask && !result.taskEffectiveMonth) result.taskEffectiveMonth = currentCalendarMonthKey();
++    if (result.defaultTask && !result.taskVerifiedAt) result.taskVerifiedAt = (/* @__PURE__ */ new Date()).toISOString();
++    return result;
++  }
++  function workProfileFromCloud(row = null, exportSettings = null, ecpTaskRows = [], baseProfile = profile) {
++    const firstTask = Array.isArray(ecpTaskRows) ? ecpTaskRows.map((row2) => row2.name).find(Boolean) : "";
++    return normalizeWorkProfile({
++      ...row || {},
++      ecp_responsible_person: row?.ecp_responsible_person || exportSettings?.ecp_owner || baseProfile?.ecpOwner || "",
++      ecp_department: row?.ecp_department || exportSettings?.ecp_department || baseProfile?.ecpDepartment || "",
++      default_task: row?.default_task || firstTask || baseProfile?.ecpTask || "",
++      default_work_model: row?.default_work_model || (Array.isArray(baseProfile?.tags) ? baseProfile.tags[0] : "")
++    }, baseProfile);
++  }
++  function workProfileMissingFields(p = workProfile) {
++    const next = normalizeWorkProfile(p);
++    const missing = [];
++    if (!next.ecpResponsiblePerson) missing.push("ECP \u8CA0\u8CAC\u4EBA");
++    if (!next.ecpDepartment) missing.push("ECP \u8CA0\u8CAC\u90E8\u9580");
++    if (!next.defaultTask) missing.push("\u76EE\u524D\u5DE5\u4F5C\u4EFB\u52D9");
++    return missing;
++  }
++  function uid(prefix = "wl") {
++    return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
++  }
++  function isLeaveType(value = "work") {
++    return normalizeEntryType(value) === "leave";
++  }
++  function createEntry(input = {}) {
++    const requestedDate = input.date || String(input.at || "").slice(0, 10) || key();
++    const resolved = resolveWorklogTime({
++      raw: input.raw || "",
++      dateKey: requestedDate,
++      hours: input.hours || 1,
++      explicitAt: input.at || "",
++      excludeId: input.id || null
++    });
++    const at = resolved.at;
++    const date = String(at || requestedDate).slice(0, 10);
++    const entryType = normalizeEntryType(input.entryType || input.type || "work");
++    return {
++      id: input.id || uid(),
++      date,
++      at,
++      title: String(input.title || "").trim(),
++      note: String(input.note || "").trim(),
++      ecpTask: isLeaveType(entryType) ? "" : input.ecpTask == null ? defaultEcpTaskName(input.title || "") : String(input.ecpTask || "").trim(),
++      hours: Number(input.hours || 1),
++      entryType,
++      type: eventTypeLabel(entryType),
++      source: input.source || "manual",
++      status: input.status || "completed",
++      cloudId: input.cloudId || void 0,
++      taskUuid: input.taskUuid || input.task_uuid || "",
++      taskTitleSnapshot: input.taskTitleSnapshot || input.task_title_snapshot || ""
++    };
++  }
++  function recordSuggestionMetric(modelName = "", event = "suggested", entry = null) {
++    const models = workMemoryObjects();
++    const index = models.findIndex((model2) => model2.name === String(modelName || ""));
++    if (index < 0 || models[index].isActive === false) return;
++    const model = { ...models[index] };
++    const current = suggestionMetricsFor(model);
++    const today = key(/* @__PURE__ */ new Date());
++    if (event === "suggested" && current.presentedDates.includes(today)) return;
++    const next = { ...current };
++    const eventAt = (/* @__PURE__ */ new Date()).toISOString();
++    if (event === "suggested") {
++      next.suggestionCount += 1;
++      next.presentedDates = [...current.presentedDates.slice(-29), today];
++    }
++    if (event === "added") next.addedCount += 1;
++    if (event === "edited") next.editedCount += 1;
++    if (event === "deleted") next.deletedCount += 1;
++    if (["added", "edited", "deleted"].includes(event)) next.lastUsedAt = eventAt;
++    if (["suggested", "added", "edited", "deleted"].includes(event)) {
++      next.usageEvents = [...current.usageEvents, { type: event, at: eventAt, hours: Number(entry?.hours || 0), time: String(entry?.at || "").slice(11, 16) }].slice(-180);
++    }
++    if (event === "added" && entry) {
++      const previousTotal = current.averageHours * current.addedCount;
++      next.averageHours = Math.round((previousTotal + Number(entry.hours || 0)) / Math.max(1, next.addedCount) * 100) / 100;
++      const commonTime = String(entry.at || "").slice(11, 16);
++      if (commonTime) next.commonTimes = { ...current.commonTimes, [commonTime]: Number(current.commonTimes[commonTime] || 0) + 1 };
++    }
++    if (event === "edited" && entry && next.addedCount > 0) {
++      next.averageHours = Math.round((current.averageHours * Math.max(0, next.addedCount - 1) + Number(entry.hours || 0)) / next.addedCount * 100) / 100;
++      const commonTime = String(entry.at || "").slice(11, 16);
++      if (commonTime) next.commonTimes = { ...current.commonTimes, [commonTime]: Number(current.commonTimes[commonTime] || 0) + 1 };
++    }
++    const addedEvents = next.usageEvents.filter((item) => item.type === "added");
++    const now = Date.now();
++    next.recent7Days = addedEvents.filter((item) => now - new Date(item.at).getTime() <= 7 * 864e5).length;
++    next.recent30Days = addedEvents.filter((item) => now - new Date(item.at).getTime() <= 30 * 864e5).length;
++    next.usageFrequency = next.suggestionCount ? Math.round(next.addedCount / next.suggestionCount * 1e3) / 1e3 : 0;
++    model.lastUsedAt = next.lastUsedAt || model.lastUsedAt;
++    const roleProfile = roleProfileFor(model);
++    if (event === "added") {
++      const learnedRole = model.category && model.category !== "\u4E00\u822C\u5DE5\u4F5C" ? model.category : roleProfile.primaryRole;
++      roleProfile.usageByRole = { ...roleProfile.usageByRole, [learnedRole]: Number(roleProfile.usageByRole[learnedRole] || 0) + 1 };
++      const total = Math.max(1, Object.values(roleProfile.usageByRole).reduce((sum, count) => sum + Number(count || 0), 0));
++      roleProfile.primaryRatio = Math.round(Number(roleProfile.usageByRole[roleProfile.primaryRole] || 0) / total * 1e3) / 1e3;
++      roleProfile.secondaryRoles = Object.entries(roleProfile.usageByRole).filter(([role]) => role !== roleProfile.primaryRole).map(([role, count]) => ({ role, ratio: Math.round(Number(count || 0) / total * 1e3) / 1e3 })).sort((a, b) => b.ratio - a.ratio);
++    }
++    model.sourceReferences = [
++      ...(model.sourceReferences || []).filter((reference) => !["suggestion_metrics", "role_profile"].includes(reference?.type)),
++      { type: "suggestion_metrics", ...next },
++      { type: "role_profile", ...roleProfile }
++    ];
++    models[index] = model;
++    setWorkModels(models);
++    saveAll({ skipSync: true });
++    DataService.queueAutoSave("workModels");
++  }
++  const eventTypeCodeMap = {
++    work: "WORK",
++    meeting: "WORK",
++    training: "WORK",
++    leave: "LEAVE",
++    holiday: "LEAVE",
++    "\u5DE5\u4F5C": "WORK",
++    "\u6703\u8B70": "MEETING",
++    "\u6559\u80B2\u8A13\u7DF4": "TRAINING",
++    "\u7279\u4F11": "LEAVE",
++    "\u4E8B\u5047": "LEAVE",
++    "\u75C5\u5047": "LEAVE",
++    "\u8ACB\u5047": "LEAVE",
++    "\u5047\u65E5": "LEAVE",
++    "\u51FA\u5DEE": "BUSINESS_TRIP"
++  };
++  function eventTypeCode(label = "\u5DE5\u4F5C") {
++    return eventTypeCodeMap[normalizeEntryType(label)] || eventTypeCodeMap[label] || label || "WORK";
++  }
++  const chineseNumberMap = { "\u96F6": 0, "\u4E00": 1, "\u4E8C": 2, "\u5169": 2, "\u4E09": 3, "\u56DB": 4, "\u4E94": 5, "\u516D": 6, "\u4E03": 7, "\u516B": 8, "\u4E5D": 9, "\u5341": 10 };
++  function parseNumberToken(value = "") {
++    const text = String(value || "").trim();
++    if (!text) return null;
++    if (/^\d+(\.\d+)?$/.test(text)) return Number(text);
++    if (text === "\u534A") return 0.5;
++    if (text === "\u5341") return 10;
++    if (text.length === 1 && text in chineseNumberMap) return chineseNumberMap[text];
++    const tenMatch = text.match(/^十([一二兩三四五六七八九])$/);
++    if (tenMatch) return 10 + chineseNumberMap[tenMatch[1]];
++    const compound = text.match(/^([一二兩三四五六七八九])十([一二兩三四五六七八九])?$/);
++    if (compound) return chineseNumberMap[compound[1]] * 10 + (compound[2] ? chineseNumberMap[compound[2]] : 0);
++    return null;
++  }
++  function parseAssistantDuration(text = "") {
++    const raw = String(text || "");
++    if (/半天|半日/.test(raw)) return 4;
++    if (/整天|整日|全天|一整天|一天/.test(raw)) return 8;
++    const numberAndHalf = raw.match(/([0-9]+|[一二兩三四五六七八九十]+)\s*(?:個)?半\s*(?:小時|鐘頭|h|H)/);
++    if (numberAndHalf) return parseNumberToken(numberAndHalf[1]) + 0.5;
++    if (/(一個|1個)?半\s*(?:小時|鐘頭|h|H)/.test(raw)) return 0.5;
++    const half = raw.match(/半\s*(?:小時|鐘頭|h|H)/);
++    if (half) return 0.5;
++    const match = raw.match(/([0-9]+(?:\.[0-9]+)?|[一二兩三四五六七八九十]+)\s*(?:小時|鐘頭|h|H)/);
++    if (!match) return null;
++    return parseNumberToken(match[1]);
++  }
++  function taipeiDateKeyFromDate(value = /* @__PURE__ */ new Date()) {
++    const parts = taipeiDateTimeParts(value);
++    return `${parts.year}-${parts.month}-${parts.day}`;
++  }
++  function validTaipeiDateKey(year, month, day) {
++    const candidate = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day), 12));
++    if (candidate.getUTCFullYear() !== Number(year) || candidate.getUTCMonth() !== Number(month) - 1 || candidate.getUTCDate() !== Number(day)) return "";
++    return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
++  }
++  function parseAssistantExplicitDate(text = "", fallbackDateKey = "") {
++    const raw = String(text || "");
++    const fallbackYear = Number(String(fallbackDateKey || "").slice(0, 4)) || Number(taipeiDateKeyFromDate(/* @__PURE__ */ new Date()).slice(0, 4));
++    const full = raw.match(/(\d{4})\s*[年/-]\s*(\d{1,2})\s*[月/-]\s*(\d{1,2})\s*(?:日|號)?/);
++    if (full) return validTaipeiDateKey(full[1], full[2], full[3]);
++    const monthDay = raw.match(/(\d{1,2})\s*月\s*(\d{1,2})\s*(?:日|號)?/);
++    if (monthDay) return validTaipeiDateKey(fallbackYear, monthDay[1], monthDay[2]);
++    const slashDay = raw.match(/(?:^|[^\d])(\d{1,2})\s*[/-]\s*(\d{1,2})(?!\d)/);
++    if (slashDay) return validTaipeiDateKey(fallbackYear, slashDay[1], slashDay[2]);
++    return "";
++  }
++  const assistantWeekdayIndex = { "\u65E5": 0, "\u5929": 0, "\u4E00": 1, "\u4E8C": 2, "\u4E09": 3, "\u56DB": 4, "\u4E94": 5, "\u516D": 6 };
++  function assistantDateWeekdaySignal(text = "") {
++    const match = String(text || "").match(/(下)?(?:星期|週|周|禮拜|礼拜)\s*([日天一二三四五六])/);
++    if (!match) return null;
++    return { expected: assistantWeekdayIndex[match[2]], nextWeek: Boolean(match[1]) };
++  }
++  function taipeiWeekdayIndex(dateKey2 = "") {
++    const match = String(dateKey2 || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
++    if (!match) return null;
++    const date = /* @__PURE__ */ new Date(`${dateKey2}T12:00:00${BUSINESS_UTC_OFFSET}`);
++    const label = new Intl.DateTimeFormat("zh-TW-u-ca-gregory", { timeZone: BUSINESS_TIME_ZONE, weekday: "short" }).format(date);
++    return ["\u9031\u65E5", "\u9031\u4E00", "\u9031\u4E8C", "\u9031\u4E09", "\u9031\u56DB", "\u9031\u4E94", "\u9031\u516D"].indexOf(label);
++  }
++  function shiftTaipeiDateKey(dateKey2 = "", days = 0) {
++    const match = String(dateKey2 || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
++    if (!match) return taipeiDateKeyFromDate(/* @__PURE__ */ new Date());
++    const shifted = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]) + Number(days || 0), 12));
++    return shifted.toISOString().slice(0, 10);
++  }
++  function parseAssistantDate(text = "", now = /* @__PURE__ */ new Date()) {
++    const raw = String(text || "");
++    const todayKey = taipeiDateKeyFromDate(now);
++    const explicit = parseAssistantExplicitDate(raw, todayKey);
++    if (explicit) return explicit;
++    const weekday = assistantDateWeekdaySignal(raw);
++    if (weekday) {
++      const currentIndex = taipeiWeekdayIndex(todayKey);
++      let distance = (weekday.expected - currentIndex + 7) % 7;
++      if (weekday.nextWeek) distance += 7;
++      else if (distance === 0) distance = 7;
++      return shiftTaipeiDateKey(todayKey, distance);
++    }
++    if (/後天|後日/.test(raw)) return shiftTaipeiDateKey(todayKey, 2);
++    if (/明天|明日/.test(raw)) return shiftTaipeiDateKey(todayKey, 1);
++    if (/昨天|昨日/.test(raw)) return shiftTaipeiDateKey(todayKey, -1);
++    if (/下星期|下週|下周|下禮拜|下礼拜/.test(raw)) return shiftTaipeiDateKey(todayKey, 7);
++    return todayKey;
++  }
++  function parseAssistantTimeToken(period = "", hourToken = "", minuteToken = "") {
++    let hour = parseNumberToken(hourToken);
++    if (hour == null) return null;
++    let minute = minuteToken === "\u534A" ? 30 : Number(minuteToken || 0);
++    if (/下午|晚上|晚間/.test(period) && hour < 12) hour += 12;
++    if (/中午/.test(period) && hour < 12) hour += 12;
++    if (/凌晨/.test(period) && hour === 12) hour = 0;
++    return { hour, minute: Number.isFinite(minute) ? minute : 0 };
++  }
++  function parseAssistantTimeRange(text = "", dateKey2 = key()) {
++    const pattern = /(上午|下午|晚上|晚間|中午|凌晨)?\s*([0-9一二兩三四五六七八九十]{1,3})\s*(?:點|:)\s*(半|\d{1,2})?\s*(?:到|至|-|~)\s*(上午|下午|晚上|晚間|中午|凌晨)?\s*([0-9一二兩三四五六七八九十]{1,3})\s*(?:點|:)?\s*(半|\d{1,2})?/;
++    const match = String(text).match(pattern);
++    if (!match) return null;
++    const start = parseAssistantTimeToken(match[1] || "", match[2], match[3] || "");
++    const end = parseAssistantTimeToken(match[4] || match[1] || "", match[5], match[6] || "");
++    if (!start || !end) return null;
++    const startMinutes = start.hour * 60 + start.minute;
++    let endMinutes = end.hour * 60 + end.minute;
++    if (endMinutes <= startMinutes && end.hour < 12) endMinutes += 12 * 60;
++    const hoursValue = Math.max(0.5, Math.round((endMinutes - startMinutes) / 30) / 2);
++    return { at: `${dateKey2}T${String(start.hour).padStart(2, "0")}:${String(start.minute).padStart(2, "0")}`, hours: hoursValue };
++  }
++  function parseAssistantSingleStart(text = "", dateKey2 = key()) {
++    const pattern = /(上午|下午|晚上|晚間|中午|凌晨)?\s*([0-9一二兩三四五六七八九十]{1,3})\s*(?:點|:)\s*(半|\d{1,2})?/;
++    const match = String(text).match(pattern);
++    if (!match) return null;
++    const start = parseAssistantTimeToken(match[1] || "", match[2], match[3] || "");
++    if (!start) return null;
++    return `${dateKey2}T${String(start.hour).padStart(2, "0")}:${String(start.minute).padStart(2, "0")}`;
++  }
++  function parseAssistantVagueStart(text = "", dateKey2 = key()) {
++    const raw = String(text || "");
++    if (/上午/.test(raw)) return `${dateKey2}T09:00`;
++    if (/下午/.test(raw)) return `${dateKey2}T13:00`;
++    if (/晚上|晚間/.test(raw)) return `${dateKey2}T18:00`;
++    return null;
++  }
++  function parseAssistantPeriodDuration(text = "", hasSpecificTime = false) {
++    const raw = String(text || "");
++    if (/整天|整日|全天|一整天|一天/.test(raw)) return 8;
++    const explicitWholePeriod = /整個|一整個|整段|都在|整/.test(raw);
++    if (hasSpecificTime && !explicitWholePeriod) return null;
++    if (/上午|早上/.test(raw) && (explicitWholePeriod || !hasSpecificTime)) return 3;
++    if (/下午/.test(raw) && (explicitWholePeriod || !hasSpecificTime)) return 5;
++    return null;
++  }
++  const leaveTypeVocabulary = ["\u7279\u4F11", "\u75C5\u5047", "\u4E8B\u5047", "\u516C\u5047", "\u5A5A\u5047", "\u55AA\u5047", "\u88DC\u4F11", "\u80B2\u5B30\u5047", "\u751F\u7406\u5047", "\u5BB6\u5EAD\u7167\u9867\u5047", "\u8ACB\u5047"];
++  function entryTypeFromDescription(value = "") {
++    const text = String(value || "").trim();
++    if (!text) return "work";
++    return leaveTypeVocabulary.some((alias) => text.includes(alias)) ? "leave" : "work";
++  }
++  function stripAssistantSlots(raw = "") {
++    return String(raw || "").replace(/(\d{1,2})[/-](\d{1,2})/g, "").replace(/(\d{1,2})\s*月\s*(\d{1,2})\s*(?:日|號)?/g, "").replace(/今天|今日|明天|明日|後天|後日|昨天|昨日|下星期|下週|下周|下禮拜|下礼拜/g, "").replace(/(?:下)?(?:星期|週|周|禮拜|礼拜)\s*[日天一二三四五六]/g, "").replace(/上午|下午|晚上|晚間|中午|凌晨/g, "").replace(/[0-9一二兩三四五六七八九十半]+點(半|\d{1,2})?\s*(到|至|-|~)\s*(上午|下午|晚上|晚間|中午|凌晨)?\s*[0-9一二兩三四五六七八九十半]+點?(半|\d{1,2})?/g, "").replace(/[0-9一二兩三四五六七八九十半]+點(半|\d{1,2})?/g, "").replace(/[0-9一二兩三四五六七八九十半]+(?:\.[0-9]+)?\s*(?:小時|h|H)/g, "").replace(/半天|半日|整天|整日|全天|一整天|一天/g, "").replace(/^(我|幫我|請幫我|麻煩|請|要|想要|需要|有|新增|建立|記錄|紀錄|補|提醒我|提醒)/g, "").replace(/(工時|一下|一筆|一個|預計|大概|約|大約|的|了|有|都在|忘了)/g, "").replace(/[，,。.!！?？]/g, " ").replace(/\s+/g, " ").trim();
++  }
++  function extractAssistantDescription(raw = "") {
++    const text = String(raw || "");
++    if (/開會/.test(text)) return "\u6703\u8B70";
++    const cleaned = stripAssistantSlots(text);
++    return cleaned || "";
++  }
++  function assistantEntryTitle(raw = "", entryType = "work") {
++    const text = String(raw || "");
++    const cleaned = extractAssistantDescription(text);
++    if (/開會|會議/.test(text) && !cleaned) return "\u6703\u8B70";
++    return cleaned || (entryType === "leave" ? "\u8ACB\u5047" : "\u5DE5\u6642\u7D00\u9304");
++  }
++  function assistantDateWeekdayMismatch(text = "", dateKey2 = "") {
++    const signal = assistantDateWeekdaySignal(text);
++    return Boolean(signal && signal.expected !== taipeiWeekdayIndex(dateKey2));
++  }
++  function parseAssistantSlots(raw = "") {
++    const dateKey2 = parseAssistantDate(raw);
++    const range = parseAssistantTimeRange(raw, dateKey2);
++    const singleStart = parseAssistantSingleStart(raw, dateKey2);
++    const vagueStart = parseAssistantVagueStart(raw, dateKey2);
++    const duration = parseAssistantDuration(raw) || parseAssistantPeriodDuration(raw, Boolean(range || singleStart));
++    const entryType = entryTypeFromDescription(raw);
++    const description = assistantEntryTitle(raw, entryType);
++    return { dateKey: dateKey2, range, singleStart, vagueStart, duration, entryType, description, dateWeekdayMismatch: assistantDateWeekdayMismatch(raw, dateKey2) };
++  }
++  function includesAny(text = "", words = []) {
++    const raw = String(text || "");
++    return words.some((word) => raw.includes(word));
++  }
++  function inferAssistantIntent(raw = "", slots = {}) {
++    const text = String(raw || "");
++    const hasTime = Boolean(slots.range || slots.singleStart || slots.vagueStart);
++    const hasDuration = Boolean(slots.duration);
++    const isLeave = slots.entryType === "leave";
++    const taskWords = ["\u63D0\u9192\u6211", "\u63D0\u9192", "\u5F85\u8FA6", "todo", "Todo", "\u5EFA\u7ACB\u5F85\u8FA6", "\u65B0\u589E\u5F85\u8FA6"];
++    const unsupportedWords = ["\u80A1\u7968", "\u6295\u8CC7", "\u57FA\u91D1", "ETF", "\u65B0\u805E", "\u5929\u6C23", "\u532F\u7387", "\u9910\u5EF3", "\u65C5\u904A"];
++    if (includesAny(text, unsupportedWords)) return "unknown";
++    if (isLeave) return "leave";
++    if (includesAny(text, taskWords)) return "task";
++    if (/新增.+案件|建立.+案件/.test(text) && !hasTime && !hasDuration) return "task";
++    if (hasTime || hasDuration || includesAny(text, ["\u5DE5\u6642", "\u88DC", "\u8A18\u9304", "\u7D00\u9304", "\u958B\u6703", "\u6703\u8B70", "\u9A57\u6536", "\u5BEB\u7A0B\u5F0F", "\u62DC\u8A2A", "\u8655\u7406", "\u6574\u7406", "\u8ACB\u6B3E", "\u63A1\u8CFC", "\u6559\u80B2\u8A13\u7DF4"])) return "worklog";
++    return "unknown";
++  }
++  function inferWorkSemantics(title = "", raw = "") {
++    const text = `${title} ${raw}`.trim();
++    const rules = [
++      { pattern: /採購|請購|詢價|議價|供應商|驗收|交貨/, category: "\u63A1\u8CFC", nature: "\u6848\u4EF6\u7BA1\u7406", tags: ["\u63A1\u8CFC", "\u6848\u4EF6"] },
++      { pattern: /請款|發票|應付|付款|費用/, category: "\u8CA1\u52D9\u884C\u653F", nature: "\u8CBB\u7528\u7BA1\u7406", tags: ["\u8ACB\u6B3E", "\u8CBB\u7528"] },
++      { pattern: /會議|開會|討論|訪談|面試/, category: "\u5354\u4F5C", nature: "\u6703\u8B70", tags: ["\u6703\u8B70", "\u5354\u4F5C"] },
++      { pattern: /教育訓練|訓練|研習|課程/, category: "\u5B78\u7FD2\u767C\u5C55", nature: "\u6559\u80B2\u8A13\u7DF4", tags: ["\u8A13\u7DF4"] },
++      { pattern: /程式|開發|測試|除錯|系統|部署/, category: "\u8CC7\u8A0A", nature: "\u5C08\u6848\u57F7\u884C", tags: ["IT", "\u5C08\u6848"] },
++      { pattern: /報表|資料|文件|整理|歸檔|公文|Mail|信件/, category: "\u884C\u653F", nature: "\u8CC7\u6599\u8655\u7406", tags: ["\u884C\u653F", "\u6587\u4EF6"] },
++      { pattern: /專案|進度|上櫃|掛牌|企劃|計畫/, category: "\u5C08\u6848", nature: "\u5C08\u6848\u7BA1\u7406", tags: ["\u5C08\u6848"] },
++      { pattern: /客戶|拜訪|客服|聯繫/, category: "\u5BA2\u6236\u670D\u52D9", nature: "\u5C0D\u5916\u5354\u4F5C", tags: ["\u5BA2\u6236", "\u806F\u7E6B"] },
++      { pattern: /特休|請假|休假|病假|事假/, category: "\u8ACB\u5047", nature: "Leave", tags: ["\u8ACB\u5047"] }
++    ];
++    const matched = rules.filter((rule) => rule.pattern.test(text));
++    if (!matched.length) return { category: "\u4E00\u822C\u5DE5\u4F5C", tags: [], nature: "\u4E00\u822C\u5DE5\u4F5C", confidence: 0.45 };
++    const first = matched[0];
++    return {
++      category: first.category,
++      tags: [...new Set(matched.flatMap((rule) => rule.tags))],
++      nature: first.nature,
++      confidence: matched.length > 1 ? 0.94 : 0.82
++    };
++  }
++  function assistantCommandFromParts({ raw = "", dateKey: dateKey2 = key(), at = "", hours: hours2 = 1, entryType = "work", timeSource = "" } = {}) {
++    const hasHours = hours2 !== void 0 && hours2 !== null && hours2 !== "";
++    const title = assistantEntryTitle(raw, entryType);
++    return {
++      title,
++      raw,
++      dateKey: dateKey2,
++      at,
++      hours: hasHours ? Number(hours2) : 1,
++      entryType,
++      timeSource: timeSource || (at ? "explicit" : ""),
++      semantics: inferWorkSemantics(title, raw),
++      dateWeekdayMismatch: assistantDateWeekdayMismatch(raw, dateKey2)
++    };
++  }
++  function resolveAssistantCommandTime(command = {}) {
++    const dateKey2 = command.dateKey || String(command.at || "").slice(0, 10) || key();
++    const explicitAt = command.timeSource === "explicit" ? command.at : "";
++    const resolved = resolveWorklogTime({
++      raw: command.raw || "",
++      dateKey: dateKey2,
++      hours: Number(command.hours || 1),
++      explicitAt
++    });
++    return { ...command, dateKey: resolved.dateKey, at: resolved.at, timeResolution: resolved.reason };
++  }
++  function buildAssistantEntry(command = {}) {
++    return createEntry({
++      title: command.title,
++      at: command.at,
++      date: String(command.at || "").slice(0, 10),
++      hours: command.hours,
++      entryType: command.entryType || "work",
++      source: "manual"
++    });
++  }
++  const assistantWeekdayLabels = ["\u661F\u671F\u65E5", "\u661F\u671F\u4E00", "\u661F\u671F\u4E8C", "\u661F\u671F\u4E09", "\u661F\u671F\u56DB", "\u661F\u671F\u4E94", "\u661F\u671F\u516D"];
++  function assistantDateLabel(dateKey2 = "") {
++    const weekday = taipeiWeekdayIndex(dateKey2);
++    return weekday == null ? String(dateKey2 || "") : `${dateKey2}\uFF08${assistantWeekdayLabels[weekday]}\uFF09`;
++  }
++  function assistantConfirmationPayload(command = {}) {
++    const item = buildAssistantEntry(command);
++    return {
++      title: item.title,
++      date: item.date,
++      dateLabel: assistantDateLabel(item.date),
++      start: String(item.at || "").slice(11, 16),
++      end: timeFromMinutes(entryEndMinutes(item)),
++      hours: item.hours,
++      entryType: item.entryType,
++      at: item.at,
++      category: command.semantics?.category || "\u4E00\u822C\u5DE5\u4F5C",
++      tags: command.semantics?.tags || [],
++      nature: command.semantics?.nature || "\u4E00\u822C\u5DE5\u4F5C",
++      timeResolution: command.timeResolution || "",
++      dateWeekdayMismatch: Boolean(command.dateWeekdayMismatch)
++    };
++  }
++  function parseWorklogIntentLocal(text = "") {
++    const raw = String(text || "").trim();
++    if (!raw) return { type: "empty" };
++    if (/(今天|今日).*(哪些工作|有什麼工作|做了什麼|做哪些|工作)|我.*今天.*(做了什麼|有哪些工作)|還有.*工作|其他工作/.test(raw)) return { type: "query_today_work" };
++    if (/(今天|今日).*(工時|完成|登記|記錄|紀錄|多少)|工時.*(今天|今日)/.test(raw)) return { type: "query_today" };
++    if (/(本週|本周|這週|這周).*(工時|完成|登記|記錄|紀錄|多少)|工時.*(本週|本周|這週|這周)/.test(raw)) return { type: "query_week" };
++    if (/刪除|移除/.test(raw)) return { type: /最後|上一筆|剛剛/.test(raw) ? "delete_last" : "unsupported_delete" };
++    if (/修改|改成|調整/.test(raw)) return { type: /最後|上一筆|剛剛/.test(raw) ? "update_last" : "unsupported_update", hours: parseAssistantDuration(raw) };
++    const slots = parseAssistantSlots(raw);
++    const intent = inferAssistantIntent(raw, slots);
++    if (intent === "task") {
++      return { type: "task_draft", parsedCommand: { title: slots.description || stripAssistantSlots(raw) || "\u5F85\u8FA6", raw } };
++    }
++    if (intent === "calendar") {
++      const at = slots.range?.at || slots.singleStart || slots.vagueStart || "";
++      const parsedCommand = assistantCommandFromParts({ raw, dateKey: slots.dateKey, at, hours: slots.range?.hours || slots.duration || 0, entryType: "work" });
++      if (!parsedCommand.hours) return { type: "need_duration", parsedCommand };
++      const resolvedCommand = resolveAssistantCommandTime(parsedCommand);
++      return { type: "confirm_add_entry", parsedCommand: resolvedCommand, entryPayload: assistantConfirmationPayload(resolvedCommand) };
++    }
++    if (intent === "worklog" || intent === "leave") {
++      const { dateKey: dateKey2, range, singleStart, vagueStart, duration, entryType } = slots;
++      if (range) {
++        const parsedCommand2 = assistantCommandFromParts({ raw, dateKey: dateKey2, at: range.at, hours: range.hours, entryType });
++        return { type: "confirm_add_entry", parsedCommand: parsedCommand2, entryPayload: assistantConfirmationPayload(parsedCommand2) };
++      }
++      const start = singleStart || vagueStart;
++      if (start && !duration && entryType !== "leave") {
++        const parsedCommand2 = assistantCommandFromParts({ raw, dateKey: dateKey2, at: start, hours: 0, entryType });
++        return { type: "need_duration", parsedCommand: parsedCommand2 };
++      }
++      if (entryType === "leave" && !duration && !/半天|半日|整天|整日|全天|一整天|一天/.test(raw)) {
++        const parsedCommand2 = assistantCommandFromParts({ raw, dateKey: dateKey2, at: start || `${dateKey2}T09:00`, hours: 0, entryType, timeSource: "explicit" });
++        return { type: "need_duration", parsedCommand: parsedCommand2 };
++      }
++      if (!duration && !start) {
++        const parsedCommand2 = assistantCommandFromParts({ raw, dateKey: dateKey2, at: "", hours: 0, entryType });
++        return { type: "need_duration", parsedCommand: parsedCommand2 };
++      }
++      const hoursValue = duration || (entryType === "leave" ? 8 : 0);
++      const at = start || (entryType === "leave" ? `${dateKey2}T09:00` : "");
++      const parsedCommand = assistantCommandFromParts({ raw, dateKey: dateKey2, at, hours: hoursValue, entryType, timeSource: at ? "explicit" : "" });
++      const resolvedCommand = resolveAssistantCommandTime(parsedCommand);
++      return { type: "confirm_add_entry", parsedCommand: resolvedCommand, entryPayload: assistantConfirmationPayload(resolvedCommand) };
++    }
++    return { type: "unsupported" };
++  }
++  async function fetchResource(path) {
++    const candidates = [path, `../${path}`, `../../${path}`, `/${path}`];
++    for (const url of candidates) {
++      try {
++        const res = await fetch(url);
++        if (res.ok) return res;
++      } catch {
++      }
++    }
++    throw new Error(`\u627E\u4E0D\u5230\u8CC7\u6E90\uFF1A${path}`);
++  }
++  function u32(view, offset) {
++    return view.getUint32(offset, true);
++  }
++  function u16(view, offset) {
++    return view.getUint16(offset, true);
++  }
++  function parseZip(arrayBuffer) {
++    const bytes2 = new Uint8Array(arrayBuffer);
++    const view = new DataView(arrayBuffer);
++    let eocd = -1;
++    for (let i = bytes2.length - 22; i >= 0; i--) {
++      if (u32(view, i) === 101010256) {
++        eocd = i;
++        break;
++      }
++    }
++    if (eocd < 0) throw new Error("\u627E\u4E0D\u5230 XLSX ZIP \u7D50\u5C3E\u8CC7\u6599");
++    const total = u16(view, eocd + 10);
++    let ptr = u32(view, eocd + 16);
++    const decoder = new TextDecoder();
++    const entries2 = [];
++    for (let i = 0; i < total; i++) {
++      if (u32(view, ptr) !== 33639248) throw new Error("XLSX ZIP \u4E2D\u592E\u76EE\u9304\u683C\u5F0F\u932F\u8AA4");
++      const method = u16(view, ptr + 10);
++      const compressedSize = u32(view, ptr + 20);
++      const uncompressedSize = u32(view, ptr + 24);
++      const nameLen = u16(view, ptr + 28);
++      const extraLen = u16(view, ptr + 30);
++      const commentLen = u16(view, ptr + 32);
++      const localOffset = u32(view, ptr + 42);
++      const name = decoder.decode(bytes2.slice(ptr + 46, ptr + 46 + nameLen));
++      if (u32(view, localOffset) !== 67324752) throw new Error(`XLSX ZIP local header \u932F\u8AA4\uFF1A${name}`);
++      const localNameLen = u16(view, localOffset + 26);
++      const localExtraLen = u16(view, localOffset + 28);
++      const dataStart = localOffset + 30 + localNameLen + localExtraLen;
++      if (method !== 0) throw new Error(`Template \u5FC5\u9808\u4F7F\u7528\u672A\u58D3\u7E2E ZIP entry\uFF1A${name}`);
++      const data = bytes2.slice(dataStart, dataStart + compressedSize);
++      if (data.length !== uncompressedSize) throw new Error(`Template entry \u9577\u5EA6\u4E0D\u4E00\u81F4\uFF1A${name}`);
++      entries2.push({ name, data });
++      ptr += 46 + nameLen + extraLen + commentLen;
++    }
++    return entries2;
++  }
++  async function loadTemplateEntries(path) {
++    const res = await fetchResource(path);
++    return parseZip(await res.arrayBuffer());
++  }
++  function parseXml(text) {
++    const doc = new DOMParser().parseFromString(text, "application/xml");
++    if (doc.querySelector("parsererror")) throw new Error("Template XML \u89E3\u6790\u5931\u6557");
++    return doc;
++  }
++  function findZipEntry(entries2, name) {
++    const entry = entries2.find((e) => e.name === name);
++    if (!entry) throw new Error(`Template \u7F3A\u5C11\u6A94\u6848\uFF1A${name}`);
++    return entry;
++  }
++  function xmlText(entries2, name) {
++    return new TextDecoder().decode(findZipEntry(entries2, name).data);
++  }
++  function resolveSheetPath(entries2, sheetName) {
++    const workbook = parseXml(xmlText(entries2, "xl/workbook.xml"));
++    const sheets = [...workbook.getElementsByTagNameNS("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "sheet")];
++    const sheet = sheets.find((s) => s.getAttribute("name") === sheetName);
++    if (!sheet) throw new Error(`Template \u627E\u4E0D\u5230 Sheet\uFF1A${sheetName}`);
++    const relId = sheet.getAttribute("r:id") || sheet.getAttribute("id");
++    const rels = parseXml(xmlText(entries2, "xl/_rels/workbook.xml.rels"));
++    const relationships = [...rels.getElementsByTagName("Relationship")];
++    const rel = relationships.find((r) => r.getAttribute("Id") === relId);
++    if (!rel) throw new Error(`Template \u627E\u4E0D\u5230 Sheet \u95DC\u806F\uFF1A${sheetName}`);
++    return `xl/${rel.getAttribute("Target").replace(new RegExp("^/"), "")}`.replace("xl/xl/", "xl/");
++  }
++  function cellText(cell) {
++    const inlineText = cell.getElementsByTagNameNS("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "t")[0];
++    const v = cell.getElementsByTagNameNS("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "v")[0];
++    return (inlineText?.textContent ?? v?.textContent ?? "").trim();
++  }
++  function columnIndexFromRef(ref) {
++    return ref.replace(/[0-9]/g, "").split("").reduce((sum, ch) => sum * 26 + ch.charCodeAt(0) - 64, 0);
++  }
++  function buildHeaderMap(sheetDoc, headerRow) {
++    const rows = [...sheetDoc.getElementsByTagNameNS("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "row")];
++    const row = rows.find((r) => Number(r.getAttribute("r")) === headerRow);
++    if (!row) throw new Error(`Template \u627E\u4E0D\u5230 Header Row\uFF1A${headerRow}`);
++    const map = {};
++    [...row.getElementsByTagNameNS("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "c")].forEach((cell) => {
++      const header = cellText(cell);
++      if (header) map[header] = columnIndexFromRef(cell.getAttribute("r"));
++    });
++    return map;
++  }
++  function clearDataRows(sheetDoc, dataStartRow) {
++    const sheetData = sheetDoc.getElementsByTagNameNS("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "sheetData")[0];
++    [...sheetData.getElementsByTagNameNS("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "row")].filter((row) => Number(row.getAttribute("r")) >= dataStartRow).forEach((row) => sheetData.removeChild(row));
++    return sheetData;
++  }
++  function spreadsheetNs(doc, tag) {
++    return doc.createElementNS("http://schemas.openxmlformats.org/spreadsheetml/2006/main", tag);
++  }
++  function columnName(index) {
++    let name = "";
++    while (index > 0) {
++      const mod = (index - 1) % 26;
++      name = String.fromCharCode(65 + mod) + name;
++      index = Math.floor((index - mod) / 26);
++    }
++    return name;
++  }
++  function exportFieldValue(rule, row) {
++    if (!rule || rule.type === "blank") return "";
++    if (rule.type === "literal") return rule.value || "";
++    if (rule.type === "field") return row[rule.field] ?? "";
++    return "";
++  }
++  function makeNumberCell(doc, ref, value) {
++    const cell = spreadsheetNs(doc, "c");
++    cell.setAttribute("r", ref);
++    cell.setAttribute("t", "n");
++    const v = spreadsheetNs(doc, "v");
++    v.textContent = String(Number(value || 0));
++    cell.appendChild(v);
++    return cell;
++  }
++  function makeInlineStringCell(doc, ref, value) {
++    const cell = spreadsheetNs(doc, "c");
++    cell.setAttribute("r", ref);
++    cell.setAttribute("t", "inlineStr");
++    if (value !== "") {
++      const is = spreadsheetNs(doc, "is");
++      const t = spreadsheetNs(doc, "t");
++      t.textContent = String(value);
++      is.appendChild(t);
++      cell.appendChild(is);
++    }
++    return cell;
++  }
++  function writeRowsByHeaderName(sheetDoc, profile2, rows) {
++    const headerMap = buildHeaderMap(sheetDoc, profile2.headerRow);
++    const missing = Object.keys(profile2.fieldMapping).filter((header) => !(header in headerMap));
++    if (missing.length) throw new Error(`Template \u7F3A\u5C11\u6B04\u4F4D\uFF1A${missing.join("\u3001")}`);
++    const sheetData = clearDataRows(sheetDoc, profile2.dataStartRow);
++    rows.forEach((data, i) => {
++      const rowNumber = profile2.dataStartRow + i;
++      const row = spreadsheetNs(sheetDoc, "row");
++      row.setAttribute("r", rowNumber);
++      Object.entries(profile2.fieldMapping).forEach(([header, rule]) => {
++        const col = headerMap[header];
++        const ref = `${columnName(col)}${rowNumber}`;
++        const value = exportFieldValue(rule, data);
++        row.appendChild(header === "\u6642\u6578" ? makeNumberCell(sheetDoc, ref, value) : makeInlineStringCell(sheetDoc, ref, value));
++      });
++      sheetData.appendChild(row);
++    });
++    const dimension = sheetDoc.getElementsByTagNameNS("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "dimension")[0];
++    if (dimension) {
++      const maxCol = Math.max(...Object.values(headerMap));
++      const lastRow = Math.max(profile2.headerRow, profile2.dataStartRow + rows.length - 1);
++      dimension.setAttribute("ref", `A1:${columnName(maxCol)}${lastRow}`);
++    }
++  }
++  function updateZipText(entries2, name, text) {
++    findZipEntry(entries2, name).data = new TextEncoder().encode(text);
++  }
++  const CRC_TABLE = (() => {
++    const table = new Uint32Array(256);
++    for (let n = 0; n < 256; n++) {
++      let c = n;
++      for (let k = 0; k < 8; k++) c = c & 1 ? 3988292384 ^ c >>> 1 : c >>> 1;
++      table[n] = c >>> 0;
++    }
++    return table;
++  })();
++  function crc32(bytes2) {
++    let c = 4294967295;
++    for (const b of bytes2) c = CRC_TABLE[(c ^ b) & 255] ^ c >>> 8;
++    return (c ^ 4294967295) >>> 0;
++  }
++  function setU32(view, offset, value) {
++    view.setUint32(offset, value, true);
++  }
++  function setU16(view, offset, value) {
++    view.setUint16(offset, value, true);
++  }
++  function writeZip(entries2) {
++    const encoder = new TextEncoder();
++    const localParts = [];
++    const centralParts = [];
++    let offset = 0;
++    for (const entry of entries2) {
++      const nameBytes = encoder.encode(entry.name);
++      const data = entry.data instanceof Uint8Array ? entry.data : encoder.encode(String(entry.data));
++      const crc = crc32(data);
++      const local = new Uint8Array(30 + nameBytes.length);
++      const localView = new DataView(local.buffer);
++      setU32(localView, 0, 67324752);
++      setU16(localView, 4, 20);
++      setU16(localView, 6, 2048);
++      setU16(localView, 8, 0);
++      setU32(localView, 14, crc);
++      setU32(localView, 18, data.length);
++      setU32(localView, 22, data.length);
++      setU16(localView, 26, nameBytes.length);
++      local.set(nameBytes, 30);
++      localParts.push(local, data);
++      const central = new Uint8Array(46 + nameBytes.length);
++      const centralView = new DataView(central.buffer);
++      setU32(centralView, 0, 33639248);
++      setU16(centralView, 4, 20);
++      setU16(centralView, 6, 20);
++      setU16(centralView, 8, 2048);
++      setU16(centralView, 10, 0);
++      setU32(centralView, 16, crc);
++      setU32(centralView, 20, data.length);
++      setU32(centralView, 24, data.length);
++      setU16(centralView, 28, nameBytes.length);
++      setU32(centralView, 42, offset);
++      central.set(nameBytes, 46);
++      centralParts.push(central);
++      offset += local.length + data.length;
++    }
++    const centralOffset = offset;
++    const centralSize = centralParts.reduce((sum, part) => sum + part.length, 0);
++    const eocd = new Uint8Array(22);
++    const eocdView = new DataView(eocd.buffer);
++    setU32(eocdView, 0, 101010256);
++    setU16(eocdView, 8, entries2.length);
++    setU16(eocdView, 10, entries2.length);
++    setU32(eocdView, 12, centralSize);
++    setU32(eocdView, 16, centralOffset);
++    return new Blob([...localParts, ...centralParts, eocd], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
++  }
++  function monthKey(d = selected) {
++    if (typeof d === "string") return d.slice(0, 7);
++    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
++  }
++  function profileFileName(profileConfig, month = selectedMonth) {
++    return profileConfig.filename.replace("{YYYYMM}", monthKey(month).replace("-", ""));
++  }
++  async function exportByProfile(rows, profileConfig, month = selectedMonth) {
++    const entries2 = await loadTemplateEntries(profileConfig.template);
++    const sheetPath = resolveSheetPath(entries2, profileConfig.sheet);
++    const sheetDoc = parseXml(xmlText(entries2, sheetPath));
++    writeRowsByHeaderName(sheetDoc, profileConfig, rows);
++    updateZipText(entries2, sheetPath, new XMLSerializer().serializeToString(sheetDoc));
++    const blob = writeZip(entries2);
++    const a = document.createElement("a");
++    a.href = URL.createObjectURL(blob);
++    a.download = profileFileName(profileConfig, month);
++    document.body.appendChild(a);
++    a.click();
++    a.remove();
++    setTimeout(() => URL.revokeObjectURL(a.href), 1e3);
++  }
++  return { validateEntry, resolveWorklogTime, normalizeWorkMemoryObject, makeSuggestions, entryFromCloud, workLogRowsForEcp, profileFromCloud, workProfileFromCloud, workProfileMissingFields, createEntry, recordSuggestionMetric, eventTypeCode, parseWorklogIntentLocal, buildAssistantEntry, exportByProfile, models: () => DataService.workModelsState, feedback: () => feedback };
++}
++
++// ../../../../modules/worklog/native/worklog-service.mjs
++var uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
++var copy = (value) => structuredClone(value);
++var WorklogError = class extends Error {
++  constructor(code, message, extra = {}) {
++    super(message);
++    this.code = code;
++    Object.assign(this, extra);
++  }
++};
++function dateKey(date = /* @__PURE__ */ new Date()) {
++  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Taipei", year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
++}
++function calendarBounds(year) {
++  if (!Number.isInteger(year) || year < 1900 || year > 2200) throw new WorklogError("INVALID_YEAR", "\u5E74\u4EFD\u4E0D\u6B63\u78BA");
++  return [`${year - 1}-12-01`, `${year + 1}-02-01`];
++}
++var WorklogService = class {
++  constructor({ request, userId, priorityEngine = PriorityEngine, resourceFetch = globalThis.fetch.bind(globalThis) }) {
++    if (typeof request !== "function" || !uuid.test(userId)) throw new WorklogError("CONNECTION_REQUIRED", "\u8ACB\u5148\u9023\u63A5\u539F\u6709\u5DE5\u6642\u8CC7\u6599");
++    this.request = request;
++    this.userId = userId;
++    this.priorityEngine = priorityEngine;
++    this.resourceFetch = resourceFetch;
++    this.snapshot = null;
++    this.busy = false;
++    this.learningWarnings = [];
++    this.loadSequence = 0;
++  }
++  async rows(table, query) {
++    const all = [];
++    const limited = /(^|&)limit=/.test(query);
++    for (let offset = 0; offset <= 1e4; offset += 500) {
++      const rows = await this.request(`${table}?${query}&user_uuid=eq.${this.userId}${limited ? "" : `&limit=500&offset=${offset}`}`);
++      if (!Array.isArray(rows)) throw new WorklogError("INVALID_DATA", "\u5DE5\u6642\u8CC7\u6599\u56DE\u61C9\u4E0D\u5B8C\u6574");
++      if (rows.some((r) => r.user_uuid && r.user_uuid !== this.userId)) throw new WorklogError("OWNER_MISMATCH", "\u5DE5\u6642\u5E33\u865F\u8207\u76EE\u524D\u767B\u5165\u5E33\u865F\u4E0D\u7B26");
++      all.push(...rows);
++      if (limited || rows.length < 500) return all;
++    }
++    throw new WorklogError("TOO_MANY_ROWS", "\u5DE5\u6642\u8CC7\u6599\u8D85\u904E\u672C\u6B21\u53EF\u8F09\u5165\u7BC4\u570D\uFF0C\u5C1A\u672A\u5B8C\u6574\u8F09\u5165");
++  }
++  async load(year) {
++    const revision = ++this.loadSequence;
++    const [from, to] = calendarBounds(year);
++    const results = await Promise.all([
++      this.rows("work_entries", `select=*&work_date=gte.${from}&work_date=lt.${to}&status=neq.deleted&deleted_at=is.null&order=started_at.asc`),
++      this.rows("user_profiles", "select=*&limit=1"),
++      this.rows("user_export_settings", "select=*&export_profile=eq.ecp&limit=1"),
++      this.rows("user_work_profiles", "select=*&limit=1"),
++      this.rows("user_work_models", "select=*&order=sort_order.asc,name.asc"),
++      this.rows("user_ecp_tasks", "select=*&is_active=eq.true&order=sort_order.asc,name.asc")
++    ]);
++    const [entryRows, profiles, exports, workProfiles, modelRows, ecpRows] = results;
++    const rules = createWorklogRules({ models: modelRows, ecpTasks: ecpRows.map((r) => r.name), session: { uuid: this.userId } });
++    const profile = profiles[0] ? rules.profileFromCloud(profiles[0], exports[0], modelRows, ecpRows, { workModelsLoaded: true, ecpTasksLoaded: true }) : null;
++    const workProfile = profile ? rules.workProfileFromCloud(workProfiles[0], exports[0], ecpRows, profile) : null;
++    if (profile && workProfile) {
++      profile.ecpOwner = workProfile.ecpResponsiblePerson || "";
++      profile.ecpDepartment = workProfile.ecpDepartment || "";
++    }
++    const activeTask = String(workProfile?.defaultTask || "").trim();
++    const ecpTasks = [...new Set([activeTask, ...ecpRows.map((r) => r.name)].filter(Boolean))];
++    const snapshot = { userId: this.userId, year, entries: entryRows.map((row) => ({ ...rules.entryFromCloud(row), updatedAt: row.updated_at || null })), profile, workProfile, models: modelRows.map((m, i) => rules.normalizeWorkMemoryObject(m, i)), ecpTasks, loadedAt: (/* @__PURE__ */ new Date()).toISOString() };
++    if (revision === this.loadSequence) this.snapshot = copy(snapshot);
++    return copy(snapshot);
++  }
++  rules(date = dateKey(), extra = {}) {
++    if (!this.snapshot) throw new WorklogError("NOT_LOADED", "\u8ACB\u5148\u8F09\u5165\u5DE5\u6642\u8CC7\u6599");
++    const s = this.snapshot;
++    return createWorklogRules({ entries: s.entries, profile: s.profile, workProfile: s.workProfile, models: s.models, ecpTasks: s.ecpTasks, session: { uuid: this.userId }, selected: /* @__PURE__ */ new Date(`${date}T12:00:00`), selectedMonth: date.slice(0, 7), priorityEngine: this.priorityEngine, fetch: this.resourceFetch, ...extra });
++  }
++  suggestions(date) {
++    if (!this.snapshot?.profile) return [];
++    return this.rules(date).makeSuggestions();
++  }
++  async freshDay(date) {
++    return (await this.rows("work_entries", `select=*&work_date=eq.${date}&status=neq.deleted&deleted_at=is.null&order=started_at.asc`)).map((row) => ({ ...this.rules(date).entryFromCloud(row), updatedAt: row.updated_at || null }));
++  }
++  resolveSuggestedTime(date, hours, reserved = this.snapshot?.entries || []) {
++    if (!this.snapshot?.profile || !Number.isFinite(hours) || hours <= 0) return null;
++    const profile = this.snapshot.profile;
++    const minutes = (t) => Number(t.split(":")[0]) * 60 + Number(t.split(":")[1]);
++    const [workStart, workEnd] = profile.workHours.split("~").map(minutes), [breakStart, breakEnd] = profile.lunch.split("~").map(minutes);
++    const busy = reserved.filter((e) => e.date === date && e.status !== "deleted").map((e) => [minutes(e.at.slice(11, 16)), minutes(e.at.slice(11, 16)) + Math.round(e.hours * 60)]);
++    busy.push([breakStart, breakEnd]);
++    busy.sort((a, b) => a[0] - b[0]);
++    let start = workStart;
++    for (const [from, to] of busy) {
++      if (start + Math.round(hours * 60) <= from) break;
++      if (start < to) start = to;
++    }
++    if (start + Math.round(hours * 60) > workEnd) return null;
++    return `${date}T${String(Math.floor(start / 60)).padStart(2, "0")}:${String(start % 60).padStart(2, "0")}`;
++  }
++  async recordMetric(item, event) {
++    const match = this.snapshot?.models.find((m) => m.name === item.title && m.isActive !== false);
++    if (!match?.id) return;
++    try {
++      const rows = await this.rows("user_work_models", `select=*&id=eq.${match.id}&limit=1`);
++      if (!rows[0] || rows[0].is_active === false) return;
++      const rules = this.rules(item.date, { models: rows });
++      rules.recordSuggestionMetric(item.title, event, item);
++      const model = rules.models().find((m) => m.id === match.id);
++      if (!model) return;
++      const result = await this.request(`user_work_models?user_uuid=eq.${this.userId}&id=eq.${match.id}${rows[0].updated_at ? "&updated_at=eq." + encodeURIComponent(rows[0].updated_at) : ""}`, { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ source_references: model.sourceReferences, last_used_at: model.lastUsedAt || null }) });
++      if (!result?.length) throw new Error("stale model");
++    } catch {
++      this.learningWarnings.push("\u5DE5\u6642\u5DF2\u5132\u5B58\uFF0C\u4F46\u9019\u6B21\u5EFA\u8B70\u4F7F\u7528\u8A18\u61B6\u5C1A\u672A\u540C\u6B65\uFF1B\u539F\u5DE5\u4F5C\u6A21\u578B\u672A\u91CD\u8A2D\u3002");
++    }
++  }
++  async saveBatch(items, date) {
++    if (this.busy) throw new WorklogError("BUSY", "\u5DE5\u6642\u6B63\u5728\u5132\u5B58");
++    if (!Array.isArray(items) || !items.length) throw new WorklogError("EMPTY", "\u8ACB\u5148\u9078\u64C7\u9019\u5929\u505A\u904E\u7684\u5DE5\u4F5C");
++    this.busy = true;
++    this.learningWarnings = [];
++    const saved = [];
++    try {
++      let current = await this.freshDay(date);
++      for (const input of items) {
++        if (input.date !== date || String(input.at).slice(0, 10) !== date) throw new WorklogError("WRONG_DATE", "\u5DE5\u6642\u65E5\u671F\u8207\u9078\u53D6\u65E5\u671F\u4E0D\u7B26");
++        let existing = current.find((e) => e.cloudId === input.cloudId || e.id === input.id);
++        if (input.cloudId && !existing) {
++          const original = await this.rows("work_entries", `select=*&id=eq.${encodeURIComponent(input.cloudId)}&status=neq.deleted&deleted_at=is.null&limit=1`);
++          if (original[0]) existing = { ...this.rules(date).entryFromCloud(original[0]), updatedAt: original[0].updated_at || null };
++        }
++        if (input.cloudId && existing && ["date", "title", "at", "hours", "ecpTask", "note"].every((k) => (existing[k] || "") === (input[k] || ""))) {
++          saved.push(existing);
++          continue;
++        }
++        if (input.cloudId && (!existing || existing.updatedAt !== input.updatedAt)) {
++          throw new WorklogError("STALE", "\u9019\u7B46\u5DE5\u6642\u5DF2\u5728\u5176\u4ED6\u756B\u9762\u66F4\u52D5\uFF0C\u8ACB\u91CD\u65B0\u8F09\u5165\u518D\u78BA\u8A8D");
++        }
++        const item = { ...existing, ...input };
++        const rules = this.rules(date, { entries: current });
++        const error2 = rules.validateEntry(item);
++        if (error2) throw new WorklogError("VALIDATION", error2);
++        if (!Number.isFinite(item.hours) || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(item.at) || dateKey(/* @__PURE__ */ new Date(`${item.at}:00+08:00`)) !== date || Number(item.at.slice(11, 13)) > 23 || Number(item.at.slice(14, 16)) > 59) throw new WorklogError("VALIDATION", "\u958B\u59CB\u6642\u9593\u6216\u5206\u9418\u683C\u5F0F\u4E0D\u6B63\u78BA\uFF0C\u5C1A\u672A\u5132\u5B58");
++        if (existing && !input.cloudId) {
++          if (["title", "at", "hours", "ecpTask", "note"].some((k) => (existing[k] || "") !== (input[k] || ""))) throw new WorklogError("STALE", "\u9019\u7B46\u64CD\u4F5C\u5DF2\u5132\u5B58\u4F46\u5167\u5BB9\u4E0D\u540C\uFF0C\u8ACB\u91CD\u65B0\u8F09\u5165\u78BA\u8A8D");
++          saved.push(existing);
++          continue;
++        }
++        const started = /* @__PURE__ */ new Date(`${item.at}:00+08:00`);
++        const payload = { user_uuid: this.userId, work_date: date, started_at: started.toISOString(), ended_at: new Date(started.getTime() + Math.round(item.hours * 60) * 6e4).toISOString(), hours: item.hours, title: item.title, note: item.note || "", event_type: rules.eventTypeCode(item.entryType || "work"), status: item.status || "completed", source: item.source || "manual", ecp_task_name_snapshot: item.ecpTask || "", legacy_id: item.id };
++        if (existing) {
++          delete payload.event_type;
++          delete payload.status;
++          delete payload.source;
++          delete payload.legacy_id;
++        }
++        const ecp = await this.rows("user_ecp_tasks", `select=id,name&name=eq.${encodeURIComponent(item.ecpTask || "")}&is_active=eq.true&limit=1`);
++        payload.ecp_task_id = ecp[0]?.id || null;
++        const condition = existing ? `&id=eq.${existing.cloudId}&status=neq.deleted&deleted_at=is.null${existing.updatedAt ? "&updated_at=eq." + encodeURIComponent(existing.updatedAt) : ""}` : "";
++        const result = await this.request(`work_entries?user_uuid=eq.${this.userId}${condition}`, { method: existing ? "PATCH" : "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify(payload) });
++        if (!Array.isArray(result) || result.length !== 1) throw new WorklogError("STALE", "\u5DE5\u6642\u672A\u5132\u5B58\uFF0C\u8ACB\u91CD\u65B0\u8F09\u5165\u78BA\u8A8D");
++        const value = { ...rules.entryFromCloud(result[0]), updatedAt: result[0].updated_at || null };
++        saved.push(value);
++        await this.recordMetric(value, existing ? "edited" : "added");
++        current = current.filter((x) => x.id !== value.id && x.cloudId !== value.cloudId).concat(value);
++      }
++      return saved;
++    } catch (error2) {
++      error2.saved = saved;
++      throw error2;
++    } finally {
++      this.busy = false;
++      if (this.snapshot) {
++        try {
++          await this.load(this.snapshot.year);
++        } catch {
++          this.snapshot = null;
++        }
++      }
++    }
++  }
++  async remove(entry) {
++    if (this.busy) throw new WorklogError("BUSY", "\u5DE5\u6642\u6B63\u5728\u5132\u5B58");
++    if (!entry?.cloudId) throw new WorklogError("VALIDATION", "\u627E\u4E0D\u5230\u9019\u7B46\u539F\u59CB\u5DE5\u6642");
++    this.busy = true;
++    try {
++      const current = await this.freshDay(entry.date), row = current.find((x) => x.cloudId === entry.cloudId);
++      if (!row || row.updatedAt !== entry.updatedAt) throw new WorklogError("STALE", "\u9019\u7B46\u5DE5\u6642\u5DF2\u5728\u5176\u4ED6\u756B\u9762\u66F4\u52D5\uFF0C\u8ACB\u91CD\u65B0\u8F09\u5165\u518D\u78BA\u8A8D");
++      const rows = await this.request(`work_entries?user_uuid=eq.${this.userId}&id=eq.${entry.cloudId}${entry.updatedAt ? "&updated_at=eq." + encodeURIComponent(entry.updatedAt) : ""}`, { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ status: "deleted", deleted_at: (/* @__PURE__ */ new Date()).toISOString() }) });
++      if (!rows?.length) throw new WorklogError("STALE", "\u9019\u7B46\u5DE5\u6642\u672A\u522A\u9664\uFF0C\u8ACB\u91CD\u65B0\u8F09\u5165\u78BA\u8A8D");
++      await this.recordMetric(entry, "deleted");
++      return rows[0];
++    } finally {
++      this.busy = false;
++      if (this.snapshot) {
++        try {
++          await this.load(this.snapshot.year);
++        } catch {
++          this.snapshot = null;
++        }
++      }
++    }
++  }
++  async exportMonth(month) {
++    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new WorklogError("VALIDATION", "\u6708\u4EFD\u4E0D\u6B63\u78BA");
++    if (this.busy) throw new WorklogError("BUSY", "\u8ACB\u7B49\u5DE5\u6642\u5132\u5B58\u5B8C\u6210\u5F8C\u518D\u532F\u51FA");
++    await this.load(Number(month.slice(0, 4)));
++    const rules = this.rules(month + "-01");
++    const missing = rules.workProfileMissingFields(this.snapshot.workProfile);
++    if (missing.length) throw new WorklogError("PROFILE_REQUIRED", `\u5C1A\u672A\u5B8C\u6210\u5DE5\u4F5C\u8EAB\u5206\uFF1A${missing.join("\u3001")}`);
++    const rows = rules.workLogRowsForEcp();
++    if (!rows.length) throw new WorklogError("EMPTY", "\u672C\u6708\u4EFD\u5C1A\u7121\u5DE5\u6642\u8CC7\u6599\u53EF\u532F\u51FA");
++    const response = await this.resourceFetch("resources/profiles/ecp-profile.json");
++    if (!response.ok) throw new WorklogError("TEMPLATE_FAILED", "ECP\u7BC4\u672C\u8A2D\u5B9A\u7121\u6CD5\u8F09\u5165");
++    const config = await response.json();
++    await rules.exportByProfile(rows, config, month);
++    return { count: rows.length, filename: config.filename.replace("{YYYYMM}", month.replace("-", "")) };
++  }
++};
++function supabaseRequest({ baseUrl, anonKey, getSession, expectedUserId, fetchImpl = globalThis.fetch.bind(globalThis) }) {
++  const origin = new URL(baseUrl);
++  if (origin.protocol !== "https:" || origin.pathname !== "/" || origin.search || origin.hash) throw new Error("Invalid data origin");
++  let verifiedToken = "", approvedUntil = 0;
++  let accessCheck = null;
++  return async (path, options = {}) => {
++    const session = await getSession();
++    if (!session?.access_token || session.user?.id !== expectedUserId) throw new WorklogError("CONNECTION_REQUIRED", "\u8ACB\u5148\u9023\u63A5\u539F\u6709\u5DE5\u6642\u8CC7\u6599");
++    if (verifiedToken !== session.access_token) {
++      const check = await fetchImpl(new URL("/auth/v1/user", origin), { headers: { apikey: anonKey, Authorization: `Bearer ${session.access_token}` } });
++      if (!check.ok || (await check.json()).id !== expectedUserId) throw new WorklogError("OWNER_MISMATCH", "\u5DE5\u6642\u5E33\u865F\u8207\u76EE\u524D\u767B\u5165\u5E33\u865F\u4E0D\u7B26");
++      verifiedToken = session.access_token;
++      approvedUntil = 0;
++    }
++    if (Date.now() > approvedUntil || options.method && options.method !== "GET") {
++      if (!accessCheck) accessCheck = (async () => {
++        const res2 = await fetchImpl(new URL("/rest/v1/rpc/resolve_app_access", origin), { method: "POST", headers: { apikey: anonKey, Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" }, body: "{}", cache: "no-store" });
++        if (!res2.ok) throw new WorklogError("ACCESS_UNVERIFIED", "\u76EE\u524D\u7121\u6CD5\u78BA\u8A8D\u539F\u6709\u5DE5\u6642\u4F7F\u7528\u6B0A");
++        const body = await res2.json(), row = Array.isArray(body) ? body[0] : body;
++        if (row?.status !== "APPROVED") throw new WorklogError("ACCESS_REQUIRED", "\u8ACB\u5148\u5B8C\u6210\u539F\u6709\u5DE5\u4F5C\u7CFB\u7D71\u7684\u4F7F\u7528\u6B0A\u78BA\u8A8D");
++        if (row.user_id && row.user_id !== expectedUserId) throw new WorklogError("OWNER_MISMATCH", "\u5DE5\u6642\u4F7F\u7528\u6B0A\u5E33\u865F\u4E0D\u7B26");
++        approvedUntil = Date.now() + 15e3;
++      })().finally(() => {
++        accessCheck = null;
++      });
++      await accessCheck;
++    }
++    if (!/^(work_entries|user_profiles|user_export_settings|user_work_profiles|user_work_models|user_ecp_tasks)\?/.test(path) || path.includes("#")) throw new WorklogError("INVALID_ROUTE", "\u4E0D\u652F\u63F4\u7684\u5DE5\u6642\u8CC7\u6599\u8DEF\u5F91");
++    const res = await fetchImpl(new URL("/rest/v1/" + path, origin), { ...options, headers: { ...options.headers, apikey: anonKey, Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" } });
++    if (!res.ok) throw new WorklogError(res.status === 401 ? "CONNECTION_REQUIRED" : "SYNC_FAILED", "\u5DE5\u6642\u8CC7\u6599\u66AB\u6642\u7121\u6CD5\u540C\u6B65\uFF0C\u8ACB\u91CD\u8A66");
++    return res.status === 204 ? null : res.json();
++  };
++}
++
++// ../../../../modules/worklog/native/google-calendar-provider.mjs
++var CalendarProviderError = class extends Error {
++  constructor(code, message, status = 0) {
++    super(message);
++    this.code = code;
++    this.status = status;
++  }
++};
++var GoogleCalendarProvider = class {
++  constructor({ getAccessToken, fetchImpl = globalThis.fetch }) {
++    if (typeof getAccessToken !== "function") throw new Error("Owner access-token provider required");
++    this.token = getAccessToken;
++    this.fetch = fetchImpl;
++  }
++  async request(path, { method = "GET", body, etag, allowed = [] } = {}) {
++    const token = await this.token();
++    if (!token) throw new CalendarProviderError("RECONNECT", "\u8ACB\u91CD\u65B0\u9023\u63A5 Google \u5DE5\u6642\u65E5\u66C6");
++    const response = await this.fetch("https://www.googleapis.com/calendar/v3/" + path, { method, headers: { Authorization: "Bearer " + token, ...body ? { "Content-Type": "application/json" } : {}, ...etag ? { "If-Match": etag } : {} }, ...body ? { body: JSON.stringify(body) } : {}, cache: "no-store", signal: AbortSignal.timeout(15e3) });
++    if (!response.ok && !allowed.includes(response.status)) throw new CalendarProviderError(response.status === 410 ? "CURSOR_EXPIRED" : response.status === 401 || response.status === 403 ? "RECONNECT" : response.status === 412 ? "REMOTE_CHANGED" : "CALENDAR_FAILED", response.status === 412 ? "\u65E5\u66C6\u7248\u672C\u5DF2\u66F4\u65B0\uFF0C\u5C1A\u672A\u8986\u5BEB\u539F\u4E8B\u4EF6" : "Google \u5DE5\u6642\u65E5\u66C6\u9023\u7DDA\u6216\u5132\u5B58\u5931\u6557", response.status);
++    return { status: response.status, value: response.status === 204 ? null : await response.json() };
++  }
++  path(calendarId, eventId) {
++    return "calendars/" + encodeURIComponent(calendarId) + "/events" + (eventId ? "/" + encodeURIComponent(eventId) : "");
++  }
++  async calendar(calendarId) {
++    const { value } = await this.request("users/me/calendarList/" + encodeURIComponent(calendarId));
++    if (value.id !== calendarId || !["writer", "owner"].includes(value.accessRole)) throw new CalendarProviderError("CALENDAR_FORBIDDEN", "\u6307\u5B9A\u5DE5\u6642\u65E5\u66C6\u6C92\u6709\u53EF\u5BEB\u5165\u6B0A\u9650");
++    return { id: value.id, name: value.summaryOverride || value.summary, timeZone: value.timeZone };
++  }
++  async watch(calendarId, channel) {
++    return (await this.request(this.path(calendarId) + "/watch", { method: "POST", body: channel })).value;
++  }
++  async stop(channel) {
++    return (await this.request("channels/stop", { method: "POST", body: { id: channel.id, resourceId: channel.resourceId }, allowed: [404, 410] })).value;
++  }
++  async get(calendarId, eventId) {
++    return (await this.request(this.path(calendarId, eventId))).value;
++  }
++  async insert(calendarId, event) {
++    const { status, value } = await this.request(this.path(calendarId), { method: "POST", body: event, allowed: [409] });
++    if (status !== 409) return value;
++    const old = await this.get(calendarId, event.id), key = event.extendedProperties?.private;
++    if (!key?.tq6_owner || !key?.tq6_entry || old.extendedProperties?.private?.tq6_owner !== key.tq6_owner || old.extendedProperties?.private?.tq6_entry !== key.tq6_entry) throw new CalendarProviderError("IDENTITY_COLLISION", "\u65E5\u66C6\u4E8B\u4EF6\u8EAB\u5206\u5DF2\u5B58\u5728\u4F46\u5C0D\u61C9\u4E0D\u540C\uFF0C\u6C92\u6709\u8986\u5BEB");
++    if (!sameWork(old, event)) throw new CalendarProviderError("REMOTE_CHANGED", "\u9019\u7B46\u65E5\u66C6\u4E8B\u4EF6\u5DF2\u6709\u5176\u4ED6\u4FEE\u6539\uFF0C\u6C92\u6709\u8986\u5BEB");
++    return old;
++  }
++  async update(calendarId, event, etag) {
++    if (!etag) throw new CalendarProviderError("VERSION_REQUIRED", "\u65E5\u66C6\u7248\u672C\u5C1A\u672A\u78BA\u8A8D");
++    const { id, extendedProperties, ...patch } = event;
++    try {
++      return (await this.request(this.path(calendarId, id) + "?sendUpdates=none&supportsAttachments=true&conferenceDataVersion=1&eventLabelVersion=1", { method: "PATCH", body: patch, etag })).value;
++    } catch (error2) {
++      if (error2.code !== "REMOTE_CHANGED") throw error2;
++      const actual = await this.get(calendarId, id);
++      if (sameWorkFields(actual, event)) return actual;
++      throw error2;
++    }
++  }
++  async *changes(calendarId, { syncToken } = {}) {
++    let pageToken;
++    do {
++      const query = new URLSearchParams({ maxResults: "250", showDeleted: "true" });
++      if (syncToken) query.set("syncToken", syncToken);
++      if (pageToken) query.set("pageToken", pageToken);
++      const { value } = await this.request(this.path(calendarId) + "?" + query);
++      if (!Array.isArray(value.items) || !value.nextPageToken && !value.nextSyncToken) throw new CalendarProviderError("INCOMPLETE_PAGE", "\u65E5\u66C6\u540C\u6B65\u8CC7\u6599\u4E0D\u5B8C\u6574\uFF0C\u6E38\u6A19\u672A\u63A8\u9032");
++      yield { events: value.items, nextSyncToken: value.nextSyncToken || null };
++      pageToken = value.nextPageToken;
++    } while (pageToken);
++  }
++};
++function sameWorkFields(a, b) {
++  return a.status !== "cancelled" && a.summary === b.summary && Date.parse(a.start?.dateTime) === Date.parse(b.start?.dateTime) && Date.parse(a.end?.dateTime) === Date.parse(b.end?.dateTime);
++}
++function sameWork(a, b) {
++  const ap = a.extendedProperties?.private, bp = b.extendedProperties?.private;
++  return a.status !== "cancelled" && a.summary === b.summary && Date.parse(a.start?.dateTime) === Date.parse(b.start?.dateTime) && Date.parse(a.end?.dateTime) === Date.parse(b.end?.dateTime) && ap?.tq6_owner === bp?.tq6_owner && ap?.tq6_entry === bp?.tq6_entry;
++}
++
++// ../../../../modules/worklog/native/calendar-mapping-candidate.mjs
++var localDate = (instant2) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Taipei", year: "numeric", month: "2-digit", day: "2-digit" }).format(instant2);
++var localClock = (instant2) => new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Taipei", hour: "2-digit", minute: "2-digit", hour12: false }).format(instant2);
++var error = (code, message) => ({ action: "error", code, message, mutations: [] });
++function instant(value) {
++  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value)) return null;
++  const date = new Date(value);
++  if (!Number.isFinite(date.getTime())) return null;
++  const zone = value.match(/(Z|([+-])(\d{2}):(\d{2}))$/);
++  const offset = zone[1] === "Z" ? 0 : (zone[2] === "+" ? 1 : -1) * (Number(zone[3]) * 60 + Number(zone[4]));
++  if (new Date(date.getTime() + offset * 6e4).toISOString().slice(0, 19) !== value.slice(0, 19)) return null;
++  return date;
++}
++function mappedTime(event) {
++  const start = instant(event.start?.dateTime), end = instant(event.end?.dateTime);
++  if (!start || !end || end <= start) return error("EXACT_TIME_REQUIRED", "\u9019\u672C\u5DE5\u6642\u65E5\u66C6\u9700\u8981\u5B8C\u6574\u958B\u59CB\u53CA\u7D50\u675F\u6642\u523B\uFF1B\u6B64\u4E8B\u4EF6\u672A\u80FD\u5132\u5B58\u70BA\u5DE5\u6642\uFF0C\u6C92\u6709\u731C\u6E2C\u6642\u6578\u3002");
++  if (start.getUTCSeconds() || end.getUTCSeconds() || start.getUTCMilliseconds() || end.getUTCMilliseconds()) return error("SUBMINUTE", "\u76EE\u524D\u5DE5\u6642\u7CBE\u5EA6\u70BA\u5206\u9418\uFF0C\u6B64\u4E8B\u4EF6\u542B\u79D2\u6578\uFF0C\u5C1A\u672A\u540C\u6B65\uFF1B\u6C92\u6709\u56DB\u6368\u4E94\u5165\u6216\u66F4\u6539\u539F\u4E8B\u4EF6\u3002");
++  return { date: localDate(start), at: localDate(start) + "T" + localClock(start), hours: (end - start) / 36e5 };
++}
++function supported(event) {
++  return event.recurrence || event.recurringEventId ? error("EVENT_KIND_UNSUPPORTED", "\u9019\u500B\u5DE5\u6642\u65E5\u66C6\u4E8B\u4EF6\u542B\u91CD\u8907\u898F\u5247\uFF0C\u73FE\u6709\u540C\u6B65\u5C1A\u4E0D\u652F\u63F4\uFF0C\u6C92\u6709\u66F4\u6539\u539F\u4E8B\u4EF6\u6216\u5DE5\u6642\u3002") : null;
++}
++function validate(proposed, entries, profile) {
++  const reason = createWorklogRules({ entries, profile }).validateEntry(proposed);
++  return reason ? error("WORKLOG_VALIDATION", reason + "\uFF1B\u9019\u6B21\u5132\u5B58\u672A\u5B8C\u6210\uFF0C\u6C92\u6709\u66F4\u6539\u539F\u503C\u3002") : null;
++}
++function planSelectedCalendarEvent({ entry, event, binding, entries = [], userId, calendarId, selectedCalendarId, profile, operationId, defaultEcpTask = "" }) {
++  if (!userId || !calendarId || calendarId !== selectedCalendarId) return error("CALENDAR_MISMATCH", "\u4E8B\u4EF6\u4E0D\u5728\u5DF2\u9078\u5B9A\u7684\u5DE5\u6642\u65E5\u66C6\uFF0C\u4E0D\u6703\u8B80\u6210\u5DE5\u6642\u3002");
++  if (!event?.id) return error("IDENTITY_REQUIRED", "\u4E8B\u4EF6\u8EAB\u5206\u4E0D\u5B8C\u6574\uFF0C\u5C1A\u672A\u540C\u6B65\u3002");
++  if (binding) {
++    if (!entry || binding.userId !== userId || binding.calendarId !== calendarId || binding.entryId !== entry.cloudId || binding.eventId !== event.id) return error("IDENTITY_CHANGED", "\u4E8B\u4EF6\u8207\u5DE5\u6642\u5C0D\u61C9\u7121\u6CD5\u78BA\u8A8D\uFF0C\u539F\u8CC7\u6599\u4FDD\u7559\u3002");
++    if (event.status === "cancelled") return { action: "remote-deleted", entryId: entry.cloudId, mutations: [] };
++    if (entry.status === "deleted") return { action: "local-deleted", eventId: event.id, mutations: [] };
++    if (event.etag === binding.eventEtag) return { action: "unchanged", mutations: [] };
++    if (!event.etag) return error("STALE", "\u65E5\u66C6\u7248\u672C\u4E0D\u5B8C\u6574\uFF0C\u5C1A\u672A\u8986\u5BEB\u8CC7\u6599\u3002");
++    if (entry.updatedAt !== binding.entryUpdatedAt) {
++      const local = Date.parse(entry.updatedAt), remote = Date.parse(event.updated);
++      if (Number.isFinite(local) && Number.isFinite(remote) && local > remote) return { action: "local-newer", mutations: [] };
++      if (!Number.isFinite(local) || !Number.isFinite(remote) || local === remote) {
++        const unsupportedKind = supported(event);
++        if (unsupportedKind) return unsupportedKind;
++        const remoteTime = mappedTime(event);
++        if (remoteTime.action) return remoteTime;
++        return bothSidesChanged({ entry, event, time: remoteTime, operationId });
++      }
++    }
++  } else if (event.status === "cancelled") return { action: "unchanged", mutations: [] };
++  const unsupported = supported(event);
++  if (unsupported) return unsupported;
++  const time = mappedTime(event);
++  if (time.action) return time;
++  const proposed = { ...entry, id: entry?.id || operationId, date: time.date, at: time.at, hours: time.hours, title: String(event.summary || "").trim(), note: entry?.note || "", ecpTask: entry ? entry.ecpTask || "" : defaultEcpTask, entryType: entry?.entryType || "work", status: entry?.status || "completed", source: entry?.source || "manual" };
++  if (!proposed.id) return error("OPERATION_REQUIRED", "\u65B0\u589E\u64CD\u4F5C\u8EAB\u5206\u5C1A\u672A\u5EFA\u7ACB\uFF0C\u5C1A\u672A\u540C\u6B65\u3002");
++  const invalid = validate(proposed, entries, profile);
++  if (invalid) return invalid;
++  return { action: entry ? "update-entry" : "create-entry", proposed, sourceEventId: event.id, requiresActualConfirmation: false, mutations: [] };
++}
++function bothSidesChanged({ entry, event, time, operationId }) {
++  return { action: "conflict", code: "CONFLICT", message: "\u9019\u7B46\u5DE5\u6642\u5728 TF \u8207\u65E5\u66C6\u5169\u908A\u90FD\u6709\u4FEE\u6539\uFF0C\u7121\u6CD5\u5224\u5B9A\u5148\u5F8C\uFF1B\u8ACB\u78BA\u8A8D\u8981\u4FDD\u7559\u54EA\u4E00\u7248\uFF0C\u5C1A\u672A\u8986\u5BEB\u4EFB\u4F55\u4E00\u908A\u3002", conflict: { operationId, eventId: event.id, entryId: entry.cloudId, eventEtag: event.etag, entryUpdatedAt: entry.updatedAt || null, eventUpdated: typeof event.updated === "string" ? event.updated : null, local: { title: entry.title, date: entry.date, at: entry.at, hours: entry.hours }, remote: { title: String(event.summary || "").trim(), date: time.date, at: time.at, hours: time.hours } }, mutations: [] };
++}
++function proposedActualEvent(entry, { userId, eventId }) {
++  if (!entry.cloudId || !userId || !eventId || entry.status === "deleted") throw new Error("Work-entry identity required");
++  const start = /* @__PURE__ */ new Date(entry.at + ":00+08:00"), end = new Date(start.getTime() + entry.hours * 36e5);
++  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) throw new Error("Invalid actual time");
++  return { id: eventId, summary: entry.title, start: { dateTime: start.toISOString(), timeZone: "Asia/Taipei" }, end: { dateTime: end.toISOString(), timeZone: "Asia/Taipei" }, extendedProperties: { private: { tq6_kind: "actual-worklog", tq6_owner: userId, tq6_entry: entry.cloudId } } };
++}
++
++// ../../../../modules/worklog/native/google-worklog-sync.mjs
++var GoogleWorklogSync = class {
++  constructor({ worklog, provider, store, userId, calendarId, enabled = false }) {
++    if (!worklog || !provider || !store || !userId || !calendarId) throw new Error("Owner-scoped sync dependencies required");
++    Object.assign(this, { worklog, provider, store, userId, calendarId, enabled });
++  }
++  async importEvent(event, { historical = false } = {}) {
++    if (!this.enabled) throw new Error("\u5DE5\u6642\u65E5\u66C6\u540C\u6B65\u5C1A\u672A\u555F\u7528\uFF0C\u6C92\u6709\u6539\u52D5\u8CC7\u6599");
++    if (historical) return { status: "skipped-history" };
++    const binding = await this.store.byEvent(this.userId, this.calendarId, event.id);
++    const operation = await this.store.operation(this.userId, this.calendarId, event.id);
++    let entry = binding ? await this.store.entry(this.userId, binding.entryId) : operation.entryId ? await this.store.entry(this.userId, operation.entryId) : this.store.entryByOperation ? await this.store.entryByOperation(this.userId, operation.id) : null;
++    const plan = planSelectedCalendarEvent({ entry, event, binding, entries: this.worklog.snapshot?.entries || [], userId: this.userId, calendarId: this.calendarId, selectedCalendarId: this.calendarId, profile: this.worklog.snapshot?.profile, operationId: operation.id, defaultEcpTask: (this.worklog.snapshot?.ecpTasks || []).find((name) => event.summary && event.summary.includes(name)) || this.worklog.snapshot?.ecpTasks?.[0] || "" });
++    if (plan.action === "conflict") {
++      await this.store.failure(this.userId, operation.id, "CONFLICT");
++      await this.store.saveConflict({ userId: this.userId, calendarId: this.calendarId, ...plan.conflict });
++      throw Object.assign(new Error(plan.message), { code: "CONFLICT" });
++    }
++    if (binding && plan.action !== "error") await this.store.clearConflict(this.userId, this.calendarId, operation.id);
++    if (plan.action === "local-newer") {
++      await this.store.bind({ ...binding, eventEtag: event.etag });
++      return { status: "local-newer" };
++    }
++    if (["unchanged", "remote-deleted", "local-deleted"].includes(plan.action)) return { status: plan.action };
++    if (plan.action === "error") {
++      await this.store.failure(this.userId, operation.id, plan.code);
++      throw Object.assign(new Error(plan.message), { code: plan.code });
++    }
++    try {
++      await this.store.assertLease?.();
++      const [saved] = await this.worklog.saveBatch([plan.proposed], plan.proposed.date);
++      await this.store.bind({ userId: this.userId, calendarId: this.calendarId, eventId: event.id, eventEtag: event.etag, entryId: saved.cloudId, entryUpdatedAt: saved.updatedAt, operationId: operation.id });
++      return { status: "synced", entry: saved };
++    } catch (error2) {
++      await this.store.failure(this.userId, operation.id, "IMPORT_FAILED");
++      throw error2;
++    }
++  }
++  async listConflicts() {
++    if (!this.enabled) throw new Error("\u5DE5\u6642\u65E5\u66C6\u540C\u6B65\u5C1A\u672A\u555F\u7528\uFF0C\u6C92\u6709\u6539\u52D5\u8CC7\u6599");
++    return this.store.conflicts(this.userId, this.calendarId);
++  }
++  // Owner-reviewed choice for a recorded both-sides-changed conflict. Every live
++  // version must still equal the reviewed snapshot; otherwise nothing is written
++  // and the conflict must be reloaded. Conditional writes keep their own guards:
++  // Google If-Match on the event etag, work_entries updated_at on the TF save.
++  async resolveConflict({ operationId, choice, eventEtag, entryUpdatedAt }) {
++    if (!this.enabled) throw new Error("\u5DE5\u6642\u65E5\u66C6\u540C\u6B65\u5C1A\u672A\u555F\u7528\uFF0C\u6C92\u6709\u6539\u52D5\u8CC7\u6599");
++    if (choice !== "keep-local" && choice !== "keep-remote") throw Object.assign(new Error("\u8ACB\u9078\u64C7\u8981\u4FDD\u7559\u7684\u7248\u672C"), { code: "CHOICE_REQUIRED" });
++    const conflict = await this.store.conflict(this.userId, this.calendarId, operationId);
++    if (!conflict || conflict.status !== "pending") throw Object.assign(new Error("\u9019\u500B\u885D\u7A81\u5DF2\u8655\u7406\u6216\u4E0D\u5B58\u5728"), { code: "CONFLICT_GONE" });
++    if (conflict.eventEtag !== eventEtag || String(conflict.entryUpdatedAt || "") !== String(entryUpdatedAt || "")) throw Object.assign(new Error("\u885D\u7A81\u5167\u5BB9\u5DF2\u6709\u66F4\u65B0\uFF0C\u8ACB\u91CD\u65B0\u78BA\u8A8D"), { code: "CONFLICT_CHANGED" });
++    const binding = await this.store.byEvent(this.userId, this.calendarId, conflict.eventId);
++    const year = Number(String(conflict.remote?.date || "").slice(0, 4));
++    if (Number.isInteger(year) && year >= 1900 && year <= 2200 && this.worklog.snapshot?.year !== year) await this.worklog.load(year);
++    const entry = await this.store.entry(this.userId, conflict.entryId);
++    let event = null;
++    try {
++      event = await this.provider.get(this.calendarId, conflict.eventId);
++    } catch (error2) {
++      if (error2?.status !== 404) throw error2;
++    }
++    if (!binding || binding.entryId !== conflict.entryId || !entry || entry.status === "deleted" || !event || event.status === "cancelled" || event.etag !== conflict.eventEtag || (entry.updatedAt || null) !== (conflict.entryUpdatedAt || null)) throw Object.assign(new Error("\u7248\u672C\u5DF2\u6709\u65B0\u7684\u8B8A\u52D5\uFF0C\u8ACB\u91CD\u65B0\u78BA\u8A8D\u5DEE\u7570"), { code: "CONFLICT_CHANGED" });
++    await this.store.assertLease?.();
++    if (choice === "keep-local") {
++      const desired = proposedActualEvent(entry, { userId: this.userId, eventId: conflict.eventId });
++      const remote = await this.provider.update(this.calendarId, desired, event.etag);
++      if (!remote?.id || !remote.etag) throw new Error("\u65E5\u66C6\u6C92\u6709\u56DE\u50B3\u5B8C\u6574\u5132\u5B58\u7D50\u679C");
++      await this.store.bind({ userId: this.userId, calendarId: this.calendarId, eventId: remote.id, eventEtag: remote.etag, entryId: entry.cloudId, entryUpdatedAt: entry.updatedAt, operationId: binding.operationId || operationId });
++    } else {
++      const plan = planSelectedCalendarEvent({ entry, event, binding: null, entries: this.worklog.snapshot?.entries || [], userId: this.userId, calendarId: this.calendarId, selectedCalendarId: this.calendarId, profile: this.worklog.snapshot?.profile, operationId });
++      if (plan.action !== "update-entry") throw Object.assign(new Error(plan.message || "\u65E5\u66C6\u7248\u672C\u7121\u6CD5\u5957\u7528\uFF0C\u539F\u8CC7\u6599\u4FDD\u7559"), { code: plan.code || "CONFLICT_CHANGED" });
++      const [saved] = await this.worklog.saveBatch([plan.proposed], plan.proposed.date);
++      await this.store.bind({ userId: this.userId, calendarId: this.calendarId, eventId: event.id, eventEtag: event.etag, entryId: saved.cloudId, entryUpdatedAt: saved.updatedAt, operationId });
++    }
++    await this.store.clearConflict(this.userId, this.calendarId, operationId, { eventEtag: conflict.eventEtag, entryUpdatedAt: conflict.entryUpdatedAt });
++    return { status: "resolved", choice, operationId };
++  }
++  async exportEntry(entry) {
++    if (!this.enabled) throw new Error("\u5DE5\u6642\u65E5\u66C6\u540C\u6B65\u5C1A\u672A\u555F\u7528\uFF0C\u6C92\u6709\u6539\u52D5\u8CC7\u6599");
++    if (!entry?.cloudId || entry.status === "deleted") return { status: "local-deleted" };
++    const binding = await this.store.byEntry(this.userId, this.calendarId, entry.cloudId);
++    if (binding?.entryUpdatedAt === entry.updatedAt) return { status: "unchanged" };
++    const identity = await this.store.eventIdentity(this.userId, this.calendarId, entry.cloudId);
++    const desired = proposedActualEvent(entry, { userId: this.userId, eventId: binding?.eventId || identity.eventId });
++    try {
++      await this.store.assertLease?.();
++      const remote = binding ? await this.provider.update(this.calendarId, desired, binding.eventEtag) : await this.provider.insert(this.calendarId, desired);
++      if (!remote?.id || !remote.etag) throw new Error("\u65E5\u66C6\u6C92\u6709\u56DE\u50B3\u5B8C\u6574\u5132\u5B58\u7D50\u679C");
++      await this.store.bind({ userId: this.userId, calendarId: this.calendarId, eventId: remote.id, eventEtag: remote.etag, entryId: entry.cloudId, entryUpdatedAt: entry.updatedAt, operationId: identity.id });
++      return { status: "synced", eventId: remote.id };
++    } catch (error2) {
++      await this.store.failure(this.userId, identity.id, "EXPORT_FAILED");
++      throw error2;
++    }
++  }
++};
++
++// ../../../../modules/worklog/native/google-sync-cycle.mjs
++async function runGoogleSyncCycle({ connection, store, provider, sync, worklog, prepare, now = () => (/* @__PURE__ */ new Date()).toISOString() }) {
++  const { userId, calendarId } = connection;
++  if (!connection.enabled) return { status: "disabled" };
++  const lease = await store.acquire(userId, calendarId);
++  if (!lease) return { status: "already-running" };
++  try {
++    await provider.calendar(calendarId);
++    if (prepare) await prepare();
++    if (!worklog.snapshot) await worklog.load(new Date(now()).getUTCFullYear());
++    const state = await store.state(userId, calendarId), baseline = !state.syncToken;
++    let cursor = null, count = 0;
++    const failures = [];
++    const consume = async (token, cutoff) => {
++      for await (const page of provider.changes(calendarId, { syncToken: token || void 0 })) {
++        for (const event of page.events) {
++          if (++count > 1e4) throw Object.assign(new Error("\u672C\u6B21\u540C\u6B65\u8D85\u904E\u5B89\u5168\u8CC7\u6599\u91CF\uFF0C\u6E38\u6A19\u672A\u63A8\u9032"), { code: "LIMIT" });
++          if (cutoff && !(Date.parse(event.updated) > Date.parse(cutoff)) && !await store.byEvent?.(userId, calendarId, event.id)) continue;
++          try {
++            const year = Number(event.start?.dateTime?.slice(0, 4));
++            if (Number.isInteger(year) && year >= 1900 && year <= 2200 && worklog.snapshot?.year !== year) await worklog.load(year);
++            await sync.importEvent(event);
++          } catch (error2) {
++            failures.push({ eventId: event.id, code: error2.code || "IMPORT_FAILED" });
++          }
++        }
++        if (page.nextSyncToken) cursor = page.nextSyncToken;
++      }
++    };
++    try {
++      await consume(state.syncToken, baseline ? connection.activatedAt : null);
++    } catch (error2) {
++      if (error2.code !== "CURSOR_EXPIRED" || baseline) throw error2;
++      cursor = null;
++      await consume(null, state.lastSyncedAt || connection.activatedAt);
++    }
++    if (!cursor) throw new Error("Google\u672A\u56DE\u50B3\u5B8C\u6574\u540C\u6B65\u6E38\u6A19");
++    const until = now();
++    const changed = await store.changedEntries(userId, { after: state.localCursor || connection.activatedAt, through: until });
++    for (const entry of changed) {
++      if (entry.status === "deleted") continue;
++      try {
++        await sync.exportEntry(entry);
++      } catch (error2) {
++        failures.push({ entryId: entry.cloudId, code: error2.code || "EXPORT_FAILED" });
++      }
++    }
++    if (failures.length) {
++      await store.cycleFailure(userId, calendarId, failures);
++      return { status: "incomplete", failures };
++    }
++    await store.advance(userId, calendarId, { syncToken: cursor, localCursor: until, lease });
++    return { status: baseline ? "initialized" : "synced", seen: count, exported: changed.length };
++  } finally {
++    await store.release(userId, calendarId, lease);
++  }
++}
++
++// ../../../../modules/worklog/native/server/runtime.mjs
++var fail = (code) => {
++  throw Object.assign(new Error(code), { code });
++};
++function createWorklogSyncRuntime({ env, fetchImpl = globalThis.fetch, crypto = globalThis.crypto, defer }) {
++  const base = env.SUPABASE_URL, anon = env.SUPABASE_ANON_KEY, enabled = env.WORKLOG_GOOGLE_SYNC_ENABLED === "true", calendarId = env.WORKLOG_GOOGLE_CALENDAR_ID;
++  if (!enabled) return createSyncEndpoint({ enabled: false });
++  if (!base || !anon || !calendarId || !env.SUPABASE_SERVICE_ROLE_KEY || !env.WORKLOG_SYNC_ENCRYPTION_KEY || !env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) throw new Error("WorkLog worker configuration incomplete");
++  const admin = new SyncAdmin({ baseUrl: base, serviceKey: env.SUPABASE_SERVICE_ROLE_KEY, fetchImpl }), envelope = new CredentialEnvelope({ key: env.WORKLOG_SYNC_ENCRYPTION_KEY, crypto });
++  const json = async (url, options = {}, diagnosticStage) => {
++    const response = await fetchImpl(url, { ...options, cache: "no-store", signal: AbortSignal.timeout(15e3) });
++    if (!response.ok) {
++      let upstreamCode;
++      try {
++        upstreamCode = (await response.json()).error;
++      } catch {
++      }
++      throw Object.assign(new Error("RECONNECT"), { code: "RECONNECT", diagnosticStage, upstreamStatus: response.status, upstreamCode });
++    }
++    return response.json();
++  };
++  const verifyCaller = async (bearer) => {
++    if (!/^Bearer \S+$/.test(bearer)) fail("AUTH_REQUIRED");
++    const user = await json(new URL("/auth/v1/user", base), { headers: { apikey: anon, Authorization: bearer } });
++    if (!user.id) fail("AUTH_REQUIRED");
++    const access = await json(new URL("/rest/v1/rpc/resolve_app_access", base), { method: "POST", headers: { apikey: anon, Authorization: bearer, "Content-Type": "application/json" }, body: "{}" });
++    const row = Array.isArray(access) ? access[0] : access;
++    if (row?.status !== "APPROVED" || row.user_id && row.user_id !== user.id) fail("ACCESS_REQUIRED");
++    return user;
++  };
++  const refreshSession = async (owner, session) => {
++    const fresh = await json(new URL("/auth/v1/token?grant_type=refresh_token", base), { method: "POST", headers: { apikey: anon, "Content-Type": "application/json" }, body: JSON.stringify({ refresh_token: session.refresh_token }) });
++    const user = await verifyCaller("Bearer " + fresh.access_token);
++    if (user.id !== owner || !fresh.refresh_token) fail("OWNER_MISMATCH");
++    return { access_token: fresh.access_token, refresh_token: fresh.refresh_token, expires_at: fresh.expires_at || Math.floor(Date.now() / 1e3) + Number(fresh.expires_in || 3600), user: { id: owner } };
++  };
++  const verifyGoogle = async (owner, token, refreshToken) => {
++    const user = await adminUser(owner);
++    const check = async (access) => {
++      const info = await json("https://openidconnect.googleapis.com/v1/userinfo", { headers: { Authorization: "Bearer " + access } }, "google-profile");
++      if (!info.email_verified || !user.email || info.email?.toLowerCase() !== user.email.toLowerCase()) fail("OWNER_MISMATCH");
++      return info;
++    };
++    await check(token);
++    const refreshed = await json("https://oauth2.googleapis.com/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ client_id: env.GOOGLE_CLIENT_ID, client_secret: env.GOOGLE_CLIENT_SECRET, grant_type: "refresh_token", refresh_token: refreshToken }).toString() }, "google-refresh");
++    await check(refreshed.access_token);
++    const provider = new GoogleCalendarProvider({ getAccessToken: async () => refreshed.access_token, fetchImpl });
++    const calendar = await provider.calendar(calendarId);
++    return { refreshToken: refreshed.refresh_token || refreshToken, calendar };
++  };
++  async function adminUser(owner) {
++    return json(new URL("/auth/v1/admin/users/" + encodeURIComponent(owner), base), { headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: "Bearer " + env.SUPABASE_SERVICE_ROLE_KEY } }, "owner-user");
++  }
++  function makeStack(owner, row) {
++    let store;
++    let sessionInit;
++    const getWorker = () => sessionInit || (sessionInit = (async () => {
++      await store.assertLease();
++      const current = await admin.connection(owner);
++      if (!current?.enabled || current.calendar_id !== row.calendar_id || current.lease_id !== store.lease) fail("CONNECTION_BUSY");
++      const credentials = await envelope.open(owner, current.credentials);
++      return new OwnerWorkerSession({ baseUrl: base, anonKey: anon, owner, credentials, envelope, admin, store, fetchImpl, googleClientId: env.GOOGLE_CLIENT_ID, googleClientSecret: env.GOOGLE_CLIENT_SECRET });
++    })());
++    const worklog = new WorklogService({ userId: owner, request: supabaseRequest({ baseUrl: base, anonKey: anon, expectedUserId: owner, getSession: async () => (await getWorker()).getSession(), fetchImpl }) });
++    store = new DurableSyncStore({ admin, owner, calendar: row.calendar_id, worklog, crypto });
++    const provider = new GoogleCalendarProvider({ getAccessToken: async () => (await getWorker()).googleToken(), fetchImpl }), sync = new GoogleWorklogSync({ worklog, provider, store, userId: owner, calendarId: row.calendar_id, enabled: true });
++    return { store, worklog, provider, sync };
++  }
++  async function runOwner(owner, { stopPush = false } = {}) {
++    const row = await admin.connection(owner);
++    if (!row?.enabled) return { status: "disconnected" };
++    if (row.calendar_id !== calendarId) fail("CALENDAR_FORBIDDEN");
++    const { store, worklog, provider, sync } = makeStack(owner, row);
++    const push = env.WORKLOG_SYNC_WEBHOOK_URL ? new CalendarPush({ admin, provider, store, owner, calendar: row.calendar_id, address: env.WORKLOG_SYNC_WEBHOOK_URL, crypto }) : null;
++    if (stopPush) {
++      const lease = await store.acquire(owner, row.calendar_id);
++      if (!lease) fail("CONNECTION_BUSY");
++      try {
++        if (push) await push.stop();
++        return { status: "stopped" };
++      } finally {
++        await store.release(owner, row.calendar_id, lease);
++      }
++    }
++    return runGoogleSyncCycle({ connection: { userId: owner, calendarId: row.calendar_id, enabled: true, activatedAt: row.activated_at }, store, provider, sync, worklog, prepare: push ? () => push.ensure() : void 0 });
++  }
++  const listConflicts = async (owner) => {
++    const row = await admin.connection(owner);
++    if (!row?.enabled || row.calendar_id !== calendarId) return { conflicts: [] };
++    const store = new DurableSyncStore({ admin, owner, calendar: row.calendar_id, worklog: null, crypto });
++    return { conflicts: await store.conflicts(owner, row.calendar_id) };
++  };
++  const resolveConflict = async (owner, params) => {
++    const row = await admin.connection(owner);
++    if (!row?.enabled) return { status: "disconnected" };
++    if (row.calendar_id !== calendarId) fail("CALENDAR_FORBIDDEN");
++    const { store, sync } = makeStack(owner, row);
++    const lease = await store.acquire(owner, row.calendar_id);
++    if (!lease) fail("CONNECTION_BUSY");
++    try {
++      return await sync.resolveConflict(params);
++    } finally {
++      await store.release(owner, row.calendar_id, lease);
++    }
++  };
++  const status = async (owner) => {
++    const row = await admin.connection(owner);
++    return { owner, status: row?.enabled ? "connected" : "disconnected", calendarName: row?.calendar_name || null, lastSyncedAt: row?.last_synced_at || null, error: row?.last_error ? row.last_error.includes("CONFLICT") ? "\u6709\u5DE5\u6642\u5728 TF \u8207\u65E5\u66C6\u5169\u908A\u90FD\u4FEE\u6539\u904E\uFF0C\u8ACB\u78BA\u8A8D\u8981\u4FDD\u7559\u54EA\u4E00\u7248" : row.last_error.includes("EXACT_TIME_REQUIRED") ? "\u6709\u65E5\u66C6\u4E8B\u4EF6\u7F3A\u5C11\u958B\u59CB\u8207\u7D50\u675F\u6642\u523B\uFF0C\u8A72\u7B46\u672A\u540C\u6B65" : row.last_error.includes("EVENT_KIND_UNSUPPORTED") ? "\u6709\u91CD\u8907\u65E5\u66C6\u4E8B\u4EF6\u5C1A\u4E0D\u652F\u63F4\u540C\u6B65\uFF0C\u539F\u4E8B\u4EF6\u4FDD\u7559" : row.last_error.includes("WORKLOG_VALIDATION") ? "\u6709\u5DE5\u6642\u672A\u7B26\u5408\u539F\u5132\u5B58\u898F\u5247\uFF0C\u8A72\u7B46\u5C1A\u672A\u540C\u6B65" : row.last_error.includes("STALE") ? "\u6709\u8CC7\u6599\u7248\u672C\u5C1A\u7121\u6CD5\u78BA\u5B9A\u5148\u5F8C\uFF0C\u672A\u8986\u5BEB\u539F\u503C" : "\u540C\u6B65\u5C1A\u672A\u5B8C\u6210\uFF0C\u8ACB\u91CD\u8A66\u6216\u91CD\u65B0\u9023\u7DDA" : null };
++  };
++  const endpoint = createSyncEndpoint({
++    enabled,
++    origins: (env.WORKLOG_SYNC_ALLOWED_ORIGINS || "").split(",").filter(Boolean),
++    schedulerSecret: env.WORKLOG_SYNC_SCHEDULER_SECRET,
++    reportFailure: (details) => console.warn("TQ6_CONNECT_DIAGNOSTIC " + JSON.stringify(details)),
++    verifyCaller,
++    verifyRefreshSession: refreshSession,
++    verifyGoogle,
++    status,
++    runOwner,
++    listConflicts,
++    resolveConflict,
++    connect: async ({ owner, session, googleRefreshToken, calendar }) => {
++      const credentials = await envelope.seal(owner, { session, googleRefreshToken });
++      const ok = await admin.request("rpc/worklog_google_connect", { method: "POST", body: { p_owner: owner, p_calendar: calendar.id, p_name: calendar.name, p_credentials: credentials } });
++      if (!ok) fail("CONNECTION_BUSY");
++      if (defer && env.WORKLOG_SYNC_WEBHOOK_URL) defer(runOwner(owner).catch(() => {
++      }));
++      return { calendarName: calendar.name };
++    },
++    disconnect: async (owner) => {
++      if (env.WORKLOG_SYNC_WEBHOOK_URL) try {
++        await runOwner(owner, { stopPush: true });
++      } catch (error2) {
++        if (error2?.code === "CONNECTION_BUSY") throw error2;
++      }
++      const ok = await admin.request("rpc/worklog_google_disconnect", { method: "POST", body: { p_owner: owner } });
++      if (!ok) fail("CONNECTION_BUSY");
++    },
++    runBatch: async () => {
++      const rows = await admin.request("worklog_google_connections?select=user_uuid&enabled=eq.true&order=last_synced_at.asc.nullsfirst&limit=10");
++      const results = [];
++      for (const row of rows) {
++        try {
++          results.push({ owner: row.user_uuid, ...await runOwner(row.user_uuid) });
++        } catch (error2) {
++          results.push({ owner: row.user_uuid, status: "failed", code: ["RECONNECT", "CURSOR_EXPIRED", "ACCESS_REQUIRED"].includes(error2.code) ? error2.code : "SYNC_FAILED" });
++        }
++      }
++      return { results };
++    }
++  });
++  const receiver = createPushReceiver({ admin, calendarId, runOwner, defer, crypto });
++  return (request) => new URL(request.url).searchParams.get("push") === "1" ? receiver(request) : endpoint(request);
++}
++
++// ../../../../supabase/functions/worklog-google-sync/index.ts
++var handler = createWorklogSyncRuntime({ env: Deno.env.toObject(), defer: (promise) => EdgeRuntime.waitUntil(promise) });
++Deno.serve(handler);
