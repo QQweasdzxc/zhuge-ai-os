@@ -221,6 +221,31 @@ function englishQuiz(pool, count, priority = []) {
     };
   });
 }
+const CHENGYU_STAGE_WORDS={"1": ["一舉兩得", "半途而廢", "一心一意", "全力以赴", "人山人海", "目不轉睛", "東張西望", "迫不及待", "大公無私", "同心協力", "飲水思源", "一目了然", "言而有信", "急中生智", "三心二意", "腳踏實地"], "2": ["畫蛇添足", "守株待兔", "井底之蛙", "對牛彈琴", "刻舟求劍", "狐假虎威", "亡羊補牢", "自相矛盾", "胸有成竹", "水落石出", "雪中送炭", "錦上添花", "畫龍點睛", "一鳴驚人", "推己及人", "七上八下", "十全十美", "五光十色", "喜出望外", "一帆風順", "鳥語花香", "五花八門", "心花怒放", "津津有味", "心滿意足", "興高采烈", "專心致志", "千方百計", "不約而同", "守望相助", "爭先恐後", "見義勇為", "垂頭喪氣", "百發百中", "歷歷在目"], "3": ["按部就班", "循序漸進", "事半功倍", "事倍功半", "南轅北轍", "背道而馳", "削足適履", "本末倒置", "見微知著", "防微杜漸", "未雨綢繆", "臨渴掘井", "當機立斷", "優柔寡斷", "鶴立雞群", "出類拔萃"], "4": ["名副其實", "名不副實", "不脛而走", "不翼而飛", "望梅止渴", "望塵莫及", "捨本逐末", "因噎廢食", "投鼠忌器", "如虎添翼", "相形見絀", "舉一反三", "融會貫通", "大相逕庭", "杯弓蛇影", "過河拆橋"], "5": ["指鹿為馬", "沽名釣譽", "曲高和寡", "陽春白雪", "下里巴人", "緣木求魚", "釜底抽薪", "隔靴搔癢", "信口雌黃", "信口開河", "穿鑿附會", "牽強附會", "膠柱鼓瑟", "抱殘守缺", "含沙射影", "旁敲側擊"], "6": ["首鼠兩端", "朝令夕改", "積重難返", "尾大不掉", "噤若寒蟬", "諱莫如深", "捉襟見肘", "左支右絀", "杯水車薪", "飲鴆止渴", "揠苗助長", "矯枉過正", "未卜先知", "蜚短流長", "因陋就簡", "甚囂塵上"], "7": ["畫蛇添足", "守株待兔", "井底之蛙", "對牛彈琴", "刻舟求劍", "狐假虎威", "亡羊補牢", "自相矛盾", "一舉兩得", "半途而廢", "一心一意", "全力以赴", "胸有成竹", "水落石出", "雪中送炭", "錦上添花", "畫龍點睛", "人山人海", "目不轉睛", "東張西望", "迫不及待", "大公無私", "同心協力", "飲水思源", "一目了然", "言而有信", "急中生智", "三心二意", "腳踏實地", "一鳴驚人", "推己及人", "七上八下", "十全十美", "五光十色", "喜出望外", "一帆風順", "鳥語花香", "五花八門", "心花怒放", "津津有味", "心滿意足", "興高采烈", "專心致志", "千方百計", "不約而同", "守望相助", "爭先恐後", "見義勇為", "垂頭喪氣", "百發百中", "歷歷在目", "按部就班", "循序漸進", "事半功倍", "事倍功半", "南轅北轍", "背道而馳", "削足適履", "本末倒置", "見微知著", "防微杜漸", "未雨綢繆", "臨渴掘井", "當機立斷", "優柔寡斷", "鶴立雞群", "出類拔萃", "名副其實", "名不副實", "不脛而走", "不翼而飛", "望梅止渴", "望塵莫及", "捨本逐末", "因噎廢食", "投鼠忌器", "如虎添翼", "相形見絀", "舉一反三", "融會貫通", "大相逕庭", "杯弓蛇影", "過河拆橋", "迎刃而解", "潛移默化", "相得益彰", "日新月異", "繼往開來", "家喻戶曉", "千鈞一髮", "隨機應變", "因地制宜", "精益求精", "實事求是", "義不容辭", "集思廣益", "任重道遠", "一絲不苟", "有條不紊", "觸類旁通", "溫故知新", "責無旁貸", "虛懷若谷", "指鹿為馬", "沽名釣譽", "曲高和寡", "陽春白雪", "下里巴人", "緣木求魚", "釜底抽薪", "隔靴搔癢", "信口雌黃", "信口開河", "穿鑿附會", "牽強附會", "膠柱鼓瑟", "抱殘守缺", "含沙射影", "旁敲側擊", "首鼠兩端", "朝令夕改", "積重難返", "尾大不掉", "噤若寒蟬", "諱莫如深", "捉襟見肘", "左支右絀", "杯水車薪", "飲鴆止渴", "揠苗助長", "矯枉過正", "未卜先知", "蜚短流長", "因陋就簡", "甚囂塵上", "鞭辟入裡", "罄竹難書", "危言聳聽", "以訛傳訛", "好高騖遠", "墨守成規", "故步自封", "弄巧成拙", "欲速不達", "功虧一簣", "前功盡棄", "如火如荼", "鳳毛麟角", "寥寥無幾", "目不暇接", "嘆為觀止", "鬼斧神工", "別出心裁", "不恥下問", "披荊斬棘"]};
+async function stageQuestions(family,hero,world,stage,unitId){
+ let pool=[];
+ if(world==='chengyu'){
+  const bank=await db('learning_adventure_exam_bank','select=word,meaning,example,zone&limit=500');
+  pool=bank.filter(x=>CHENGYU_STAGE_WORDS[stage].includes(x.word));
+  if(pool.length<4)throw Error('這關題庫不足，請稍後再試');
+  return idiomQuiz(pool,Math.min(10,pool.length));
+ }
+ const units=await db('vocab_family_units','family_id=eq.'+family.sourceFamilyId+'&select=id,words&limit=150');
+ if(unitId&&!units.some(u=>u.id===unitId))throw Error('教材不屬於這個家庭');
+ const seen=new Set();
+ for(const u of units.filter(u=>!unitId||u.id===unitId))for(const w of u.words||[]){if(w.en&&w.zh&&!seen.has(w.en.toLowerCase())){seen.add(w.en.toLowerCase());pool.push({en:w.en,zh:w.zh,sentence:w.sentence||''});}}
+ if(pool.length<3)throw Error('教材至少需3詞才能作總結測驗');
+ // Small units use both directions; no need to invent words or require unseen words.
+ const picked=shuffled(pool).slice(0,Math.min(10,pool.length));
+ const quiz=[];for(const [i,p] of picked.entries())for(let k=0;k<(pool.length<10?2:1);k++){
+  const n=quiz.length,kind=n%3===0?'english-meaning':n%3===1?'english-spelling':p.sentence.includes('____')?'english-sentence':'english-reverse';
+  const reverse=kind!=='english-meaning',answer=reverse?p.en:p.zh;
+  const choices=shuffled([...new Set([answer,...shuffled(pool.filter(x=>x.en!==p.en)).slice(0,3).map(x=>reverse?x.en:x.zh)])]);
+  const stem=kind==='english-meaning'?'「'+p.en+'」的中文意思是什麼？':kind==='english-spelling'?'依中文「'+p.zh+'」選出正確拼字（開頭 '+p.en[0]+'）':kind==='english-sentence'?'選出填入空格的英文：'+p.sentence+'（'+p.zh+'）':'哪個英文最符合「'+p.zh+'」？';
+  quiz.push({kind,stem,choices,answerIndex:choices.indexOf(answer)});
+ }
+ return shuffled(quiz).slice(0,10);
+}
 async function familyFor(world, token) {
   const hash = await sha(token);
   const table = world === "chengyu" ? "chengyu_family_spaces" : "vocab_family_spaces";
@@ -258,7 +283,7 @@ async function activeExam(heroId, level) {
   const a = await db("learning_adventure_promotion_exams", "hero_id=eq." + heroId + "&level_before=eq." + level + "&completed_at=is.null&select=*&limit=1");
   return a[0] || null;
 }
-async function buildQuestions(family, hero) {
+async function buildQuestions(family, hero, villageWorld = null) {
   const ledger = await db("learning_adventure_xp_ledger", "hero_id=eq." + hero.id + "&select=world,amount&limit=3000");
   const counts = {
     chengyu: 0,
@@ -269,7 +294,8 @@ async function buildQuestions(family, hero) {
   let nChengyu = needBoth ? 5 : counts.chengyu > 0 ? 10 : 0;
   let nVocab = 10 - nChengyu;
   if (counts.vocab === 0 && counts.chengyu > 0) nVocab = 0;
-  if (!nChengyu && !nVocab) throw new Error("請先完成學習島的題目再挑戰晉級");
+  if (!villageWorld && !nChengyu && !nVocab) throw new Error("請先完成學習島的題目再挑戰晉級");
+  if(villageWorld){nChengyu=villageWorld==='chengyu'?10:0;nVocab=villageWorld==='vocab'?10:0;}
   const quiz = [];
   if (nChengyu) {
     const linked = await db("learning_adventure_hero_links", "hero_id=eq." + hero.id + "&world=eq.chengyu&select=source_learner_id&limit=1");
@@ -280,7 +306,7 @@ async function buildQuestions(family, hero) {
         if (recent.some((a)=>Number(a.zone) === z && a.result_status === "completed" && a.question_count >= 5 && a.correct_count / a.question_count >= 0.8)) maxZone = Math.max(maxZone, z + 1);
       }
     }
-    const bank = await db("learning_adventure_exam_bank", "zone=lte." + Math.min(6, maxZone) + "&select=word,meaning,example,zone&limit=200");
+    const bank = await db("learning_adventure_exam_bank", "zone=lte." + (villageWorld?7:Math.min(6,maxZone)) + "&select=word,meaning,example,zone&limit=200");
     const wrongAttempts = linked.length ? await db("chengyu_family_attempts", "learner_id=eq." + linked[0].source_learner_id + "&select=answers&order=created_at.desc&limit=100") : [];
     const collectedC = await db("learning_adventure_collections", "hero_id=eq." + hero.id + "&world=eq.chengyu&select=item_key&order=created_at.desc&limit=200");
     quiz.push(...idiomQuiz(bank, nChengyu, mergePriority(wrongPriority(wrongAttempts, (w)=>w), shuffled(collectedC.map((x)=>x.item_key)))));
@@ -531,6 +557,46 @@ Deno.serve(async (req)=>{
         }
       }
       return respond(req,{ok:true,...plan});
+    }
+    if(action==='startStageExam'||action==='submitStageExam'){
+      const stage=Number(input.stage);if(!Number.isInteger(stage)||stage<1||stage>7)return fail(req,'關卡不正確');
+      const stars=await db('rpc/learning_adventure_stage_stars','','POST',{p_family:family.adventureFamilyId,p_hero:hero.id,p_world:world});
+      if(!stars.stages.find(z=>z.zone===stage)?.first_star)return fail(req,'請先完成本關混合練習',403);
+      if(stage>1){const prev=await db('learning_adventure_stage_exams','hero_id=eq.'+hero.id+'&world=eq.'+world+'&stage=eq.'+(stage-1)+'&passed=eq.true&select=id&limit=1');if(!prev.length)return fail(req,'請先通過前一關總結測驗',403);}
+      if(action==='startStageExam'){
+        let rows=await db('learning_adventure_stage_exams','hero_id=eq.'+hero.id+'&world=eq.'+world+'&stage=eq.'+stage+'&completed_at=is.null&select=*&limit=1');
+        if(!rows.length){const unitId=uuid(input.unitId)?input.unitId:null,questions=await stageQuestions(family,hero,world,stage,unitId);try{rows=await db('learning_adventure_stage_exams','','POST',{hero_id:hero.id,world,stage,unit_id:unitId,questions});}catch(e){rows=await db('learning_adventure_stage_exams','hero_id=eq.'+hero.id+'&world=eq.'+world+'&stage=eq.'+stage+'&completed_at=is.null&select=*&limit=1');if(!rows.length)throw e;}}
+        return respond(req,{ok:true,exam:visibleExam(rows[0]),requiredScore:90,stage});
+      }
+      const rows=uuid(input.examId)?await db('learning_adventure_stage_exams','id=eq.'+input.examId+'&hero_id=eq.'+hero.id+'&world=eq.'+world+'&stage=eq.'+stage+'&select=*&limit=1'):[],exam=rows[0];
+      if(!exam||exam.completed_at)return fail(req,'測驗不存在或已交卷',409);
+      const answers=input.answers;if(!Array.isArray(answers)||answers.length!==exam.questions.length||!answers.every((n,i)=>Number.isInteger(n)&&n>=0&&n<exam.questions[i].choices.length))return fail(req,'請完成每一道題');
+      const correct=exam.questions.filter((q,i)=>q.answerIndex===answers[i]).length,passed=correct*100>=exam.questions.length*90;
+      const done=await db('learning_adventure_stage_exams','id=eq.'+exam.id+'&completed_at=is.null','PATCH',{answers,correct_count:correct,passed,completed_at:new Date().toISOString()});
+      if(!done.length)return fail(req,'這次已交卷',409);
+      return respond(req,{ok:true,correct,total:exam.questions.length,score:Math.round(correct/exam.questions.length*100),passed,review:exam.questions.map((q,i)=>({stem:q.stem,chosen:q.choices[answers[i]],expected:q.choices[q.answerIndex]}))});
+    }
+    if(action==='getStageStars'||action==='startVillageExam'||action==='submitVillageExam'){
+      const stars=await db('rpc/learning_adventure_stage_stars','','POST',{p_family:family.adventureFamilyId,p_hero:hero.id,p_world:world});
+      if(action==='getStageStars'){
+        const passed=await db('learning_adventure_village_exams','hero_id=eq.'+hero.id+'&world=eq.'+world+'&passed=eq.true&select=id&limit=1');
+        const stageExams=await db('learning_adventure_stage_exams','hero_id=eq.'+hero.id+'&world=eq.'+world+'&passed=eq.true&select=stage');
+        return respond(req,{...stars,villagePassed:passed.length>0,stagePassed:[...new Set(stageExams.map(x=>x.stage))]});
+      }
+      if(!stars.villageExamUnlocked)return fail(req,'集滿這座島21星後才能挑戰出村考驗',403);
+      if(action==='startVillageExam'){
+        let exams=await db('learning_adventure_village_exams','hero_id=eq.'+hero.id+'&world=eq.'+world+'&completed_at=is.null&select=*&limit=1');
+        if(!exams.length){const questions=world==='vocab'?await stageQuestions(family,hero,world,7,null):await buildQuestions(family,hero,world);try{exams=await db('learning_adventure_village_exams','','POST',{hero_id:hero.id,world,questions});}catch(e){exams=await db('learning_adventure_village_exams','hero_id=eq.'+hero.id+'&world=eq.'+world+'&completed_at=is.null&select=*&limit=1');if(!exams.length)throw e;}}
+        return respond(req,{ok:true,exam:visibleExam(exams[0]),requiredScore:90});
+      }
+      if(!uuid(input.examId)||!Array.isArray(input.answers))return fail(req,'請完成出村考驗');
+      const exams=await db('learning_adventure_village_exams','id=eq.'+input.examId+'&hero_id=eq.'+hero.id+'&world=eq.'+world+'&select=*&limit=1'),exam=exams[0];
+      if(!exam||exam.completed_at)return fail(req,'考驗不存在或已交卷',409);
+      if(input.answers.length!==exam.questions.length||!input.answers.every((n,i)=>Number.isInteger(n)&&n>=0&&n<exam.questions[i].choices.length))return fail(req,'請完成每一道題');
+      const correct=exam.questions.filter((q,i)=>q.answerIndex===input.answers[i]).length,passed=correct*100>=exam.questions.length*90;
+      const done=await db('learning_adventure_village_exams','id=eq.'+exam.id+'&completed_at=is.null','PATCH',{answers:input.answers,correct_count:correct,passed,completed_at:new Date().toISOString()});
+      if(!done.length)return fail(req,'已交卷，請勿重送',409);
+      return respond(req,{ok:true,correct,total:exam.questions.length,score:Math.round(correct/exam.questions.length*100),passed,review:exam.questions.map((q,i)=>({stem:q.stem,chosen:q.choices[input.answers[i]],expected:q.choices[q.answerIndex],correct:q.answerIndex===input.answers[i]}))});
     }
     if(action === "getRoundReward") {
       if(!uuid(input.attemptId))return fail(req,'回合識別碼不正確');
