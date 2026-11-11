@@ -149,7 +149,7 @@ Deno.serve(async (req)=>{
         ].includes(a.stage) || (a.kind !== undefined && !["meaning", "spelling", "sentence", "zh2en", "ipa"].includes(a.kind))) return failure("作答內容不正確");
       }
       const villageStage=data.villageStage===undefined?null:Number(data.villageStage);
-      if(villageStage!==null&&(!Number.isInteger(villageStage)||villageStage<1||villageStage>7||mode!=='all'||!runId||answers.length<6||new Set(answers.map(a=>a.word.toLowerCase())).size<3||new Set(answers.map(a=>a.stage)).size<2))return failure('混合練習關資料不完整');
+      if(villageStage!==null&&(!Number.isInteger(villageStage)||villageStage<1||villageStage>7||mode!=='all'||!runId||(data.resultStatus!=='game_over'&&(answers.length<9||new Set(answers.map(a=>a.word.toLowerCase())).size<3||new Set(answers.map(a=>a.stage)).size<3))))return failure('混合練習關資料不完整');
       if(villageStage&&villageStage>1){
         const b=await rest('learning_adventure_family_bindings','world=eq.vocab&source_family_id='+f+'&select=adventure_family_id&limit=1');
         const l=await rest('learning_adventure_hero_links','world=eq.vocab&source_learner_id=eq.'+learnerId+'&select=hero_id&limit=1');
