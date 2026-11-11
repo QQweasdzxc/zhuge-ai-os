@@ -159,6 +159,7 @@ async function save(snapshot){
   box.textContent='✅ 成績已儲存雲端！⚔️ +'+gained+' XP';
   await sync();
   window.chengyuAdventureAfterFinish?.(snapshot,box);
+  if(response.attempt?.id)window.learningRoundReward?.(response.attempt.id,el("screen-result"),snapshot.learnerId);
  }).catch(function(err){
   box.innerHTML='⚠️ 儲存失敗：'+escapeHtml(err.message)+'　<button type="button" id="cloudRetry">重新儲存</button>';
   el('cloudRetry').addEventListener('click',function(){save(snapshot)});

@@ -521,61 +521,92 @@ function polish(){
 if(idiom)new MutationObserver(polish).observe($('#screen-result'),{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
 arrange();polish();sync();
 })();
-</script><script>
-/* 每日任務：與學習總部相同的每日任務演算法（同一玩家＋同一個台北日期一定相同，
-   且不會和昨天重複）。今天預設的出題模式每天在四種之間變化；關卡仍由冒險進度
-   自動帶出目前的挑戰關，玩家隨時可以手動改模式。這裡不寫入任何雲端資料。 */
+</script>
+<script>
+/* One task source and one round-reward display for both learning islands. */
 (function(){
 'use strict';
-var TASKS=[['mixed','混合練習'],['meaning','看成語，選意思'],['context','情境填空'],['reverse','看意思，選成語']];
-function dailyHash(s){var h=5381;for(var i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))>>>0;return h}
-function dailyShiftDay(day,off){var d=new Date(day+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+off);return d.toISOString().slice(0,10)}
-function taipeiDay(d){try{return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei'}).format(d||new Date())}catch(e){return new Date().toISOString().slice(0,10)}}
-function dailyPick(name,day){
- var prev='';
- for(var off=14;off>=0;off--){
-  var d=dailyShiftDay(day,-off),raw=dailyHash('chengyu|'+name+'|'+d)%TASKS.length,key=TASKS[raw][0];
-  if(key===prev)key=TASKS[(raw+1)%TASKS.length][0];prev=key;
+const host=window.learningDailyHost;
+const hub=!!host?.isHub;
+const world=hub?'chengyu':document.querySelector('#adventureArea')?'chengyu':'vocab';
+const api='https://lenpbbhwxyyfwgvjcozf.supabase.co/functions/v1/learning-adventure-cloud';
+const labels={vocab:{meaning:'第一關｜中英配對',spelling:'第二關｜拼字挑戰',sentence:'第三關｜句子填空',preview:'先用單字卡預習'},chengyu:{mixed:'混合練習',meaning:'看成語，選意思',context:'情境填空',reverse:'看意思，選成語'}};
+let active='',plan=null,loading=false,last=0,manual='',previewSaving=false;
+function state(){if(hub)return host.state();return world==='vocab'?window.vocabProgressState?.():window.chengyuProgressState?.()}
+function identity(){const st=state();return st?.selectedId||''}
+function tokenValue(){return new URLSearchParams(location.hash.slice(1)).get('f')||''}
+async function request(action,args={},id=identity()){
+ if(!id||!tokenValue())throw Error('請先選擇冒險者');
+ const r=await fetch(api,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...args,action,world,learnerId:id,token:tokenValue()}),cache:'no-store'});
+ const d=await r.json();if(!r.ok||!d.ok)throw Error(d.error||'暫時無法同步');return d;
+}
+function own(){return plan?.tasks.find(x=>x.world===world)}
+function row(world,mode,done,preview){
+ const a=document.createElement('a');a.className='quest-mini-row'+(done?' done':'');a.href=host.childLink(world)+'&t='+(preview?'preview':mode);a.dataset.dailyPart=world+':'+mode;
+ const icon=document.createElement('span');icon.className='qmr-icon';icon.textContent=done?'✓':world==='vocab'?'英':'成';
+ const text=document.createElement('span');text.className='qmr-text';const strong=document.createElement('strong');strong.textContent=world==='vocab'?'英文島':'成語島';text.append(strong,document.createTextNode(' · '+labels[world][mode]));
+ const hint=document.createElement('small');hint.style.cssText='display:block;font-size:11px;line-height:1.5;margin-top:5px';hint.textContent=done?'已完成':preview?'翻到最後一張，按「預習完成，去挑戰」':'完成這個模式的一回合，進度儲存後打勾';text.append(hint);
+ const go=document.createElement('span');go.className='qmr-go';go.textContent=done?'✓':'›';a.append(icon,text,go);return a;
+}
+function renderHub(){
+ if(!hub||!plan)return;
+ document.querySelectorAll('[data-quest], [data-daily-part]').forEach(a=>a.remove());
+ const area=document.querySelector('#tasksDrawer .quest-mini');if(!area)return;const before=area.querySelector('#questProgress');let count=0,total=2;
+ for(const item of plan.tasks){
+  if(item.world==='vocab'&&item.task==='preview'){area.insertBefore(row('vocab','preview',item.previewDone,true),before);total++;if(item.previewDone)count++;}
+  area.insertBefore(row(item.world,item.mode,item.challengeDone,false),before);total++;if(item.challengeDone)count++;
  }
- return prev;
+ for(const w of ['chengyu','vocab'])if(host.reviewDone()[w])count++;
+ host.decorateReviews();
+ const prog=document.getElementById('questProgress');prog.hidden=false;prog.textContent='今天已完成 '+count+' / '+total+' 個項目';
 }
-function playerName(){
- try{
-  var st=window.chengyuProgressState&&window.chengyuProgressState();
-  if(!st||!st.selectedId)return'';
-  var l=(st.learners||[]).find(function(x){return x.id===st.selectedId});
-  return l&&l.name||'';
- }catch(e){return''}
-}
-var applied='',manualPick='';
-function applyDaily(){
- var name=playerName();if(!name)return;
- var day=taipeiDay(),task=dailyPick(name,day),sig=name+'|'+day+'|'+task;
- var mission=document.querySelector('#screen-home .entry-mission');
- if(mission){var k=mission.querySelector('.entry-kicker');if(k&&(k.textContent==='繼續你的冒險'||k.textContent==='你的下一場冒險'))k.textContent='今天的練習 · 每日任務'}
- /* 每天自動帶出今日模式；孩子今天手動改過就尊重，其他狀況（含選人後設定還原）都補回今日模式。 */
- if(manualPick===name+'|'+day){applied=sig;return}
- var cur=document.querySelector('#modes .pill.selected'),curMode=cur?cur.getAttribute('data-mode'):'';
- if(applied!==sig||curMode!==task){
-  try{if(typeof setSelect!=='function')return;setSelect('modes','mode',task)}catch(e){return}
+function renderIsland(){
+ if(hub||!plan)return;const task=own();if(!task)return;
+ const arrival=new URLSearchParams(location.hash.slice(1)).get('t');
+ if(world==='chengyu'){
+  if(document.querySelector('#screen-game.active'))return;
+  const mode=arrival&&labels.chengyu[arrival]?arrival:task.mode;
+  if(manual!==active+'|'+plan.day&&typeof setSelect==='function')setSelect('modes','mode',mode);
+  const btn=document.querySelector('#modes .selected');const chosen=btn?.dataset.mode||mode;
+  const zone=document.getElementById('entryZone');if(zone){zone.dataset.taskMode=chosen;}
+  const note=document.getElementById('entryMissionNote');if(note){const count=document.querySelector('#counts .selected')?.textContent.trim()||'10題';note.textContent=count+' · '+labels.chengyu[chosen]+' · 達80%解鎖下一關';}
+ }else{
+  if(!host?.isHome())return;
+  const wantsPreview=arrival==='preview'||(!arrival&&task.task==='preview'&&!task.previewDone);
+  const mode=labels.vocab[arrival]?arrival:task.mode;const stage={meaning:0,spelling:1,sentence:2}[mode];
+  const mission=document.querySelector('.entry-mission');if(!mission)return;
+  const sig=active+'|'+plan.day+'|'+wantsPreview+'|'+mode;if(mission.dataset.sharedTask===sig)return;mission.dataset.sharedTask=sig;
+  const launch=mission.querySelector('.entry-launch');const cur=launch?.querySelector('[data-action]');const target=document.querySelector('[data-action="'+(wantsPreview?'study':'stage'+stage)+'"]');
+  if(launch&&target){if(cur&&cur!==target){const dest=document.querySelector('.entry-other-modes .actions');if(dest)dest.prepend(cur);}launch.append(target);target.textContent=(wantsPreview?labels.vocab.preview:labels.vocab[mode])+' →';}
+  const title=mission.querySelector('h2');if(title)title.textContent=wantsPreview?labels.vocab.preview:labels.vocab[mode];
+  const note=mission.querySelector('.entry-scope');if(note){const base=host.scopeText();note.textContent=base+' · '+(wantsPreview?'翻到最後一張，按「預習完成，去挑戰」':'完成這個模式的一回合，進度儲存後打勾');}
  }
- applied=sig;
- var modeBtn=document.querySelector('#modes .pill[data-mode="'+task+'"]');
- var count=document.querySelector('#counts .selected');
- var countText=count?count.textContent.trim():'10題';
- var modeText=modeBtn?modeBtn.textContent.trim().replace('🎲 ',''):'綜合隨機';
- var note=document.getElementById('entryMissionNote');
- if(note)note.textContent=countText+' · '+modeText+' · 達80%解鎖下一關';
- var summary=document.querySelector('.entry-options>summary');
- if(summary&&summary.firstChild)summary.firstChild.textContent='挑戰設定 · '+countText+' / '+modeText;
 }
-var modesEl=document.getElementById('modes');
-if(modesEl)modesEl.addEventListener('click',function(){var n=playerName();if(n)manualPick=n+'|'+taipeiDay()});
-var origRefresh=window.chengyuProgressRefresh;
-window.chengyuProgressRefresh=function(){if(origRefresh)origRefresh();applyDaily()};
-applyDaily();
-setInterval(applyDaily,2500);
+async function refresh(force=false){
+ const id=identity();if(!id)return;if(id!==active){active=id;plan=null;last=0;manual='';}
+ if(loading||(!force&&Date.now()-last<30000))return;loading=true;const who=active;
+ try{const d=await request('getDailyTasks',{},who);if(active!==who||identity()!==who)return;plan=d;last=Date.now();if(hub)renderHub();else renderIsland();}catch(e){if(hub){const p=document.getElementById('questProgress');if(p){p.hidden=false;p.textContent='任務暫時無法同步，稍後重開可再試';}}}finally{loading=false;}
+}
+if(hub){
+ host.onRender(renderHub);
+}else{
+ document.querySelector('#modes')?.addEventListener('click',()=>{manual=active+'|'+plan?.day});
+ if(world==='vocab')document.addEventListener('click',async e=>{
+  if(!e.target.closest('[data-study-exit]')||previewSaving)return;
+  if(!host?.previewComplete())return;
+  const id=identity();previewSaving=true;
+  try{await request('completePreview',{previewComplete:true},id);const hash=new URLSearchParams(location.hash.slice(1));if(hash.get('t')==='preview'){hash.delete('t');history.replaceState(null,'','#'+hash.toString());}await refresh(true);renderIsland();}catch(e){host.saveError('⚠️ 預習完成尚未同步，請重新開啟單字卡後再按一次');}finally{previewSaving=false;}
+ },true);
+ window.learningRoundReward=async function(attemptId,element,id){
+  const box=document.createElement('p');box.className='round-coin-status';box.setAttribute('role','status');box.textContent='正在確認本回合金幣…';box.style.cssText='padding:12px 14px;background:#fff6cf;color:#473718;border-radius:12px;line-height:1.6;font-weight:700';element?.prepend(box);
+  try{const d=await request('getRoundReward',{attemptId},id);box.textContent=d.amount>0?'🪙 本回合 +'+d.amount+' 金幣 · 餘額 '+d.wallet.balance+' 金幣':!d.completed?'本回合未通關，沒有通關金幣':d.limitReached?'今天這座島的 3 回合通關金幣已領滿 · 本回合 +0 金幣 · 餘額 '+d.wallet.balance+' 金幣':'本回合 +0 金幣 · 餘額 '+d.wallet.balance+' 金幣';if(identity()===id)window.adventureProfileRefresh?.(world,id);}catch(e){box.textContent='金幣狀態尚未同步，請回總部查看金幣紀錄';}
+ };
+}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh(true)});
+document.addEventListener('vocab-cloud-change',()=>refresh());
+setInterval(()=>{refresh();if(!hub)renderIsland()},2500);refresh();
 })();
+
 </script>
 </body>
 </html>
