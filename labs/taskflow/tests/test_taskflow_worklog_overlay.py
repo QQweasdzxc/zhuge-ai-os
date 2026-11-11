@@ -20,6 +20,7 @@ class WorklogOverlayTest(unittest.TestCase):
    self.assertIn('<AppLink href={`/${workspace.slug}/worklog`}',sidebar)
    self.assertIn('TaskFlowWorklogPage',(target/'apps/web/app/[workspaceSlug]/(dashboard)/worklog/page.tsx').read_text())
    self.assertTrue((target/'apps/web/app/auth/worklog/page.tsx').exists())
+   self.assertEqual((target/'packages/views/common/taskflow-worklog/worklog-sync-conflicts.tsx').read_bytes(),(ROOT/'modules/worklog/native/worklog-sync-conflicts.tsx').read_bytes())
    self.assertEqual((target/'apps/web/public/worklog-assets/templates/ecp-export-template.xlsx').read_bytes(),(ROOT/'modules/worklog/resources/templates/ecp-export-template.xlsx').read_bytes())
    self.assertIn('./common/taskflow-worklog',json.loads((target/'packages/views/package.json').read_text())['exports'])
  def test_actual_runtime_proxy_keeps_only_exact_frontend_worklog_routes(self):
