@@ -120,7 +120,15 @@ func (s *TaskFlowDriveStorage) authorizedParent(ctx context.Context, parents []s
 // response reuses the existing folder, and the single-transfer permit
 // serializes creation within this process. An ambiguous or shared folder
 // fails closed instead of mixing attachments into an untrusted location.
+// WorkspaceIconFolderName differs from the externally-created empty folder.
+// Only the app-owned connection creates or selects this dedicated destination.
+const WorkspaceIconFolderName = "工作區圖示（TF 管理）"
+
 func (s *TaskFlowDriveStorage) ensureTaskFolder(ctx context.Context, label string) (string, error) {
+	return s.ensurePrivateFolder(ctx, label)
+}
+
+func (s *TaskFlowDriveStorage) ensurePrivateFolder(ctx context.Context, label string) (string, error) {
 	q := "'" + s.folder + "' in parents and mimeType = 'application/vnd.google-apps.folder' and name = '" + label + "' and trashed = false"
 	r, e := s.request(ctx, http.MethodGet, "/drive/v3/files?q="+url.QueryEscape(q)+"&pageSize=10&fields=files(id,name,mimeType,trashed,shared,ownedByMe,parents)", nil, "")
 	if e != nil {

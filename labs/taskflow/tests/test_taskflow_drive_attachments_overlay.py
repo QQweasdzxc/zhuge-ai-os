@@ -6,7 +6,7 @@ SCRIPT=REPO/'labs/taskflow/patches/apply-taskflow-drive-attachments.py'
 spec=importlib.util.spec_from_file_location('drive_overlay',SCRIPT);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
 class DriveOverlayTests(unittest.TestCase):
  def fixture(self,root):
-  for name in ['server/cmd/server/router.go','server/cmd/server/main.go','server/internal/handler/file.go','server/internal/handler/issue.go','server/internal/service/issue.go','server/internal/handler/handler.go']:
+  for name in ['server/cmd/server/router.go','server/cmd/server/main.go','server/internal/handler/file.go','server/internal/handler/workspace.go','server/internal/handler/issue.go','server/internal/service/issue.go','server/internal/handler/handler.go']:
    p=root/name;p.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(REPO/'third_party/multica'/name,p)
   (root/'server/internal/storage').mkdir(parents=True)
  def test_apply_private_callback_and_no_db_body(self):

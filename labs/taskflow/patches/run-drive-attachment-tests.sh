@@ -72,3 +72,13 @@ cat "$log"
 count=$(grep -cE '^--- PASS: TestTaskFlowDriveFinalRouter' "$log")
 [ "$count" -eq 1 ] || { echo 'Drive final-router contract did not execute';exit 1; }
 echo 'GATE private_drive: storage16/nativeHTTP4/finalRouter1 PASS'
+
+log=/tmp/taskflow-workspace-icon-storage.log
+CGO_ENABLED=0 go test ./internal/storage -run '^TestTaskFlowWorkspaceIcon' -count=1 -v > "$log" 2>&1 || { cat "$log";exit 1; }
+cat "$log"
+[ "$(grep -cE '^--- PASS: TestTaskFlowWorkspaceIcon' "$log")" -eq 2 ] || exit 1
+log=/tmp/taskflow-workspace-icon-handler.log
+DATABASE_URL="$PARITY_DATABASE_URL" CGO_ENABLED=0 go test ./internal/handler -run '^TestTaskFlowWorkspaceIcon' -count=1 -v > "$log" 2>&1 || { cat "$log";exit 1; }
+cat "$log"
+[ "$(grep -cE '^--- PASS: TestTaskFlowWorkspaceIcon' "$log")" -eq 1 ] || exit 1
+echo 'GATE workspace_icon: same-file/retry/identity executed PASS'

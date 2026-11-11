@@ -6,6 +6,9 @@ from pathlib import Path
 def apply(root,overlay):
  if 'third_party/multica' in str(root.resolve()):raise SystemExit('frozen vendor refused')
  router=root/'server/cmd/server/router.go';file=root/'server/internal/handler/file.go';issue=root/'server/internal/handler/issue.go';service=root/'server/internal/service/issue.go';handler=root/'server/internal/handler/handler.go'
+ workspace=root/'server/internal/handler/workspace.go';wt=workspace.read_text()
+ workspace_anchor='\tslog.Info("workspace updated", append(logger.RequestAttrs(r), "workspace_id", id)...)'
+ if wt.count(workspace_anchor)!=1:raise SystemExit('workspace avatar filing anchor missing')
  rt=router.read_text();ft=file.read_text();it=issue.read_text();st=service.read_text();ht=handler.read_text()
  old='\t// Initialize storage with S3 as primary, fallback to local\n\tvar store storage.Storage\n\ts3 := storage.NewS3StorageFromEnv()\n\tif s3 != nil {'
  new='''\t// Drive is explicit and fails closed, never ephemeral fallback.
@@ -57,6 +60,8 @@ def apply(root,overlay):
  serve_new='func (h *Handler) proxyAttachmentDownload(w http.ResponseWriter, r *http.Request, att db.Attachment, key string, forceAttachment bool) {\n\tif _,drive:=h.Storage.(*storage.TaskFlowDriveStorage);drive&&att.IssueID.Valid{go h.taskFlowDriveFileAttachment(context.WithoutCancel(r.Context()),att)}\n\treader, err := h.Storage.GetReader(r.Context(), key)'
  patches=[(rt,old),(rt,callback_old),(rt,setup_old),(ft,admission_old),(ft,parse_old),(ft,read_old),(ft,upload_old),(ft,metadata_old),(ft,reader_old),(ft,issue_old),(ft,serve_old),(it,bind_old),(st,svc_field_old),(st,svc_call_old),(ht,wire_old)]
  if any(text.count(anchor)!=1 for text,anchor in patches):raise SystemExit('Drive overlay source anchor missing/ambiguous')
+ route_anchor='\t\t\t\t\tr.Patch("/", h.UpdateWorkspace)'
+ if rt.count(route_anchor)!=1:raise SystemExit('workspace icon route anchor missing')
  files={}
  for source in overlay.glob('*.go'):
   directory='handler' if '_handler' in source.name else 'storage'
@@ -69,7 +74,9 @@ def apply(root,overlay):
  worker='\t// Private Drive pending-trash retry uses the normal shutdown-bound worker context.\n\tif drive,ok:=h.Storage.(*storage.TaskFlowDriveStorage);ok {go drive.RunTrashWorker(sweepCtx)}\n\n'
  if mt.count('"github.com/multica-ai/multica/server/internal/selfhosttelemetry"')!=1:raise SystemExit('Drive storage import anchor missing')
  mt=mt.replace('"github.com/multica-ai/multica/server/internal/selfhosttelemetry"','"github.com/multica-ai/multica/server/internal/selfhosttelemetry"\n"github.com/multica-ai/multica/server/internal/storage"',1).replace(main_anchor,worker+main_anchor,1)
+ workspace.write_text(wt.replace(workspace_anchor,'\tif req.AvatarURL != nil { h.taskFlowDriveFileWorkspaceIcon(r.Context(), ws) }\n'+workspace_anchor,1))
  main.write_text(mt)
+ rt=rt.replace(route_anchor,route_anchor+'\n\t\t\t\t\tr.With(handler.RequireHumanActor).Post("/organize-icon",h.OrganizeTaskFlowWorkspaceIcon)',1)
  router.write_text(rt.replace(old,new,1).replace(callback_old,callback_new,1).replace(setup_old,setup_new,1))
  ft=ft.replace('DownloadURL   string  `json:"download_url"`', 'DownloadURL   string  `json:"download_url"`\n\tPrivateStorage bool `json:"private_storage,omitempty"`',1)
  ft=ft.replace('\t// Only CloudFront mode overrides', '\tif _,private:=h.Storage.(*storage.TaskFlowDriveStorage);private{resp.PrivateStorage=true}\n\t// Only CloudFront mode overrides',1)
