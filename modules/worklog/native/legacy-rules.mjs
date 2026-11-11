@@ -61,7 +61,7 @@ function validateEntry(item) {
   if (worklogDescriptionLength(item.title) > WORKLOG_DESCRIPTION_MAX_LENGTH) return `工作描述不可超過 ${WORKLOG_DESCRIPTION_MAX_LENGTH} 個字元`;
   if (!item.at || Number.isNaN(new Date(item.at).getTime())) return "請選擇正確時間";
   if (!item.hours || item.hours <= 0) return "請選擇工時";
-  if (item.hours > 8) return "單筆工時不可超過 8 小時";
+  if (item.hours > (context.maxEntryHours||8)) return `單筆工時不可超過 ${context.maxEntryHours||8} 小時`;
   const sameDayHours = entries
     .filter(e => e.date === item.date && e.id !== item.id)
     .reduce((s, e) => s + Number(e.hours || 0), 0);
