@@ -58,9 +58,9 @@
             <div class="field-label">怎麼練習？</div>
             <div class="option-grid" id="modes">
               <button type="button" class="pill selected" data-mode="mixed">混合練習</button>
-              <button type="button" class="pill" data-mode="meaning">看成語，選意思</button>
-              <button type="button" class="pill" data-mode="context">情境填空</button>
-              <button type="button" class="pill" data-mode="reverse">看意思，選成語</button>
+              <button hidden type="button" class="pill" data-mode="meaning">看成語，選意思</button>
+              <button hidden type="button" class="pill" data-mode="context">情境填空</button>
+              <button hidden type="button" class="pill" data-mode="reverse">看意思，選成語</button>
             </div>
           </div>
         </div>
@@ -163,9 +163,9 @@ $('levels').addEventListener('click',e=>{const b=e.target.closest('[data-level]'
 $('counts').addEventListener('click',e=>{const b=e.target.closest('[data-count]');if(b)setSelect('counts','count',Number(b.dataset.count));});
 $('modes').addEventListener('click',e=>{const b=e.target.closest('[data-mode]');if(b)setSelect('modes','mode',b.dataset.mode);});
 function chooseQuestion(word,index){
- if(config.zone===8){const it=VILLAGE_EIGHT.find(x=>x.w===word.word);if(it){const choices=shuffle(it.o);return {kind:'usage',word,title:'出村後：把成語用在情境',prompt:it.q,choices,answer:choices.indexOf(it.a),voice:it.q,exp:it.e};}}
+ if(config.zone===8&&index>=3&&index%3===2){const it=VILLAGE_EIGHT.find(x=>x.w===word.word);if(it){const choices=shuffle(it.o);return {kind:'usage',word,title:'出村後：把成語用在情境',prompt:it.q,choices,answer:choices.indexOf(it.a),voice:it.q,exp:it.e};}}
   if(game&&game.angleIdx&&game.angleIdx.has(index)){const list=ANGLES.filter(x=>x.w===word.word);if(list.length){const it=list[Math.floor(Math.random()*list.length)];const choices=shuffle(it.o);return {kind:it.k,word,title:it.t,prompt:it.q,choices,answer:choices.indexOf(it.a),voice:it.q,exp:it.e};}}
-  const kind=config.mode==='mixed'?shuffle(['meaning','context','reverse'])[index%3]:config.mode;
+  const kind=config.mode==='mixed'?game.mixedKinds[index%3]:config.mode;
   // 干擾選項盡量與正解不同類，避免「情境題」出現兩個同義的可用答案。
   const same=shuffle(DATA.filter(v=>v.word!==word.word&&v.level===word.level&&v.category!==word.category));
   const others=shuffle(DATA.filter(v=>v.word!==word.word&&v.category!==word.category&&v.level!==word.level));
@@ -186,14 +186,14 @@ function startGame(onlyWords){
   const angleIdx=new Set();
   if(!onlyWords&&config.mode==='mixed'){
     const spare=shuffle(pool.filter(v=>ANGLE_WORDS.has(v.word)&&!questions.some(q=>q.word===v.word)));
-    for(let pos=2;pos<questions.length;pos+=3){
+    for(let pos=5;pos<questions.length;pos+=3){
       if(ANGLE_WORDS.has(questions[pos].word)){angleIdx.add(pos);continue;}
       const alt=questions.findIndex((q,k)=>k!==pos&&k%3!==2&&ANGLE_WORDS.has(q.word));
       if(spare.length){questions[pos]=spare.pop();angleIdx.add(pos);}
       else if(alt>=0){const t=questions[pos];questions[pos]=questions[alt];questions[alt]=t;angleIdx.add(pos);}
     }
   }
-  game={items:questions,index:0,correct:0,wrong:[],hearts:3,answered:false,angleIdx,angleOk:new Set()};lastWrong=[];
+  game={items:questions,index:0,correct:0,wrong:[],hearts:3,answered:false,angleIdx,mixedKinds:shuffle(['meaning','context','reverse']),angleOk:new Set()};lastWrong=[];
   if(window.chengyuCloudStart){window.chengyuCloudStart(game);game.cloudLevel=config.level;game.cloudMode=config.mode;game.cloudZone=onlyWords?null:(config.zone||null);}
   show('quiz');renderQuestion();
 }
@@ -391,7 +391,7 @@ if(idiom){
  const voice=$('.voice-settings');if(voice){const sound=disclosure('聲音設定 · 音色與朗讀');sound.lastElementChild.append(voice);options.after(sound);sound.lastElementChild.prepend($('#speedBtn'));}
  const tools=make('div','entry-tools');tools.append(lib);const cloud=$('.cloud-panel');if(cloud){const sw=$('#cloudSwitch'),report=$('#cloudReport');if(sw)tools.append(sw);if(report)tools.append(report);const info=disclosure('雲端狀態與資料說明');info.lastElementChild.append(cloud);home.append(info)}
  options.before(tools);setup.remove();$('.feature-strip')?.remove();
- const update=()=>{const z=$('.adventure-stage[aria-pressed="true"] strong'),count=$('#counts .selected'),mode=$('#modes .selected');$('#entryZone').textContent=z?.textContent.replace('｜',' · ')||'選擇你的冒險關卡';$('#entryMissionNote').textContent=(count?.textContent.trim()||'10題')+' · '+(mode?.textContent.trim().replace('🎲 ','')||'綜合隨機')+' · 答對8成，開啟下一關';const summary=options.firstElementChild;summary.firstChild.textContent='這次練習 · '+(count?.textContent.trim()||'10題')+' / '+(mode?.textContent.trim().replace('🎲 ','')||'綜合隨機');};
+ const update=()=>{const z=$('.adventure-stage[aria-pressed="true"] strong'),count=$('#counts .selected'),mode=$('#modes .selected');$('#entryZone').textContent=z?.textContent.replace('｜',' · ')||'選擇你的冒險關卡';$('#entryMissionNote').textContent=(count?.textContent.trim()||'10題')+' · '+(mode?.textContent.trim().replace('🎲 ','')||'綜合隨機')+' · 總結測驗達90%開下一關';const summary=options.firstElementChild;summary.firstChild.textContent='這次練習 · '+(count?.textContent.trim()||'10題')+' / '+(mode?.textContent.trim().replace('🎲 ','')||'綜合隨機');};
  new MutationObserver(update).observe($('#adventureStages'),{childList:true,subtree:true});grid.addEventListener('click',()=>queueMicrotask(update));update();
  const sync=()=>{const active=home.classList.contains('active');profile.hidden=!active;document.documentElement.classList.toggle('entry-playing',!active)};new MutationObserver(sync).observe(home,{attributes:true,attributeFilter:['class']});sync();
 }else{
@@ -692,4 +692,4 @@ document.addEventListener('click',async e=>{if(e.target.closest('[data-stars-ret
 new MutationObserver(()=>refresh()).observe(document.body,{childList:true,subtree:true});document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh(true)});refresh();
 })();
 </script></body>
-  </html>
+</html>
