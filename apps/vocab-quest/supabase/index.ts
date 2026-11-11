@@ -146,7 +146,7 @@ Deno.serve(async (req)=>{
           0,
           1,
           2
-        ].includes(a.stage)) return failure("作答內容不正確");
+        ].includes(a.stage) || (a.kind !== undefined && !["meaning", "spelling", "sentence", "zh2en", "ipa"].includes(a.kind))) return failure("作答內容不正確");
       }
       const count = answers.filter((x)=>x.correct).length;
       const status = data.resultStatus === "game_over" ? "game_over" : "completed";
