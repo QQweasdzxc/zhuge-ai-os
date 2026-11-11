@@ -1,0 +1,23 @@
+{
+  "name": "tq6-worklog-browser-regression",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 4177",
+    "test:layout": "node layout.cjs",
+    "test:mutations": "node mutations.cjs",
+    "test:holidays": "node holidays.cjs",
+    "test:native-wrapper": "node native-wrapper.cjs",
+    "typecheck": "tsc -p tsconfig.json",
+    "test:native-calendar": "node native-calendar.cjs"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "playwright": "1.58.2",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "typescript": "5.9.3",
+    "vite": "8.3.8"
+  }
+}

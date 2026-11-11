@@ -1,0 +1,22 @@
+// Isolated mapping planner. No API, persistence, OAuth or event mutation here.
+// A selected WorkLog calendar is the second entry point for the same records.
+import {createWorklogRules} from './legacy-rules.mjs';
+const localDate=instant=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).format(instant);
+const localClock=instant=>new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Taipei',hour:'2-digit',minute:'2-digit',hour12:false}).format(instant);
+const error=(code,message)=>({action:'error',code,message,mutations:[]});
+function instant(value){if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value))return null;const date=new Date(value);if(!Number.isFinite(date.getTime()))return null;const zone=value.match(/(Z|([+-])(\d{2}):(\d{2}))$/);const offset=zone[1]==='Z'?0:(zone[2]==='+'?1:-1)*(Number(zone[3])*60+Number(zone[4]));if(new Date(date.getTime()+offset*60000).toISOString().slice(0,19)!==value.slice(0,19))return null;return date;}
+function mappedTime(event){const start=instant(event.start?.dateTime),end=instant(event.end?.dateTime);if(!start||!end||end<=start)return error('EXACT_TIME_REQUIRED','這本工時日曆需要完整開始及結束時刻；此事件未能儲存為工時，沒有猜測時數。');if(start.getUTCSeconds()||end.getUTCSeconds()||start.getUTCMilliseconds()||end.getUTCMilliseconds())return error('SUBMINUTE','目前工時精度為分鐘，此事件含秒數，尚未同步；沒有四捨五入或更改原事件。');return {date:localDate(start),at:localDate(start)+'T'+localClock(start),hours:(end-start)/3600000};}
+function supported(event){return event.recurrence||event.recurringEventId?error('EVENT_KIND_UNSUPPORTED','這個工時日曆事件含重複規則，現有同步尚不支援，沒有更改原事件或工時。'):null;}
+function validate(proposed,entries,profile){const reason=createWorklogRules({entries,profile}).validateEntry(proposed);return reason?error('WORKLOG_VALIDATION',reason+'；這次儲存未完成，沒有更改原值。'):null;}
+export function planSelectedCalendarEvent({entry,event,binding,entries=[],userId,calendarId,selectedCalendarId,profile,operationId}){
+ if(!userId||!calendarId||calendarId!==selectedCalendarId)return error('CALENDAR_MISMATCH','事件不在已選定的工時日曆，不會讀成工時。');
+ if(!event?.id)return error('IDENTITY_REQUIRED','事件身分不完整，尚未同步。');
+ if(binding){if(!entry||binding.userId!==userId||binding.calendarId!==calendarId||binding.entryId!==entry.cloudId||binding.eventId!==event.id)return error('IDENTITY_CHANGED','事件與工時對應無法確認，原資料保留。');if(event.status==='cancelled')return {action:'remote-deleted',entryId:entry.cloudId,mutations:[]};if(entry.status==='deleted')return {action:'local-deleted',eventId:event.id,mutations:[]};if(event.etag===binding.eventEtag)return {action:'unchanged',mutations:[]};if(!event.etag)return error('STALE','日曆版本不完整，尚未覆寫資料。');if(entry.updatedAt!==binding.entryUpdatedAt){const local=Date.parse(entry.updatedAt),remote=Date.parse(event.updated);if(!Number.isFinite(local)||!Number.isFinite(remote)||local===remote)return error('STALE','兩邊版本先後無法確認，尚未覆寫資料。');if(local>remote)return {action:'local-newer',mutations:[]};}}
+ else if(event.status==='cancelled')return {action:'unchanged',mutations:[]};
+ const unsupported=supported(event);if(unsupported)return unsupported;const time=mappedTime(event);if(time.action)return time;
+ const proposed={...entry,id:entry?.id||operationId,date:time.date,at:time.at,hours:time.hours,title:String(event.summary||'').trim(),note:entry?.note||'',ecpTask:entry?.ecpTask||'',entryType:entry?.entryType||'work',status:entry?.status||'completed',source:entry?.source||'manual'};
+ if(!proposed.id)return error('OPERATION_REQUIRED','新增操作身分尚未建立，尚未同步。');
+ const invalid=validate(proposed,entries,profile);if(invalid)return invalid;
+ return {action:entry?'update-entry':'create-entry',proposed,sourceEventId:event.id,requiresActualConfirmation:false,mutations:[]};
+}
+export function proposedActualEvent(entry,{userId,eventId}){if(!entry.cloudId||!userId||!eventId||entry.status==='deleted')throw new Error('Work-entry identity required');const start=new Date(entry.at+':00+08:00'),end=new Date(start.getTime()+entry.hours*3600000);if(!Number.isFinite(start.getTime())||!Number.isFinite(end.getTime()))throw new Error('Invalid actual time');return {id:eventId,summary:entry.title,start:{dateTime:start.toISOString(),timeZone:'Asia/Taipei'},end:{dateTime:end.toISOString(),timeZone:'Asia/Taipei'},extendedProperties:{private:{tq6_kind:'actual-worklog',tq6_owner:userId,tq6_entry:entry.cloudId}}};}

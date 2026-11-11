@@ -6,9 +6,13 @@
     "node": ">=20"
   },
   "scripts": {
-    "test:browser": "node tests/run-browser-regression.js"
+    "test:browser": "node tests/run-browser-regression.js",
+    "test:worklog": "node --test modules/worklog/native/*.test.mjs modules/worklog/native/server/*.test.mjs",
+    "build:worklog-rules": "node labs/taskflow/scripts/build-worklog-rules.cjs"
   },
   "devDependencies": {
+    "@babel/parser": "7.29.2",
+    "@babel/traverse": "7.29.0",
     "@electric-sql/pglite": "0.3.14",
     "playwright": "1.55.1"
   }

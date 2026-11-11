@@ -1,0 +1,13 @@
+{
+  "name": "tq6-worklog-server-regression",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:sql": "node sql-check.mjs",
+    "test:bundle": "esbuild ../../../../supabase/functions/worklog-google-sync/index.ts --bundle --platform=neutral --target=es2022 --format=esm --outfile=/tmp/tq6-worklog-worker-bundle.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "@electric-sql/pglite": "0.5.16"
+  }
+}
