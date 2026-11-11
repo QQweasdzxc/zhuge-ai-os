@@ -55,7 +55,7 @@ function render(){
  $('adventureHero').innerHTML='<strong>📖 成語島｜'+xp+' XP</strong><p>'+escapeHtml(p.player?.name||'先選自己的名字')+' 的成語探索累積經驗。已開放到第 '+available+' 關；總 Lv. 請看「共用冒險者」卡片。</p><div class="adventure-xp"><span style="width:'+percentage+'%"></span></div>';
  const passed=new Set((window.learningVillageProgress?.stages||[]).filter(x=>x.first_star).map(x=>x.zone));
  $('adventureStages').innerHTML=zones.map((z,i)=>{
-  const n=i+1,locked=n===8?!window.learningVillagePassed:n>available,status=passed.has(n)?'✅ 已破關':locked?'🔒 未解鎖':n===config.zone?'🎯 挑戰中':'▶ 前往挑戰';
+  const n=i+1,locked=n===8?!window.learningVillagePassed:n>available,status=(window.learningVillageProgress?.stagePassed||[]).includes(n)?'✅ 總結已通過':passed.has(n)?'練習已完成':locked?'🔒 未解鎖':n===config.zone?'🎯 挑戰中':'▶ 前往挑戰';
   return '<button type="button" class="adventure-stage" data-zone="'+n+'" '+(locked?'disabled':'')+' aria-pressed="'+(config.zone===n)+'"><span class="stage-icon">'+z[0]+'</span><strong>第 '+n+' 關｜'+z[1]+'</strong><small>'+z[2]+'・'+pool(n).length+' 則</small><span class="state">'+status+'</span></button>'
  }).join('');
 }
