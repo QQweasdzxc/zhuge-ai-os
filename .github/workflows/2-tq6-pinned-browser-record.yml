@@ -1,0 +1,66 @@
+name: TQ6 Pinned Browser and Worker Record
+on:
+  push:
+    branches: ['review/tq6-native-qualification-20261111']
+    paths: ['.github/workflows/*tq6-pinned-browser-record.yml']
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-24.04
+    container: mcr.microsoft.com/playwright:v1.58.2-noble
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 5d1bc8e86ea041041197a8c196895adc83d8bec8
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install locked harness using matching preinstalled browsers
+        working-directory: labs/taskflow/tests/worklog-browser
+        run: npm ci
+      - name: Native calendar and mobile editor and conflict tests
+        working-directory: labs/taskflow/tests/worklog-browser
+        shell: bash
+        env:
+          TQ6_TEST_CALENDAR_ENABLED: 'true'
+        run: |
+          set -euo pipefail
+          node node_modules/vite/bin/vite.js --host 127.0.0.1 --port 4177 >/tmp/vite.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" || true' EXIT
+          for n in $(seq 1 50); do curl -sf http://127.0.0.1:4177/native.html >/dev/null && break; sleep .2; done
+          npm run test:native-calendar
+          npm run test:mobile-editor
+          WORKLOG_BROWSER=webkit npm run test:mobile-editor
+          npm run test:conflicts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tq6-pinned-browser-pixels
+          path: labs/taskflow/tests/worklog-browser/test-results
+  record:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Preserve exact deployed worker bytes and non-secret readback
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum 1-tq6-worker-v11-record.patch | cut -d' ' -f1)" = 156298808b4e02541b30c9ee6832f0d0b33b7ef5428c35bc48cae276925f99aa
+          cp 1-tq6-worker-v11-record.patch /tmp/record.patch
+          git switch --detach 5d1bc8e86ea041041197a8c196895adc83d8bec8
+          git apply --check /tmp/record.patch
+          git apply /tmp/record.patch
+          test "$(sha256sum docs/ops/tq6-worker-v11/index.ts | cut -d' ' -f1)" = e59e03b29301a47913c3be22d2a9ecc5c1088b161cc371c2899db6a5e93bbe55
+          git diff --check
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add docs/ops/tq6-worker-v11
+          git commit -m 'Record exact deployed WorkLog worker v11 and safe status readback'
+          git push origin HEAD:refs/heads/review/tq6-worker-v11-record-20261112
