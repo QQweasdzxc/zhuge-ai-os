@@ -88,6 +88,11 @@ class TaskFlowProjectStatusOverlayTests(unittest.TestCase):
         }
         self.assertEqual(before, after)
 
+    def test_docker_build_copies_drag_component_and_test(self) -> None:
+        dockerfile = (REPO / "labs/taskflow/Dockerfile.web").read_text()
+        for name in ("taskflow-status-drag-handle.tsx", "taskflow-status-drag-handle.test.tsx"):
+            self.assertIn(f"COPY labs/taskflow/overrides/{name} /taskflow-project-status/{name}", dockerfile)
+
     def test_overlay_fails_closed_when_expected_source_markers_change(self) -> None:
         with self.assertRaisesRegex(ValueError, "expected one upstream marker"):
             PATCH.patch_status_hook("export function useIssueStatuses() { return null; }")
