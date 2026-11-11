@@ -9,6 +9,7 @@ const state = vi.hoisted(() => ({
   hidden: ["cancelled"] as string[],
   save: vi.fn().mockResolvedValue(undefined),
   setVisible: vi.fn().mockResolvedValue(undefined),
+  setOrder: vi.fn().mockResolvedValue(undefined),
   setLabel: vi.fn().mockResolvedValue(undefined),
   create: vi.fn().mockResolvedValue({ key: "project_status" }),
   catalogLoaded: true,
@@ -48,6 +49,7 @@ vi.mock("@multica/core/issue-statuses/hooks", () => ({
     isPending: false,
     isError: state.catalogError,
     retry: state.retryCatalog,
+    entryOf: (key: string) => state.statuses.find(s => s.key === key),
   }),
 }));
 vi.mock("@multica/core/issue-statuses/mutations", () => ({
@@ -62,6 +64,7 @@ vi.mock("@multica/core/issue-statuses/taskflow-project-status-scope", () => ({
     setStatusVisible: state.setVisible,
     statusLabels: { [state.ownedKey]: "Waiting for vendor" },
     setStatusLabel: state.setLabel,
+    setStatusOrder: state.setOrder,
   }),
   createTaskFlowProjectStatusKey: () => "p00000000000000000000000000_0002",
   taskFlowInternalProjectStatusName: (key: string) => `TF:${key}`,
@@ -71,7 +74,11 @@ vi.mock("../../i18n", () => ({
   useT: () => ({
     t: (resolve: (value: any) => unknown, params?: Record<string, string>) => {
       const messages = {
+        status: Object.fromEntries(state.statuses.map(s => [s.key, s.key])),
         taskflow_project_status: {
+          drag_status: "Drag {{name}}",
+          move_up: "Move {{name}} earlier",
+          move_down: "Move {{name}} later",
           button: "Project statuses",
           title: "Project statuses and fields",
           description: "Project-only settings. Hidden columns can be restored without deleting tasks.",
@@ -230,3 +237,12 @@ describe("TaskFlow project status controls", () => {
     expect(state.create).not.toHaveBeenCalled();
   });
 });
+
+ describe("Project column order controls", () => {
+ it("moves a row without changing a status or an issue", async () => {
+ render(<TaskFlowProjectStatusSettings projectId={state.projectId} />);
+ fireEvent.click(screen.getByRole("button",{name:"Project statuses"}));
+ fireEvent.click(screen.getByRole("button",{name:"Move todo earlier"}));
+ await waitFor(()=>expect(state.setOrder).toHaveBeenCalledWith(["todo","backlog","in_progress","in_review","done","blocked","cancelled",state.ownedKey]));
+ });
+ });
