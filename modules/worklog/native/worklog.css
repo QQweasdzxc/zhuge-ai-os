@@ -29,3 +29,23 @@
 .taskflow-worklog-host>p{font:400 13px/1.5 Arial,'Noto Sans TC',sans-serif;background:#17313d;color:#d9e7ee;border-bottom:1px solid #365363;display:flex;gap:12px;align-items:center}.taskflow-worklog-host>p>button{margin-left:auto;flex:none;border:1px solid #416878;border-radius:4px;background:#112631;color:#d9e7ee;padding:4px 8px}
 
 .tq6-worklog .suggest-title{display:flex;align-items:flex-start;gap:4px;min-width:0}.tq6-worklog .suggest-title>label{flex:none}.tq6-worklog .compact-app button.source-detail{border:0;border-radius:2px;background:transparent;padding:0;min-height:0;font-size:14px;font-weight:600;text-align:left;line-height:1.25;overflow-wrap:anywhere}.tq6-worklog .source-detail:hover{text-decoration:underline}.taskflow-worklog-host>p{flex-wrap:wrap}.taskflow-worklog-host>p>button+button{margin-left:0}
+
+/* Native dialog controls must not inherit TaskFlow's generic close/fields styles. */
+.tq6-worklog .worklog-dialog-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin:0 0 14px;position:relative}
+.tq6-worklog .worklog-dialog-header h2{margin:4px 0 0;min-width:0;flex:1}
+.tq6-worklog .modal .worklog-dialog-close{position:static;display:flex;align-items:center;justify-content:center;flex:0 0 44px;width:44px;height:44px;min-width:44px;min-height:44px;max-height:44px;padding:0;border-radius:8px;background:transparent;line-height:1}
+.tq6-worklog .worklog-dialog-close svg{display:block;width:22px;height:22px;flex:none}
+.tq6-worklog .worklog-edit-fields{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
+.tq6-worklog .worklog-edit-fields label{display:flex;flex-direction:column;gap:7px;min-width:0;width:100%;margin:0}
+.tq6-worklog .worklog-time-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;min-width:0}
+.tq6-worklog .worklog-edit-fields input,.tq6-worklog .worklog-edit-fields select{display:block;box-sizing:border-box;min-width:0;max-width:100%;width:100%;min-height:46px;font-size:16px;line-height:1.4}
+.tq6-worklog .worklog-edit-fields input[type=time]{appearance:none;-webkit-appearance:none}
+.tq6-worklog .worklog-edit-fields input[type=time]::-webkit-date-and-time-value{text-align:left;min-height:22px}
+.tq6-worklog .worklog-linked-task{padding:12px;border:1px solid #365d70;border-radius:7px;display:flex;flex-direction:column;gap:5px;overflow-wrap:anywhere}
+.tq6-worklog .worklog-linked-task span{font-size:12px;color:#94b0c1}.tq6-worklog .worklog-linked-inline{display:block;margin-top:4px}
+@media(max-width:420px){.tq6-worklog .worklog-time-fields{grid-template-columns:minmax(0,1fr);gap:16px}.tq6-worklog .modal .actions>button{flex:1;min-height:46px}.tq6-worklog .modal{padding:18px 16px;max-height:calc(100dvh - 24px)}.tq6-worklog .modal .detail{margin:18px 0 12px}}
+
+.tq6-worklog .worklog-edit-fields select{appearance:none;-webkit-appearance:none;color-scheme:dark;background-color:#081822;color:#dcecf3;padding-right:32px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='m4 6 4 4 4-4' fill='none' stroke='%2394b0c1' stroke-width='1.6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center}
+.tq6-worklog .worklog-ecp-selected{display:block;font-size:12px;font-weight:400;color:#a5c3cf;line-height:1.5;overflow-wrap:anywhere}
+
+.taskflow-worklog-host .worklog-last-sync{font-size:11px;color:#9fbcc9;white-space:nowrap}.taskflow-worklog-host>p>button:disabled{opacity:.5;cursor:wait}

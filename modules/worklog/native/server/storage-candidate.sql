@@ -28,6 +28,19 @@ CREATE TABLE IF NOT EXISTS public.worklog_google_failures (
  updated_at timestamptz NOT NULL DEFAULT now(),
  PRIMARY KEY(user_uuid,operation_id)
 );
+-- Pending both-sides-changed conflicts awaiting an owner choice. Only
+-- comparable public fields; notes, credentials and other calendars stay out.
+CREATE TABLE IF NOT EXISTS public.worklog_google_conflicts (
+ user_uuid uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+ operation_id text NOT NULL,
+ calendar_id text NOT NULL, event_id text NOT NULL,
+ entry_id uuid NOT NULL REFERENCES public.work_entries(id),
+ event_etag text NOT NULL, entry_updated_at timestamptz, event_updated timestamptz,
+ local_version jsonb NOT NULL, remote_version jsonb NOT NULL,
+ status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending')),
+ created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(),
+ PRIMARY KEY(user_uuid,operation_id)
+);
 CREATE TABLE IF NOT EXISTS public.worklog_google_channels (
  user_uuid uuid NOT NULL REFERENCES public.worklog_google_connections(user_uuid) ON DELETE CASCADE,
  calendar_id text NOT NULL, channel_id text NOT NULL UNIQUE,
@@ -50,8 +63,9 @@ GRANT EXECUTE ON FUNCTION public.worklog_google_push_receipt(text,text,timestamp
 ALTER TABLE public.worklog_google_connections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.worklog_google_bindings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.worklog_google_failures ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON public.worklog_google_connections,public.worklog_google_bindings,public.worklog_google_failures FROM PUBLIC,anon,authenticated;
-GRANT SELECT,INSERT,UPDATE,DELETE ON public.worklog_google_connections,public.worklog_google_bindings,public.worklog_google_failures TO service_role;
+ALTER TABLE public.worklog_google_conflicts ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.worklog_google_connections,public.worklog_google_bindings,public.worklog_google_failures,public.worklog_google_conflicts FROM PUBLIC,anon,authenticated;
+GRANT SELECT,INSERT,UPDATE,DELETE ON public.worklog_google_connections,public.worklog_google_bindings,public.worklog_google_failures,public.worklog_google_conflicts TO service_role;
 CREATE OR REPLACE FUNCTION public.worklog_google_acquire(p_owner uuid,p_calendar text,p_lease uuid)
 RETURNS boolean LANGUAGE sql SECURITY INVOKER SET search_path='' AS $$
  WITH leased AS (UPDATE public.worklog_google_connections SET lease_id=p_lease,lease_until=clock_timestamp()+interval '5 minutes' WHERE user_uuid=p_owner AND calendar_id=p_calendar AND enabled AND (lease_until IS NULL OR lease_until<clock_timestamp()) RETURNING 1)

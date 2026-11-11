@@ -32,6 +32,17 @@ calendars are excluded. Original storage validation failures are explicit, not
 silent success. All-day/recurrence conversion, historical backfill and deletion
 cascade are not silently added.
 
+When both entry points changed the same record and version order cannot prove
+which is newer (equal or missing timestamps), the cycle records a durable
+owner-only conflict with both sides' comparable fields (title/date/start/hours
+and version stamps; never notes or credentials), keeps both originals, records
+the failure and retains the cursor. The owner reviews the two versions in the
+worklog page and picks one: keep-TF writes the event with the reviewed If-Match
+etag, keep-calendar saves the entry with the original updated_at conditional
+write. Any version drift since review aborts with CONFLICT_CHANGED and nothing
+is written. A later decidable plan supersedes and clears a pending conflict
+without asking; missing event etag still stops as STALE.
+
 ## Worker implementation, not production activation
 
 The native Calendar button, scoped PKCE callback, encrypted worker connection,
@@ -72,6 +83,24 @@ Google event, public source, deploy or auth setting was changed.
   fixtures are synthetic, not the formal user's data.
 - Previously Next native callback returned200 safe-disabled; its development
   Issue was inspected as missing local /api/me backend404. Not a production error.
+
+## Conflict review candidate checks
+
+- 85 Node tests green (base 74 including the integrator's new-record ECP
+  default patch, merged with synthetic fixtures), plus conflict cases:
+  planner two-sided diff with no silent overwrite, durable conflict record and
+  supersede-on-decision, keep-local If-Match write, keep-remote conditional
+  save, CONFLICT_CHANGED/GONE/CHOICE_REQUIRED rejections, owner-only endpoint
+  routing with bounded codes, and a full runtime pipeline lifecycle
+  (conflict -> owner choice -> guarded apply -> clean resync).
+- The review subcomponent worklog-sync-conflicts.tsx is standalone with inline
+  styles (shared worklog.css untouched) and passed a jsdom behavioral harness:
+  both versions rendered, differing fields highlighted, reviewed fingerprint
+  sent on choice, resolved item leaves the list, empty state renders nothing.
+  The integrator also verified the 320/390/1280px native wrapper and visible metadata-read failure/retry behavior.
+- Source-only: no deploy, no production data, no new cron/Vault changes. The
+  new worklog_google_conflicts table is private candidate SQL with the same
+  RLS/service_role pattern; it is not applied automatically.
 
 ## Reproduce
 

@@ -9,7 +9,9 @@
     "test:holidays": "node holidays.cjs",
     "test:native-wrapper": "node native-wrapper.cjs",
     "typecheck": "tsc -p tsconfig.json",
-    "test:native-calendar": "node native-calendar.cjs"
+    "test:native-calendar": "node native-calendar.cjs",
+    "test:mobile-editor": "node mobile-editor.cjs",
+    "test:conflicts": "node conflicts.cjs"
   },
   "devDependencies": {
     "@types/react": "19.2.14",

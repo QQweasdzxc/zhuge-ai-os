@@ -20,7 +20,9 @@ export class WorklogService {
  const rules=createWorklogRules({models:modelRows,ecpTasks:ecpRows.map(r=>r.name),session:{uuid:this.userId}});
  const profile=profiles[0]?rules.profileFromCloud(profiles[0],exports[0],modelRows,ecpRows,{workModelsLoaded:true,ecpTasksLoaded:true}):null;
  const workProfile=profile?rules.workProfileFromCloud(workProfiles[0],exports[0],ecpRows,profile):null;if(profile&&workProfile){profile.ecpOwner=workProfile.ecpResponsiblePerson||'';profile.ecpDepartment=workProfile.ecpDepartment||'';}
- const snapshot={userId:this.userId,year,entries:entryRows.map(row=>({...rules.entryFromCloud(row),updatedAt:row.updated_at||null})),profile,workProfile,models:modelRows.map((m,i)=>rules.normalizeWorkMemoryObject(m,i)),ecpTasks:ecpRows.map(r=>r.name),loadedAt:new Date().toISOString()};
+ // Original applyWorkProfileToProfile puts the saved active ECP task first.
+ const activeTask=String(workProfile?.defaultTask||'').trim();const ecpTasks=[...new Set([activeTask,...ecpRows.map(r=>r.name)].filter(Boolean))];
+ const snapshot={userId:this.userId,year,entries:entryRows.map(row=>({...rules.entryFromCloud(row),updatedAt:row.updated_at||null})),profile,workProfile,models:modelRows.map((m,i)=>rules.normalizeWorkMemoryObject(m,i)),ecpTasks,loadedAt:new Date().toISOString()};
  if(revision===this.loadSequence)this.snapshot=copy(snapshot);return copy(snapshot);
  }
  rules(date= dateKey(),extra={}){if(!this.snapshot)throw new WorklogError('NOT_LOADED','請先載入工時資料');const s=this.snapshot;return createWorklogRules({entries:s.entries,profile:s.profile,workProfile:s.workProfile,models:s.models,ecpTasks:s.ecpTasks,session:{uuid:this.userId},selected:new Date(`${date}T12:00:00`),selectedMonth:date.slice(0,7),priorityEngine:this.priorityEngine,fetch:this.resourceFetch,...extra});}
@@ -43,7 +45,7 @@ export class WorklogService {
  // Do not rewrite unrelated links or event codes when editing.
  if(existing){delete payload.event_type;delete payload.status;delete payload.source;delete payload.legacy_id;}
  const ecp=await this.rows('user_ecp_tasks',`select=id,name&name=eq.${encodeURIComponent(item.ecpTask||'')}&is_active=eq.true&limit=1`);payload.ecp_task_id=ecp[0]?.id||null;
- const condition=existing?`&id=eq.${existing.cloudId}${existing.updatedAt?'&updated_at=eq.'+encodeURIComponent(existing.updatedAt):''}`:'';
+ const condition=existing?`&id=eq.${existing.cloudId}&status=neq.deleted&deleted_at=is.null${existing.updatedAt?'&updated_at=eq.'+encodeURIComponent(existing.updatedAt):''}`:'';
  const result=await this.request(`work_entries?user_uuid=eq.${this.userId}${condition}`,{method:existing?'PATCH':'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(payload)});
  if(!Array.isArray(result)||result.length!==1)throw new WorklogError('STALE','工時未儲存，請重新載入確認');
  const value={...rules.entryFromCloud(result[0]),updatedAt:result[0].updated_at||null};saved.push(value);await this.recordMetric(value,existing?'edited':'added');current=current.filter(x=>x.id!==value.id&&x.cloudId!==value.cloudId).concat(value);
