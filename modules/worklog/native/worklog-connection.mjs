@@ -3,7 +3,7 @@
 import {WorklogError} from './worklog-service.mjs';
 const encode=bytes=>btoa(String.fromCharCode(...bytes)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 export class WorklogConnection {
- constructor({supabaseUrl,anonKey,userId,storage,location,crypto=globalThis.crypto,fetchImpl=globalThis.fetch,enabled=false,calendarEnabled=false,now=Date.now}){this.base=new URL(supabaseUrl);if(this.base.protocol!=='https:'||this.base.pathname!=='/'||!anonKey||!userId)throw new Error('Invalid WorkLog auth configuration');this.anonKey=anonKey;this.userId=userId;this.storage=storage;this.location=location;this.crypto=crypto;this.fetch=fetchImpl;this.enabled=enabled;this.calendarEnabled=calendarEnabled;this.now=now;this.key='taskflow_worklog_session_v1:'+userId;this.pendingKey='taskflow_worklog_pending_v1:'+userId;this.inFlight=null;}
+ constructor({supabaseUrl,anonKey,userId,storage,location,crypto=globalThis.crypto,fetchImpl=globalThis.fetch,enabled=false,calendarEnabled=false,now=Date.now}){this.base=new URL(supabaseUrl);if(this.base.protocol!=='https:'||this.base.pathname!=='/'||!anonKey||!userId)throw new Error('Invalid WorkLog auth configuration');this.anonKey=anonKey;this.userId=userId;this.storage=storage;this.location=location;this.crypto=crypto;this.fetch=fetchImpl.bind(globalThis);this.enabled=enabled;this.calendarEnabled=calendarEnabled;this.now=now;this.key='taskflow_worklog_session_v1:'+userId;this.pendingKey='taskflow_worklog_pending_v1:'+userId;this.inFlight=null;}
  headers(){return {apikey:this.anonKey,'Content-Type':'application/json'};}
  read(key){try{return JSON.parse(this.storage.getItem(key)||'null')}catch{return null;}}
  disconnect(){this.storage.removeItem(this.key);this.storage.removeItem(this.pendingKey);}

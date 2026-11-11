@@ -4,7 +4,7 @@ export function createWorklogRules(context={}) {
 let {entries=[],selected=new Date(),selectedMonth='',profile=null,workProfile=null,session=null,feedback={}}=context;
 const DataService={workModelsState:context.models||[],ecpTasksState:context.ecpTasks||[],queueAutoSave:()=>{}}, PriorityEngine=context.priorityEngine;
 const currentUserUuid=()=>session?.user_uuid||session?.uuid||'';
-const fetch=context.fetch||globalThis.fetch;
+const fetch=context.fetch||globalThis.fetch.bind(globalThis);
 const saveAll=()=>{};
 const setWorkModels=items=>{DataService.workModelsState=items;};
 // Source: modules/worklog/worklog-app.js :: worklogDescriptionLength
