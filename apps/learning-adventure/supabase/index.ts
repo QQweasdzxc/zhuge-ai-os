@@ -121,9 +121,44 @@ function choiceSet(correct, others) {
     answerIndex: vals.indexOf(correct)
   };
 }
-function idiomQuiz(pool, count) {
+// Wrong-answer weighting shared by both islands (proposal: at most 40% of one island's exam slots).
+// Weight = number of wrong answers in the newest 100 attempts; a word enters the priority list when its
+// latest answer was wrong, or it was wrong at least twice. Order: more wrong answers first, ties random.
+function wrongPriority(attempts, key) {
+  const stat = new Map();
+  for (const a of attempts) {
+    const list = Array.isArray(a.answers) ? a.answers : [];
+    for (const x of list) {
+      const w = typeof x?.word === "string" ? x.word.trim() : "";
+      if (!w || typeof x.correct !== "boolean") continue;
+      const k = key(w);
+      const st = stat.get(k) || { wrong: 0, latestWrong: null };
+      if (!x.correct) st.wrong++;
+      if (st.latestWrong === null) st.latestWrong = !x.correct;
+      stat.set(k, st);
+    }
+  }
+  return [...stat.entries()].filter(([, v])=>v.wrong >= 2 || v.latestWrong && v.wrong >= 1).map(([k, v])=>({
+      k,
+      wrong: v.wrong,
+      r: Math.random()
+    })).sort((a, b)=>b.wrong - a.wrong || a.r - b.r).map((x)=>x.k);
+}
+function pickWithPriority(pool, count, priority, key) {
+  const cap = Math.ceil(count * 0.4);
+  const byKey = new Map(pool.map((p)=>[key(p), p]));
+  const first = [];
+  for (const k of priority) {
+    if (first.length >= cap) break;
+    const p = byKey.get(k);
+    if (p) first.push(p);
+  }
+  const rest = shuffled(pool.filter((p)=>!first.includes(p)));
+  return shuffled(first).concat(rest).slice(0, count);
+}
+function idiomQuiz(pool, count, priority = []) {
   if (pool.length < Math.max(count, 4)) throw new Error("成語題庫不足");
-  const picked = shuffled(pool).slice(0, count);
+  const picked = pickWithPriority(pool, count, priority, (p)=>p.word);
   return picked.map((p, i)=>{
     const kind = i % 3, word = p.word;
     if (kind === 0) {
@@ -151,9 +186,9 @@ function idiomQuiz(pool, count) {
     };
   });
 }
-function englishQuiz(pool, count) {
+function englishQuiz(pool, count, priority = []) {
   if (pool.length < Math.max(count, 4)) throw new Error("英文題庫不足");
-  const picked = shuffled(pool).slice(0, count);
+  const picked = pickWithPriority(pool, count, priority, (p)=>p.en.toLowerCase());
   return picked.map((p, i)=>{
     if (i % 2 === 0) {
       const s = choiceSet(p.zh, pool.filter((x)=>x.en !== p.en).map((x)=>x.zh));
@@ -231,7 +266,8 @@ async function buildQuestions(family, hero) {
       }
     }
     const bank = await db("learning_adventure_exam_bank", "zone=lte." + Math.min(6, maxZone) + "&select=word,meaning,example,zone&limit=200");
-    quiz.push(...idiomQuiz(bank, nChengyu));
+    const wrongAttempts = linked.length ? await db("chengyu_family_attempts", "learner_id=eq." + linked[0].source_learner_id + "&select=answers&order=created_at.desc&limit=100") : [];
+    quiz.push(...idiomQuiz(bank, nChengyu, wrongPriority(wrongAttempts, (w)=>w)));
   }
   if (nVocab) {
     const b = await db("learning_adventure_family_bindings", "world=eq.vocab&adventure_family_id=eq." + family.adventureFamilyId + "&select=source_family_id&limit=1");
@@ -254,7 +290,8 @@ async function buildQuestions(family, hero) {
         zh
       });
     }
-    quiz.push(...englishQuiz(words, nVocab));
+    const vocabAttempts = playerLinks.length ? await db("vocab_family_attempts", "learner_id=eq." + playerLinks[0].source_learner_id + "&select=answers&order=created_at.desc&limit=100") : [];
+    quiz.push(...englishQuiz(words, nVocab, wrongPriority(vocabAttempts, (w)=>w.toLowerCase())));
   }
   if (quiz.length !== 10) throw new Error("升級試煉題數不完整");
   return shuffled(quiz);
