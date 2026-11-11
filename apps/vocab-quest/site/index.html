@@ -330,12 +330,12 @@ async function saveCloudResult(resultStatus){
  var isOver=resultStatus==="game_over";
  familyCloud.saving=isOver?"☁️ 正在儲存 Game Over 紀錄…":"☁️ 正在儲存通關成績…";if(s.view==="report")report();else if(s.view==="gameOver")gameOverScreen();
  try{
-  var savedAttempt=await cloudCall("saveAttempt",{clientRunId:s.cloudRunId,learnerId:s.runTesterId,unitId:s.scope<0?null:wordUnits[s.scope].id,scopeName:scopeName(),mode:mode,answers:answers,resultStatus:isOver?"game_over":"completed",targetCount:targetCount});
+  var savedAttempt=await cloudCall("saveAttempt",{clientRunId:s.cloudRunId,learnerId:s.runTesterId,unitId:s.scope<0?null:wordUnits[s.scope].id,scopeName:scopeName(),mode:mode,answers:answers,resultStatus:isOver?"game_over":"completed",targetCount:targetCount,...(s.villageStage?{villageStage:s.villageStage}:{})});
   familyCloud.saving=isOver?"✅ Game Over 已記錄到 Supabase":"✅ 通關成績已存入 Supabase";
   await refreshCloud()
  }catch(err){familyCloud.saving="⚠️ 成績儲存失敗："+String(err.message||err)}
  if(s.view==="report")report();else if(s.view==="gameOver")gameOverScreen();
- if(savedAttempt?.attempt?.id)window.learningRoundReward?.(savedAttempt.attempt.id,document.getElementById("app"),s.runTesterId);
+ if(savedAttempt?.attempt?.id){window.learningStarsRefresh?.(true);window.learningRoundReward?.(savedAttempt.attempt.id,document.getElementById("app"),s.runTesterId);}
 }
 async function saveNewCloudUnit(){
  if(!familyCloud.connected){alert("請先使用家庭專用連結");return}
@@ -432,10 +432,10 @@ function frame(){
  btn("中文先出現","studyCN","secondary wide")+
  '</div></section>'+
 '<section class="panel panel-compact"><h2>🎯 挑戰測驗</h2><div class="actions">'+
- btn("第一關｜中英配對（"+num+" 題）","stage0","primary wide")+
- btn("第二關｜拼字挑戰（"+num+" 題）","stage1","secondary wide")+
- btn("第三關｜句子填空（"+num+" 題）","stage2","secondary wide")+
- btn("🏆 三關連續挑戰（"+num*3+" 題）","start","outline wide")+
+ btn("單項練習｜中英配對（"+num+" 題）","stage0","primary wide")+
+ btn("單項練習｜拼字挑戰（"+num+" 題）","stage1","secondary wide")+
+ btn("單項練習｜句子填空（"+num+" 題）","stage2","secondary wide")+
+ btn("🏆 三種技能連續練習（"+num*3+" 題）","start","outline wide")+
  '</div></section>'+
   '<div class="actions-inline">'+btn("📚 查看單字庫","list","outline wide")+btn("📊 雲端歷史成績","report","outline wide")+'</div>'+
  '<div class="tester-current">'+safe(familyCloud.status)+'</div>'+ '<details class="more-panel"><summary>其他選項與聲音測試</summary>'+
@@ -526,7 +526,7 @@ function assistedHint(wordIndex){
  if(s.stage===1||s.retry)return "拼字提示："+masked+"（共 "+en.length+" 個字母）";
  return "句子提示："+safe(w[1])+"；英文："+masked
 }
-function stageName(){return s.retry?"錯字自由複習":(["第一關｜中英配對","第二關｜拼字挑戰","第三關｜句子填空"])[s.stage]}
+function stageName(){if(s.villageStage)return "混合練習第 "+s.villageStage+" 關";return s.retry?"錯字自由複習":(["單項練習｜中英配對","單項練習｜拼字挑戰","單項練習｜句子填空"])[s.stage]}
 function current(){return words[s.order[s.q]]}
 function baseKind(){return s.retry||s.stage===1?"spelling":s.stage===2?"sentence":"meaning"}
 function qKind(){if(s.retry||s.stage!==0)return baseKind();opts();return s.qKind||"meaning"}
@@ -597,7 +597,7 @@ function report(){
  else if(!familyCloud.attempts.length)h+='<p class="muted">目前尚無已儲存的測驗紀錄。</p>';
  else{
   var list=familyCloud.attempts.filter(function(a){return s.historyFilter!=="current"||a.learner_id===s.testerId});
-  var modes={meaning:"中英配對",spelling:"拼字挑戰",sentence:"句子填空",all:"三關連續"};
+  var modes={meaning:"中英配對",spelling:"拼字挑戰",sentence:"句子填空",all:"三技能連續"};
   list.forEach(function(a){
    var who=familyCloud.learners.find(function(l){return l.id===a.learner_id});
    var wrong=(Array.isArray(a.answers)?a.answers:[]).filter(function(v){return v.correct===false}).map(function(v){return v.word}).slice(0,10);
@@ -610,11 +610,13 @@ function report(){
  h+='</section>';
  app.innerHTML=h
 }
-function start(retry,whichStage){
+function start(retry,whichStage,villageStage){
+s.villageStage=retry?s.villageStage:(villageStage||null);
 cancelAutoNext();
 if(!retry&&(!s.testerName||!s.testerId||!familyCloud.connected)){s.testerNotice=!familyCloud.connected?"請由家庭專用網址進入，確認已連接雲端":"請先選擇測試者";s.view="home";frame();window.vocabPlayerOpen?.();return}
 if(!retry){s.cloudRunId=crypto.randomUUID();s.runTesterId=s.testerId;s.runTesterName=s.testerName}
-s.view="game";s.retry=!!retry;s.challengeMode=retry?s.challengeMode:(typeof whichStage==="number"?"single":"all");if(!retry)s.selectedStage=s.challengeMode==="single"?whichStage:0;s.q=0;s.stage=retry?1:(s.challengeMode==="single"?s.selectedStage:0);s.pool=retry?s.pool.slice():currentPool();s.order=shuffled(retry?s.missed:s.pool);s.choiceKey="";s.choiceList=[];s.selected=null;s.typed="";s.answered=false;s.correct=false;s.clue=false;s.gameOver=false;s.wrongCount=0;if(!retry){s.score=0;s.attempts=[];s.missed=[];s.lastRecorded=false;s.gameOver=false;s.lastWrongIndex=-1;familyCloud.saving=""}s.lives=3;question()}
+s.view="game";s.retry=!!retry;s.challengeMode=retry?s.challengeMode:(typeof whichStage==="number"?"single":"all");if(!retry)s.selectedStage=s.challengeMode==="single"?whichStage:0;s.q=0;s.stage=retry?1:(s.challengeMode==="single"?s.selectedStage:0);s.pool=retry?s.pool.slice():currentPool();if(s.villageStage&&!retry)s.pool=shuffled(s.pool).slice(0,Math.min(s.pool.length,3+s.villageStage));s.order=shuffled(retry?s.missed:s.pool);s.choiceKey="";s.choiceList=[];s.selected=null;s.typed="";s.answered=false;s.correct=false;s.clue=false;s.gameOver=false;s.wrongCount=0;if(!retry){s.score=0;s.attempts=[];s.missed=[];s.lastRecorded=false;s.gameOver=false;s.lastWrongIndex=-1;familyCloud.saving=""}s.lives=3;question()}
+window.vocabVillageUnit=()=>s.scope<0?null:wordUnits[s.scope].id;window.vocabVillageStart=function(n){if(currentPool().length<3){alert("這份教材至少需3個詞才能開始混合關，請選另一週或總複習");return}start(false,undefined,n)};
 function answer(val){
  if(s.answered||s.gameOver||s.view!=="game")return;
  var idx=s.order[s.q],correct=(s.retry||s.stage===1)?([words[idx][0]].concat(words[idx][5]||[])).some(function(v){return String(val).trim().toLowerCase().replace(/\s+/g," ")===String(v).trim().toLowerCase().replace(/\s+/g," ")}):Number(val)===idx;
@@ -654,7 +656,7 @@ function gameOverScreen(){
  '<p>本次已答 '+s.attempts.length+' / '+target+' 題</p>'+
  (w?'<div class="game-miss">最後一題正確答案<br><b>'+safe(w[0])+'</b><p>'+safe(w[1])+'</p></div>':"")+
  '</section><section class="panel"><h2>🔄 重新挑戰</h2>'+
- '<p>'+(s.challengeMode==="all"?"三關連續挑戰從第一關重新開始。":"再練這一關，愛心會補滿。")+'</p>'+
+ '<p>'+(s.challengeMode==="all"?"三種技能連續練習從第一關重新開始。":"再練這一關，愛心會補滿。")+'</p>'+
  '<div class="actions">'+btn("🎮 重新闖關 ❤️❤️❤️","replay","primary wide")+
  btn("返回首頁選關","home","outline wide")+
  btn("📊 查看歷史成績","report","outline wide")+'</div>'+
@@ -669,7 +671,7 @@ function next(){
    s.view="report";
    if(!s.retry&&!s.lastRecorded&&s.attempts.length){
     var done=s.attempts.filter(function(x){return x.good}).length;
-    var label=s.challengeMode==="single"?["第一關｜中英配對","第二關｜拼字挑戰","第三關｜句子填空"][s.stage]:"三關連續挑戰";
+    var label=s.challengeMode==="single"?["單項練習｜中英配對","單項練習｜拼字挑戰","單項練習｜句子填空"][s.stage]:"三種技能連續練習";
     s.sessionRuns.push({tester:s.runTesterName,testerId:s.runTesterId,correct:done,total:s.attempts.length,label:label,scope:scopeName(),date:new Date().toLocaleString("zh-TW")});
     s.lastRecorded=true
    }
@@ -708,7 +710,7 @@ app.addEventListener("click",function(e){
  else if(act==="stage0"||act==="stage1"||act==="stage2")start(false,Number(act.slice(-1)));
  else if(act==="start")start(false);
  else if(act==="retry")start(true);
- else if(act==="replay")start(false,s.challengeMode==="single"?s.selectedStage:undefined);
+ else if(act==="replay")start(false,s.challengeMode==="single"?s.selectedStage:undefined,s.villageStage);
  else if(act==="home"){s.view="home";render()}
  else if(act==="study"||act==="studyCN"){s.view=act;s.cardOrder=shuffled(currentPool());s.card=0;s.flipped=false;render()}
  else if(act==="shuffleCards"){s.cardOrder=shuffled(currentPool());s.card=0;s.flipped=false;render()}
@@ -940,7 +942,7 @@ const host=window.learningDailyHost;
 const hub=!!host?.isHub;
 const world=hub?'chengyu':document.querySelector('#adventureArea')?'chengyu':'vocab';
 const api='https://lenpbbhwxyyfwgvjcozf.supabase.co/functions/v1/learning-adventure-cloud';
-const labels={vocab:{meaning:'第一關｜中英配對',spelling:'第二關｜拼字挑戰',sentence:'第三關｜句子填空',preview:'先用單字卡預習'},chengyu:{mixed:'混合練習',meaning:'看成語，選意思',context:'情境填空',reverse:'看意思，選成語'}};
+const labels={vocab:{meaning:'單項練習｜中英配對',spelling:'單項練習｜拼字挑戰',sentence:'單項練習｜句子填空',preview:'先用單字卡預習'},chengyu:{mixed:'混合練習',meaning:'看成語，選意思',context:'情境填空',reverse:'看意思，選成語'}};
 let active='',plan=null,loading=false,last=0,manual='',previewSaving=false;
 function state(){if(hub)return host.state();return world==='vocab'?window.vocabProgressState?.():window.chengyuProgressState?.()}
 function identity(){const st=state();return st?.selectedId||''}
@@ -1053,4 +1055,30 @@ setInterval(()=>{refresh();if(!hub)renderIsland()},2500);refresh();
 })();
 
 </script>
-</body></html>
+<script>
+(function(){
+'use strict';
+const world=document.querySelector('#adventureArea')?'chengyu':'vocab',api='https://lenpbbhwxyyfwgvjcozf.supabase.co/functions/v1/learning-adventure-cloud';
+let identity='',data=null,busy=false,last=0,exam=null,answers=[],examWho='',working=false,examStage=0;
+const safe=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function id(){return(world==='chengyu'?window.chengyuProgressState?.():window.vocabProgressState?.())?.selectedId||''}
+async function req(action,args={},who=id()){const token=new URLSearchParams(location.hash.slice(1)).get('f');if(!who||!token)throw Error('請先選擇冒險者');const r=await fetch(api,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...args,world,action,learnerId:who,token})});const d=await r.json();if(!r.ok||d.ok===false)throw Error(d.error||'暫時無法同步');return d}
+const style=document.createElement('style');style.textContent='.village-panel{margin:16px 0;padding:16px;border:1px solid #69789a;border-radius:16px;background:#edf1fd;color:#243752;line-height:1.65}.village-panel h2{font-size:20px;margin:0 0 8px}.village-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0}.village-tile{padding:10px;border:1px solid #b9c6e0;border-radius:10px;background:#fff;color:#243752;font:inherit;text-align:left;min-height:72px}.village-tile small{display:block;font-size:12px}.village-panel button{cursor:pointer}.village-panel button:disabled{cursor:default;opacity:.55}.village-rule{font-size:12px;margin:6px 0}.village-exam{position:fixed;inset:0;background:#111c37ed;z-index:11000;padding:20px 12px;overflow:auto}.village-exam[hidden]{display:none}.village-exam>section{max-width:540px;margin:auto;background:white;padding:20px;border-radius:18px;color:#243752;line-height:1.7}.village-exam button{display:block;width:100%;margin:10px 0;padding:12px;border:1px solid #9baaca;border-radius:10px;background:#f2f4ff;color:#243752;font:inherit;text-align:left}.village-exam h2{font-size:23px}.village-exam p{overflow-wrap:anywhere}';document.head.append(style);
+const modal=document.createElement('div');modal.className='village-exam';modal.hidden=true;modal.innerHTML='<section role="dialog" aria-modal="true" aria-label="出村大考驗"></section>';document.body.append(modal);
+function panel(){const home=document.querySelector(world==='chengyu'?'#screen-home':'#app');if(!home)return null;let p=document.getElementById('villagePanel');if(p&&world==='vocab'&&!home.contains(p))p=null;if(!p){p=document.createElement('section');p.id='villagePanel';p.className='village-panel';const at=world==='chengyu'?document.getElementById('adventureArea'):home.querySelector('.entry-mission');(at||home).insertAdjacentElement(at?'afterend':'afterbegin',p)}return p}
+function isHome(){return world==='chengyu'?document.getElementById('screen-home')?.classList.contains('active'):!!document.querySelector('#app [data-action="stage0"]')}
+function paint(){if(!isHome())return;const p=panel();if(!p)return;const who=id();let html='<h2>新手村集星 '+(data&&who===identity?data.total:0)+' / 21</h2><p class="village-rule">第1星：過關（至少5題、80%）。第2星：同關3個詞各答對兩種角度。第3星：另一天再過關。新賽季從第一關開始，舊紀錄與金幣保留。</p>';
+if(!who)html+='<p>選擇冒險者後，從這次更新開始集星。</p>';else if(!data)html+='<p role="status">正在同步星星…</p>';else{html+='<div class="village-grid">'+data.stages.map(z=>'<'+(world==='vocab'?'button':'div')+' class="village-tile" '+(world==='vocab'?'type="button" data-village-stage="'+z.zone+'" '+(z.zone>1&&!(data.stagePassed||[]).includes(z.zone-1)?'disabled':''):'')+'><strong>第 '+z.zone+' 關 '+('★'.repeat(z.stars)+'☆'.repeat(3-z.stars))+'</strong><small>'+z.diverse_words+'/3 詞已有兩種角度 · '+z.pass_days+' 個過關日'+(world==='vocab'?' · 點此開始／再練':'')+'</small></'+(world==='vocab'?'button':'div')+'>').join('')+'</div>';
+html+='<p class="village-rule">每關先混合練習，再做本關總結測驗；達90%開下一關，三星另記學習進度。</p><div class="village-grid">'+data.stages.map(z=>'<button type="button" class="village-tile" data-stage-exam="'+z.zone+'" '+(!z.first_star||(z.zone>1&&!(data.stagePassed||[]).includes(z.zone-1))?'disabled':'')+'>第 '+z.zone+' 關總結測驗'+((data.stagePassed||[]).includes(z.zone)?' · 已通過':' · 90%開下一關')+'</button>').join('')+'</div>';
+if(world==='vocab')html+='<p class="village-rule">七關都混合意思、拼字與句子，使用目前教材；原三種練習仍保留。</p>';
+html+='<button type="button" class="village-tile" data-village-exam '+(!data.villageExamUnlocked?'disabled':'')+'>出村大考驗 · 90分通過'+(!data.villageExamUnlocked?'（集滿21星開放）':'')+'</button>';
+if(data.villagePassed)html+='<p>已通過這座島的出村考驗。</p>';}
+if(p.__villageHTML!==html){p.__villageHTML=html;p.innerHTML=html;}
+}
+async function refresh(force=false){const who=id();if(identity!==who){identity=who;data=null;last=0;if(examWho&&examWho!==who){exam=null;modal.hidden=true}}paint();if(!who||busy||(!force&&Date.now()-last<30000))return;busy=true;last=Date.now();try{const d=await req('getStageStars',{},who);if(id()!==who)return;data=d;last=Date.now();paint()}catch(e){const p=document.getElementById('villagePanel');if(p&&id()===who){let status=p.querySelector('[role=status]');if(!status){status=document.createElement('p');status.setAttribute('role','status');p.append(status)}status.textContent='星星尚未同步，稍後可重試。'}}finally{busy=false}}
+window.learningStarsRefresh=refresh;
+function showQuestion(){const q=exam.questions[answers.length];modal.hidden=false;modal.firstElementChild.innerHTML='<h2>'+(examStage?'第 '+examStage+' 關總結測驗':'出村大考驗')+'</h2><p>第 '+(answers.length+1)+' / '+exam.questions.length+' 題 · 90分通過</p><p>'+safe(q.stem)+'</p>'+q.choices.map((c,i)=>'<button data-village-answer="'+i+'">'+safe(c)+'</button>').join('')+'<button data-village-close>暫時離開</button>'}
+document.addEventListener('click',async e=>{if(e.target.closest('[data-stars-retry]')){refresh(true);return}const stage=e.target.closest('[data-village-stage]');if(stage){window.vocabVillageStart?.(Number(stage.dataset.villageStage));return}if(e.target.closest('[data-village-close]')){modal.hidden=true;return}const stageExam=e.target.closest('[data-stage-exam]');if(stageExam||e.target.closest('[data-village-exam]')){if(working)return;working=true;try{examWho=id();examStage=stageExam?Number(stageExam.dataset.stageExam):0;const d=await req(examStage?'startStageExam':'startVillageExam',examStage?{stage:examStage,unitId:window.vocabVillageUnit?.()}: {},examWho);if(id()!==examWho)return;exam=d.exam;answers=[];showQuestion()}catch(err){alert(err.message)}finally{working=false}return}const b=e.target.closest('[data-village-answer]');if(!b||working||id()!==examWho)return;answers.push(Number(b.dataset.villageAnswer));if(answers.length<exam.questions.length){showQuestion();return}working=true;modal.firstElementChild.textContent='正在交卷…';try{const d=await req(examStage?'submitStageExam':'submitVillageExam',{examId:exam.id,answers,...(examStage?{stage:examStage}:{})},examWho);if(id()!==examWho)return;modal.firstElementChild.innerHTML='<h2>'+d.score+' 分 · '+(d.passed?(examStage?'本關總結測驗通過':'出村考驗通過'):'還差一點，再試一次')+'</h2>'+d.review.map(x=>'<p>'+safe(x.stem)+'<br>你的答案：'+safe(x.chosen)+'<br>正確答案：'+safe(x.expected)+'</p>').join('')+'<button data-village-close>回到練習</button>';await refresh(true)}catch(err){modal.firstElementChild.innerHTML='<p>'+safe(err.message)+'</p><button data-village-close>回到練習</button>'}finally{working=false}});
+new MutationObserver(()=>refresh()).observe(document.body,{childList:true,subtree:true});document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh(true)});refresh();
+})();
+</script></body></html>
