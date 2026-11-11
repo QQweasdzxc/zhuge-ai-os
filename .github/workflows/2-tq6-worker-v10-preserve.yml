@@ -1,0 +1,38 @@
+name: Preserve exact WorkLog worker v10 source
+on:
+  push:
+    branches: ['review/tq6-native-qualification-20261111']
+    paths: ['.github/workflows/*tq6-worker-v10-preserve.yml']
+permissions:
+  contents: read
+jobs:
+  preserve:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Preserve deployed worker source without deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum 1-tq6-worker-v10-source.patch | cut -d' ' -f1)" = ce0572edabb5ad23e01ac675067cb30a53b5af6d7993448155e3bccbb6955296
+          cp 1-tq6-worker-v10-source.patch /tmp/worker-v10.patch
+          git switch --detach 011b73f63826f8b480630ebdcec6763b63a6ed5a
+          git apply --check /tmp/worker-v10.patch
+          git apply /tmp/worker-v10.patch
+          git diff --check
+          test "$(sha256sum docs/ops/tq6-worker-v10/index.ts | cut -d' ' -f1)" = 340de060bd8af984cf10971335e38c8e5128bd0a2063dd4a344b956d74775ce7
+          npm run test:worklog
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add modules/worklog/native/server/runtime.mjs modules/worklog/native/server/sync-endpoint.mjs modules/worklog/native/server/sync-endpoint.test.mjs docs/ops/tq6-worker-v10
+          git commit -m 'Preserve deployed WorkLog worker v10 bounded failure diagnostics'
+          test -z "$(git ls-remote --heads origin refs/heads/review/tq6-worker-v10-diagnostics-20261111)"
+          git push origin HEAD:refs/heads/review/tq6-worker-v10-diagnostics-20261111
+          echo "Worker-only source commit $(git rev-parse HEAD). No deployment, no Web/API pin change." >> "$GITHUB_STEP_SUMMARY"
