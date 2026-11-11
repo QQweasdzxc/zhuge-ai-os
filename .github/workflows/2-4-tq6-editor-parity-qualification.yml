@@ -1,0 +1,132 @@
+name: TQ6 Editor Learning Parity Qualification
+on:
+  push:
+    branches: ['review/tq6-native-qualification-20261111']
+    paths: ['.github/workflows/*tq6-editor-parity-qualification.yml']
+permissions:
+  contents: read
+jobs:
+  compose:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    outputs:
+      candidate: ${{ steps.source.outputs.candidate }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Compose exact pinned candidate without deployment
+        id: source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum 1-1-tq6-editor-learning-parity.patch | cut -d' ' -f1)" = 75374251aba23ad84aca88bd88217a3ca8cd730645dcc856da38549d41796087
+          cp 1-1-tq6-editor-learning-parity.patch /tmp/tq6.patch
+          git switch --detach 5d1bc8e86ea041041197a8c196895adc83d8bec8
+          git apply --check /tmp/tq6.patch
+          git apply /tmp/tq6.patch
+          git diff --check
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add labs/taskflow modules/worklog/native supabase/functions/worklog-google-sync package.json package-lock.json
+          git commit -m 'Restore original WorkLog editor and learning parity on formal v6'
+          git push origin HEAD:refs/heads/review/tq6-native-candidate-v7-editor-learning-20261112
+          echo "candidate=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+  verify:
+    needs: compose
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.compose.outputs.candidate }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Unchanged TaskFlow schema boundary and overlay contracts
+        run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s labs/taskflow/tests -v
+      - name: WorkLog owner-bound service and sync contracts
+        run: npm ci && npm run test:worklog
+      - name: Isolated original WorkLog worker SQL and bundle gates
+        working-directory: labs/taskflow/tests/worklog-server
+        run: npm ci && npm run test:sql && npm run test:bundle && node --check /tmp/tq6-worklog-worker-bundle.mjs
+      - name: Native WorkLog view types
+        working-directory: labs/taskflow/tests/worklog-browser
+        run: npm ci && npx tsc --noEmit
+  web:
+    needs: compose
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.compose.outputs.candidate }}
+      - name: Full native web Docker build, no deployment
+        shell: bash
+        run: |
+          set -o pipefail
+          docker build --progress=plain -f labs/taskflow/Dockerfile.web -t tq6-web:qualification . 2>&1 | tee web-build.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tq6-web-build
+          path: web-build.log
+  backend:
+    needs: compose
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.compose.outputs.candidate }}
+      - name: Full native baseline API Docker build, production API remains pinned
+        shell: bash
+        run: |
+          set -o pipefail
+          docker build --progress=plain -f labs/taskflow/Dockerfile.backend -t tq6-api:qualification . 2>&1 | tee backend-build.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tq6-backend-build
+          path: backend-build.log
+  browser:
+    needs: compose
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    container:
+      image: mcr.microsoft.com/playwright:v1.58.2-noble
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.compose.outputs.candidate }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install isolated browser harness
+        working-directory: labs/taskflow/tests/worklog-browser
+        run: npm ci
+      - name: Native calendar, mutations and mobile regressions
+        working-directory: labs/taskflow/tests/worklog-browser
+        shell: bash
+        env:
+          TQ6_TEST_CALENDAR_ENABLED: 'true'
+        run: |
+          set -euo pipefail
+          node node_modules/vite/bin/vite.js --host 127.0.0.1 --port 4177 > /tmp/vite.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" || true' EXIT
+          for n in $(seq 1 50); do curl -sf http://127.0.0.1:4177/native.html >/dev/null && break; sleep .2; done
+          npm run test:native-calendar
+          npm run test:mobile-editor
+          npm run test:editor-parity
+          npm run test:ecp-inline
+          npm run test:task-markers
+          npm run test:export-parity
+          npm run test:learning-parity
+          WORKLOG_BROWSER=webkit npm run test:mobile-editor
+          npm run test:conflicts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tq6-native-editor-learning-browser
+          path: labs/taskflow/tests/worklog-browser/test-results
