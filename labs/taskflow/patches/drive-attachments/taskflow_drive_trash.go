@@ -51,7 +51,7 @@ func (s *TaskFlowDriveStorage) tryTrash(ctx context.Context, key string) error {
 	if e != nil {
 		return errors.New("Drive delete is not queued or surviving reference exists")
 	}
-	if !b.Ready || b.FolderID != s.folder || !validDriveID(b.FileID) {
+	if !b.Ready || !validDriveID(b.FolderID) || !validDriveID(b.FileID) {
 		return errors.New("unsafe Drive delete binding")
 	}
 	if e = s.checkFolder(ctx); e != nil {
@@ -71,13 +71,9 @@ func (s *TaskFlowDriveStorage) tryTrash(ctx context.Context, key string) error {
 	if e != nil {
 		return ErrTaskFlowDriveUnavailable
 	}
-	parent := false
-	for _, p := range m.Parents {
-		if p == s.folder {
-			parent = true
-		}
-	}
-	if m.ID != b.FileID || m.Shared == nil || *m.Shared || !m.Owned || !parent || m.SHA256 != b.SHA256 || m.Size != strconv.FormatInt(b.Size, 10) {
+	// The original must still sit under the authorized root tree (directly or
+	// in its task subfolder) before it may be trashed.
+	if m.ID != b.FileID || m.Shared == nil || *m.Shared || !m.Owned || m.SHA256 != b.SHA256 || m.Size != strconv.FormatInt(b.Size, 10) || !s.authorizedParent(ctx, m.Parents) {
 		return errors.New("Drive trash refused: original ownership/integrity changed")
 	}
 	// The queue was committed with the native deletion. Only that unique original
