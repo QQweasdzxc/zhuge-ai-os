@@ -1,0 +1,80 @@
+name: Workspace icon source and image qualification
+on:
+  push:
+    branches: ['review/tf-workspace-icon-filing-20261111']
+    paths: ['.github/workflows/tf-workspace-icon-qualification.yml']
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    outputs:
+      backend: ${{ steps.compose.outputs.backend }}
+      web: ${{ steps.compose.outputs.web }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Compose isolated candidates without deployment
+        id: compose
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum 2-tf-workspace-icon-filing-source-v2.patch | cut -d' ' -f1)" = bc0285b8a4822f745f29e747235b2e95da1abfc21721e4d992ed7885be6d54d8
+          test "$(git rev-parse HEAD:labs/taskflow)" = "$(git rev-parse 347a1b8cc3ced2bdc29987ad64bf06226e56385e:labs/taskflow)"
+          git apply --check 2-tf-workspace-icon-filing-source-v2.patch
+          git apply 2-tf-workspace-icon-filing-source-v2.patch
+          git diff --check
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add labs/taskflow
+          git commit -m 'Add explicit private workspace icon filing and regression checks'
+          git push origin HEAD:review/tf-workspace-icon-api-20261111
+          backend=$(git rev-parse HEAD)
+          echo "backend=$backend" >> "$GITHUB_OUTPUT"
+          git switch --detach 7390d1f0111bb4d3e8dc19807013aae7c67e1838
+          git show "$backend:labs/taskflow/patches/apply-taskflow-workspace-icon-web.py" > labs/taskflow/patches/apply-taskflow-workspace-icon-web.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('labs/taskflow/Dockerfile.web');s=p.read_text();a='FROM node:22-alpine AS deps'
+          assert s.count(a)==1
+          s=s.replace(a,'COPY labs/taskflow/patches/apply-taskflow-workspace-icon-web.py /tmp/apply-taskflow-workspace-icon-web.py\nRUN python3 /tmp/apply-taskflow-workspace-icon-web.py --root /src\n\n'+a)
+          p.write_text(s)
+          PY
+          git diff --check
+          git add labs/taskflow
+          git commit -m 'Add only workspace icon filing action on preserved live frontend'
+          git push origin HEAD:review/tf-workspace-icon-web-20261111
+          echo "web=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+  image:
+    needs: source
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: backend
+            sha: ${{ needs.source.outputs.backend }}
+          - image: web
+            sha: ${{ needs.source.outputs.web }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.sha }}
+      - name: Run overlay contract regression checks
+        run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s labs/taskflow/tests -v
+      - name: Build exact image with native regression gates
+        env:
+          IMAGE: ${{ matrix.image }}
+        shell: bash
+        run: |
+          set -o pipefail
+          docker build --progress=plain -f "labs/taskflow/Dockerfile.$IMAGE" -t "workspace-icon-$IMAGE:qualification" . 2>&1 | tee image-build.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: workspace-icon-${{ matrix.image }}-build
+          path: image-build.log
