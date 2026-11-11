@@ -324,7 +324,7 @@ async function refreshCloud(){
 }
 async function saveCloudResult(resultStatus){
  if(!familyCloud.connected||!s.runTesterId){familyCloud.saving="⚠️ 雲端沒有連線，成績未保存";if(s.view==="report")report();return}
- var answers=s.attempts.map(function(a){return {word:words[a.index][0],stage:a.stage,correct:a.good}});
+ var answers=s.attempts.map(function(a){return {word:words[a.index][0],stage:a.stage,correct:a.good,kind:a.kind||baseKind()}});
  var mode=s.challengeMode==="all"?"all":["meaning","spelling","sentence"][s.selectedStage];
  var targetCount=s.challengeMode==="all"?s.pool.length*3:s.pool.length;
  var isOver=resultStatus==="game_over";
@@ -527,14 +527,23 @@ function assistedHint(wordIndex){
 }
 function stageName(){return s.retry?"錯字自由複習":(["第一關｜中英配對","第二關｜拼字挑戰","第三關｜句子填空"])[s.stage]}
 function current(){return words[s.order[s.q]]}
+function baseKind(){return s.retry||s.stage===1?"spelling":s.stage===2?"sentence":"meaning"}
+function qKind(){if(s.retry||s.stage!==0)return baseKind();opts();return s.qKind||"meaning"}
+var KIND_LABEL={meaning:"英翻中",zh2en:"中翻英",ipa:"音標",spelling:"拼字",sentence:"句子填空"};
 function opts(){
  var id=s.order[s.q],key=(s.retry?"retry":s.stage)+":"+s.q+":"+id;
  if(s.choiceKey===key)return s.choiceList;
  var pool=s.pool.length>=4?s.pool:allIndices();
  var alternatives=pool.filter(function(i){return i!==id&&words[i]&&words[i][0]!==words[id][0]&&words[i][1]!==words[id][1]});
+ var kind=baseKind();
+ if(kind==="meaning"&&!s.retry&&s.stage===0&&s.q%3===2){
+  var ipaAlt=alternatives.filter(function(i){return words[i][4]&&words[i][4]!==words[id][4]});
+  kind=(Math.floor(s.q/3)%2===1&&words[id][4]&&ipaAlt.length>=3)?"ipa":"zh2en";
+  if(kind==="ipa")alternatives=ipaAlt;
+ }
  var others=shuffled(alternatives);
  var order=shuffled([id].concat(others.slice(0,3)));
- s.choiceKey=key;s.choiceList=order;return order
+ s.choiceKey=key;s.choiceList=order;s.qKind=kind;return order
 }
 function setQuizLock(on){document.documentElement.classList.toggle("quiz-locked",!!on)}
 function resetPageScroll(){var h=document.documentElement;var prev=h.style.scrollBehavior;h.style.scrollBehavior="auto";window.scrollTo(0,0);h.style.scrollBehavior=prev}
@@ -546,8 +555,8 @@ function sizeQuizStage(){
  st.style.height=Math.max(280,window.innerHeight-top-reserve)+"px";
 }
 window.addEventListener("resize",function(){if(document.documentElement.classList.contains("quiz-locked"))sizeQuizStage()});
-function question(){var w=current(),spell=s.stage===1||s.retry;var prompt=s.retry||s.stage===1?safe(w[1]):s.stage===0?w[0]:safe(w[2]).replace("____","_____");var total=s.order.length;var hearts=s.retry?'<div class="lives">📖 錯字自由複習（不計命）</div>':'<div class="lives" role="status" aria-label="剩餘 '+s.lives+' 條命"><span class="hearts">'+Array.from({length:3},function(_,i){return '<span class="heart-unit '+(i>=s.lives&&i===s.lives?'lost':'')+'">'+(i<s.lives?'❤️':'🖤')+'</span>'}).join('')+'</span><small>剩餘 '+s.lives+' / 3 條命</small></div>';var h='<div class="quiz-stage'+(spell?' spell':'')+'"><div class="row"><div><h1 class="title">'+stageName()+'</h1><div class="muted">第 '+(s.q+1)+' / '+total+' 題</div></div><strong>⭐ '+s.score+' 分</strong></div>'+hearts+'<div class="progress"><div class="bar" style="width:'+((s.q+(s.answered?1:0))/total*100)+'%"></div></div><div class="quiz-mid"><div class="question"><div class="muted">'+(spell?"先看中文，再聽英文發音拼字":s.stage===0?"選出單字的中文意思":"先聽整句英文，再選出填空單字")+'</div><h2 class="'+(s.stage===2&&!s.retry?"sentence":"")+'">'+prompt+'</h2>'+(!spell?'<div><button class="pill" data-action="sound">'+(s.stage===2?"🔊 整句朗讀":"🔊 聽單字")+'</button> <button class="pill" data-action="slow">'+(s.stage===2?"🐢 整句慢速":"🐢 單字慢速")+'</button></div>':'')+'</div>';
-if(spell){h+='<section class="spelling-listen" aria-label="第二關英文聽力拼字"><div class="listen-label">🎧 聽英文發音，試著拼出單字</div><div class="listen-buttons"><button class="pill" data-action="sound" type="button" aria-label="聽英文單字或片語發音">🔊 聽英文</button><button class="pill" data-action="slow" type="button" aria-label="用慢速聽英文單字或片語發音">🐢 慢速聽</button></div><p class="listen-status" id="audio-status" role="status">可重複聆聽，不扣生命，也不顯示英文答案</p></section><input class="input" id="spelling" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="在這裡輸入英文" aria-label="輸入英文拼字" '+(s.answered?"disabled":"")+' value="'+safe(s.typed)+'"><div class="flex">'+btn("💡 提示","hint","outline",s.clue||s.answered?"disabled":"")+btn("確認拼字","submit","primary",s.answered?"disabled":"")+'</div>'+(s.clue?'<div class="help">提示：字首 '+w[0][0].toUpperCase()+'，共 '+w[0].length+' 個英文字母。</div>':'')}else{h+='<div class="grid2">'+opts().map(function(i){var c=s.answered?(i===s.order[s.q]?"good":s.selected===i?"bad":""):"";return '<button class="option '+c+'" data-action="choose" data-index="'+i+'" '+(s.answered?"disabled":"")+'>'+(s.stage===0?safe(words[i][1]):words[i][0])+'</button>'}).join("")+'</div>'}
+function question(){var w=current(),spell=s.stage===1||s.retry;var kind=qKind();var prompt=s.retry||s.stage===1?safe(w[1]):s.stage===0?(kind==="zh2en"?safe(w[1]):w[0]):safe(w[2]).replace("____","_____");var total=s.order.length;var hearts=s.retry?'<div class="lives">📖 錯字自由複習（不計命）</div>':'<div class="lives" role="status" aria-label="剩餘 '+s.lives+' 條命"><span class="hearts">'+Array.from({length:3},function(_,i){return '<span class="heart-unit '+(i>=s.lives&&i===s.lives?'lost':'')+'">'+(i<s.lives?'❤️':'🖤')+'</span>'}).join('')+'</span><small>剩餘 '+s.lives+' / 3 條命</small></div>';var h='<div class="quiz-stage'+(spell?' spell':'')+'"><div class="row"><div><h1 class="title">'+stageName()+'</h1><div class="muted">第 '+(s.q+1)+' / '+total+' 題</div></div><strong>⭐ '+s.score+' 分</strong></div>'+hearts+'<div class="progress"><div class="bar" style="width:'+((s.q+(s.answered?1:0))/total*100)+'%"></div></div><div class="quiz-mid"><div class="question"><div class="muted">'+(spell?"先看中文，再聽英文發音拼字":s.stage===0?(kind==="zh2en"?"選出符合中文意思的英文單字":kind==="ipa"?"選出這個單字的音標":"選出單字的中文意思"):"先聽整句英文，再選出填空單字")+'</div><h2 class="'+(s.stage===2&&!s.retry?"sentence":"")+'">'+prompt+'</h2>'+(!spell?'<div><button class="pill" data-action="sound">'+(s.stage===2?"🔊 整句朗讀":"🔊 聽單字")+'</button> <button class="pill" data-action="slow">'+(s.stage===2?"🐢 整句慢速":"🐢 單字慢速")+'</button></div>':'')+'</div>';
+if(spell){h+='<section class="spelling-listen" aria-label="第二關英文聽力拼字"><div class="listen-label">🎧 聽英文發音，試著拼出單字</div><div class="listen-buttons"><button class="pill" data-action="sound" type="button" aria-label="聽英文單字或片語發音">🔊 聽英文</button><button class="pill" data-action="slow" type="button" aria-label="用慢速聽英文單字或片語發音">🐢 慢速聽</button></div><p class="listen-status" id="audio-status" role="status">可重複聆聽，不扣生命，也不顯示英文答案</p></section><input class="input" id="spelling" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="在這裡輸入英文" aria-label="輸入英文拼字" '+(s.answered?"disabled":"")+' value="'+safe(s.typed)+'"><div class="flex">'+btn("💡 提示","hint","outline",s.clue||s.answered?"disabled":"")+btn("確認拼字","submit","primary",s.answered?"disabled":"")+'</div>'+(s.clue?'<div class="help">提示：字首 '+w[0][0].toUpperCase()+'，共 '+w[0].length+' 個英文字母。</div>':'')}else{h+='<div class="grid2">'+opts().map(function(i){var c=s.answered?(i===s.order[s.q]?"good":s.selected===i?"bad":""):"";return '<button class="option '+c+'" data-action="choose" data-index="'+i+'" '+(s.answered?"disabled":"")+'>'+(s.stage===0?(kind==="zh2en"?safe(words[i][0]):kind==="ipa"?'/'+safe(words[i][4])+'/':safe(words[i][1])):words[i][0])+'</button>'}).join("")+'</div>'}
 if(s.stage===2&&!s.retry)h+='<p class="muted center" id="audio-status" role="status">按「整句朗讀」聽完整英文句子</p>';
 h+='</div><div class="fx-dock'+(s.answered?'':' idle')+'">';
 if(s.answered){
@@ -571,7 +580,7 @@ function report(){
  '<div class="stats"><div class="stat"><b>'+n+'</b><small>作答題數</small></div>'+
  '<div class="stat"><b>'+c+'</b><small>答對題數</small></div>'+
  '<div class="stat"><b>'+(n?Math.round(c/n*100)+"%":"—")+'</b><small>答對率</small></div></div>'+
- '<section class="panel"><h2>各關卡結果</h2>';
+ '<p class="muted" id="angleSummary">'+(function(){var ok={};a.forEach(function(x){if(x.good)ok[x.kind||"meaning"]=1});var ks=Object.keys(ok);return "本回合答對 "+ks.length+" 個角度"+(ks.length?"："+ks.map(function(k){return KIND_LABEL[k]||k}).join("、"):"")})()+'</p><section class="panel"><h2>各關卡結果</h2>';
  names.forEach(function(name,j){
   if(s.challengeMode==="single"&&j!==s.selectedStage)return;
   var done=a.filter(function(x){return x.stage===j}),correct=done.filter(function(x){return x.good}).length;
@@ -612,7 +621,7 @@ function answer(val){
  s.score+=correct?(s.clue?7:10):0;
  if(s.retry){if(correct)s.missed=s.missed.filter(function(i){return i!==idx})}
  else{
-  s.attempts.push({stage:s.stage,index:idx,good:correct});
+  s.attempts.push({stage:s.stage,index:idx,good:correct,kind:qKind()});
   if(!correct){
    s.lives=Math.max(0,s.lives-1);
    s.wrongCount++;
