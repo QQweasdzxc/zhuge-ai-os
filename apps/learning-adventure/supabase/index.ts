@@ -233,14 +233,16 @@ async function stageQuestions(family,hero,world,stage,unitId){
  const units=await db('vocab_family_units','family_id=eq.'+family.sourceFamilyId+'&select=id,words&limit=150');
  if(unitId&&!units.some(u=>u.id===unitId))throw Error('教材不屬於這個家庭');
  const seen=new Set();
- for(const u of units.filter(u=>!unitId||u.id===unitId))for(const w of u.words||[]){if(w.en&&w.zh&&!seen.has(w.en.toLowerCase())){seen.add(w.en.toLowerCase());pool.push({en:w.en,zh:w.zh});}}
+ for(const u of units.filter(u=>!unitId||u.id===unitId))for(const w of u.words||[]){if(w.en&&w.zh&&!seen.has(w.en.toLowerCase())){seen.add(w.en.toLowerCase());pool.push({en:w.en,zh:w.zh,sentence:w.sentence||''});}}
  if(pool.length<3)throw Error('教材至少需3詞才能作總結測驗');
  // Small units use both directions; no need to invent words or require unseen words.
  const picked=shuffled(pool).slice(0,Math.min(10,pool.length));
  const quiz=[];for(const [i,p] of picked.entries())for(let k=0;k<(pool.length<10?2:1);k++){
-  const reverse=(i+k)%2===1,answer=reverse?p.en:p.zh;
+  const n=quiz.length,kind=n%3===0?'english-meaning':n%3===1?'english-spelling':p.sentence.includes('____')?'english-sentence':'english-reverse';
+  const reverse=kind!=='english-meaning',answer=reverse?p.en:p.zh;
   const choices=shuffled([...new Set([answer,...shuffled(pool.filter(x=>x.en!==p.en)).slice(0,3).map(x=>reverse?x.en:x.zh)])]);
-  quiz.push({kind:reverse?'english-reverse':'english-meaning',stem:reverse?'哪個英文最符合「'+p.zh+'」？':'「'+p.en+'」的中文意思是什麼？',choices,answerIndex:choices.indexOf(answer)});
+  const stem=kind==='english-meaning'?'「'+p.en+'」的中文意思是什麼？':kind==='english-spelling'?'依中文「'+p.zh+'」選出正確拼字（開頭 '+p.en[0]+'）':kind==='english-sentence'?'選出填入空格的英文：'+p.sentence+'（'+p.zh+'）':'哪個英文最符合「'+p.zh+'」？';
+  quiz.push({kind,stem,choices,answerIndex:choices.indexOf(answer)});
  }
  return shuffled(quiz).slice(0,10);
 }
