@@ -1,0 +1,49 @@
+name: Learning daily frontend candidates
+on:
+  push:
+    branches: ['review/learning-daily-transport-20261111']
+    paths: ['.github/workflows/*learning-daily-compose-v2.yml']
+permissions:
+  contents: read
+jobs:
+  compose:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Compose pinned isolated candidates only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          test "$(sha256sum 5-hub-v2.patch | cut -d' ' -f1)" = 4fc4eb44eea8a812ec4edb8eb95f0e001a7653c4b7cb7a7a0fdae9cd518b7ea7
+          cp 5-hub-v2.patch /tmp/hub.patch
+          test "$(sha256sum 6-vocab-v2.patch | cut -d' ' -f1)" = fe9b992093e5cb3a84fd85a45326a480ebcfab76a50c8ac3c6e50c8753b44749
+          cp 6-vocab-v2.patch /tmp/vocab.patch
+          test "$(sha256sum 7-chengyu-v2.patch | cut -d' ' -f1)" = e36e565cdf04d74a4aecf347aba9175690004bd6ec0e9f671607f90294713749
+          cp 7-chengyu-v2.patch /tmp/chengyu.patch
+          git switch --detach 39eebdfc537e72a12f9cfeb74b0f346861a6378a
+          git apply --check /tmp/hub.patch
+          git apply /tmp/hub.patch
+          git diff --check
+          git add apps/learning-archipelago/site/index.html
+          git commit -m 'Fix learning daily task checks and actual round reward feedback'
+          git push origin HEAD:refs/heads/review/learning-daily-hub-candidate-v2-20261111
+          git switch --detach f07998e0218dceacb45fe773306bc7a8f3ab9d00
+          git apply --check /tmp/vocab.patch
+          git apply /tmp/vocab.patch
+          git diff --check
+          git add apps/vocab-quest/site/index.html
+          git commit -m 'Fix learning daily task checks and actual round reward feedback'
+          git push origin HEAD:refs/heads/review/learning-daily-vocab-candidate-v2-20261111
+          git switch --detach 113762e206327258ec42fc0672582023ba93d473
+          git apply --check /tmp/chengyu.patch
+          git apply /tmp/chengyu.patch
+          git diff --check
+          git add apps/chengyu-quest/site/index.html apps/chengyu-quest/site/cloud.js
+          git commit -m 'Fix learning daily task checks and actual round reward feedback'
+          git push origin HEAD:refs/heads/review/learning-daily-chengyu-candidate-v2-20261111
