@@ -605,6 +605,37 @@ Deno.serve(async (req)=>{
       if (!result.ok) return fail(req, result.error || "兌換紀錄未更新");
       return respond(req, result);
     }
+    if (action === "parentGrant" || action === "listParentGrants") {
+      const parentSession = safe(input.parentSession, 65);
+      if (!/^[0-9a-f]{64}$/.test(parentSession)) return fail(req, "請先完成家長驗證", 403);
+      const allowed = await db("rpc/learning_adventure_parent_valid", "", "POST", {
+        p_family: family.adventureFamilyId,
+        p_token: parentSession
+      });
+      if (!allowed) return fail(req, "家長驗證已失效，請重新驗證", 403);
+      if (action === "listParentGrants") {
+        const listed = await db("rpc/learning_adventure_list_parent_grants", "", "POST", {
+          p_family: family.adventureFamilyId,
+          p_parent_session: parentSession
+        });
+        const kids = await db("learning_adventure_heroes", "adventure_family_id=eq." + family.adventureFamilyId + "&select=id,display_name&order=created_at.asc&limit=20");
+        return respond(req, {
+          ...listed,
+          heroes: kids
+        });
+      }
+      if (!uuid(input.heroId) || !uuid(input.clientRequestId) || !Number.isInteger(input.amount) || input.amount < 1 || input.amount > 100000 || typeof input.reason !== "string" || input.reason.trim().length < 1 || input.reason.length > 200) return fail(req, "請選擇孩子、輸入金幣數量並寫下原因");
+      const granted = await db("rpc/learning_adventure_parent_grant", "", "POST", {
+        p_family: family.adventureFamilyId,
+        p_parent_session: parentSession,
+        p_hero: input.heroId,
+        p_amount: input.amount,
+        p_reason: input.reason,
+        p_request: input.clientRequestId
+      });
+      if (!granted.ok) return fail(req, granted.error || "金幣未送出");
+      return respond(req, granted);
+    }
     if (action === "listOwnRedemptions") {
       const redemptions = await db("learning_adventure_redemptions", "adventure_family_id=eq." + family.adventureFamilyId + "&hero_id=eq." + hero.id + "&select=id,title,price,status,created_at,decided_at&order=created_at.desc&limit=100");
       return respond(req, {
