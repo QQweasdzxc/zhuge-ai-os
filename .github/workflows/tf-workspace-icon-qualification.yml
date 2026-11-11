@@ -31,7 +31,7 @@ jobs:
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add labs/taskflow
           git commit -m 'Add explicit private workspace icon filing and regression checks'
-          git push origin HEAD:review/tf-workspace-icon-api-20261111
+          git push origin HEAD:refs/heads/review/tf-workspace-icon-api-v2-20261111
           backend=$(git rev-parse HEAD)
           echo "backend=$backend" >> "$GITHUB_OUTPUT"
           git switch --detach 7390d1f0111bb4d3e8dc19807013aae7c67e1838
@@ -46,7 +46,7 @@ jobs:
           git diff --check
           git add labs/taskflow
           git commit -m 'Add only workspace icon filing action on preserved live frontend'
-          git push origin HEAD:review/tf-workspace-icon-web-20261111
+          git push origin HEAD:refs/heads/review/tf-workspace-icon-web-v2-20261111
           echo "web=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
   image:
     needs: source
