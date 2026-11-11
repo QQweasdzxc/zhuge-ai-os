@@ -563,7 +563,7 @@ Deno.serve(async (req)=>{
       if(stage>1){const prev=await db('learning_adventure_stage_exams','hero_id=eq.'+hero.id+'&world=eq.'+world+'&stage=eq.'+(stage-1)+'&passed=eq.true&select=id&limit=1');if(!prev.length)return fail(req,'請先通過前一關總結測驗',403);}
       if(action==='startStageExam'){
         let rows=await db('learning_adventure_stage_exams','hero_id=eq.'+hero.id+'&world=eq.'+world+'&stage=eq.'+stage+'&completed_at=is.null&select=*&limit=1');
-        if(!rows.length){const unitId=uuid(input.unitId)?input.unitId:null,questions=await stageQuestions(family,hero,world,stage,unitId);rows=await db('learning_adventure_stage_exams','','POST',{hero_id:hero.id,world,stage,unit_id:unitId,questions});}
+        if(!rows.length){const unitId=uuid(input.unitId)?input.unitId:null,questions=await stageQuestions(family,hero,world,stage,unitId);try{rows=await db('learning_adventure_stage_exams','','POST',{hero_id:hero.id,world,stage,unit_id:unitId,questions});}catch(e){rows=await db('learning_adventure_stage_exams','hero_id=eq.'+hero.id+'&world=eq.'+world+'&stage=eq.'+stage+'&completed_at=is.null&select=*&limit=1');if(!rows.length)throw e;}}
         return respond(req,{ok:true,exam:visibleExam(rows[0]),requiredScore:90,stage});
       }
       const rows=uuid(input.examId)?await db('learning_adventure_stage_exams','id=eq.'+input.examId+'&hero_id=eq.'+hero.id+'&world=eq.'+world+'&stage=eq.'+stage+'&select=*&limit=1'):[],exam=rows[0];
@@ -584,16 +584,17 @@ Deno.serve(async (req)=>{
       if(!stars.villageExamUnlocked)return fail(req,'集滿這座島21星後才能挑戰出村考驗',403);
       if(action==='startVillageExam'){
         let exams=await db('learning_adventure_village_exams','hero_id=eq.'+hero.id+'&world=eq.'+world+'&completed_at=is.null&select=*&limit=1');
-        if(!exams.length){const questions=await buildQuestions(family,hero,world);try{exams=await db('learning_adventure_village_exams','','POST',{hero_id:hero.id,world,questions});}catch(e){exams=await db('learning_adventure_village_exams','hero_id=eq.'+hero.id+'&world=eq.'+world+'&completed_at=is.null&select=*&limit=1');if(!exams.length)throw e;}}
+        if(!exams.length){const questions=world==='vocab'?await stageQuestions(family,hero,world,7,null):await buildQuestions(family,hero,world);try{exams=await db('learning_adventure_village_exams','','POST',{hero_id:hero.id,world,questions});}catch(e){exams=await db('learning_adventure_village_exams','hero_id=eq.'+hero.id+'&world=eq.'+world+'&completed_at=is.null&select=*&limit=1');if(!exams.length)throw e;}}
         return respond(req,{ok:true,exam:visibleExam(exams[0]),requiredScore:90});
       }
-      if(!uuid(input.examId)||!Array.isArray(input.answers)||input.answers.length!==10||!input.answers.every(n=>Number.isInteger(n)&&n>=0&&n<=3))return fail(req,'出村考驗需完成10題');
+      if(!uuid(input.examId)||!Array.isArray(input.answers))return fail(req,'請完成出村考驗');
       const exams=await db('learning_adventure_village_exams','id=eq.'+input.examId+'&hero_id=eq.'+hero.id+'&world=eq.'+world+'&select=*&limit=1'),exam=exams[0];
       if(!exam||exam.completed_at)return fail(req,'考驗不存在或已交卷',409);
-      const correct=exam.questions.filter((q,i)=>q.answerIndex===input.answers[i]).length,passed=correct>=9;
+      if(input.answers.length!==exam.questions.length||!input.answers.every((n,i)=>Number.isInteger(n)&&n>=0&&n<exam.questions[i].choices.length))return fail(req,'請完成每一道題');
+      const correct=exam.questions.filter((q,i)=>q.answerIndex===input.answers[i]).length,passed=correct*100>=exam.questions.length*90;
       const done=await db('learning_adventure_village_exams','id=eq.'+exam.id+'&completed_at=is.null','PATCH',{answers:input.answers,correct_count:correct,passed,completed_at:new Date().toISOString()});
       if(!done.length)return fail(req,'已交卷，請勿重送',409);
-      return respond(req,{ok:true,correct,total:10,score:correct*10,passed,review:exam.questions.map((q,i)=>({stem:q.stem,chosen:q.choices[input.answers[i]],expected:q.choices[q.answerIndex],correct:q.answerIndex===input.answers[i]}))});
+      return respond(req,{ok:true,correct,total:exam.questions.length,score:Math.round(correct/exam.questions.length*100),passed,review:exam.questions.map((q,i)=>({stem:q.stem,chosen:q.choices[input.answers[i]],expected:q.choices[q.answerIndex],correct:q.answerIndex===input.answers[i]}))});
     }
     if(action === "getRoundReward") {
       if(!uuid(input.attemptId))return fail(req,'回合識別碼不正確');
