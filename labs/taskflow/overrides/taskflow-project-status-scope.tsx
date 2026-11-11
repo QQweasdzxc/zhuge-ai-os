@@ -16,6 +16,8 @@ export interface TaskFlowProjectStatusSettings {
   projectId: string | null;
   hiddenStatusKeys: string[];
   statusLabels: Record<string, string>;
+  statusOrder: string[];
+  setStatusOrder: (keys: string[]) => Promise<void>;
   isLoading: boolean;
   saveHiddenStatusKeys: (keys: string[] | null) => Promise<void>;
   setStatusVisible: (key: string, visible: boolean) => Promise<void>;
@@ -26,6 +28,8 @@ const EMPTY_SETTINGS: TaskFlowProjectStatusSettings = {
   projectId: null,
   hiddenStatusKeys: [...DEFAULT_HIDDEN_STATUSES],
   statusLabels: {},
+  statusOrder: [],
+  setStatusOrder: async () => undefined,
   isLoading: false,
   saveHiddenStatusKeys: async () => undefined,
   setStatusVisible: async () => undefined,
@@ -111,11 +115,21 @@ export function mergeTaskFlowWorkspaceStatusOrder<T extends { key: string }>(
     : visibleOrder[index++] ?? entry);
 }
 
+/** Unknown/duplicate keys never add columns; newly created statuses append. */
+export function orderTaskFlowStatuses<T extends { key: string }>(entries: readonly T[], order: readonly string[]): T[] {
+  const rank = new Map<string, number>();
+  for (const key of order) if (!rank.has(key)) rank.set(key, rank.size);
+  return entries.map((entry, index) => ({ entry, index }))
+    .sort((a, b) => (rank.get(a.entry.key) ?? order.length + a.index) - (rank.get(b.entry.key) ?? order.length + b.index))
+    .map(({ entry }) => entry);
+}
+
 /** Filter only assignable columns; retain the full label lookup for historic rows. */
 export function scopeTaskFlowStatusCatalog(
   catalog: IssueStatusCatalog,
   projectId: string | null,
   statusLabels: Record<string, string> = {},
+  statusOrder: string[] = [],
 ): IssueStatusCatalog {
   // A project-owned status must not leak into the workspace-wide surface. A
   // project surface sees the native workspace statuses plus only its own
@@ -131,12 +145,12 @@ export function scopeTaskFlowStatusCatalog(
     const label = projectId && ownerId === projectId.toLowerCase() ? statusLabels[entry.key] : undefined;
     return label?.trim() ? { ...entry, name: label.trim() } : entry;
   };
-  const statuses = scopedStatuses.map(withProjectLabels);
+  const statuses = orderTaskFlowStatuses(scopedStatuses.map(withProjectLabels), projectId ? statusOrder : []);
   const byKey = new Map(statuses.map((entry) => [entry.key, entry]));
   const scopedKeys = new Set(statuses.map((entry) => entry.key));
-  const activeStatuses = catalog.activeStatuses
+  const activeStatuses = orderTaskFlowStatuses(catalog.activeStatuses
     .filter((entry) => scopedKeys.has(entry.key))
-    .map(withProjectLabels);
+    .map(withProjectLabels), projectId ? statusOrder : []);
   return {
     ...catalog,
     // Keep archived statuses in this Project for historical columns. Other
@@ -188,6 +202,11 @@ export function TaskFlowProjectStatusScopeProvider({
         && value.length <= 64,
       ),
     );
+  }, [projectId, query.data]);
+
+  const statusOrder = useMemo(() => {
+    const saved = query.data?.prefs.taskflow_project_status_order;
+    return Array.isArray(saved) ? [...new Set(saved.filter((key): key is string => typeof key === "string" && (!taskFlowProjectIdFromStatusKey(key) || taskFlowProjectIdFromStatusKey(key) === projectId?.toLowerCase())))] : [];
   }, [projectId, query.data]);
 
   const enqueue = useCallback(<T,>(operation: () => Promise<T>) => {
@@ -253,6 +272,15 @@ export function TaskFlowProjectStatusScopeProvider({
     });
     queryClient.setQueryData(issueViewPrefKeys.scope(workspaceId, scope), updated);
   }, [projectId, queryClient, scope, workspaceId]);
+  const persistStatusOrder = useCallback(async (keys: string[]) => {
+    if (!workspaceId || !projectId || !scope) throw new Error("Project status order requires an active Project");
+    const normalized = [...new Set(keys)];
+    if (normalized.some(key => taskFlowProjectIdFromStatusKey(key) && taskFlowProjectIdFromStatusKey(key) !== projectId.toLowerCase())) throw new Error("Status order contains another Project's status");
+    const current = await queryClient.fetchQuery({ ...issueViewPreferenceOptions(workspaceId, scope), staleTime: 0 });
+    const updated = await api.putIssueViewPreference({ ...scope, prefs: { ...current.prefs, taskflow_project_status_order: normalized } as typeof current.prefs });
+    queryClient.setQueryData(issueViewPrefKeys.scope(workspaceId, scope), updated);
+  }, [projectId, queryClient, scope, workspaceId]);
+  const setStatusOrder = useCallback((keys: string[]) => enqueue(() => persistStatusOrder(keys)), [enqueue, persistStatusOrder]);
   const saveHiddenStatusKeys = useCallback(
     (keys: string[] | null) => enqueue(() => persistHiddenStatusKeys({ kind: "replace", keys })),
     [enqueue, persistHiddenStatusKeys],
@@ -270,11 +298,13 @@ export function TaskFlowProjectStatusScopeProvider({
     projectId,
     hiddenStatusKeys,
     statusLabels,
+    statusOrder,
+    setStatusOrder,
     isLoading: Boolean(projectId && query.isPending),
     saveHiddenStatusKeys,
     setStatusVisible,
     setStatusLabel,
-  }), [hiddenStatusKeys, projectId, query.isPending, saveHiddenStatusKeys, setStatusLabel, setStatusVisible, statusLabels]);
+  }), [hiddenStatusKeys, projectId, query.isPending, saveHiddenStatusKeys, setStatusLabel, setStatusVisible, statusLabels, statusOrder, setStatusOrder]);
 
   return <TaskFlowProjectStatusContext.Provider value={value}>{children}</TaskFlowProjectStatusContext.Provider>;
 }
