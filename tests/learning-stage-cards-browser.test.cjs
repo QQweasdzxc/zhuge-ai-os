@@ -177,3 +177,34 @@ test('desktop map, rules and pager fit one screen without scrolling', async t =>
   assert.ok(fit.cardsAbovePager, 'desktop cards never slide under the pager');
   assert.ok(fit.helpInView, 'the rules details stay on screen too');
 });
+
+test('chengyu arriving with s=settings opens the 勇者 settings page directly', async t => {
+  const browser = await chromium.launch({ executablePath: resolveBrowserExecutable(), args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  t.after(() => browser.close());
+  await page.route('**/*.supabase.co/**', route => {
+    let action = ''; try { action = route.request().postDataJSON()?.action || ''; } catch (e) {}
+    if (action === 'getStageStars') return route.fulfill({ contentType: 'application/json', body: JSON.stringify(STARS) });
+    return route.abort();
+  });
+  await page.goto((await fixtureURL(CHENGYU)) + '#f=' + 'a'.repeat(41) + '&s=settings');
+  await page.evaluate(() => { document.querySelectorAll('.player-gate').forEach(e => e.hidden = true); });
+  await page.evaluate(() => { window.chengyuProgressState = () => ({ learners: [{ id: 'hero1', name: '測試勇士', xp: 120 }], attempts: [], selectedId: 'hero1' }); return window.learningStarsRefresh(true); });
+  await page.waitForSelector('html.app-settings-open .app-settings:not([hidden])', { timeout: 15000 });
+  const r = await page.evaluate(() => {
+    const pg = document.querySelector('.app-settings');
+    const titles = [...pg.querySelectorAll('.app-setting-section h2')].map(h => h.textContent.trim());
+    return { titles, sound: titles.some(x => x.includes('聲音')), hero: titles.some(x => x === '勇者與進度'), old: titles.some(x => x.includes('冒險者')) };
+  });
+  assert.ok(r.hero, 'settings section renamed to 勇者與進度, got ' + r.titles.join('/'));
+  assert.ok(r.sound, 'settings page carries the 聲音 section');
+  assert.equal(r.old, false, 'no 冒險者 section title remains');
+});
+
+test('chengyu shared assets call the player 勇者, never 冒險者', () => {
+  const fs = require('fs');
+  for (const f of ['index.html', 'archipelago.js', 'adventure.js']) {
+    const src = fs.readFileSync(path.resolve(__dirname, '../apps/chengyu-quest/site/' + f), 'utf8');
+    assert.ok(!src.includes('冒險者'), f + ' must not call the player 冒險者');
+  }
+});
