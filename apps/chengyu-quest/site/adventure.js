@@ -89,7 +89,7 @@ function render(){
  config.level=zones[config.zone-1][3];
  const xp=Number(p.player?.xp)||0;
  const percentage=Math.round((available-1)/6*100);
- $('adventureHero').innerHTML='<strong>📖 成語島｜'+xp+' XP</strong><p>'+escapeHtml(p.player?.name||'先選自己的名字')+' 的成語探索累積經驗。已開放到第 '+available+' 關；總 Lv. 請看「共用冒險者」卡片。</p><div class="adventure-xp"><span style="width:'+percentage+'%"></span></div>';
+ $('adventureHero').innerHTML='<strong>📖 成語島｜'+xp+' XP</strong><p>'+escapeHtml(p.player?.name||'先選自己的名字')+' 的成語探索累積經驗。已開放到第 '+available+' 關；總 Lv. 請看「共用勇者」卡片。</p><div class="adventure-xp"><span style="width:'+percentage+'%"></span></div>';
  const starsData=window.learningVillageProgress;
  const passed=new Set((starsData?.stages||[]).filter(x=>x.first_star).map(x=>x.zone));
  const examPassed=new Set(starsData?.stagePassed||[]);
