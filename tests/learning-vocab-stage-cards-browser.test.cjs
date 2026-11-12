@@ -225,3 +225,35 @@ test('stage cards repaint stays interactive: rAF heartbeat keeps firing (no muta
   const again = await page.evaluate(() => { window.vocabVillageRepaint?.(); return document.querySelectorAll('.village-grid .village-card').length; });
   assert.equal(again, 8, 'repaint is idempotent: same eight cards, no runaway');
 });
+
+test('arriving with s=settings opens the 勇者 settings page directly with the sound section', async t => {
+  CURRENT = STARS_A;
+  const browser = await chromium.launch({ executablePath: resolveBrowserExecutable(), args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  t.after(() => browser.close());
+  await page.route('**/*.supabase.co/**', route => {
+    let action = ''; try { action = route.request().postDataJSON()?.action || ''; } catch (e) {}
+    if (action === 'getStageStars') return route.fulfill({ contentType: 'application/json', body: JSON.stringify(CURRENT) });
+    return route.abort();
+  });
+  await page.goto((await fixtureURL(VOCAB)) + '#f=' + 'a'.repeat(41) + '&p=' + encodeURIComponent('測試') + '&s=settings');
+  await page.evaluate(() => { document.querySelectorAll('.player-gate, #playerGate, #vocabPlayerGate').forEach(e => { e.hidden = true; e.style.display = 'none'; }); });
+  await page.evaluate(() => { window.vocabProgressState = () => ({ learners: [{ id: 'hero1', name: '測試勇士', xp: 120 }], attempts: [], selectedId: 'hero1' }); return window.learningStarsRefresh(true); });
+  await page.waitForSelector('html.app-settings-open .app-settings:not([hidden])', { timeout: 15000 });
+  const r = await page.evaluate(() => {
+    const pg = document.querySelector('.app-settings');
+    const titles = [...pg.querySelectorAll('.app-setting-section h2')].map(h => h.textContent.trim());
+    return { titles, sound: titles.some(x => x.includes('聲音')), hero: titles.some(x => x.includes('勇者')), gearHidden: document.getElementById('appSettingsBtn').hidden };
+  });
+  assert.ok(r.hero, 'settings page leads with the 勇者與進度 section, got ' + r.titles.join('/'));
+  assert.ok(r.sound, 'settings page carries the 聲音 section, got ' + r.titles.join('/'));
+  assert.equal(r.gearHidden, true, 'the gear entry stays as the in-page opener while settings is open');
+});
+
+test('vocab shared assets call the player 勇者, never 冒險者', () => {
+  const fs = require('fs');
+  for (const f of ['archipelago.js', 'progress.js']) {
+    const src = fs.readFileSync(path.resolve(__dirname, '../apps/vocab-quest/site/' + f), 'utf8');
+    assert.ok(!src.includes('冒險者'), f + ' must not call the player 冒險者');
+  }
+});
