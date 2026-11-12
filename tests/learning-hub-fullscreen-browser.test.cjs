@@ -54,6 +54,14 @@ test('desktop hub defaults to a viewport-filling uncropped map with live island 
   assert.ok(r.dbar && r.dbar.disp === 'flex' && r.dbar.top >= 0 && r.dbar.left >= 0, 'desktop hero card is pinned top-left');
   assert.equal(await page.evaluate(() => document.getElementById('profileChip')), null, 'duplicate dock hero entry is removed; the top-left hero card is the single desktop entry');
   assert.ok(r.dbar.coins !== undefined, 'hero card keeps the coins readout integrated');
+  const cardChrome = await page.evaluate(() => {
+    const tb = document.querySelector('.d-topbar'), pl = document.querySelector('.d-player'), cn = document.querySelector('.d-coins');
+    return { tbBorder: getComputedStyle(tb).borderTopWidth, plBorder: getComputedStyle(pl).borderTopWidth, cnBorder: getComputedStyle(cn).borderTopWidth, tbBg: getComputedStyle(tb).backgroundColor, plBg: getComputedStyle(pl).backgroundColor };
+  });
+  assert.equal(cardChrome.tbBorder, '2px', 'the single visual hero card carries the border on the shared topbar');
+  assert.equal(cardChrome.plBorder, '0px', 'player half is borderless inside the single card');
+  assert.equal(cardChrome.cnBorder, '0px', 'coins half is borderless inside the single card');
+  assert.notEqual(cardChrome.tbBg, 'rgba(0, 0, 0, 0)', 'single card has the shared background');
   assert.equal(r.dbar.name, '勇者', 'hero card guest name');
   assert.equal(r.dbar.lv, '訪客', 'adventure card guest level');
   assert.ok(r.chipTop >= r.dbar.bottom - 1, 'island title chip sits below the adventure card');
@@ -61,6 +69,18 @@ test('desktop hub defaults to a viewport-filling uncropped map with live island 
   assert.ok(hot.every(e => e.l >= -1 && e.r <= 1280 + 1 && e.t >= -1 && e.b <= 800 + 1), 'all island entries stay inside the viewport under capped cover: ' + JSON.stringify(hot));
 
   assert.equal(await page.evaluate(() => document.getElementById('voyageFitBtn')), null, 'layout toggle is gone: desktop is always the adaptive map');
+  const boatD = await page.evaluate(() => {
+    const b = document.getElementById('boatShopBtn'); if (!b) return null;
+    const r = b.getBoundingClientRect();
+    return { text: b.textContent.trim(), inView: r.left >= -1 && r.right <= innerWidth + 1 && r.top >= -1 && r.bottom <= innerHeight + 1, w: Math.round(r.width), h: Math.round(r.height) };
+  });
+  assert.ok(boatD && boatD.inView && boatD.w > 40 && boatD.h > 40, 'boat shop entry visible with a tappable area at 1280x800: ' + JSON.stringify(boatD));
+  assert.ok(boatD.text.includes('商船'), 'boat carries the 商船 sign');
+  assert.equal(await page.evaluate(() => document.getElementById('shopChip')), null, 'standalone dock shop chip is consolidated into the boat entry');
+  await page.click('#boatShopBtn');
+  assert.equal(await page.evaluate(() => !document.getElementById('shopDrawer').hidden), true, 'tapping the boat opens the existing shop drawer');
+  await page.evaluate(() => document.getElementById('shopClose').click());
+  assert.equal(await page.evaluate(() => document.getElementById('shopDrawer').hidden), true, 'shop drawer closes again');
 
   await page.evaluate(() => localStorage.setItem('voyage-desktop-layout', 'boxed'));
   await page.reload();
@@ -103,11 +123,13 @@ test('mobile hub keeps its existing fullscreen portrait map and gets no desktop 
       shellFull: rect.width >= innerWidth - 1 && rect.height >= innerHeight - 1,
       chengyu: inside('#islandChengyu'), english: inside('#islandEnglish'),
       fitHidden: !document.getElementById('voyageFitBtn'),
+      boatInView: (() => { const b = document.getElementById('boatShopBtn'); if (!b) return false; const r = b.getBoundingClientRect(); return r.left >= -1 && r.right <= innerWidth + 1 && r.top >= -1 && r.bottom <= innerHeight + 1 })(),
+      noShopEntries: !document.getElementById('shopChip') && !document.getElementById('mShopBtn'),
       noFullClass: !document.documentElement.classList.contains('voyage-full'),
       noScroll: document.documentElement.scrollWidth <= innerWidth
     };
   });
-  assert.deepEqual(r, { shellFixed: true, shellFull: true, chengyu: true, english: true, fitHidden: true, noFullClass: true, noScroll: true });
+  assert.deepEqual(r, { shellFixed: true, shellFull: true, chengyu: true, english: true, fitHidden: true, boatInView: true, noShopEntries: true, noFullClass: true, noScroll: true });
 });
 
 test('cover crop is biased toward the bottom and long names ellipsis in the adventure card', async t => {
@@ -124,9 +146,11 @@ test('cover crop is biased toward the bottom and long names ellipsis in the adve
   });
   assert.equal(r.full, true, 'desktop fullscreen layout active');
   assert.ok(r.h > r.ih, 'this fixture viewport needs vertical crop, got ' + JSON.stringify(r));
-  const expect = (r.h - r.ih) * 0.2;
-  const got = parseFloat(r.transform.match(/translateY\(([\d.]+)px\)/)?.[1] || '0');
-  assert.ok(Math.abs(got - expect) < 1, 'crop is biased toward the bottom (top keeps its buildings), got transform=' + r.transform + ' expected ~' + expect.toFixed(1));
+  const expect = Math.min((r.h - r.ih) * 0.2, Math.max((r.ih - r.h) / 2, (r.h + r.ih) / 2 - Math.min(r.h, r.h * 0.97)));
+  const got = parseFloat(r.transform.match(/translateY\((-?[\d.]+)px\)/)?.[1] || '0');
+  assert.ok(Math.abs(got - expect) < 1, 'crop keeps the boat band visible (top takes the extra crop), got transform=' + r.transform + ' expected ~' + expect.toFixed(1));
+  const boat = await page.evaluate(() => { const b = document.getElementById('boatShopBtn').getBoundingClientRect(); return { t: b.top, b: b.bottom, l: b.left, r: b.right, iw: innerWidth, ih: innerHeight } });
+  assert.ok(boat.l >= -1 && boat.r <= boat.iw + 1 && boat.t >= -1 && boat.t <= boat.ih - 60, 'boat shop entry stays visible and tappable at 1440x700: ' + JSON.stringify(boat));
   assert.equal(r.ellip, 'ellipsis', 'long adventurer names ellipsis instead of overflowing');
   assert.equal(r.nowrap, 'nowrap');
 });
