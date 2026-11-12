@@ -38,7 +38,7 @@ function worklogTimeConflicts(item = {}) {
   const start = entryStartMinutes(item);
   const end = start + Math.max(1, Math.round(Number(item.hours || 0) * 60));
   return entries.some(entry => {
-    if (entry.id === item.id || entry.status === "deleted" || entry.date !== date) return false;
+    if (entry.dateOnly || entry.id === item.id || entry.status === "deleted" || entry.date !== date) return false;
     const existingStart = entryStartMinutes(entry);
     const existingEnd = entryEndMinutes(entry);
     return start < existingEnd && end > existingStart;
@@ -86,7 +86,7 @@ function profileWorkSchedule() {
 // Source: modules/worklog/worklog-app.js :: workIntervalsForDate
 function workIntervalsForDate(dateKey = key(), excludeId = null, reserved = []) {
   const persisted = entries
-    .filter(entry => entry.date === dateKey && entry.id !== excludeId && entry.status !== "deleted")
+    .filter(entry => !entry.dateOnly && entry.date === dateKey && entry.id !== excludeId && entry.status !== "deleted")
     .map(entry => ({
       start: entryStartMinutes(entry),
       end: entryEndMinutes(entry),
@@ -614,13 +614,15 @@ function eventTypeLabel(value = "work") {
 
 // Source: modules/worklog/worklog-app.js :: entryFromCloud
 function entryFromCloud(row) {
-  const localAt = formatTaipeiDateTimeInput(row.started_at);
+  const localAt = row.date_only ? "" : formatTaipeiDateTimeInput(row.started_at);
   const entryType = eventTypeNameMap[row.event_type || "WORK"] || "work";
   return {
     id: row.legacy_id || row.id,
     cloudId: row.id,
     date: row.work_date || localAt.slice(0, 10),
     at: localAt,
+    dateOnly: row.date_only === true,
+    taskflowIssueRef: row.taskflow_issue_ref || null,
     title: row.title || "",
     note: row.note || "",
     ecpTask: row.ecp_task_name_snapshot || "",
@@ -662,8 +664,8 @@ function workLogRowsForEcp() {
   return monthEntries().map(entry => ({
     title: entry.title || "",
     ecpTask: entry.ecpTask || "",
-    startAt: formatEcpDateTime(entry.at),
-    endAt: formatEcpDateTime(addHoursToDate(entry.at, entry.hours)),
+    startAt: entry.dateOnly ? entry.date : formatEcpDateTime(entry.at),
+    endAt: entry.dateOnly ? entry.date : formatEcpDateTime(addHoursToDate(entry.at, entry.hours)),
     hours: Number(entry.hours || 0),
     ecpOwner: profile?.ecpOwner || "",
     ecpDepartment: profile?.ecpDepartment || ""

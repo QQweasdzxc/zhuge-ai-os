@@ -13,7 +13,7 @@ export async function runGoogleSyncCycle({connection,store,provider,sync,worklog
   const consume=async(token,cutoff)=>{for await(const page of provider.changes(calendarId,{syncToken:token||undefined})){
    for(const event of page.events){if(++count>10000)throw Object.assign(new Error('本次同步超過安全資料量，游標未推進'),{code:'LIMIT'});
     if(cutoff&&!(Date.parse(event.updated)>Date.parse(cutoff))&&!await store.byEvent?.(userId,calendarId,event.id))continue;
-    try{const year=Number(event.start?.dateTime?.slice(0,4));if(Number.isInteger(year)&&year>=1900&&year<=2200&&worklog.snapshot?.year!==year)await worklog.load(year);await sync.importEvent(event);}catch(error){failures.push({eventId:event.id,code:error.code||'IMPORT_FAILED'});}
+    try{const year=Number((event.start?.dateTime||event.start?.date||'').slice(0,4));if(Number.isInteger(year)&&year>=1900&&year<=2200&&worklog.snapshot?.year!==year)await worklog.load(year);await sync.importEvent(event);}catch(error){failures.push({eventId:event.id,code:error.code||'IMPORT_FAILED'});}
    }if(page.nextSyncToken)cursor=page.nextSyncToken;
   }};
   try{await consume(state.syncToken,baseline?connection.activatedAt:null);}catch(error){if(error.code!=='CURSOR_EXPIRED'||baseline)throw error;cursor=null;await consume(null,state.lastSyncedAt||connection.activatedAt);}
@@ -22,7 +22,7 @@ export async function runGoogleSyncCycle({connection,store,provider,sync,worklog
   const until=now();
   // Owner-filtered source query belongs to WorkLog's own worker identity/session.
   const changed=await store.changedEntries(userId,{after:state.localCursor||connection.activatedAt,through:until});
-  for(const entry of changed){if(entry.status==='deleted')continue;try{await sync.exportEntry(entry);}catch(error){failures.push({entryId:entry.cloudId,code:error.code||'EXPORT_FAILED'});}}
+  for(const entry of changed){if(entry.status==='deleted'&&!entry.dateOnly)continue;try{await sync.exportEntry(entry);}catch(error){failures.push({entryId:entry.cloudId,code:error.code||'EXPORT_FAILED'});}}
   if(failures.length){await store.cycleFailure(userId,calendarId,failures);return{status:'incomplete',failures};}
   await store.advance(userId,calendarId,{syncToken:cursor,localCursor:until,lease});return{status:baseline?'initialized':'synced',seen:count,exported:changed.length};
  }finally{await store.release(userId,calendarId,lease);}
