@@ -1,0 +1,706 @@
+diff --git a/labs/taskflow/Dockerfile.web b/labs/taskflow/Dockerfile.web
+index 4c911df0bd..9fff470bfd 100644
+--- a/labs/taskflow/Dockerfile.web
++++ b/labs/taskflow/Dockerfile.web
+@@ -93,6 +93,8 @@ COPY labs/taskflow/overrides/taskflow-project-status-scope.tsx /taskflow-project
+ COPY labs/taskflow/overrides/taskflow-project-status-scope.test.ts /taskflow-project-status/taskflow-project-status-scope.test.ts
+ COPY labs/taskflow/overrides/taskflow-project-status-preferences.test.tsx /taskflow-project-status/taskflow-project-status-preferences.test.tsx
+ COPY labs/taskflow/overrides/taskflow-project-status-settings.tsx /taskflow-project-status/taskflow-project-status-settings.tsx
++COPY labs/taskflow/overrides/taskflow-project-status-drag-handle.tsx /taskflow-project-status/taskflow-project-status-drag-handle.tsx
++COPY labs/taskflow/overrides/taskflow-project-status-drag-handle.test.tsx /taskflow-project-status/taskflow-project-status-drag-handle.test.tsx
+ COPY labs/taskflow/overrides/taskflow-project-status-settings.test.tsx /taskflow-project-status/taskflow-project-status-settings.test.tsx
+ COPY labs/taskflow/overrides/taskflow-project-status-locales.json /taskflow-project-status/taskflow-project-status-locales.json
+ RUN TASKFLOW_PROJECT_STATUS_REPO_ROOT=/ \
+@@ -233,7 +235,7 @@ RUN pnpm --filter @multica/core exec vitest run issues/taskflow-row-query.test.t
+  && pnpm --filter @multica/views exec vitest run issues/surface/taskflow-pagination-recovery.test.tsx \
+  && pnpm --filter @multica/views exec vitest run issues/surface/use-issue-status-branches.test.tsx issues/surface/use-issue-group-branches.test.tsx
+ RUN pnpm --filter @multica/core exec vitest run issue-statuses/taskflow-project-status-scope.test.ts issue-statuses/taskflow-project-status-preferences.test.tsx \
+- && pnpm --filter @multica/views exec vitest run issues/components/taskflow-project-status-settings.test.tsx settings/components/issue-statuses-tab.test.tsx
++ && pnpm --filter @multica/views exec vitest run issues/components/taskflow-project-status-settings.test.tsx issues/components/taskflow-project-status-drag-handle.test.tsx settings/components/issue-statuses-tab.test.tsx
+ RUN pnpm --filter @multica/views exec vitest run common/taskflow-dispatch-center.test.tsx settings/components/taskflow-access-management.test.tsx settings/components/settings-page.test.tsx
+ RUN pnpm --filter @multica/core exec vitest run issues/surface/taskflow-project-partition.test.ts \
+  && pnpm --filter @multica/views exec vitest run projects/components/projects-page.test.tsx \
+diff --git a/labs/taskflow/overrides/taskflow-project-status-drag-handle.test.tsx b/labs/taskflow/overrides/taskflow-project-status-drag-handle.test.tsx
+new file mode 100644
+index 0000000000..4022cc0d73
+--- /dev/null
++++ b/labs/taskflow/overrides/taskflow-project-status-drag-handle.test.tsx
+@@ -0,0 +1,31 @@
++// @vitest-environment jsdom
++import { fireEvent, render, screen, waitFor } from "@testing-library/react";
++import { afterEach, describe, expect, it, vi } from "vitest";
++import { TaskFlowProjectStatusDragHandle } from "./taskflow-project-status-drag-handle";
++const state = vi.hoisted(() => ({ save: vi.fn().mockResolvedValue(undefined), projectId: "project-a" as string | null }));
++vi.mock("@multica/core/hooks", () => ({ useWorkspaceId: () => "workspace-a" }));
++vi.mock("@multica/core/issue-statuses/hooks", () => ({ useIssueStatuses: () => ({ activeStatuses: ["todo", "in_progress", "in_review"].map(key => ({ key })), isLoaded: true, isError: false }) }));
++vi.mock("@multica/core/issue-statuses/taskflow-project-status-scope", () => ({
++  useTaskFlowProjectStatusSettings: () => ({ projectId: state.projectId, isLoading: false, saveStatusOrder: state.save }),
++  moveTaskFlowStatus: (keys: string[], from: string, to: string) => { const copy = [...keys]; const a=copy.indexOf(from),b=copy.indexOf(to);copy.splice(a,1);copy.splice(b,0,from);return copy; },
++}));
++vi.mock("../utils/status-label", () => ({ useStatusLabel: () => (key: string) => key }));
++vi.mock("../../i18n", () => ({ useT: () => ({ t: (fn: (m: any) => string, params?: any) => fn({ taskflow_project_status: { drag_order: "Reorder {{name}}", drag_help: "Drag", order_saved: "Saved", save_failed: "Failed" } }).replace("{{name}}", params?.name ?? "") }) }));
++vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
++afterEach(() => { state.projectId="project-a"; state.save.mockClear(); });
++describe("Project header order", () => {
++ it("keyboard changes only the Project preference, not card state", async () => {
++  render(<TaskFlowProjectStatusDragHandle status="in_progress" />);
++  fireEvent.keyDown(screen.getByRole("button",{name:"Reorder in_progress"}),{key:"ArrowLeft"});
++  await waitFor(()=>expect(state.save).toHaveBeenCalledWith(["in_progress","todo","in_review"]));
++ });
++ it("does not expose Project reorder in a global board", () => {
++  state.projectId=null; const view=render(<TaskFlowProjectStatusDragHandle status="todo" />);
++  expect(view.container.innerHTML).toBe("");expect(state.save).not.toHaveBeenCalled();
++ });
++ it("does nothing at the first boundary", () => {
++  render(<TaskFlowProjectStatusDragHandle status="todo" />);
++  fireEvent.keyDown(screen.getByRole("button",{name:"Reorder todo"}),{key:"ArrowLeft"});
++  expect(state.save).not.toHaveBeenCalled();
++ });
++});
+diff --git a/labs/taskflow/overrides/taskflow-project-status-drag-handle.tsx b/labs/taskflow/overrides/taskflow-project-status-drag-handle.tsx
+new file mode 100644
+index 0000000000..808c5547df
+--- /dev/null
++++ b/labs/taskflow/overrides/taskflow-project-status-drag-handle.tsx
+@@ -0,0 +1,92 @@
++"use client";
++
++import { useRef, useState } from "react";
++import { GripVertical } from "lucide-react";
++import { toast } from "sonner";
++import { useWorkspaceId } from "@multica/core/hooks";
++import { useIssueStatuses } from "@multica/core/issue-statuses/hooks";
++import { moveTaskFlowStatus, useTaskFlowProjectStatusSettings } from "@multica/core/issue-statuses/taskflow-project-status-scope";
++import { useStatusLabel } from "../utils/status-label";
++import { useT } from "../../i18n";
++
++/** Header-only pointer capture keeps column moves out of the card DndContext.
++ * Writes only this user's Project view preference, never status/category/issue rows.
++ */
++export function TaskFlowProjectStatusDragHandle({ status }: { status: string }) {
++  const settings = useTaskFlowProjectStatusSettings();
++  const wsId = useWorkspaceId();
++  const catalog = useIssueStatuses(wsId);
++  const labelOf = useStatusLabel(wsId);
++  const { t } = useT("issues");
++  const [busy, setBusy] = useState(false);
++  const [dragging, setDragging] = useState(false);
++  const start = useRef<{ pointerId: number; x: number; y: number; moved: boolean } | null>(null);
++  const keys = catalog.activeStatuses.map((entry) => entry.key);
++  const save = async (target: string) => {
++    if (!settings.projectId || settings.isLoading || busy || !keys.includes(target) || target === status) return;
++    setBusy(true);
++    try {
++      await settings.saveStatusOrder(moveTaskFlowStatus(keys, status, target));
++      toast.success(t(($) => $.taskflow_project_status.order_saved));
++    } catch {
++      toast.error(t(($) => $.taskflow_project_status.save_failed));
++    } finally {
++      setBusy(false);
++    }
++  };
++  if (!settings.projectId || !keys.includes(status)) return null;
++  return <button
++    type="button"
++    className={`flex h-8 w-5 shrink-0 touch-none items-center justify-center rounded text-muted-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-primary ${dragging ? "bg-primary/20 text-primary cursor-grabbing" : "cursor-grab"}`}
++    data-taskflow-column-handle={status}
++    aria-label={t(($) => $.taskflow_project_status.drag_order, { name: labelOf(status) })}
++    title={t(($) => $.taskflow_project_status.drag_help)}
++    disabled={busy || settings.isLoading || !catalog.isLoaded || catalog.isError}
++    onPointerDown={(event) => {
++      if (event.button !== 0) return;
++      event.stopPropagation();
++      event.preventDefault();
++      event.currentTarget.focus();
++      start.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, moved: false };
++      event.currentTarget.setPointerCapture(event.pointerId);
++    }}
++    onPointerMove={(event) => {
++      const origin = start.current;
++      if (!origin || origin.pointerId !== event.pointerId) return;
++      event.stopPropagation();
++      if (Math.hypot(event.clientX - origin.x, event.clientY - origin.y) > 6) {
++        origin.moved = true;
++        setDragging(true);
++        const scroller = event.currentTarget.closest("[data-board-scroller]");
++        if (scroller instanceof HTMLElement) {
++          const rect = scroller.getBoundingClientRect();
++          if (event.clientX < rect.left + 35) scroller.scrollLeft -= 24;
++          else if (event.clientX > rect.right - 35) scroller.scrollLeft += 24;
++        }
++      }
++    }}
++    onPointerUp={(event) => {
++      const origin = start.current;
++      if (!origin || origin.pointerId !== event.pointerId) return;
++      event.stopPropagation();
++      start.current = null;
++      setDragging(false);
++      event.currentTarget.releasePointerCapture(event.pointerId);
++      if (!origin.moved) return;
++      const target = document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-taskflow-column]");
++      // The nearest board must be the same board as the source. No cross-project drag.
++      if (target?.closest("[data-board-scroller]") !== event.currentTarget.closest("[data-board-scroller]")) return;
++      const targetKey = target?.getAttribute("data-taskflow-column");
++      if (targetKey) void save(targetKey);
++    }}
++    onPointerCancel={() => { start.current = null; setDragging(false); }}
++    onLostPointerCapture={() => { start.current = null; setDragging(false); }}
++    onKeyDown={(event) => {
++      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
++      event.preventDefault();
++      event.stopPropagation();
++      const target = keys[keys.indexOf(status) + (event.key === "ArrowLeft" ? -1 : 1)];
++      if (target) void save(target);
++    }}
++  ><GripVertical className="size-3.5" /></button>;
++}
+diff --git a/labs/taskflow/overrides/taskflow-project-status-locales.json b/labs/taskflow/overrides/taskflow-project-status-locales.json
+index 6e4df1b87a..5640f4293b 100644
+--- a/labs/taskflow/overrides/taskflow-project-status-locales.json
++++ b/labs/taskflow/overrides/taskflow-project-status-locales.json
+@@ -25,12 +25,17 @@
+     "admin_required": "Only workspace owners and admins can add a status.",
+     "restore_defaults": "Restore default columns",
+     "done": "Done",
+-    "save_failed": "Couldn't save project status settings. Try again."
++    "save_failed": "Couldn't save project status settings. Try again.",
++    "drag_order": "Reorder {{name}} column",
++    "drag_help": "Drag or use Left/Right arrow keys. Changes only your view of this Project, never task status.",
++    "order_saved": "Project column order saved",
++    "move_up": "Move {{name}} column earlier",
++    "move_down": "Move {{name}} column later"
+   },
+   "zh-Hant": {
+     "button": "專案狀態",
+     "title": "專案狀態與欄位",
+-    "description": "狀態欄只套用於此專案。隱藏欄位仍可在「隱藏欄位」面板中還原，不會刪除任務。七種內建狀態都會保留。",
++    "description": "狀態欄只套用於此專案。隱藏欄位仍可在「隱藏欄位」面板中還原，不會刪除任務。七種內建狀態都會保留。 拖曳看板欄首的握把可排序；也可使用下方箭頭。順序只影響你的此專案檢視，重新開頁會保留，不會改任務狀態。",
+     "fields": "專案狀態欄位",
+     "visibility": "顯示「{{name}}」狀態欄",
+     "built_in": "內建",
+@@ -53,7 +58,12 @@
+     "admin_required": "只有工作空間擁有者與管理員可以新增狀態。",
+     "restore_defaults": "還原預設欄位",
+     "done": "完成",
+-    "save_failed": "無法儲存專案狀態設定，請再試一次。"
++    "save_failed": "無法儲存專案狀態設定，請再試一次。",
++    "drag_order": "拖曳排序「{{name}}」欄",
++    "drag_help": "拖曳調整此專案欄位順序，也可按左右方向鍵。只影響你的此專案檢視，不會改任務狀態。",
++    "order_saved": "已儲存此專案的欄位順序",
++    "move_up": "將「{{name}}」欄向前移",
++    "move_down": "將「{{name}}」欄向後移"
+   },
+   "zh-Hans": {
+     "button": "项目状态",
+@@ -81,7 +91,12 @@
+     "admin_required": "只有工作空间所有者和管理员可以新增状态。",
+     "restore_defaults": "恢复默认字段",
+     "done": "完成",
+-    "save_failed": "无法保存项目状态设置，请重试。"
++    "save_failed": "无法保存项目状态设置，请重试。",
++    "drag_order": "Reorder {{name}} column",
++    "drag_help": "Drag or use Left/Right arrow keys. Changes only your view of this Project, never task status.",
++    "order_saved": "Project column order saved",
++    "move_up": "Move {{name}} column earlier",
++    "move_down": "Move {{name}} column later"
+   },
+   "ja": {
+     "button": "プロジェクトのステータス",
+@@ -109,7 +124,12 @@
+     "admin_required": "ステータスを追加できるのはワークスペースのオーナーと管理者のみです。",
+     "restore_defaults": "既定の列に戻す",
+     "done": "完了",
+-    "save_failed": "プロジェクトのステータス設定を保存できませんでした。もう一度お試しください。"
++    "save_failed": "プロジェクトのステータス設定を保存できませんでした。もう一度お試しください。",
++    "drag_order": "Reorder {{name}} column",
++    "drag_help": "Drag or use Left/Right arrow keys. Changes only your view of this Project, never task status.",
++    "order_saved": "Project column order saved",
++    "move_up": "Move {{name}} column earlier",
++    "move_down": "Move {{name}} column later"
+   },
+   "fr": {
+     "button": "Statuts du projet",
+@@ -137,6 +157,11 @@
+     "admin_required": "Seuls les propriétaires et les administrateurs de l’espace peuvent ajouter un statut.",
+     "restore_defaults": "Restaurer les colonnes par défaut",
+     "done": "Terminé",
+-    "save_failed": "Impossible d’enregistrer les paramètres de statut du projet. Réessayez."
++    "save_failed": "Impossible d’enregistrer les paramètres de statut du projet. Réessayez.",
++    "drag_order": "Reorder {{name}} column",
++    "drag_help": "Drag or use Left/Right arrow keys. Changes only your view of this Project, never task status.",
++    "order_saved": "Project column order saved",
++    "move_up": "Move {{name}} column earlier",
++    "move_down": "Move {{name}} column later"
+   }
+ }
+diff --git a/labs/taskflow/overrides/taskflow-project-status-preferences.test.tsx b/labs/taskflow/overrides/taskflow-project-status-preferences.test.tsx
+index b05998011e..d00f6d4677 100644
+--- a/labs/taskflow/overrides/taskflow-project-status-preferences.test.tsx
++++ b/labs/taskflow/overrides/taskflow-project-status-preferences.test.tsx
+@@ -75,6 +75,7 @@ function Probe({ projectId, statusKey }: { projectId: string; statusKey: string
+       <button type="button" onClick={() => void settings.setStatusVisible(statusKey, true)}>
+         Restore status
+       </button>
++      <button type="button" onClick={() => void settings.saveStatusOrder(["in_review", "todo", statusKey])}>Save order</button>
+       <output data-testid="project">{projectId}</output>
+     </>
+   );
+@@ -92,8 +93,7 @@ function mount(projectId: string, statusKey: string) {
+   return { ...view, client };
+ }
+ 
+-describe("TaskFlow Project status label persistence", () => {
+-  beforeEach(() => {
++beforeEach(() => {
+     state.preferences.clear();
+     state.preferences.set(PROJECT_A, preference(PROJECT_A));
+     state.preferences.set(PROJECT_B, preference(PROJECT_B));
+@@ -105,6 +105,7 @@ describe("TaskFlow Project status label persistence", () => {
+     });
+   });
+ 
++describe("TaskFlow Project status label persistence", () => {
+   it("persists same display names independently for two Projects and preserves existing view preferences", async () => {
+     const projectA = mount(PROJECT_A, KEY_A);
+     await screen.findByRole("button", { name: "Save label" });
+@@ -149,3 +150,20 @@ describe("TaskFlow Project status label persistence", () => {
+     projectA.unmount();
+   });
+ });
++
++
++describe("Project order persistence", () => {
++  it("preserves labels, hidden columns and native preferences when saving order", async () => {
++    const initial=preference(PROJECT_A);initial.prefs.taskflow_hidden_statuses=["cancelled"];
++    initial.prefs.taskflow_project_status_labels={ [KEY_A]: "Waiting" };state.preferences.set(PROJECT_A,initial);
++    const view=mount(PROJECT_A,KEY_A);
++    await waitFor(()=>expect(screen.getByTestId("label").textContent).toBe("Waiting"));
++    fireEvent.click(screen.getByText("Save order"));
++    await waitFor(()=>expect(state.preferences.get(PROJECT_A)?.prefs.taskflow_status_order).toEqual(["in_review","todo",KEY_A]));
++    expect(state.preferences.get(PROJECT_A)?.prefs.hidden).toEqual(["done"]);
++    expect(state.preferences.get(PROJECT_A)?.prefs.preserved_setting).toBe("keep");
++    expect(state.preferences.get(PROJECT_A)?.prefs.taskflow_hidden_statuses).toEqual(["cancelled"]);
++    view.unmount();mount(PROJECT_B,KEY_B);
++    expect(state.preferences.get(PROJECT_B)?.prefs.taskflow_status_order).toBeUndefined();
++  });
++});
+diff --git a/labs/taskflow/overrides/taskflow-project-status-scope.test.ts b/labs/taskflow/overrides/taskflow-project-status-scope.test.ts
+index 95d6591acc..6983937d9f 100644
+--- a/labs/taskflow/overrides/taskflow-project-status-scope.test.ts
++++ b/labs/taskflow/overrides/taskflow-project-status-scope.test.ts
+@@ -110,3 +110,15 @@ describe("TaskFlow Project status scope", () => {
+     expect(excludeTaskFlowProjectStatuses([])).toEqual([]);
+   });
+ });
++
++// Exact keys only: no category changes, key loss, or cross-project status leak.
++describe("Project column order", () => {
++  it("moves by exact keys and preserves new/hidden status entries", async () => {
++    const { orderTaskFlowStatuses, moveTaskFlowStatus } = await import("./taskflow-project-status-scope");
++    const rows=[{key:"todo"},{key:"in_progress"},{key:"new-status"},{key:"cancelled"}];
++    expect(moveTaskFlowStatus(rows.map(x=>x.key),"in_progress","todo")).toEqual(["in_progress","todo","new-status","cancelled"]);
++    expect(orderTaskFlowStatuses(rows,["in_progress","todo","stale","todo"]).map(x=>x.key)).toEqual(["in_progress","todo","new-status","cancelled"]);
++    expect(rows.map(x=>x.key)).toEqual(["todo","in_progress","new-status","cancelled"]);
++    expect(moveTaskFlowStatus(["todo","in_progress"],"unknown","todo")).toEqual(["todo","in_progress"]);
++  });
++});
+diff --git a/labs/taskflow/overrides/taskflow-project-status-scope.tsx b/labs/taskflow/overrides/taskflow-project-status-scope.tsx
+index 2562f1a77d..389f3279e5 100644
+--- a/labs/taskflow/overrides/taskflow-project-status-scope.tsx
++++ b/labs/taskflow/overrides/taskflow-project-status-scope.tsx
+@@ -16,6 +16,8 @@ export interface TaskFlowProjectStatusSettings {
+   projectId: string | null;
+   hiddenStatusKeys: string[];
+   statusLabels: Record<string, string>;
++  statusOrder: string[];
++  saveStatusOrder: (keys: string[]) => Promise<void>;
+   isLoading: boolean;
+   saveHiddenStatusKeys: (keys: string[] | null) => Promise<void>;
+   setStatusVisible: (key: string, visible: boolean) => Promise<void>;
+@@ -26,6 +28,8 @@ const EMPTY_SETTINGS: TaskFlowProjectStatusSettings = {
+   projectId: null,
+   hiddenStatusKeys: [...DEFAULT_HIDDEN_STATUSES],
+   statusLabels: {},
++  statusOrder: [],
++  saveStatusOrder: async () => undefined,
+   isLoading: false,
+   saveHiddenStatusKeys: async () => undefined,
+   setStatusVisible: async () => undefined,
+@@ -111,12 +115,31 @@ export function mergeTaskFlowWorkspaceStatusOrder<T extends { key: string }>(
+     : visibleOrder[index++] ?? entry);
+ }
+ 
++/** Saved keys order known entries only; new and archived entries are never lost. */
++export function orderTaskFlowStatuses<T extends { key: string }>(entries: readonly T[], order: readonly string[]): T[] {
++  const rank = new Map([...new Set(order)].map((key, index) => [key, index]));
++  return entries.map((entry, index) => ({ entry, index })).sort((a, b) =>
++    (rank.get(a.entry.key) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.entry.key) ?? Number.MAX_SAFE_INTEGER) || a.index - b.index,
++  ).map(({ entry }) => entry);
++}
++
++export function moveTaskFlowStatus(keys: readonly string[], from: string, to: string): string[] {
++  const result = [...new Set(keys)];
++  const fromIndex = result.indexOf(from);
++  const toIndex = result.indexOf(to);
++  if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return result;
++  result.splice(fromIndex, 1);
++  result.splice(toIndex, 0, from);
++  return result;
++}
++
+ /** Filter only assignable columns; retain the full label lookup for historic rows. */
+ export function scopeTaskFlowStatusCatalog(
+   catalog: IssueStatusCatalog,
+   projectId: string | null,
+   statusLabels: Record<string, string> = {},
+-): IssueStatusCatalog {
++  statusOrder: readonly string[] = [],
++): IssueStatusCatalog & { taskflowStatusOrder: readonly string[] } {
+   // A project-owned status must not leak into the workspace-wide surface. A
+   // project surface sees the native workspace statuses plus only its own
+   // namespaced entries.
+@@ -131,14 +154,15 @@ export function scopeTaskFlowStatusCatalog(
+     const label = projectId && ownerId === projectId.toLowerCase() ? statusLabels[entry.key] : undefined;
+     return label?.trim() ? { ...entry, name: label.trim() } : entry;
+   };
+-  const statuses = scopedStatuses.map(withProjectLabels);
++  const statuses = orderTaskFlowStatuses(scopedStatuses.map(withProjectLabels), projectId ? statusOrder : []);
+   const byKey = new Map(statuses.map((entry) => [entry.key, entry]));
+   const scopedKeys = new Set(statuses.map((entry) => entry.key));
+-  const activeStatuses = catalog.activeStatuses
++  const activeStatuses = orderTaskFlowStatuses(catalog.activeStatuses
+     .filter((entry) => scopedKeys.has(entry.key))
+-    .map(withProjectLabels);
++    .map(withProjectLabels), projectId ? statusOrder : []);
+   return {
+     ...catalog,
++    taskflowStatusOrder: projectId ? statusOrder : [],
+     // Keep archived statuses in this Project for historical columns. Other
+     // Project labels remain available through entryOf/labelOf, but never add
+     // columns or assignment choices to this Project's surface.
+@@ -190,6 +214,11 @@ export function TaskFlowProjectStatusScopeProvider({
+     );
+   }, [projectId, query.data]);
+ 
++  const statusOrder = useMemo(() => {
++    const saved = query.data?.prefs.taskflow_status_order;
++    return Array.isArray(saved) ? [...new Set(saved.filter((key): key is string => typeof key === "string"))] : [];
++  }, [query.data]);
++
+   const enqueue = useCallback(<T,>(operation: () => Promise<T>) => {
+     const result = writeQueue.current.then(operation, operation);
+     writeQueue.current = result.then(() => undefined, () => undefined);
+@@ -266,15 +295,31 @@ export function TaskFlowProjectStatusScopeProvider({
+     [enqueue, persistStatusLabel],
+   );
+ 
++  const saveStatusOrder = useCallback((keys: string[]) => enqueue(async () => {
++    if (!workspaceId || !projectId || !scope) throw new Error("Project status order requires an active Project");
++    const safeKeys = [...new Set(keys)].filter((key) => {
++      const owner = taskFlowProjectIdFromStatusKey(key);
++      return owner === null || owner === projectId.toLowerCase();
++    });
++    const current = await queryClient.fetchQuery(issueViewPreferenceOptions(workspaceId, scope));
++    const updated = await api.putIssueViewPreference({
++      ...scope,
++      prefs: { ...current.prefs, taskflow_status_order: safeKeys } as typeof current.prefs,
++    });
++    queryClient.setQueryData(issueViewPrefKeys.scope(workspaceId, scope), updated);
++  }), [enqueue, workspaceId, projectId, scope, queryClient]);
++
+   const value = useMemo<TaskFlowProjectStatusSettings>(() => ({
+     projectId,
+     hiddenStatusKeys,
+     statusLabels,
++    statusOrder,
++    saveStatusOrder,
+     isLoading: Boolean(projectId && query.isPending),
+     saveHiddenStatusKeys,
+     setStatusVisible,
+     setStatusLabel,
+-  }), [hiddenStatusKeys, projectId, query.isPending, saveHiddenStatusKeys, setStatusLabel, setStatusVisible, statusLabels]);
++  }), [hiddenStatusKeys, projectId, query.isPending, saveHiddenStatusKeys, setStatusLabel, setStatusVisible, statusLabels, statusOrder, saveStatusOrder]);
+ 
+   return <TaskFlowProjectStatusContext.Provider value={value}>{children}</TaskFlowProjectStatusContext.Provider>;
+ }
+diff --git a/labs/taskflow/overrides/taskflow-project-status-settings.test.tsx b/labs/taskflow/overrides/taskflow-project-status-settings.test.tsx
+index 339c48b0ef..5dfe971a95 100644
+--- a/labs/taskflow/overrides/taskflow-project-status-settings.test.tsx
++++ b/labs/taskflow/overrides/taskflow-project-status-settings.test.tsx
+@@ -10,6 +10,7 @@ const state = vi.hoisted(() => ({
+   save: vi.fn().mockResolvedValue(undefined),
+   setVisible: vi.fn().mockResolvedValue(undefined),
+   setLabel: vi.fn().mockResolvedValue(undefined),
++  saveOrder: vi.fn().mockResolvedValue(undefined),
+   create: vi.fn().mockResolvedValue({ key: "project_status" }),
+   catalogLoaded: true,
+   catalogError: false,
+@@ -62,17 +63,22 @@ vi.mock("@multica/core/issue-statuses/taskflow-project-status-scope", () => ({
+     setStatusVisible: state.setVisible,
+     statusLabels: { [state.ownedKey]: "Waiting for vendor" },
+     setStatusLabel: state.setLabel,
++    saveStatusOrder: state.saveOrder,
+   }),
++  moveTaskFlowStatus: (keys: string[], from: string, to: string) => { const copy = [...keys]; const a=copy.indexOf(from), b=copy.indexOf(to);copy.splice(a,1);copy.splice(b,0,from);return copy; },
+   createTaskFlowProjectStatusKey: () => "p00000000000000000000000000_0002",
+   taskFlowInternalProjectStatusName: (key: string) => `TF:${key}`,
+   taskFlowProjectIdFromStatusKey: (key: string) => key === state.ownedKey ? state.projectId : null,
+ }));
++vi.mock("../utils/status-label", () => ({ useStatusLabel: () => (key: string) => state.statuses.find(s => s.key === key)?.name ?? key }));
+ vi.mock("../../i18n", () => ({
+   useT: () => ({
+     t: (resolve: (value: any) => unknown, params?: Record<string, string>) => {
+       const messages = {
+         taskflow_project_status: {
+           button: "Project statuses",
++          move_up: "Move {{name}} earlier",
++          move_down: "Move {{name}} later",
+           title: "Project statuses and fields",
+           description: "Project-only settings. Hidden columns can be restored without deleting tasks.",
+           fields: "Project status fields",
+diff --git a/labs/taskflow/overrides/taskflow-project-status-settings.tsx b/labs/taskflow/overrides/taskflow-project-status-settings.tsx
+index 6004b949e4..ed508d4e66 100644
+--- a/labs/taskflow/overrides/taskflow-project-status-settings.tsx
++++ b/labs/taskflow/overrides/taskflow-project-status-settings.tsx
+@@ -1,7 +1,7 @@
+ "use client";
+ 
+ import { useMemo, useState } from "react";
+-import { Check, Pencil, Settings2, X } from "lucide-react";
++import { ArrowUp, ArrowDown, Check, Pencil, Settings2, X } from "lucide-react";
+ import { toast } from "sonner";
+ import { useQuery } from "@tanstack/react-query";
+ import { Button } from "@multica/ui/components/ui/button";
+@@ -27,11 +27,13 @@ import { memberListOptions } from "@multica/core/workspace/queries";
+ import { useIssueStatuses } from "@multica/core/issue-statuses/hooks";
+ import { useCreateIssueStatus } from "@multica/core/issue-statuses/mutations";
+ import {
++  moveTaskFlowStatus,
+   createTaskFlowProjectStatusKey,
+   taskFlowInternalProjectStatusName,
+   taskFlowProjectIdFromStatusKey,
+   useTaskFlowProjectStatusSettings,
+ } from "@multica/core/issue-statuses/taskflow-project-status-scope";
++import { useStatusLabel } from "../utils/status-label";
+ import type { IssueStatusCategory } from "@multica/core/types";
+ import { useT } from "../../i18n";
+ 
+@@ -40,6 +42,7 @@ const CATEGORIES: IssueStatusCategory[] = ["unstarted", "started", "done", "clos
+ export function TaskFlowProjectStatusSettings({ projectId }: { projectId: string }) {
+   const { t } = useT("issues");
+   const workspaceId = useWorkspaceId();
++  const labelOf = useStatusLabel(workspaceId);
+   const user = useAuthStore((state) => state.user);
+   const { data: members = [] } = useQuery(memberListOptions(workspaceId));
+   const role = members.find((member) => member.user_id === user?.id)?.role;
+@@ -131,7 +134,7 @@ export function TaskFlowProjectStatusSettings({ projectId }: { projectId: string
+           </DialogHeader>
+ 
+           <div className="space-y-1" aria-label={t(($) => $.taskflow_project_status.fields)}>
+-            {catalog.activeStatuses.map((status) => {
++            {catalog.activeStatuses.map((status, statusIndex) => {
+               const visible = !settings.hiddenStatusKeys.includes(status.key);
+               const projectOwned = taskFlowProjectIdFromStatusKey(status.key) === projectId.toLowerCase();
+               const checkboxId = `taskflow-status-${status.id}`;
+@@ -144,7 +147,7 @@ export function TaskFlowProjectStatusSettings({ projectId }: { projectId: string
+                     disabled={settings.isLoading}
+                     onChange={(event) => void saveVisibility(status.key, event.currentTarget.checked)}
+                     aria-label={t(($) => $.taskflow_project_status.visibility, {
+-                      name: settings.statusLabels[status.key] ?? status.name,
++                      name: labelOf(status.key),
+                     })}
+                     className="size-4 shrink-0 accent-primary"
+                   />
+@@ -166,9 +169,19 @@ export function TaskFlowProjectStatusSettings({ projectId }: { projectId: string
+                     </div>
+                   ) : (
+                     <label htmlFor={checkboxId} className="min-w-0 flex-1 truncate py-1 text-body">
+-                      {settings.statusLabels[status.key] ?? status.name}
++                      {labelOf(status.key)}
+                     </label>
+                   )}
++                  <Button type="button" variant="ghost" size="icon-sm"
++                    aria-label={t(($) => $.taskflow_project_status.move_up, { name: labelOf(status.key) })}
++                    disabled={statusIndex === 0 || settings.isLoading}
++                    onClick={() => void settings.saveStatusOrder(moveTaskFlowStatus(catalog.activeStatuses.map((entry) => entry.key), status.key, catalog.activeStatuses[statusIndex - 1]!.key)).catch(() => toast.error(t(($) => $.taskflow_project_status.save_failed)))}
++                  ><ArrowUp className="size-3.5" /></Button>
++                  <Button type="button" variant="ghost" size="icon-sm"
++                    aria-label={t(($) => $.taskflow_project_status.move_down, { name: labelOf(status.key) })}
++                    disabled={statusIndex === catalog.activeStatuses.length - 1 || settings.isLoading}
++                    onClick={() => void settings.saveStatusOrder(moveTaskFlowStatus(catalog.activeStatuses.map((entry) => entry.key), status.key, catalog.activeStatuses[statusIndex + 1]!.key)).catch(() => toast.error(t(($) => $.taskflow_project_status.save_failed)))}
++                  ><ArrowDown className="size-3.5" /></Button>
+                   {status.is_system && (
+                     <span className="shrink-0 text-caption text-muted-foreground">{t(($) => $.taskflow_project_status.built_in)}</span>
+                   )}
+@@ -203,7 +216,7 @@ export function TaskFlowProjectStatusSettings({ projectId }: { projectId: string
+                         aria-label={t(($) => $.taskflow_project_status.edit_status)}
+                         onClick={() => {
+                           setEditingKey(status.key);
+-                          setEditingName(settings.statusLabels[status.key] ?? status.name);
++                          setEditingName(labelOf(status.key));
+                         }}
+                       >
+                         <Pencil className="size-4" />
+diff --git a/labs/taskflow/patches/apply-taskflow-project-status.py b/labs/taskflow/patches/apply-taskflow-project-status.py
+index b8b359fd74..8449ff2ebf 100644
+--- a/labs/taskflow/patches/apply-taskflow-project-status.py
++++ b/labs/taskflow/patches/apply-taskflow-project-status.py
+@@ -39,14 +39,25 @@ def patch_status_hook(source: str) -> str:
+   // TASKFLOW_PROJECT_STATUS_SCOPE: project-owned keys are assignable only in
+   // their Project surface; all rows remain available for historical labels.
+   return useMemo(
+-    () => scopeTaskFlowStatusCatalog(catalog, projectStatusSettings.projectId, projectStatusSettings.statusLabels),
+-    [catalog, projectStatusSettings.projectId, projectStatusSettings.statusLabels],
++    () => scopeTaskFlowStatusCatalog(catalog, projectStatusSettings.projectId, projectStatusSettings.statusLabels, projectStatusSettings.statusOrder),
++    [catalog, projectStatusSettings.projectId, projectStatusSettings.statusLabels, projectStatusSettings.statusOrder],
+   );''',
+         "scope project-owned status choices",
+     )
+     return source
+ 
+ 
++def patch_status_column_order(source: str) -> str:
++    source = replace_once(source,
++        "  return ALL_STATUSES.flatMap((category) => [",
++        "  const keys = ALL_STATUSES.flatMap((category) => [",
++        "collect native status columns")
++    return replace_once(source,
++        "  ]);\n}\n\n/** Exact-key filters",
++        "  ]);\n  // TASKFLOW_PROJECT_COLUMN_ORDER: per-user Project preference, never global status positions.\n  const order = (catalog as typeof catalog & { taskflowStatusOrder?: readonly string[] }).taskflowStatusOrder ?? [];\n  const rank = new Map(order.map((key, index) => [key, index]));\n  return keys.sort((a, b) => (rank.get(a) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b) ?? Number.MAX_SAFE_INTEGER));\n}\n\n/** Exact-key filters",
++        "apply scoped order without losing cold-load or archived columns")
++
++
+ def patch_issue_surface(source: str) -> str:
+     if "TaskFlowProjectStatusScopeProvider" in source:
+         raise ValueError("TaskFlow Project status provider already applied")
+@@ -209,7 +220,8 @@ def patch_board_column(source: str) -> str:
+         'import { useViewStoreApi } from "@multica/core/issues/stores/view-store-context";\n',
+         'import { useViewStoreApi } from "@multica/core/issues/stores/view-store-context";\n'
+         'import { useTaskFlowProjectStatusSettings } from "@multica/core/issue-statuses/taskflow-project-status-scope";\n'
+-        'import { toast } from "sonner";\n',
++        'import { toast } from "sonner";\n'
++        'import { TaskFlowProjectStatusDragHandle } from "./taskflow-project-status-drag-handle";\n',
+         "board column Project status preferences import",
+     )
+     source = replace_once(
+@@ -237,6 +249,14 @@ def patch_board_column(source: str) -> str:
+         'onClick={hideStatus}',
+         "board column hide click",
+     )
++    source = replace_once(source,
++        '<div style={{ width: BOARD_COL_WIDTH }} className=',
++        '<div data-taskflow-column={projectStatusSettings.projectId ? status : undefined} style={{ width: BOARD_COL_WIDTH }} className=',
++        "project drag target")
++    source = replace_once(source,
++        '<BoardGroupHeading group={group} count={totalCount ?? issueIds.length} />',
++        '<div className="flex min-w-0 items-center gap-1">{status && projectId && <TaskFlowProjectStatusDragHandle status={status} />}<BoardGroupHeading group={group} count={totalCount ?? issueIds.length} /></div>',
++        "project drag handle")
+     return source
+ 
+ 
+@@ -435,6 +455,8 @@ def apply(root: Path, overlay: Path) -> None:
+         overlay / "taskflow-project-status-scope.test.ts": root / "packages/core/issue-statuses/taskflow-project-status-scope.test.ts",
+         overlay / "taskflow-project-status-preferences.test.tsx": root / "packages/core/issue-statuses/taskflow-project-status-preferences.test.tsx",
+         settings_component: root / "packages/views/issues/components/taskflow-project-status-settings.tsx",
++        overlay / "taskflow-project-status-drag-handle.tsx": root / "packages/views/issues/components/taskflow-project-status-drag-handle.tsx",
++        overlay / "taskflow-project-status-drag-handle.test.tsx": root / "packages/views/issues/components/taskflow-project-status-drag-handle.test.tsx",
+         overlay / "taskflow-project-status-settings.test.tsx": root / "packages/views/issues/components/taskflow-project-status-settings.test.tsx",
+     }
+     for source, target in copy_targets.items():
+@@ -443,6 +465,7 @@ def apply(root: Path, overlay: Path) -> None:
+         target.parent.mkdir(parents=True, exist_ok=True)
+         target.write_text(source.read_text())
+ 
++    write_patch(root, "packages/core/issues/status-category.ts", patch_status_column_order)
+     write_patch(root, "packages/core/issue-statuses/hooks.ts", patch_status_hook)
+     write_patch(root, "packages/views/issues/surface/issue-surface.tsx", patch_issue_surface)
+     write_patch(root, "packages/views/issues/surface/use-issue-surface-controller.ts", patch_surface_controller)
+diff --git a/labs/taskflow/tests/project-column-browser/check.cjs b/labs/taskflow/tests/project-column-browser/check.cjs
+new file mode 100644
+index 0000000000..6e0bb4ef63
+--- /dev/null
++++ b/labs/taskflow/tests/project-column-browser/check.cjs
+@@ -0,0 +1,27 @@
++const assert=require('node:assert/strict'),{spawn}=require('node:child_process'),fs=require('node:fs'),path=require('node:path');
++const root=process.env.TF_NATIVE_ROOT||'/tmp/tf-project-source';
++const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
++(async()=>{const log=fs.openSync('/tmp/tf-order-vite.log','w');const server=spawn('pnpm',['exec','vite','--host','127.0.0.1','--port','4312'],{cwd:path.join(root,'apps/ui-lab'),stdio:['ignore',log,log]});let browser;try{
++ for(let i=0;i<100;i++){try{if((await fetch('http://127.0.0.1:4312/order.html')).ok)break;}catch{}await new Promise(r=>setTimeout(r,100));}
++ browser=await chromium.launch({headless:true,...(process.env.CHROME_PATH?{executablePath:process.env.CHROME_PATH}:{}),args:['--no-sandbox']});
++ for(const width of [320,390,1280]){
++ const page=await browser.newPage({viewport:{width,height:900}}),errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('http://127.0.0.1:4312/order.html');await page.waitForSelector('[data-taskflow-column-handle="todo"]');
++ const order=()=>page.locator('[data-taskflow-column]').evaluateAll(xs=>xs.map(x=>x.dataset.taskflowColumn));
++ const before=await order();assert.deepEqual(before,['backlog','todo','in_progress','in_review','blocked','done']);
++ // Actual mouse pointer drag on real BoardColumn; narrow viewports use the settings controls below.
++ if(width===1280){const a=await page.locator('[data-taskflow-column-handle="todo"]').boundingBox(),b=await page.locator('[data-taskflow-column-handle="in_progress"]').boundingBox();await page.mouse.move(a.x+a.width/2,a.y+a.height/2);await page.mouse.down();await page.mouse.move(b.x+b.width/2,b.y+b.height/2,{steps:20});await page.mouse.up();}
++ else{await page.getByRole('button',{name:'專案狀態',exact:true}).click();await page.getByRole('button',{name:'將「待辦」欄向後移',exact:true}).click();await page.getByRole('button',{name:'完成',exact:true}).click();}
++ await page.waitForFunction(()=>window.fixtureWrites.length===1);await page.waitForFunction(()=>document.querySelectorAll('[data-taskflow-column]')[1]?.getAttribute('data-taskflow-column')==='in_progress');assert.equal((await order())[2],'todo');
++ assert.deepEqual(await page.evaluate(()=>window.fixtureCards),[{id:'original-card',status:'todo'}]);
++ await page.reload();await page.waitForSelector('[data-taskflow-column-handle="todo"]');assert.equal((await order())[1],'in_progress');
++ const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('fixture-pref:11111111-1111-4111-8111-111111111111')));assert.equal(saved.prefs.unrelated,'keep');assert.deepEqual(saved.prefs.taskflow_hidden_statuses,['cancelled']);
++ await page.screenshot({path:`/downloads/tf-project-order-board-${width}.png`});
++ await page.getByRole('button',{name:'專案狀態',exact:true}).click();const dialog=page.getByRole('dialog');await dialog.waitFor();const text=await dialog.innerText();assert.ok(!/Backlog|In Progress|In Review|Cancelled/.test(text));for(const word of ['待規劃','待辦','進行中','稽核中'])assert.ok(text.includes(word));
++ const bounds=await dialog.boundingBox();assert.ok(bounds.x>=0 && bounds.x+bounds.width<=width+1);await page.screenshot({path:`/downloads/tf-project-order-settings-${width}.png`});await page.getByRole('button',{name:'完成',exact:true}).click();
++ // A rejected preference write leaves the visual order unchanged.
++ await page.evaluate(()=>window.fixtureFailSave=true);await page.locator('[data-taskflow-column-handle="todo"]').focus();await page.keyboard.press('ArrowLeft');await page.getByText('無法儲存專案狀態設定，請再試一次。',{exact:true}).waitFor();assert.equal((await order())[1],'in_progress');
++ await page.getByRole('button',{name:'切換專案',exact:true}).click();await page.waitForFunction(()=>document.querySelector('[data-testid="project"]').textContent.startsWith('2222'));await page.waitForSelector('[data-taskflow-column-handle="todo"]');assert.deepEqual(await order(),before);
++ assert.deepEqual(errors,[]);await page.close();
++ }
++ console.log('PASS: real BoardColumn pointer drag; 320/390/1280 controls+Traditional Chinese; reopened order; second Project unchanged; rejected save unchanged; cards untouched');
++}finally{if(browser)await browser.close();server.kill('SIGTERM');await new Promise(r=>server.on('close',r));}})().catch(e=>{console.error(e);process.exitCode=1});
+diff --git a/labs/taskflow/tests/project-column-browser/entry.tsx b/labs/taskflow/tests/project-column-browser/entry.tsx
+new file mode 100644
+index 0000000000..868999938c
+--- /dev/null
++++ b/labs/taskflow/tests/project-column-browser/entry.tsx
+@@ -0,0 +1,37 @@
++import React, { useState } from "react";
++import { createRoot } from "react-dom/client";
++import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
++import { createAuthStore, registerAuthStore } from "@multica/core/auth";
++import { setApiInstance } from "@multica/core/api";
++import { I18nProvider } from "@multica/core/i18n/react";
++import { WorkspaceSlugProvider } from "@multica/core/paths";
++import { workspaceKeys } from "@multica/core/workspace/queries";
++import { setCurrentWorkspace } from "@multica/core/platform";
++import { getIssueSurfaceViewStore } from "@multica/core/issues/stores/surface-view-store";
++import { ViewStoreProvider } from "@multica/core/issues/stores/view-store-context";
++import { TaskFlowProjectStatusScopeProvider } from "@multica/core/issue-statuses/taskflow-project-status-scope";
++import { useIssueStatuses } from "@multica/core/issue-statuses/hooks";
++import { visibleStatusKeys } from "@multica/core/issues";
++import { BoardColumn } from "../../../packages/views/issues/components/board-column";
++import { TaskFlowProjectStatusSettings } from "../../../packages/views/issues/components/taskflow-project-status-settings";
++import { RESOURCES } from "@multica/views/locales";
++import { TooltipProvider } from "@multica/ui/components/ui/tooltip";
++import { Toaster } from "sonner";
++import { createFixtureApi, memoryStorage, user, workspace } from "./product-fixtures";
++import "./styles.css";
++const projects=["11111111-1111-4111-8111-111111111111","22222222-2222-4222-8222-222222222222"];
++const base=createFixtureApi(()=>"en");
++const writes: unknown[]=[];
++const api=new Proxy(base,{get(target,key){
++ if(key==="getIssueViewPreference") return async (scope:any)=>JSON.parse(localStorage.getItem("fixture-pref:"+scope.scope_id)??"null")??{...scope,prefs:{hidden:[],order:[],unrelated:"keep",taskflow_hidden_statuses:["cancelled"]},updated_at:""};
++ if(key==="putIssueViewPreference") return async (input:any)=>{ if((window as any).fixtureFailSave) throw new Error("fixture rejected save");writes.push(input);localStorage.setItem("fixture-pref:"+input.scope_id,JSON.stringify(input));return structuredClone(input); };
++ if(key==="listIssueStatuses") return async()=>({statuses:["backlog","todo","in_progress","in_review","blocked","done","cancelled"].map((key,index)=>({id:key,workspace_id:workspace.id,key,name:{backlog:"Backlog",todo:"Todo",in_progress:"In Progress",in_review:"In Review",blocked:"Blocked",done:"Done",cancelled:"Cancelled"}[key],category:["done","cancelled"].includes(key)?key==="done"?"done":"closed":["in_progress","in_review","blocked"].includes(key)?"started":"unstarted",description:"",color:"#777777",is_system:true,position:index,archived_at:null,created_at:"",updated_at:""})),total:7,categories:[]});
++ return Reflect.get(target,key);
++}});
++setApiInstance(api);const storage=memoryStorage();const auth=createAuthStore({api,storage});auth.setState({user,isLoading:false,status:"authenticated"});registerAuthStore(auth);setCurrentWorkspace(workspace.slug,workspace.id);
++const queryClient=new QueryClient({defaultOptions:{queries:{retry:false},mutations:{retry:false}}});queryClient.setQueryData(workspaceKeys.list(),[workspace]);
++const store=getIssueSurfaceViewStore("column-order-browser-fixture");store.setState({viewMode:"board"});
++Object.assign(window,{fixtureWrites:writes,fixtureCards:[{id:"original-card",status:"todo"}]});
++function Board({projectId}:{projectId:string}){const catalog=useIssueStatuses(workspace.id);const keys=visibleStatusKeys([], ["cancelled"],catalog);return <><TaskFlowProjectStatusSettings projectId={projectId}/><div data-board-scroller="" style={{display:"flex",gap:16,overflowX:"auto",height:500,padding:8}}>{keys.map(status=><BoardColumn key={status} group={{id:status,status,title:status}} issueIds={[]} issueMap={new Map()} projectId={projectId}/>)}</div></>;}
++function App(){const [project,setProject]=useState(projects[0]!);return <QueryClientProvider client={queryClient}><I18nProvider locale="zh-Hant" resources={RESOURCES}><WorkspaceSlugProvider slug={workspace.slug}><TooltipProvider><div className="dark" style={{background:"#071720",color:"white",height:"100vh",padding:16}}><button onClick={()=>setProject(project===projects[0]?projects[1]!:projects[0]!)}>切換專案</button><p data-testid="project">{project}</p><TaskFlowProjectStatusScopeProvider key={project} projectId={project}><ViewStoreProvider store={store}><Board projectId={project}/></ViewStoreProvider></TaskFlowProjectStatusScopeProvider></div><Toaster/></TooltipProvider></WorkspaceSlugProvider></I18nProvider></QueryClientProvider>;}
++createRoot(document.getElementById("root")!).render(<App/>);
+diff --git a/labs/taskflow/tests/test_taskflow_project_status_overlay.py b/labs/taskflow/tests/test_taskflow_project_status_overlay.py
+index 71b15c9e5d..eaa59d9d92 100644
+--- a/labs/taskflow/tests/test_taskflow_project_status_overlay.py
++++ b/labs/taskflow/tests/test_taskflow_project_status_overlay.py
+@@ -33,6 +33,7 @@ PATCHED_PATHS = [
+     *[f"packages/views/locales/{locale}/issues.json" for locale in ("en", "zh-Hant", "zh-Hans", "ja", "fr")],
+     "packages/views/settings/components/issue-statuses-tab.tsx",
+     "packages/views/settings/components/issue-statuses-tab.test.tsx",
++    "packages/core/issues/status-category.ts",
+ ]
+ 
+ SETTINGS_TAB_PATH = "packages/views/settings/components/issue-statuses-tab.tsx"
