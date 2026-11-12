@@ -57,6 +57,7 @@ async function readCards(page) {
       help: document.getElementById('stageHelp')?.textContent || '',
       oldPanelGone: !document.querySelector('.village-grid') && !document.getElementById('villagePanel'),
       pagerHidden: document.getElementById('stagePager')?.hidden,
+      entryZone: document.getElementById('entryZone')?.textContent || '',
       visibleCards: [...document.querySelectorAll('.adventure-stage')].filter(c => !c.classList.contains('stage-page-hide')).map(c => c.dataset.zone),
       noWideScroll: document.documentElement.scrollWidth <= innerWidth
     };
@@ -90,9 +91,24 @@ test('stage cards are state-driven: stars, what is missing, and the exam entry o
   assert.match(r.help, /達90%開下一關/, 'rules move into the 說明 details');
   assert.match(r.help, /集滿21星開放出村大考驗，90分通過才開放第8關/, '說明 keeps the full unlock contract');
   assert.ok(r.oldPanelGone, 'no second stacked progress panel remains');
-  assert.equal(r.pagerHidden, true, 'desktop shows all cards, pager hidden');
-  assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById('stagePager')).display), 'none', 'desktop computed style really hides the pager');
-  assert.equal(r.visibleCards.length, 8, 'desktop shows every card at once');
+  assert.match(r.entryZone, /第 2 關/, 'stage 1 passed, so the mission recommends stage 2, got ' + r.entryZone);
+  assert.equal(r.pagerHidden, false, 'desktop keeps the pager visible once the mission and bottom actions reserve their space');
+  assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById('stagePager')).display), 'flex', 'desktop computed style really shows the pager');
+  assert.equal(r.visibleCards.length, 6, 'desktop shows two measured rows (six cards), got ' + r.visibleCards.join(','));
+  const oneScreen = await page.evaluate(() => {
+    const pg = document.getElementById('stagePager').getBoundingClientRect();
+    const mission = document.querySelector('.entry-mission').getBoundingClientRect();
+    const row = document.querySelector('.app-library-row')?.getBoundingClientRect();
+    const help = document.getElementById('stageHelp').getBoundingClientRect();
+    const options = document.querySelector('.entry-options')?.getBoundingClientRect();
+    return { missionBottom: mission.bottom, helpBottom: help.bottom, pagerBottom: pg.bottom, rowBottom: row ? row.bottom : null, optionsBottom: options ? options.bottom : null, scrollH: document.documentElement.scrollHeight, ih: innerHeight };
+  });
+  assert.ok(oneScreen.missionBottom <= oneScreen.ih + 1, 'start-practice card stays in the window: ' + JSON.stringify(oneScreen));
+  assert.ok(oneScreen.helpBottom <= oneScreen.ih + 1, 'rules details stay in the window');
+  assert.ok(oneScreen.pagerBottom <= oneScreen.ih + 1, 'pager stays in the window');
+  assert.ok(oneScreen.rowBottom === null || oneScreen.rowBottom <= oneScreen.ih + 1, 'library / handwriting row stays in the window: ' + JSON.stringify(oneScreen));
+  assert.ok(oneScreen.optionsBottom === null || oneScreen.optionsBottom <= oneScreen.ih + 1, 'practice options stay in the window: ' + JSON.stringify(oneScreen));
+  assert.ok(oneScreen.scrollH <= oneScreen.ih + 1, 'no vertical scrolling through the main entry: ' + JSON.stringify(oneScreen));
   assert.ok(r.noWideScroll);
 
   // The in-card exam entry drives the real exam flow.
