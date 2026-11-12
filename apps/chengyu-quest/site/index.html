@@ -384,7 +384,7 @@ html.entry-playing.px-vocab #app>.muted,html.entry-playing.px-vocab #app>.row .m
 'use strict';
 const idiom=!!document.getElementById('screen-home'),$=s=>document.querySelector(s);
 const make=(tag,cls,html)=>{const e=document.createElement(tag);e.className=cls;if(html)e.innerHTML=html;return e};
-const profile=make('details','entry-profile');profile.innerHTML='<summary><span class="entry-avatar" aria-hidden="true">✦</span><span class="entry-person"><b>我的冒險者</b><small>正在讀取角色與進度</small></span><span class="entry-profile-more">角色／進度⌄</span></summary><div class="entry-profile-body"></div>';
+const profile=make('details','entry-profile');profile.innerHTML='<summary><span class="entry-avatar" aria-hidden="true">✦</span><span class="entry-person"><b>我的勇者</b><small>正在讀取角色與進度</small></span><span class="entry-profile-more">角色／進度⌄</span></summary><div class="entry-profile-body"></div>';
 const header=$(idiom?'.topbar':'.top');header.after(profile);
 const universal=$('#universalHero'),xp=$('#vocabXpBoard');if(universal)profile.lastElementChild.append(universal);if(xp)profile.lastElementChild.append(xp);
 const nav=$('.pixel-return');if(nav){nav.textContent='‹ 冒險總部';header.prepend(nav)}
@@ -392,7 +392,7 @@ if(idiom){$('#homeBtn').textContent='島內首頁';}else{$('#homebtn').setAttrib
 function syncProfile(){
  const main=universal?.querySelector('.adventure-hero-main strong'),stat=universal?.querySelector('.hero-title>span');
  const p=profile.querySelector('.entry-person');
- if(main){p.firstElementChild.textContent=main.textContent.replace(/^[^\u4e00-\u9fffA-Za-z0-9]+/,'');p.lastElementChild.textContent=stat?.textContent||'兩島共用冒險者';const portrait=universal.querySelector('.adventure-hero-portrait');if(portrait){const a=profile.querySelector('.entry-avatar');a.className='entry-avatar '+portrait.className;a.setAttribute('aria-hidden','true')}}else{p.firstElementChild.textContent='我的冒險者';p.lastElementChild.textContent='選擇玩家後，成績會記在自己名下'}
+ if(main){p.firstElementChild.textContent=main.textContent.replace(/^[^\u4e00-\u9fffA-Za-z0-9]+/,'');p.lastElementChild.textContent=stat?.textContent||'兩島共用勇者';const portrait=universal.querySelector('.adventure-hero-portrait');if(portrait){const a=profile.querySelector('.entry-avatar');a.className='entry-avatar '+portrait.className;a.setAttribute('aria-hidden','true')}}else{p.firstElementChild.textContent='我的勇者';p.lastElementChild.textContent='選擇玩家後，成績會記在自己名下'}
 }
 if(universal)new MutationObserver(syncProfile).observe(universal,{childList:true,subtree:true,attributes:true});syncProfile();
 function disclosure(title,cls=''){return make('details','entry-disclosure '+cls,'<summary>'+title+'<span>⌄</span></summary><div class="entry-disclosure-body"></div>')}
@@ -487,12 +487,13 @@ function arrangeParent(){if(idiom||!parentView||root.querySelector('.entry-missi
 function close(){document.documentElement.classList.remove('app-settings-open');if(page)page.hidden=true;gear.hidden=false;place.textContent=idiom?'成語練習':'英文練習';window.scrollTo(0,homeScroll)}
 function open(){if(!page)return;homeScroll=scrollY;page.hidden=false;profile.hidden=false;document.documentElement.classList.add('app-settings-open');place.textContent='';gear.hidden=true;window.scrollTo(0,0);page.querySelector('button')?.focus()}
 gear.addEventListener('click',open);
+if(new URLSearchParams(location.hash.slice(1)).get('s')==='settings'){let _tries=0;const _timer=setInterval(()=>{if(page){open();clearInterval(_timer)}else if(++_tries>40)clearInterval(_timer)},250)}
 function section(title){const e=document.createElement('section');e.className='app-setting-section';const h=document.createElement('h2');h.textContent=title;e.append(h);return e}
 function settings(){const e=document.createElement('section');e.className='app-settings';e.hidden=true;e.setAttribute('aria-label','設定');e.innerHTML='<button class="app-back" type="button">‹ 返回學習</button><h1>設定</h1>';e.firstElementChild.addEventListener('click',close);return e}
 function sync(){
  const state=idiom?window.chengyuProgressState?.():window.vocabProgressState?.();const player=state?.learners.find(x=>x.id===state.selectedId);
  const stat=player?'本島 '+(Number(player.xp)||0)+' XP':'';
- const text=player?player.name+(stat?' · '+stat:''):(new URLSearchParams(location.hash.slice(1)).get('p')?'正在載入冒險者…':'試玩模式');
+ const text=player?player.name+(stat?' · '+stat:''):(new URLSearchParams(location.hash.slice(1)).get('p')?'正在載入勇者…':'試玩模式');
  if(identity.textContent!==text)identity.textContent=text;
  const raw=idiom?$('#cloudStatus')?.textContent:window.vocabPlayerBridge?.snapshot().status;
  const warning=raw&&(/⚠|失敗|無法|錯誤/.test(raw));const token=new URLSearchParams(location.hash.slice(1)).get('f');const message=warning?(!token?'目前是試玩，進度不會儲存。請從總部進入。':'暫時無法同步，請重新整理再試。') : ''; 
@@ -506,9 +507,9 @@ function arrange(){
  if(!root.querySelector('.entry-mission'))return;
  if(root.querySelector('.app-settings')){sync();return}
  const keepSettings=document.documentElement.classList.contains('app-settings-open');if(!keepSettings)close();page=settings();
- const who=section('冒險者與進度');who.append(profile);const manage=section('家長專區');const sound=section('聲音');const data=section('同步與關於');
+ const who=section('勇者與進度');who.append(profile);const manage=section('家長專區');const sound=section('聲音');const data=section('同步與關於');
  if(idiom){
-  const sw=$('#cloudSwitch');sw.textContent='切換冒險者';who.append(sw);
+  const sw=$('#cloudSwitch');sw.textContent='切換勇者';who.append(sw);
   const report=$('#cloudReport');report.textContent='查看家長成績';manage.append(report);
   for(const e of root.querySelectorAll('.entry-disclosure')){
    if(e.classList.contains('entry-map')||e.classList.contains('entry-options'))continue;
@@ -522,7 +523,7 @@ function arrange(){
   const hint=root.querySelector('.adventure-hint');if(hint)data.append(hint);
   const options=root.querySelector('.entry-options');options.querySelector('summary').firstChild.textContent='調整這次練習';
  }else{
-  const sw=root.querySelector('[data-action="switchTester"]');if(sw){sw.textContent='切換冒險者';who.append(sw)}root.querySelector('.entry-switch')?.remove();
+  const sw=root.querySelector('[data-action="switchTester"]');if(sw){sw.textContent='切換勇者';who.append(sw)}root.querySelector('.entry-switch')?.remove();
   const report=root.querySelector('[data-action="report"]');if(report){report.textContent='查看家長成績';manage.append(report)}
   const more=root.querySelector('.more-panel');if(more){more.open=true;more.querySelector('.more-description')?.remove();sound.append(more)}
   for(const e of root.querySelectorAll('.tester-current,.entry-sync,.cloud-warning'))data.append(e);
@@ -552,9 +553,9 @@ function polish(){
   for(const e of root.querySelectorAll('[data-action="report"]'))e.hidden=true;
   for(const e of root.querySelectorAll('[data-action="home"]'))setText(e,'回到練習');
   for(const e of root.querySelectorAll('[data-action="replay"]'))setText(e,'再練一次');
-  for(const e of root.querySelectorAll('[data-action="filterAll"]'))setText(e,'全家人的紀錄');for(const e of root.querySelectorAll('[data-action="filterTester"]'))setText(e,'目前冒險者');
+  for(const e of root.querySelectorAll('[data-action="filterAll"]'))setText(e,'全家人的紀錄');for(const e of root.querySelectorAll('[data-action="filterTester"]'))setText(e,'目前勇者');
   if(!parentView&&root.querySelector('h1.title')?.textContent.includes('成績')){const last=root.lastElementChild;if(last?.querySelector('[data-action="filterAll"]'))last.hidden=true;
-   const intro=root.querySelector('h1.title + p');if(intro)intro.innerHTML=intro.innerHTML.replace('本次測試者：','冒險者：').replace('測驗範圍：','這次練習：');}
+   const intro=root.querySelector('h1.title + p');if(intro)intro.innerHTML=intro.innerHTML.replace('本次測試者：','勇者：').replace('測驗範圍：','這次練習：');}
  }
 }
 if(idiom)new MutationObserver(polish).observe($('#screen-result'),{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
@@ -575,7 +576,7 @@ function state(){if(hub)return host.state();return world==='vocab'?window.vocabP
 function identity(){const st=state();return st?.selectedId||''}
 function tokenValue(){return new URLSearchParams(location.hash.slice(1)).get('f')||''}
 async function request(action,args={},id=identity()){
- if(!id||!tokenValue())throw Error('請先選擇冒險者');
+ if(!id||!tokenValue())throw Error('請先選擇勇者');
  const r=await fetch(api,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...args,action,world,learnerId:id,token:tokenValue()}),cache:'no-store'});
  const d=await r.json();if(!r.ok||!d.ok)throw Error(d.error||'暫時無法同步');return d;
 }
@@ -589,7 +590,7 @@ function colPaint(){
  for(const b of document.querySelectorAll('[data-collect]')){
   const ready=col.loaded&&col.id===id;
   const on=ready&&col.set.has(colKey(b.dataset.collect));
-  const t=!id?'☆ 收藏（選擇冒險者後可用）':col.id===id&&col.failed?'☆ 收藏（暫時無法同步）':!ready?'☆ 收藏（讀取中…）':on?'★ 已收藏，再按一次移除':'☆ 收藏';
+  const t=!id?'☆ 收藏（選擇勇者後可用）':col.id===id&&col.failed?'☆ 收藏（暫時無法同步）':!ready?'☆ 收藏（讀取中…）':on?'★ 已收藏，再按一次移除':'☆ 收藏';
   if(b.textContent!==t)b.textContent=t;
   const p=String(on);if(b.getAttribute('aria-pressed')!==p)b.setAttribute('aria-pressed',p);
   const d=!id||!ready||col.busy;if(b.disabled!==d)b.disabled=d;
@@ -689,13 +690,13 @@ const world=document.querySelector('#adventureArea')?'chengyu':'vocab',api='http
 let identity='',data=null,busy=false,last=0,exam=null,answers=[],examWho='',working=false,examStage=0;
 const safe=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function id(){return(world==='chengyu'?window.chengyuProgressState?.():window.vocabProgressState?.())?.selectedId||''}
-async function req(action,args={},who=id()){const token=new URLSearchParams(location.hash.slice(1)).get('f');if(!who||!token)throw Error('請先選擇冒險者');const r=await fetch(api,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...args,world,action,learnerId:who,token})});const d=await r.json();if(!r.ok||d.ok===false)throw Error(d.error||'暫時無法同步');return d}
+async function req(action,args={},who=id()){const token=new URLSearchParams(location.hash.slice(1)).get('f');if(!who||!token)throw Error('請先選擇勇者');const r=await fetch(api,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...args,world,action,learnerId:who,token})});const d=await r.json();if(!r.ok||d.ok===false)throw Error(d.error||'暫時無法同步');return d}
 const style=document.createElement('style');style.textContent='.village-panel{margin:16px 0;padding:16px;border:1px solid #69789a;border-radius:16px;background:#edf1fd;color:#243752;line-height:1.65}.village-panel h2{font-size:20px;margin:0 0 8px}.village-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0}.village-tile{padding:10px;border:1px solid #b9c6e0;border-radius:10px;background:#fff;color:#243752;font:inherit;text-align:left;min-height:72px}.village-tile small{display:block;font-size:12px}.village-panel button{cursor:pointer}.village-panel button:disabled{cursor:default;opacity:.55}.village-rule{font-size:12px;margin:6px 0}.village-exam{position:fixed;inset:0;background:#111c37ed;z-index:11000;padding:20px 12px;overflow:auto}.village-exam[hidden]{display:none}.village-exam>section{max-width:540px;margin:auto;background:white;padding:20px;border-radius:18px;color:#243752;line-height:1.7}.village-exam button{display:block;width:100%;margin:10px 0;padding:12px;border:1px solid #9baaca;border-radius:10px;background:#f2f4ff;color:#243752;font:inherit;text-align:left}.village-exam h2{font-size:23px}.village-exam p{overflow-wrap:anywhere}.village-review{margin:8px 0;font-size:13px}.village-review summary{cursor:pointer;font-weight:700}#villageTotal{display:inline;color:#9fc3ef;font-weight:700;margin-left:4px}';document.head.append(style);
 const modal=document.createElement('div');modal.className='village-exam';modal.hidden=true;modal.innerHTML='<section role="dialog" aria-modal="true" aria-label="出村大考驗"></section>';document.body.append(modal);
 function panel(){const home=document.querySelector(world==='chengyu'?'#screen-home':'#app');if(!home)return null;let p=document.getElementById('villagePanel');if(p&&world==='vocab'&&!home.contains(p))p=null;if(!p){p=document.createElement('section');p.id='villagePanel';p.className='village-panel';const at=world==='chengyu'?document.getElementById('adventureArea'):home.querySelector('.entry-mission');(at||home).insertAdjacentElement(at?'afterend':'afterbegin',p)}return p}
 function isHome(){return world==='chengyu'?document.getElementById('screen-home')?.classList.contains('active'):!!document.querySelector('#app [data-action="stage0"]')}
-function paint(){if(!isHome())return;const who=id();if(world==='chengyu'){const sum=document.querySelector('.entry-map summary');if(!sum)return;let totalEl=document.getElementById('villageTotal');if(!totalEl){totalEl=document.createElement('span');totalEl.id='villageTotal';sum.append(totalEl)}const g=window.learningVillageProgress;const txt=!who?' · 選擇冒險者開始集星':(g&&who===identity)?' · 新手村集星 '+g.total+' / 21'+(window.learningVillagePassed?' · 出村考驗已通過':''):' · 集星同步中…';if(totalEl.__villageTxt!==txt){totalEl.__villageTxt=txt;totalEl.textContent=txt}return}const p=panel();if(!p)return;let html='<h2>新手村集星 '+(data&&who===identity?data.total:0)+' / 21</h2><p class="village-rule">第1星：過關（至少5題、80%）。第2星：同關3個詞各答對兩種角度。第3星：另一天再過關。新賽季從第一關開始，舊紀錄與金幣保留。</p>';
-if(!who)html+='<p>選擇冒險者後，從這次更新開始集星。</p>';else if(!data)html+='<p role="status">正在同步星星…</p>';else{html+='<div class="village-grid">'+data.stages.map(z=>'<'+(world==='vocab'?'button':'div')+' class="village-tile" '+(world==='vocab'?'type="button" data-village-stage="'+z.zone+'" '+(z.zone>1&&!(data.stagePassed||[]).includes(z.zone-1)?'disabled':''):'')+'><strong>第 '+z.zone+' 關 '+('★'.repeat(z.stars)+'☆'.repeat(3-z.stars))+'</strong><small>'+z.diverse_words+'/3 詞已有兩種角度 · '+z.pass_days+' 個過關日'+(world==='vocab'?' · 點此開始／再練':'')+'</small></'+(world==='vocab'?'button':'div')+'>').join('')+'</div>';
+function paint(){if(!isHome())return;const who=id();if(world==='chengyu'){const sum=document.querySelector('.entry-map summary');if(!sum)return;let totalEl=document.getElementById('villageTotal');if(!totalEl){totalEl=document.createElement('span');totalEl.id='villageTotal';sum.append(totalEl)}const g=window.learningVillageProgress;const txt=!who?' · 選擇勇者開始集星':(g&&who===identity)?' · 新手村集星 '+g.total+' / 21'+(window.learningVillagePassed?' · 出村考驗已通過':''):' · 集星同步中…';if(totalEl.__villageTxt!==txt){totalEl.__villageTxt=txt;totalEl.textContent=txt}return}const p=panel();if(!p)return;let html='<h2>新手村集星 '+(data&&who===identity?data.total:0)+' / 21</h2><p class="village-rule">第1星：過關（至少5題、80%）。第2星：同關3個詞各答對兩種角度。第3星：另一天再過關。新賽季從第一關開始，舊紀錄與金幣保留。</p>';
+if(!who)html+='<p>選擇勇者後，從這次更新開始集星。</p>';else if(!data)html+='<p role="status">正在同步星星…</p>';else{html+='<div class="village-grid">'+data.stages.map(z=>'<'+(world==='vocab'?'button':'div')+' class="village-tile" '+(world==='vocab'?'type="button" data-village-stage="'+z.zone+'" '+(z.zone>1&&!(data.stagePassed||[]).includes(z.zone-1)?'disabled':''):'')+'><strong>第 '+z.zone+' 關 '+('★'.repeat(z.stars)+'☆'.repeat(3-z.stars))+'</strong><small>'+z.diverse_words+'/3 詞已有兩種角度 · '+z.pass_days+' 個過關日'+(world==='vocab'?' · 點此開始／再練':'')+'</small></'+(world==='vocab'?'button':'div')+'>').join('')+'</div>';
 html+='<p class="village-rule">每關先混合練習，再做本關總結測驗；達90%開下一關，三星另記學習進度。</p><div class="village-grid">'+data.stages.map(z=>'<button type="button" class="village-tile" data-stage-exam="'+z.zone+'" '+(!z.first_star||(z.zone>1&&!(data.stagePassed||[]).includes(z.zone-1))?'disabled':'')+'>第 '+z.zone+' 關總結測驗'+((data.stagePassed||[]).includes(z.zone)?' · 已通過':' · 90%開下一關')+'</button>').join('')+'</div>';
 if(world==='vocab')html+='<p class="village-rule">七關都混合意思、拼字與句子，使用目前教材；原三種練習仍保留。</p>';
 html+='<button type="button" class="village-tile" data-village-exam '+(!data.villageExamUnlocked?'disabled':'')+'>出村大考驗 · 90分通過'+(!data.villageExamUnlocked?'（集滿21星開放）':'')+'</button>';
