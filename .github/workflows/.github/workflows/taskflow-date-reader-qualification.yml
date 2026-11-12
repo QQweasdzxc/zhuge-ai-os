@@ -1,0 +1,101 @@
+name: TaskFlow Date Reader Release Qualification
+on:
+  push:
+    branches: [review/tf-date-hours-bootstrap-20261113]
+    paths: [.github/workflows/taskflow-date-reader-qualification.yml]
+permissions:
+  contents: read
+jobs:
+  compose:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    outputs:
+      pages: ${{ steps.source.outputs.pages }}
+      web: ${{ steps.source.outputs.web }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Compose independent exact-baseline readers, no deployment
+        id: source
+        run: |
+          set -euo pipefail
+          test "$(sha256sum 1-tf-date-hours-pages-reader.patch | cut -d' ' -f1)" = d92a97c8bb0a3871597b37c591c25c7315d03aed8d08951db41488ca6fab71ec
+          test "$(sha256sum 2-tf-date-hours-web-identity.patch | cut -d' ' -f1)" = c612bf0b95fabb3cc923cc33586a393eb556ab8a4e30a121fff7500e8a59e31c
+          cp 1-tf-date-hours-pages-reader.patch /tmp/pages.patch
+          cp 2-tf-date-hours-web-identity.patch /tmp/web.patch
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git switch --detach 7390d1f0111bb4d3e8dc19807013aae7c67e1838
+          git apply --check /tmp/pages.patch
+          git apply /tmp/pages.patch
+          git add -u
+          git add tests/worklog-date-hours-compat.test.js tests/worklog-date-hours-full-legacy.cjs
+          git diff --cached --check
+          git commit -m 'Add date-only legacy reader compatibility on exact Pages baseline'
+          git push origin HEAD:refs/heads/review/tf-date-hours-pages-reader-20261113
+          echo "pages=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          git switch --detach f5e25463283f067b8dd8cf517204e4a4abeffd1f
+          git apply --check /tmp/web.patch
+          git apply /tmp/web.patch
+          git add -u
+          git diff --cached --check
+          git commit -m 'Set unique release cache identity for date-only Web release'
+          git push origin HEAD:refs/heads/review/tf-date-hours-web-release-20261113
+          echo "web=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+  pages-reader:
+    needs: compose
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.compose.outputs.pages }}
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: |
+          git fetch origin main:refs/remotes/origin/main
+          node tools/release-governance.js preflight
+      - run: npm ci --ignore-scripts
+      - run: |
+          node --test tests/worklog-*.test.js tests/release-consistency.test.js tests/release-governance.test.js tests/shared-navigation.test.js tests/taskflow-entry.test.js tests/taskflow-cli-sso.test.js
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s labs/taskflow/tests -v
+      - run: npx playwright install --with-deps chromium
+      - name: Actual legacy loader and main browser suite
+        run: |
+          sudo mkdir -p /downloads
+          sudo chmod 777 /downloads
+          export CHROME_PATH=$(node -e 'process.stdout.write(require("playwright").chromium.executablePath())')
+          export BROWSER_EXECUTABLE=$CHROME_PATH
+          node tests/worklog-date-hours-full-legacy.cjs
+          npm run test:browser
+      - name: Build original curated Pages artifact including pinned Pixel Office
+        run: |
+          node tools/build-pages-site.js "$RUNNER_TEMP/pages-site"
+          git init "$RUNNER_TEMP/zhuge-habblaud"
+          git -C "$RUNNER_TEMP/zhuge-habblaud" remote add origin https://github.com/marmottajr/habblaud.git
+          git -C "$RUNNER_TEMP/zhuge-habblaud" fetch --depth=1 origin faa1a012b5fbf632c66dc6801c5383e53a542406
+          git -C "$RUNNER_TEMP/zhuge-habblaud" checkout --detach FETCH_HEAD
+          npm ci --prefix "$RUNNER_TEMP/zhuge-habblaud" --ignore-scripts --no-audit --no-fund
+          node integrations/habblaud/build.mjs "$RUNNER_TEMP/zhuge-habblaud" "$RUNNER_TEMP/pages-site"
+          node tests/pages-publish-artifact.test.js "$RUNNER_TEMP/pages-site"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pages-date-reader-evidence
+          path: tests/evidence/
+          retention-days: 14
+  web-image:
+    needs: compose
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.compose.outputs.web }}
+      - name: Build exact Web release image without deploying
+        run: docker build --pull --progress=plain -f labs/taskflow/Dockerfile.web -t taskflow-date-hours-web-release .
