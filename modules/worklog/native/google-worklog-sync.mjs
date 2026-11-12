@@ -58,9 +58,35 @@ export class GoogleWorklogSync {
   await this.store.clearConflict(this.userId,this.calendarId,operationId,{eventEtag:conflict.eventEtag,entryUpdatedAt:conflict.entryUpdatedAt});
   return {status:'resolved',choice,operationId};
  }
+ // Only a new owner-confirmed deletion intent may remove its exact durable
+ // binding. Old tombstones, title matches and unbound events are never swept.
+ async deleteLinkedEvent(entry){
+  if(!entry.googleDeleteRequestedAt)return {status:'local-deleted'};
+  const binding=await this.store.byEntry(this.userId,this.calendarId,entry.cloudId);
+  if(!binding)return {status:'local-only'};
+  if(binding.userId!==this.userId||binding.calendarId!==this.calendarId||binding.entryId!==entry.cloudId||!binding.eventId||!binding.eventEtag)throw Object.assign(new Error('工時日曆綁定無法核實，沒有刪除事件'),{code:'DELETE_BINDING_INVALID'});
+  if(binding.entryUpdatedAt===entry.updatedAt)return {status:'delete-synced',eventId:binding.eventId};
+  try{
+   await this.store.assertLease?.();
+   const current=await this.store.entry(this.userId,entry.cloudId);
+   if(!current||current.status!=='deleted'||current.updatedAt!==entry.updatedAt||current.googleDeleteRequestedAt!==entry.googleDeleteRequestedAt)throw Object.assign(new Error('刪除要求已有變動，日曆事件保留'),{code:'DELETE_CHANGED'});
+   let event;try{event=await this.provider.get(this.calendarId,binding.eventId);}catch(error){if(![404,410].includes(error.status))throw error;}
+   if(event&&event.status!=='cancelled'){
+    if(event.id!==binding.eventId||event.etag!==binding.eventEtag)throw Object.assign(new Error('日曆事件已被修改，沒有刪除，請先確認該事件'),{code:'DELETE_REMOTE_CHANGED'});
+    await this.store.assertLease?.();
+    await this.provider.remove(this.calendarId,binding.eventId,binding.eventEtag);
+   }
+   // Keep the binding as a tombstone. A lost DELETE response retries safely;
+   // a delayed Google notification cannot turn the local deletion into a new row.
+   await this.store.bind({...binding,entryUpdatedAt:entry.updatedAt});
+   if(binding.operationId)await this.store.clearConflict?.(this.userId,this.calendarId,binding.operationId);
+   return {status:'delete-synced',eventId:binding.eventId};
+  }catch(error){if(error.code==='REMOTE_CHANGED')error.code='DELETE_REMOTE_CHANGED';if(!String(error.code||'').startsWith('DELETE_'))error.code='DELETE_FAILED';await this.store.failure(this.userId,binding.operationId||entry.cloudId,error.code);throw error;}
+ }
  async exportEntry(entry){
   if(!this.enabled)throw new Error('工時日曆同步尚未啟用，沒有改動資料');
-  if(!entry?.cloudId||entry.status==='deleted')return {status:'local-deleted'};
+  if(!entry?.cloudId)return {status:'local-deleted'};
+  if(entry.status==='deleted')return this.deleteLinkedEvent(entry);
   const binding=await this.store.byEntry(this.userId,this.calendarId,entry.cloudId);
   if(binding?.entryUpdatedAt===entry.updatedAt)return {status:'unchanged'};
   const identity=await this.store.eventIdentity(this.userId,this.calendarId,entry.cloudId);

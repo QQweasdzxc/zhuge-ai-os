@@ -16,7 +16,7 @@ export class WorklogService{
  saveBatch(items:WorklogEntry[],date:string,options?:{onPersisted?:()=>void}):Promise<WorklogEntry[]>;
  recordMetric(item:{title:string;date:string;hours?:number;at?:string;suggestionName?:string},event:'suggested'|'added'|'edited'|'deleted'):Promise<void>;
  addEcpTask(value:string):Promise<string>;
- remove(entry:WorklogEntry):Promise<unknown>;
+ remove(entry:WorklogEntry,options?:{deleteLinkedGoogle?:boolean}):Promise<unknown>;
  exportMonth(month:string):Promise<{count:number;filename:string}>;
 }
 export function supabaseRequest(config:{baseUrl:string;anonKey:string;expectedUserId:string;getSession:()=>Promise<{access_token:string;user:{id:string}}>;fetchImpl?:typeof fetch}):(path:string,options?:RequestInit)=>Promise<unknown>;
