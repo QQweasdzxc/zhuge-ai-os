@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#f4f6ff"><title>英文單字闖關王｜V2.9.7</title><script src="./wordbank.js"></script><link rel="preconnect" href="https://ssl.gstatic.com" crossorigin><link rel="preconnect" href="https://api.dictionaryapi.dev" crossorigin>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#f4f6ff"><title>英文單字闖關王｜V2.9.9</title><script src="./wordbank.js"></script><link rel="preconnect" href="https://ssl.gstatic.com" crossorigin><link rel="preconnect" href="https://api.dictionaryapi.dev" crossorigin>
 <style>
 :root{--bg:#f4f6ff;--ink:#263554;--muted:#697a94;--line:#e0e6f4;--blue:#5165d8;--blue2:#7a57d7;--white:#fff;--green:#1d8a68;--red:#ca4e66;--gold:#d4a032}
 *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--ink);background:radial-gradient(ellipse at top left,#e2edff,transparent 44%),radial-gradient(ellipse at top right,#fff0e1,transparent 40%),var(--bg);font-family:system-ui,-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;line-height:1.5}button,input{font:inherit}button{cursor:pointer;-webkit-tap-highlight-color:transparent}button:disabled{opacity:.5;cursor:default}.shell{margin:auto;max-width:760px;padding:21px 18px 65px;min-height:100dvh}.top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:20px}.brand{display:flex;align-items:center;gap:9px;font-weight:900;font-size:18px}.mark{background:#e7eafe;border-radius:13px;padding:9px}.headbtn{border:1px solid var(--line);background:white;border-radius:12px;padding:9px 13px;font-weight:700;color:var(--ink)}.hero{background:linear-gradient(120deg,#506de0,#8661d0);color:white;padding:28px 24px;border-radius:24px;box-shadow:0 14px 30px #526de133}.hero h1{font-size:clamp(28px,7vw,39px);margin:0 0 8px;line-height:1.2}.hero p{margin:0;color:#eff1ff;font-size:14px}.tag{display:inline-block;background:#ffffff2b;border-radius:99px;padding:5px 11px;font-size:12px;margin-bottom:12px}.stats,.triple{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:16px 0}.stat,.mini{background:white;border:1px solid var(--line);padding:13px 7px;border-radius:16px;text-align:center}.stat b{display:block;font-size:23px}.stat small,.mini small{display:block;font-size:11px;color:var(--muted)}.panel{background:white;border-radius:23px;border:1px solid var(--line);padding:21px;margin-top:16px;box-shadow:0 9px 24px #3049680e}.panel h2{font-size:19px;margin:0 0 10px}.panel p{color:var(--muted);font-size:13px;margin:3px 0 13px}.btn{border:0;border-radius:14px;padding:13px 15px;font-weight:800;min-height:49px;display:inline-flex;align-items:center;justify-content:center;gap:7px}.wide{width:100%}.primary{color:#fff;background:var(--blue)}.secondary{background:#e9edff;color:#3a4aa2}.outline{background:white;border:1px solid var(--line);color:var(--ink)}.actions{display:grid;gap:10px;margin-top:14px}.notice{font-size:12px;color:#7b6570;background:#fff5f1;border:1px solid #f9dfd3;border-radius:12px;padding:11px 13px;margin-top:16px}.muted{color:var(--muted);font-size:13px}.row{display:flex;align-items:center;justify-content:space-between;gap:12px}.title{font-size:24px;line-height:1.3;margin:0}.progress{background:#e7ebf6;height:9px;border-radius:9px;margin:16px 0;overflow:hidden}.bar{background:linear-gradient(90deg,#6d8cec,#8365d3);height:100%;border-radius:9px;transition:width .2s}.question{background:linear-gradient(135deg,#f0f5ff,#fff);border:1px solid #e0e8ff;border-radius:21px;text-align:center;padding:26px 17px;min-height:190px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}.question h2{font-size:clamp(27px,6vw,38px);margin:0;overflow-wrap:anywhere}.question h2.sentence{font-size:clamp(19px,4.4vw,27px)}.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:16px 0}.option{min-height:75px;border:1.5px solid #dee5f3;border-radius:15px;background:white;padding:12px 8px;font-size:15px;font-weight:700;color:var(--ink);overflow-wrap:anywhere}.option:hover{border-color:#98ace7;background:#f7f9ff}.option.good{background:#e7f8ee;border-color:#4fb68d}.option.bad{background:#fff0f1;border-color:#e69bab}.pill{border:1px solid #dce4f9;background:white;color:var(--blue);border-radius:99px;padding:8px 15px;font-size:13px;font-weight:800}.input{width:100%;border:2px solid #dfe5f5;border-radius:14px;padding:14px;font-size:22px;color:var(--ink);text-align:center;margin:15px 0 10px}.help{background:#fff6e6;border-radius:12px;padding:11px;font-size:13px;margin:8px 0;color:#86631f}.feedback{background:#eaf9f2;border:1px solid #c3e7d4;border-radius:15px;padding:14px;margin-top:15px}.feedback.wrong{background:#fff2f3;border-color:#f1d4da}.feedback strong{display:block;font-size:17px}.feedback p{margin:8px 0 0;font-size:13px;color:#4c6077}.card{width:100%;background:linear-gradient(145deg,#eef3ff,#fff);border:1px solid #dfe7fb;border-radius:24px;min-height:270px;padding:30px 15px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:var(--ink)}.card b{font-size:clamp(30px,8vw,45px)}.card .trans{font-size:23px;font-weight:800}.flex{display:flex;gap:9px;justify-content:space-between;align-items:center;margin-top:14px}.flex>.btn{flex:1}.table-row{border-bottom:1px solid #edf0f7;padding:10px 0;display:flex;justify-content:space-between;align-items:center;gap:10px}.table-row:last-child{border:0}.small{font-size:12px;color:var(--muted)}.success{color:var(--green)}.danger{color:var(--red)}.trophy{font-size:56px;text-align:center}.star{color:var(--gold);font-size:24px}.center{text-align:center}button:focus-visible,input:focus-visible{outline:3px solid #89a0f2;outline-offset:2px}
@@ -53,7 +53,7 @@ html.quiz-locked,html.quiz-locked body{overflow:hidden}
 @media(max-width:750px){.quiz-stage.spell .question{min-height:88px;padding:10px 14px;gap:8px}.quiz-stage.spell .progress{margin:8px 0}.quiz-stage.spell .lives{margin:6px 0}.quiz-stage.spell .spelling-listen{margin-top:8px;padding:8px 10px}.quiz-stage.spell .spelling-listen .listen-buttons{margin:6px 0}.quiz-stage.spell .spelling-listen .listen-status{margin-top:4px}.quiz-stage.spell .input{margin:6px 0 4px;padding:10px;font-size:20px}.quiz-stage.spell .quiz-mid .flex{margin-top:8px}}
 @media(max-width:750px){.question{min-height:120px;padding:16px 12px}.option{min-height:58px}.fx-dock{height:200px}}
 @media(max-width:750px) and (max-height:560px){.question{min-height:64px;padding:8px 10px;gap:6px}.question h2{font-size:22px}.spelling-listen{margin-top:6px;padding:8px}.spelling-listen .listen-buttons{margin:6px 0}.input{padding:8px;font-size:18px;margin:8px 0 6px}.fx-dock{height:150px}.answer-fx{padding:8px 10px}.progress{margin:8px 0}.lives{margin:4px 0}}
-</style><script>if(new URLSearchParams(location.hash.slice(1)).get("p"))document.documentElement.classList.add("app-resuming");</script><style>html.app-resuming #playerGate,html.app-resuming #vocabPlayerGate{display:none!important}</style></head><body><main class="shell"><header class="top"><button class="brand brand-action" id="homebtn" aria-label="返回首頁"><span class="mark">🎮</span><span>單字闖關王</span></button><label class="top-picker-wrap"><span class="top-picker-label">測驗項目</span><select id="scope-picker" aria-label="選擇測驗項目"></select></label></header><div id="app" aria-live="polite"></div></main><footer class="release-footer" id="release-footer" aria-label="網站版本資訊"><span class="release-version" id="release-version">V2.9.7</span><span class="release-cloud" id="release-cloud" role="status">☁️ 檢查字庫中</span><span id="release-date">程式更新 2026/11/12 12:45</span><button id="release-check" type="button">檢查新版</button><span class="release-notice" id="release-notice" role="status" aria-live="polite"></span></footer>
+</style><script>if(new URLSearchParams(location.hash.slice(1)).get("p"))document.documentElement.classList.add("app-resuming");</script><style>html.app-resuming #playerGate,html.app-resuming #vocabPlayerGate{display:none!important}</style></head><body><main class="shell"><header class="top"><button class="brand brand-action" id="homebtn" aria-label="返回首頁"><span class="mark">🎮</span><span>單字闖關王</span></button><label class="top-picker-wrap"><span class="top-picker-label">測驗項目</span><select id="scope-picker" aria-label="選擇測驗項目"></select></label></header><div id="app" aria-live="polite"></div></main><footer class="release-footer" id="release-footer" aria-label="網站版本資訊"><span class="release-version" id="release-version">V2.9.9</span><span class="release-cloud" id="release-cloud" role="status">☁️ 檢查字庫中</span><span id="release-date">程式更新 2026/11/12 12:45</span><button id="release-check" type="button">檢查新版</button><span class="release-notice" id="release-notice" role="status" aria-live="polite"></span></footer>
 <script>
 (function(){
 "use strict";
@@ -786,7 +786,7 @@ html.entry-playing.px-vocab #app>.muted,html.entry-playing.px-vocab #app>.row .m
 'use strict';
 const idiom=!!document.getElementById('screen-home'),$=s=>document.querySelector(s);
 const make=(tag,cls,html)=>{const e=document.createElement(tag);e.className=cls;if(html)e.innerHTML=html;return e};
-const profile=make('details','entry-profile');profile.innerHTML='<summary><span class="entry-avatar" aria-hidden="true">✦</span><span class="entry-person"><b>我的冒險者</b><small>正在讀取角色與進度</small></span><span class="entry-profile-more">角色／進度⌄</span></summary><div class="entry-profile-body"></div>';
+const profile=make('details','entry-profile');profile.innerHTML='<summary><span class="entry-avatar" aria-hidden="true">✦</span><span class="entry-person"><b>我的勇者</b><small>正在讀取角色與進度</small></span><span class="entry-profile-more">角色／進度⌄</span></summary><div class="entry-profile-body"></div>';
 const header=$(idiom?'.topbar':'.top');header.after(profile);
 const universal=$('#universalHero'),xp=$('#vocabXpBoard');if(universal)profile.lastElementChild.append(universal);if(xp)profile.lastElementChild.append(xp);
 const nav=$('.pixel-return');if(nav){nav.textContent='‹ 冒險總部';header.prepend(nav)}
@@ -794,7 +794,7 @@ if(idiom){$('#homeBtn').textContent='島內首頁';}else{$('#homebtn').setAttrib
 function syncProfile(){
  const main=universal?.querySelector('.adventure-hero-main strong'),stat=universal?.querySelector('.hero-title>span');
  const p=profile.querySelector('.entry-person');
- if(main){p.firstElementChild.textContent=main.textContent.replace(/^[^\u4e00-\u9fffA-Za-z0-9]+/,'');p.lastElementChild.textContent=stat?.textContent||'兩島共用冒險者';const portrait=universal.querySelector('.adventure-hero-portrait');if(portrait){const a=profile.querySelector('.entry-avatar');a.className='entry-avatar '+portrait.className;a.setAttribute('aria-hidden','true')}}else{p.firstElementChild.textContent='我的冒險者';p.lastElementChild.textContent='選擇玩家後，成績會記在自己名下'}
+ if(main){p.firstElementChild.textContent=main.textContent.replace(/^[^\u4e00-\u9fffA-Za-z0-9]+/,'');p.lastElementChild.textContent=stat?.textContent||'兩島共用勇者';const portrait=universal.querySelector('.adventure-hero-portrait');if(portrait){const a=profile.querySelector('.entry-avatar');a.className='entry-avatar '+portrait.className;a.setAttribute('aria-hidden','true')}}else{p.firstElementChild.textContent='我的勇者';p.lastElementChild.textContent='選擇玩家後，成績會記在自己名下'}
 }
 if(universal)new MutationObserver(syncProfile).observe(universal,{childList:true,subtree:true,attributes:true});syncProfile();
 function disclosure(title,cls=''){return make('details','entry-disclosure '+cls,'<summary>'+title+'<span>⌄</span></summary><div class="entry-disclosure-body"></div>')}
@@ -826,9 +826,6 @@ if(idiom){
   if(oldShell){
    const body=oldShell.lastElementChild;
    const strayLinks=[...app.querySelectorAll('.actions-inline')].find(e=>e.querySelector('[data-action="list"]')&&!e.closest('.entry-other-modes-shell')&&!e.closest('.panel'));if(strayLinks)body.append(strayLinks);
-   const straySound=[...app.querySelectorAll('.more-panel')].find(e=>!e.closest('.entry-other-modes-shell'));if(straySound){straySound.classList.add('entry-disclosure');const sm=straySound.querySelector('summary');if(sm)sm.textContent='聲音與進階設定';body.append(straySound)}
-   const strayStatus=[...app.querySelectorAll('.tester-current')].find(e=>!e.closest('.entry-other-modes-shell'));if(strayStatus)body.append(strayStatus);
-   const straySync=[...app.querySelectorAll('.cloud-status')].find(e=>!e.closest('.entry-other-modes-shell'));if(straySync){straySync.classList.add('entry-sync');body.append(straySync)}
    return;
   }
   const oldTitle=app.querySelector('.hero'),player=app.querySelector('[data-action="switchTester"]')?.closest('section'),launch=start.closest('section');
@@ -842,9 +839,6 @@ if(idiom){
   launch.classList.add('entry-other-modes');launch.querySelector('h2').textContent='換一種練習';const omShell=disclosure('換一種練習 · 其他模式','entry-disclosure entry-other-modes-shell');omShell.lastElementChild.append(launch);mission.after(omShell);
   if(player){const sw=player.querySelector('[data-action="switchTester"]');sw.textContent='切換玩家';const row=make('div','entry-switch');row.append(sw);mission.after(row);player.remove()}
   const links=app.querySelector('[data-action="list"]')?.closest('.actions-inline');if(links)omShell.lastElementChild.append(links);
-  const sound=app.querySelector('.more-panel');if(sound){sound.classList.add('entry-disclosure');sound.querySelector('summary').textContent='聲音與進階設定';omShell.lastElementChild.append(sound)}
-  const status=app.querySelector('.tester-current');if(status)omShell.lastElementChild.append(status);
-  const sync=app.querySelector('.cloud-status');if(sync){sync.classList.add('entry-sync');omShell.lastElementChild.append(sync)}
   omShell.addEventListener('toggle',()=>{try{window.vocabVillageRepaint?.()}catch(e){}});
   
  }
@@ -888,7 +882,7 @@ function settings(){const e=document.createElement('section');e.className='app-s
 function sync(){
  const state=idiom?window.chengyuProgressState?.():window.vocabProgressState?.();const player=state?.learners.find(x=>x.id===state.selectedId);
  const stat=player?'本島 '+(Number(player.xp)||0)+' XP':'';
- const text=player?player.name+(stat?' · '+stat:''):(new URLSearchParams(location.hash.slice(1)).get('p')?'正在載入冒險者…':'試玩模式');
+ const text=player?player.name+(stat?' · '+stat:''):(new URLSearchParams(location.hash.slice(1)).get('p')?'正在載入勇者…':'試玩模式');
  if(identity.textContent!==text)identity.textContent=text;
  const raw=idiom?$('#cloudStatus')?.textContent:window.vocabPlayerBridge?.snapshot().status;
  const warning=raw&&(/⚠|失敗|無法|錯誤/.test(raw));const token=new URLSearchParams(location.hash.slice(1)).get('f');const message=warning?(!token?'目前是試玩，進度不會儲存。請從總部進入。':'暫時無法同步，請重新整理再試。') : ''; 
@@ -902,9 +896,9 @@ function arrange(){
  if(!root.querySelector('.entry-mission'))return;
  if(root.querySelector('.app-settings')){sync();return}
  const keepSettings=document.documentElement.classList.contains('app-settings-open');if(!keepSettings)close();page=settings();
- const who=section('冒險者與進度');who.append(profile);const manage=section('家長專區');const sound=section('聲音');const data=section('同步與關於');
+ const who=section('勇者與進度');who.append(profile);const manage=section('家長專區');const sound=section('聲音');const data=section('同步與關於');
  if(idiom){
-  const sw=$('#cloudSwitch');sw.textContent='切換冒險者';who.append(sw);
+  const sw=$('#cloudSwitch');sw.textContent='切換勇者';who.append(sw);
   const report=$('#cloudReport');report.textContent='查看家長成績';manage.append(report);
   for(const e of root.querySelectorAll('.entry-disclosure')){
    if(e.classList.contains('entry-map')||e.classList.contains('entry-options'))continue;
@@ -918,7 +912,7 @@ function arrange(){
   const hint=root.querySelector('.adventure-hint');if(hint)data.append(hint);
   const options=root.querySelector('.entry-options');options.querySelector('summary').firstChild.textContent='調整這次練習';
  }else{
-  const sw=root.querySelector('[data-action="switchTester"]');if(sw){sw.textContent='切換冒險者';who.append(sw)}root.querySelector('.entry-switch')?.remove();
+  const sw=root.querySelector('[data-action="switchTester"]');if(sw){sw.textContent='切換勇者';who.append(sw)}root.querySelector('.entry-switch')?.remove();
   const report=root.querySelector('[data-action="report"]');if(report){report.textContent='查看家長成績';manage.append(report)}
   const more=root.querySelector('.more-panel');if(more){more.open=true;more.querySelector('.more-description')?.remove();sound.append(more)}
   for(const e of root.querySelectorAll('.tester-current,.entry-sync,.cloud-warning'))data.append(e);
@@ -948,9 +942,9 @@ function polish(){
   for(const e of root.querySelectorAll('[data-action="report"]'))e.hidden=true;const meta=root.querySelector('.game-over-meta');if(meta)setText(meta,meta.textContent.replace(/Supabase/g,'雲端'));
   for(const e of root.querySelectorAll('[data-action="home"]'))setText(e,e.dataset.studyExit?'🎯 預習完成，去挑戰':'回到練習');
   for(const e of root.querySelectorAll('[data-action="replay"]'))setText(e,'再練一次');
-  for(const e of root.querySelectorAll('[data-action="filterAll"]'))setText(e,'全家人的紀錄');for(const e of root.querySelectorAll('[data-action="filterTester"]'))setText(e,'目前冒險者');
+  for(const e of root.querySelectorAll('[data-action="filterAll"]'))setText(e,'全家人的紀錄');for(const e of root.querySelectorAll('[data-action="filterTester"]'))setText(e,'目前勇者');
   if(!parentView&&root.querySelector('h1.title')?.textContent.includes('成績')){const last=root.lastElementChild;if(last?.querySelector('[data-action="filterAll"]'))last.hidden=true;
-   const intro=root.querySelector('h1.title + p');if(intro)intro.innerHTML=intro.innerHTML.replace('本次測試者：','冒險者：').replace('測驗範圍：','這次練習：');}
+   const intro=root.querySelector('h1.title + p');if(intro)intro.innerHTML=intro.innerHTML.replace('本次測試者：','勇者：').replace('測驗範圍：','這次練習：');}
  }
 }
 if(idiom)new MutationObserver(polish).observe($('#screen-result'),{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
@@ -971,7 +965,7 @@ function state(){if(hub)return host.state();return world==='vocab'?window.vocabP
 function identity(){const st=state();return st?.selectedId||''}
 function tokenValue(){return new URLSearchParams(location.hash.slice(1)).get('f')||''}
 async function request(action,args={},id=identity()){
- if(!id||!tokenValue())throw Error('請先選擇冒險者');
+ if(!id||!tokenValue())throw Error('請先選擇勇者');
  const r=await fetch(api,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...args,action,world,learnerId:id,token:tokenValue()}),cache:'no-store'});
  const d=await r.json();if(!r.ok||!d.ok)throw Error(d.error||'暫時無法同步');return d;
 }
@@ -985,7 +979,7 @@ function colPaint(){
  for(const b of document.querySelectorAll('[data-collect]')){
   const ready=col.loaded&&col.id===id;
   const on=ready&&col.set.has(colKey(b.dataset.collect));
-  const t=!id?'☆ 收藏（選擇冒險者後可用）':col.id===id&&col.failed?'☆ 收藏（暫時無法同步）':!ready?'☆ 收藏（讀取中…）':on?'★ 已收藏，再按一次移除':'☆ 收藏';
+  const t=!id?'☆ 收藏（選擇勇者後可用）':col.id===id&&col.failed?'☆ 收藏（暫時無法同步）':!ready?'☆ 收藏（讀取中…）':on?'★ 已收藏，再按一次移除':'☆ 收藏';
   if(b.textContent!==t)b.textContent=t;
   const p=String(on);if(b.getAttribute('aria-pressed')!==p)b.setAttribute('aria-pressed',p);
   const d=!id||!ready||col.busy;if(b.disabled!==d)b.disabled=d;
@@ -1085,7 +1079,7 @@ const world=document.querySelector('#adventureArea')?'chengyu':'vocab',api='http
 let identity='',data=null,busy=false,last=0,exam=null,answers=[],examWho='',working=false,examStage=0;
 const safe=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function id(){return(world==='chengyu'?window.chengyuProgressState?.():window.vocabProgressState?.())?.selectedId||''}
-async function req(action,args={},who=id()){const token=new URLSearchParams(location.hash.slice(1)).get('f');if(!who||!token)throw Error('請先選擇冒險者');const r=await fetch(api,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...args,world,action,learnerId:who,token})});const d=await r.json();if(!r.ok||d.ok===false)throw Error(d.error||'暫時無法同步');return d}
+async function req(action,args={},who=id()){const token=new URLSearchParams(location.hash.slice(1)).get('f');if(!who||!token)throw Error('請先選擇勇者');const r=await fetch(api,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...args,world,action,learnerId:who,token})});const d=await r.json();if(!r.ok||d.ok===false)throw Error(d.error||'暫時無法同步');return d}
 const style=document.createElement('style');style.textContent='.village-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}.village-head h2{margin:0 0 6px}.village-head .village-help{margin:0 0 6px}.village-panel{margin:12px 0;padding:10px 14px;border:1px solid #69789a;border-radius:16px;background:#edf1fd;color:#243752;line-height:1.65}.village-panel h2{font-size:20px;margin:0 0 8px}.village-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:10px 0}@media(max-width:680px){.village-grid{grid-template-columns:minmax(0,1fr)}}.village-tile{padding:10px;border:1px solid #b9c6e0;border-radius:10px;background:#fff;color:#243752;font:inherit;text-align:left;min-height:72px}.village-tile small{display:block;font-size:12px}.village-panel button{cursor:pointer}.village-panel button:disabled{cursor:default;opacity:.55}.village-rule{font-size:12px;margin:6px 0}.village-card{display:flex;align-items:center;gap:10px;min-height:82px}.village-card .village-main{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:0}.village-card .village-side{margin-left:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;flex:none}.village-card strong{font-size:15px}.village-stars{font-size:15px;letter-spacing:2px;color:#e8a93c;white-space:nowrap;line-height:1.2}.village-stars-off{color:#c9cfdd}.village-state{font-size:12px;font-weight:800;color:#3563d9}.village-pass-mark{color:#1a9e4b;font-size:15px;font-weight:900;white-space:nowrap}.village-badge{display:inline-block;background:#2e9e5b;color:#fff;border-radius:8px;padding:1px 8px;font-size:12px;font-weight:900;margin-left:4px}.village-locked{opacity:.62}.village-pass{border-color:#2e9e5b;background:#f2fbf5}.village-final{background:#fffbe8;border-color:#d9b45a}.village-exam-go{width:68px;min-height:56px;border:0;border-radius:12px;padding:8px 6px;background:#0f7d8c;color:#fff;font:inherit;font-size:13px;font-weight:800;line-height:1.3;text-align:center;cursor:pointer}.village-exam-go:hover{background:#0b6572}.village-retake{background:none;border:0;color:#8a94a9;font:inherit;font-size:11px;font-weight:700;text-decoration:underline;padding:0;cursor:pointer}.village-retake:hover{color:#3563d9}.village-help{margin:8px 0 4px;font-size:12px}.village-help summary{cursor:pointer;font-weight:700;color:#3563d9}.village-help p{margin:6px 0}.village-cell{display:contents}.village-cell.vp-hide{display:none}.village-pager[hidden]{display:none}.village-pager{display:flex;align-items:center;justify-content:center;gap:12px;margin:4px 0;position:sticky;bottom:4px;background:#edf1fd;padding:4px;z-index:6;border-radius:10px}.village-pager button{border:1px solid #9baaca;background:#fff;border-radius:9px;padding:8px 14px;font:inherit;font-size:12px;font-weight:700;color:#243752;cursor:pointer}.village-pager button:disabled{opacity:.45;cursor:default}.village-pager span{font-size:12px;color:#7a88a8;font-weight:700}.village-review{margin:8px 0;font-size:13px}.village-review summary{cursor:pointer;font-weight:700}.village-exam{position:fixed;inset:0;background:#111c37ed;z-index:11000;padding:20px 12px;overflow:auto}.village-exam[hidden]{display:none}.village-exam>section{max-width:540px;margin:auto;background:white;padding:20px;border-radius:18px;color:#243752;line-height:1.7}.village-exam button{display:block;width:100%;margin:10px 0;padding:12px;border:1px solid #9baaca;border-radius:10px;background:#f2f4ff;color:#243752;font:inherit;text-align:left}.village-exam h2{font-size:23px}.village-exam p{overflow-wrap:anywhere}';document.head.append(style);
 const modal=document.createElement('div');modal.className='village-exam';modal.hidden=true;modal.innerHTML='<section role="dialog" aria-modal="true" aria-label="出村大考驗"></section>';document.body.append(modal);
 function panel(){const home=document.querySelector(world==='chengyu'?'#screen-home':'#app');if(!home)return null;let p=document.getElementById('villagePanel');if(p&&world==='vocab'&&!home.contains(p))p=null;if(!p){p=document.createElement('section');p.id='villagePanel';p.className='village-panel';const at=world==='chengyu'?document.getElementById('adventureArea'):home.querySelector('.entry-mission');if(at)at.insertAdjacentElement(world==='vocab'?'beforebegin':'afterend',p);else home.insertAdjacentElement('afterbegin',p)}return p}
@@ -1122,7 +1116,7 @@ if(b0.disabled!==d0)b0.disabled=d0;if(b1.disabled!==d1)b1.disabled=d1}};
 apply()}
 function paint(){if(!isHome())return;const p=panel();if(!p)return;const who=id();
 let html='<div class="village-head"><h2>新手村集星 '+(data&&who===identity?data.total:0)+' / 21</h2><details class="village-help"><summary>集星與測驗說明</summary><p>第1星：過關（至少5題、80%）。第2星：同關3個詞各答對兩種角度。第3星：另一天再過關。新賽季從第一關開始，舊紀錄與金幣保留。</p><p>每關先混合練習，再做本關總結測驗；達90%開下一關，三星另記學習進度。七關都混合意思、拼字與句子，使用目前教材；原三種練習仍保留。</p><p>出村大考驗：集滿21星開放，90分通過。</p></details></div>';
-if(!who)html+='<p>選擇冒險者後，從這次更新開始集星。</p>';
+if(!who)html+='<p>選擇勇者後，從這次更新開始集星。</p>';
 else if(!data)html+='<p role="status">正在同步星星…</p>';
 else{
 const sp=data.stagePassed||[];
@@ -1137,7 +1131,7 @@ c+='<div class="village-main"><strong>第 '+z.zone+' 關</strong><small>意思�
 c+='<div class="village-side">'+side+'</div></div>';
 return c});
 const unlocked=!!data.villageExamUnlocked,done=!!data.villagePassed;
-cells.push('<div class="village-tile village-card village-final'+(done?' village-pass':'')+'"><div class="village-main"><strong>出村大考驗</strong><small>集滿 21 星開放 · 90 分通過</small><span class="village-state">'+(done?'✅ 已通過':unlocked?'🎯 考驗開放':'🔒 目前集星 '+data.total+' / 21')+'</span></div><div class="village-side">'+(done?'<span class="village-pass-mark">✓PASS</span>':unlocked?'<button type="button" class="village-exam-go" data-village-exam>出村大考驗</button>':'')+'</div></div>');
+cells.push('<div class="village-tile village-card village-final'+(done?' village-pass':'')+'"><div class="village-main"><strong>出村大考驗</strong><small>集滿 21 星開放</small><span class="village-state">'+(done?'✅ 已通過':unlocked?'🎯 考驗開放':'🔒 目前集星 '+data.total+' / 21')+'</span></div><div class="village-side">'+(done?'<span class="village-pass-mark">✓PASS</span>':unlocked?'<button type="button" class="village-exam-go" data-village-exam>出村大考驗</button>':'')+'</div></div>');
 html+='<div class="village-grid" id="villageGrid">'+cells.map(c=>'<div class="village-cell">'+c+'</div>').join('')+'</div>';
 html+='<div class="village-pager" id="villagePager" hidden><button type="button" data-vpage="-1">‹ 上一頁</button><span></span><button type="button" data-vpage="1">下一頁 ›</button></div>';
 }
