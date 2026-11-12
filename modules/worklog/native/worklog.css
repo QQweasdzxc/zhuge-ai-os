@@ -57,3 +57,6 @@
 .worklog-linked-task .worklog-task-markers{font-size:12px}
 
 .worklog-task-icon{display:inline-block;vertical-align:-2px;flex-shrink:0}
+
+.worklog-read-warning{display:flex;align-items:center;gap:12px;padding:10px 14px;background:#3c3019;color:#ffe1a1;font:13px/1.5 sans-serif;flex-shrink:0}.worklog-read-warning span{flex:1}.worklog-read-warning button{flex-shrink:0;padding:8px;border:1px solid #9a8045;border-radius:6px;background:#312b1c;color:#ffe1a1}
+.tq6-worklog:has(.worklog-read-warning){display:flex;flex-direction:column}.tq6-worklog>.worklog-read-warning+.compact-app{flex:1;height:auto;min-height:0}

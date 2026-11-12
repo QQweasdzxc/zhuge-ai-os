@@ -10,7 +10,7 @@ export class WorklogService{
  suggestions(date:string):Array<{id:string;title:string;defaultDurationMinutes:number;at:string;ecpTask:string;sourceLabel:string;reason:string;confidence:number}>;
  rules(date?:string,extra?:Record<string,unknown>):{resolveWorklogTime:(options:Record<string,unknown>)=>{at:string;dateKey:string;reason:string};[key:string]:any};
  resolveSuggestedTime(date:string,hours:number,reserved?:Partial<WorklogEntry>[]):string|null;
- saveBatch(items:WorklogEntry[],date:string):Promise<WorklogEntry[]>;
+ saveBatch(items:WorklogEntry[],date:string,options?:{onPersisted?:()=>void}):Promise<WorklogEntry[]>;
  recordMetric(item:{title:string;date:string;hours?:number;at?:string;suggestionName?:string},event:'suggested'|'added'|'edited'|'deleted'):Promise<void>;
  addEcpTask(value:string):Promise<string>;
  remove(entry:WorklogEntry):Promise<unknown>;
