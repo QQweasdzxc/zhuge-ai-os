@@ -164,6 +164,29 @@ test('cover crop is biased toward the bottom and long names ellipsis in the adve
   assert.equal(r.nowrap, 'nowrap');
 });
 
+test('desktop 1280x800 shows the whole shared role poster without scrolling', async t => {
+  const { browser, page } = await openHub(1280, 800);
+  t.after(() => browser.close());
+  const r = await page.evaluate(() => {
+    const ov = document.getElementById('overlay');
+    const dlg = document.getElementById('dialog');
+    ov.style.display = '';
+    dlg.classList.add('poster-dialog');
+    ov.dataset.mode = 'rolePoster';
+    dlg.innerHTML = '<div class="poster-scene shared-role-scene" data-appearance="boy"><img class="poster-art shared-master-art" src="' + window.ARCHIPELAGO_SHARED_MASTER + '"><button class="poster-hotspot role-ranger"></button><button class="poster-hotspot role-guardian"></button><button class="poster-hotspot poster-accept"></button></div>';
+    ov.hidden = false;
+    const dr = dlg.getBoundingClientRect();
+    const scene = dlg.querySelector('.shared-role-scene').getBoundingClientRect();
+    const accept = dlg.querySelector('.poster-accept').getBoundingClientRect();
+    const guardian = dlg.querySelector('.role-guardian').getBoundingClientRect();
+    return { dw: dr.width, sh: scene.height, ih: innerHeight, pageScroll: document.documentElement.scrollHeight, sceneTop: scene.top, acceptBottom: accept.bottom, guardianBottom: guardian.bottom };
+  });
+  assert.ok(r.dw > 400, 'poster has a real width (layout actually applied): ' + JSON.stringify(r));
+  assert.ok(r.sh <= r.ih - 8 && r.sceneTop >= 0 && r.sceneTop + r.sh <= r.ih + 1, 'whole poster fits the viewport without scrolling: ' + JSON.stringify(r));
+  assert.ok(r.guardianBottom <= r.ih && r.acceptBottom <= r.ih, 'ranger/guardian cards and the accept button are on screen: ' + JSON.stringify(r));
+  assert.ok(r.pageScroll <= r.ih, 'no page scroll at 1280x800: ' + JSON.stringify(r));
+});
+
 test('mobile gap below the art continues the ocean scene instead of a flat band', async t => {
   const { browser, page } = await openHub(390, 844);
   t.after(() => browser.close());

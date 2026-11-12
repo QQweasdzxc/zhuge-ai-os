@@ -200,6 +200,13 @@ h1{font-size:clamp(30px,4.3vw,49px);letter-spacing:.03em;line-height:1.23;margin
  padding:0!important;overflow:visible!important;
 }
 #overlay:has(.poster-dialog){padding:8px 5px 20px;background:rgba(10,20,46,.92)}
+/* The shared role poster is a tall 864x1536 scene: cap its width so the whole
+   poster (four role cards plus the accept button) fits the viewport height
+   without any page scroll, e.g. 432px wide inside a 1280x800 window. */
+.dialog.poster-dialog:has(.shared-role-scene){
+ width:min(100%,min(710px,calc(100vw - 10px),calc(56.25dvh - 18px)))!important;
+ max-width:min(710px,calc(100vw - 10px),calc(56.25dvh - 18px))!important;
+}
 .poster-scene{position:relative;display:block;width:100%;aspect-ratio:1086/1448;isolation:isolate}
 .poster-art{display:block;width:100%;height:auto;aspect-ratio:1086/1448;object-fit:contain;
  user-select:none;pointer-events:none;-webkit-user-drag:none;filter:drop-shadow(0 8px 14px #0a194850)}
@@ -624,7 +631,7 @@ window.ArchipelagoDaily={mount({container,request,worlds=['chengyu','vocab']}){
   <div class="map-footer"><span>⛵ 已開放 2 / 6 座學習島</span><span>✨ 同一位勇者，所有島嶼共用總 XP</span></div>
  </div>
 </section>
-<div hidden aria-hidden="true"><p id="connect"></p><p id="welcomeMessage"></p><button id="goExplore"></button></div></main><footer class="footer">學習冒險島 · BUILD 2026.11.12.08 · 家庭雲端紀錄由 Supabase 保存<br>本網站不要求登入；家庭專用網址含私人存取金鑰，請只分享給家人。</footer>
+<div hidden aria-hidden="true"><p id="connect"></p><p id="welcomeMessage"></p><button id="goExplore"></button></div></main><footer class="footer">學習冒險島 · BUILD 2026.11.12.09 · 家庭雲端紀錄由 Supabase 保存<br>本網站不要求登入；家庭專用網址含私人存取金鑰，請只分享給家人。</footer>
 </div></div>
 <div class="dock" aria-label="快捷入口">
  <button class="dock-chip" id="tasksChip" type="button" aria-label="今日任務"><span class="chip-ic" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7V6a4 4 0 0 1 8 0v1h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2zm2 0h4V6a2 2 0 0 0-4 0v1zm-2 5v3h8v-3h-3v1h-2v-1H8z" fill="currentColor"/></svg></span><span class="dock-chip-label pixel">今日任務</span></button>
