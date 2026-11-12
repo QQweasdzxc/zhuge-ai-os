@@ -36,11 +36,12 @@ Deno.serve(async req=>{
   if(!Array.isArray(family)||!family.length)return fail("家庭專用連結無效",403);
   const familyId=family[0].id, f="eq."+familyId, action=data.action;
   if(action==="load"){
-   const [learners,attempts]=await Promise.all([
+   const [learners,attempts,challenges]=await Promise.all([
     rest("chengyu_family_learners","family_id="+f+"&select=id,name,xp,created_at&order=created_at.asc&limit=40"),
-    rest("chengyu_family_attempts","family_id="+f+"&select=id,learner_id,level,zone,mode,planned_count,question_count,correct_count,result_status,xp_earned,answers,created_at&order=created_at.desc&limit=300")
+    rest("chengyu_family_attempts","family_id="+f+"&select=id,learner_id,level,zone,mode,planned_count,question_count,correct_count,result_status,xp_earned,answers,created_at&order=created_at.desc&limit=300"),
+    rest("chengyu_family_challenge_attempts","family_id="+f+"&select=id,learner_id,challenge_date,question_count,correct_count,created_at&order=created_at.desc&limit=200")
    ]);
-   return reply({ok:true,learners,attempts});
+   return reply({ok:true,learners,attempts,challenges});
   }
   if(action==="addLearner"){
    const name=clean(data.name,24);
@@ -91,6 +92,32 @@ Deno.serve(async req=>{
     answers:answers.map(a=>({word:a.word,kind:a.kind,correct:a.correct,selected:a.selected,expected:a.expected}))
    });
    return reply({ok:true,attempt:{id:rows[0].id,created_at:rows[0].created_at,correct_count:correct,question_count:answers.length,xp_earned:rows[0].xp_earned,zone}});
+  }
+  if(action==="challenges"){
+   const items=await rest("chengyu_family_challenge_items","active=eq.true&select=id,mode,level,payload&limit=500");
+   return reply({ok:true,items});
+  }
+  if(action==="saveChallenge"){
+   const learnerId=data.learnerId;
+   if(!validUuid(learnerId))return fail("挑戰紀錄識別碼不正確");
+   const learner=await rest("chengyu_family_learners","family_id="+f+"&id=eq."+learnerId+"&select=id&limit=1");
+   if(!learner.length)return fail("找不到此測驗者",403);
+   const day=clean(data.challengeDate,10);
+   if(!/^\d{4}-\d{2}-\d{2}$/.test(day))return fail("挑戰日期不正確");
+   const answers=Array.isArray(data.answers)?data.answers:[];
+   if(!answers.length||answers.length>60)return fail("答題紀錄格式不正確");
+   for(const a of answers){
+    if(!a||typeof a.mode!=="string"||!["typo","fill","pairing"].includes(a.mode)||typeof a.correct!=="boolean"||typeof a.selected!=="string"||a.selected.length>350||typeof a.expected!=="string"||a.expected.length>350||typeof a.ref!=="string"||a.ref.length>80)return fail("答題紀錄格式不正確");
+   }
+   const correct=answers.filter(a=>a.correct).length;
+   const previous=await rest("chengyu_family_challenge_attempts","family_id="+f+"&learner_id=eq."+learnerId+"&challenge_date=eq."+day+"&select=id,created_at&limit=1");
+   if(previous.length)return reply({ok:true,attempt:previous[0],duplicate:true});
+   const rows=await rest("chengyu_family_challenge_attempts","","POST",{
+    family_id:familyId,learner_id:learnerId,challenge_date:day,
+    question_count:answers.length,correct_count:correct,
+    answers:answers.map(a=>({mode:a.mode,ref:a.ref,correct:a.correct,selected:a.selected,expected:a.expected}))
+   });
+   return reply({ok:true,attempt:{id:rows[0].id,created_at:rows[0].created_at,correct_count:correct,question_count:answers.length}});
   }
   return fail("不支援的操作");
  } catch(error){console.error("chengyu operation",String(error?.message||error));return fail("雲端操作未完成，請稍後再試",503)}
