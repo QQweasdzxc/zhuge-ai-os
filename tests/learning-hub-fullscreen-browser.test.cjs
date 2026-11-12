@@ -31,7 +31,7 @@ test('desktop hub defaults to a viewport-filling uncropped map with live island 
       aspect: s.width / s.height,
       chengyu: inside('#islandChengyu'), english: inside('#islandEnglish'), board: inside('#heroBoardBtn'),
       links: [document.getElementById('islandChengyu').href, document.getElementById('islandEnglish').href],
-      fitBtn: !!document.getElementById('voyageFitBtn'), fsBtnVisible: !document.getElementById('voyageFsBtn').hidden,
+      noFitBtn: !document.getElementById('voyageFitBtn'), fsBtnVisible: !document.getElementById('voyageFsBtn').hidden,
       chips: ['.stage-chip-title', '.stage-chip-status', '.stage-chip-hint'].every(q => { const e = document.querySelector(q); return e && e.getBoundingClientRect().width > 0 }),
       bgFills: getComputedStyle(document.querySelector('.voyage-bg')).backgroundSize === '100% 100%',
       shellClip: getComputedStyle(document.querySelector('.voyage-shell')).overflowY,
@@ -46,33 +46,36 @@ test('desktop hub defaults to a viewport-filling uncropped map with live island 
   assert.equal(r.bgFills, true, 'art covers the stage edge to edge without cover-cropping');
   assert.ok(r.chengyu && r.english && r.board, 'both island entries and the hero board stay inside the stage');
   assert.ok(r.links[0].includes('chengyu-quest-family.onrender.com') && r.links[1].includes('vocab-quest-family.onrender.com'), 'island entries keep their destinations');
-  assert.ok(r.fitBtn && r.fsBtnVisible && r.chips, 'fullscreen controls and status chips are present');
+  assert.ok(r.noFitBtn && r.fsBtnVisible && r.chips, 'no layout toggle remains; browser-fullscreen control and status chips are present');
   assert.ok(r.shellClip === 'clip' || r.shellClip === 'hidden', 'shell clips overflow so no programmatic scroll can crop the art, got ' + r.shellClip);
   assert.equal(r.shellScroll, 0, 'shell is never scrolled');
   assert.ok(r.stage.w >= r.iw && r.stage.h >= r.ih, 'capped cover fills the viewport edge to edge');
   assert.ok((r.stage.w - r.iw) / 2 / r.stage.w <= 0.095 && (r.stage.h - r.ih) / 2 / r.stage.h <= 0.095, 'cover crop stays within 9% per side');
-  assert.ok(r.dbar && r.dbar.disp === 'flex' && r.dbar.top >= 0 && r.dbar.left >= 0, 'desktop adventure card is pinned top-left');
-  assert.equal(r.dbar.name, '冒險者', 'adventure card guest name');
+  assert.ok(r.dbar && r.dbar.disp === 'flex' && r.dbar.top >= 0 && r.dbar.left >= 0, 'desktop hero card is pinned top-left');
+  assert.equal(await page.evaluate(() => document.getElementById('profileChip')), null, 'duplicate dock hero entry is removed; the top-left hero card is the single desktop entry');
+  assert.ok(r.dbar.coins !== undefined, 'hero card keeps the coins readout integrated');
+  assert.equal(r.dbar.name, '勇者', 'hero card guest name');
   assert.equal(r.dbar.lv, '訪客', 'adventure card guest level');
   assert.ok(r.chipTop >= r.dbar.bottom - 1, 'island title chip sits below the adventure card');
   const hot = await page.evaluate(() => ['#islandChengyu', '#islandEnglish', '#heroBoardBtn'].map(id => { const e = document.querySelector(id).getBoundingClientRect(); return { l: e.left, r: e.right, t: e.top, b: e.bottom } }));
   assert.ok(hot.every(e => e.l >= -1 && e.r <= 1280 + 1 && e.t >= -1 && e.b <= 800 + 1), 'all island entries stay inside the viewport under capped cover: ' + JSON.stringify(hot));
 
-  await page.click('#voyageFitBtn');
-  const boxed = await page.evaluate(() => ({
-    full: document.documentElement.classList.contains('voyage-full'),
-    w: document.querySelector('.voyage-stage').getBoundingClientRect().width,
-    iw: innerWidth,
-    stored: localStorage.getItem('voyage-desktop-layout')
-  }));
-  assert.equal(boxed.full, false, 'restore leaves the fullscreen layout');
-  assert.ok(boxed.w < boxed.iw * 0.97, 'restored layout is the original boxed map');
-  assert.equal(boxed.stored, 'boxed', 'restore choice is remembered');
-  assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('.d-topbar')).display), 'none', 'adventure card is fullscreen-only');
-  assert.equal(await page.evaluate(() => document.querySelector('.voyage-stage').style.width), '', 'boxed mode clears the cover sizing');
+  assert.equal(await page.evaluate(() => document.getElementById('voyageFitBtn')), null, 'layout toggle is gone: desktop is always the adaptive map');
 
-  await page.click('#voyageFitBtn');
-  assert.equal(await page.evaluate(() => document.documentElement.classList.contains('voyage-full')), true, 'toggling back restores the fullscreen map');
+  await page.evaluate(() => localStorage.setItem('voyage-desktop-layout', 'boxed'));
+  await page.reload();
+  await page.waitForSelector('.voyage-shell');
+  await page.evaluate(() => { document.querySelectorAll('.player-gate, #overlay, .hb-overlay, .drawer').forEach(e => { e.hidden = true; e.style.display = 'none' }); });
+  const legacy = await page.evaluate(() => ({
+    full: document.documentElement.classList.contains('voyage-full'),
+    stored: localStorage.getItem('voyage-desktop-layout'),
+    fitBtn: !!document.getElementById('voyageFitBtn'),
+    fsBtnVisible: !document.getElementById('voyageFsBtn').hidden
+  }));
+  assert.equal(legacy.full, true, 'a stale boxed preference no longer traps the desktop in the boxed layout');
+  assert.equal(legacy.stored, null, 'stale layout preference is cleared');
+  assert.equal(legacy.fitBtn, false, 'layout toggle stays removed after reload');
+  assert.equal(legacy.fsBtnVisible, true, 'browser-fullscreen control remains');
 });
 
 test('extreme aspect ratios fall back to the uncropped fit instead of over-cropping', async t => {
@@ -99,7 +102,7 @@ test('mobile hub keeps its existing fullscreen portrait map and gets no desktop 
       shellFixed: getComputedStyle(sh).position === 'fixed',
       shellFull: rect.width >= innerWidth - 1 && rect.height >= innerHeight - 1,
       chengyu: inside('#islandChengyu'), english: inside('#islandEnglish'),
-      fitHidden: getComputedStyle(document.getElementById('voyageFitBtn')).display === 'none',
+      fitHidden: !document.getElementById('voyageFitBtn'),
       noFullClass: !document.documentElement.classList.contains('voyage-full'),
       noScroll: document.documentElement.scrollWidth <= innerWidth
     };
