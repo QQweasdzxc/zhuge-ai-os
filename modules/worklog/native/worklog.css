@@ -111,3 +111,12 @@
  .taskflow-worklog-host>.tq6-worklog{height:auto;min-height:0}
  .taskflow-worklog-host .compact-app{height:auto;min-height:100%}
 }
+
+/* Canonical task due dates are a separate, read-only calendar layer. */
+.tq6-worklog .task-date-count{display:block;color:#c9b4ff;font-size:10px;line-height:1.25;white-space:nowrap}
+.tq6-worklog .task-due-list{flex:none;border-top:1px solid #294958;padding:8px 0;max-height:180px;overflow:auto;min-height:0}
+.tq6-worklog .task-due-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px}
+.tq6-worklog .task-due-heading button{padding:3px 8px;min-height:32px}.tq6-worklog .task-due-list small{display:block;color:#9bb6c3;font-size:11px}
+.tq6-worklog .task-due-link,.tq6-worklog .task-due-mobile a{display:block;color:#ded0ff;background:#28243a;border:1px solid #53446e;border-radius:5px;padding:7px;margin:5px 0;text-decoration:none;overflow-wrap:anywhere;font-size:12px}
+.tq6-worklog .task-due-note{margin-top:5px}.tq6-worklog .task-due-mobile{max-height:180px;overflow:auto;flex:none;margin-bottom:10px;padding:8px;border:1px solid #53446e;border-radius:6px;font-size:12px}.tq6-worklog .task-date-kind{display:block;font-size:10px;color:#c9b4ff}.tq6-worklog .task-calendar-caption{color:#d8c2ff}.tq6-worklog .task-timeline{display:flex;gap:4px;flex:none;max-height:140px;overflow:auto}.tq6-worklog .task-timeline>small{width:40px;flex:none;font-size:10px}.tq6-worklog .task-timeline>div{flex:1;min-width:0}.tq6-worklog .task-timeline a{font-size:10px;padding:4px}
+@media(max-width:1099px){.tq6-worklog .task-due-heading button{min-height:44px}.tq6-worklog .task-due-link{min-height:44px;box-sizing:border-box}.tq6-worklog .mobile-week button{min-height:74px}}
