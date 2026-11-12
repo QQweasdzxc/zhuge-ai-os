@@ -269,13 +269,15 @@ function profileFromCloud(cloudProfile, exportSettings, workModels, ecpTaskRows,
 }
 
 function entryFromCloud(row) {
-  const localAt = formatTaipeiDateTimeInput(row.started_at);
+  const localAt = row.date_only ? "" : formatTaipeiDateTimeInput(row.started_at);
   const entryType = eventTypeNameMap[row.event_type || "WORK"] || "work";
   return {
     id: row.legacy_id || row.id,
     cloudId: row.id,
     date: row.work_date || localAt.slice(0, 10),
     at: localAt,
+    dateOnly: row.date_only === true,
+    taskflowIssueRef: row.taskflow_issue_ref || null,
     title: row.title || "",
     note: row.note || "",
     ecpTask: row.ecp_task_name_snapshot || "",
@@ -352,7 +354,7 @@ function worklogTimeConflicts(item = {}) {
   const start = entryStartMinutes(item);
   const end = start + Math.max(1, Math.round(Number(item.hours || 0) * 60));
   return entries.some(entry => {
-    if (entry.id === item.id || entry.status === "deleted" || entry.date !== date) return false;
+    if (entry.dateOnly || entry.id === item.id || entry.status === "deleted" || entry.date !== date) return false;
     const existingStart = entryStartMinutes(entry);
     const existingEnd = entryEndMinutes(entry);
     return start < existingEnd && end > existingStart;
@@ -1399,6 +1401,7 @@ function fmt(dt) {
 }
 
 function formatWorklogTimeRange(entry = {}) {
+  if (entry.dateOnly) return "日期工時（未指定時刻）";
   const start = parseTaipeiBusinessDateTime(entry.at);
   const end = new Date(start.getTime() + Math.max(0, Math.round(Number(entry.hours || 0) * 60)) * 60000);
   const startParts = taipeiDateTimeParts(start);
@@ -1982,7 +1985,7 @@ const LUNCH_STATES = Object.freeze({
 
 function workIntervalsForDate(dateKey = key(), excludeId = null, reserved = []) {
   const persisted = entries
-    .filter(entry => entry.date === dateKey && entry.id !== excludeId && entry.status !== "deleted")
+    .filter(entry => !entry.dateOnly && entry.date === dateKey && entry.id !== excludeId && entry.status !== "deleted")
     .map(entry => ({
       start: entryStartMinutes(entry),
       end: entryEndMinutes(entry),
@@ -2584,6 +2587,7 @@ function assistantUnknownResponse() {
 }
 
 function formatEntryLine(entry) {
+  if (entry.dateOnly) return `日期工時（${formatHumanDuration(entry.hours)}） ${entry.title || "未命名工時"}`;
   const start = String(entry.at || "").slice(11, 16) || "--:--";
   const end = timeFromMinutes(entryEndMinutes(entry));
   return `${start}–${end}（${formatHumanDuration(entry.hours)}） ${entry.title || "未命名工時"}`;
@@ -3063,6 +3067,7 @@ async function executeWorklogCommand(intent) {
     const list = dayEntries();
     const last = list[list.length - 1];
     if (!last) return assistantResult("今天目前沒有可修改的工時。");
+    if (last.dateOnly) return assistantResult("日期工時請在 TF 工時與月報編輯；原紀錄保留。");
     if (!intent.hours) return assistantResult("請告訴我要把最後一筆改成幾小時。");
     const item = createEntry({ ...last, hours: intent.hours, id: last.id, cloudId: last.cloudId });
     const error = validateEntry(item); if (error) return assistantResult(error);
@@ -4130,7 +4135,7 @@ function todayPanel() {
   const h = hours(list);
   const selectedIsToday = key(selected) === key(new Date());
   const selectedLabel = selectedIsToday ? "今天" : `${selected.getMonth() + 1}/${selected.getDate()}`;
-  return `<div class="panel-head panel-fixed-header"><div><h2>我的工時</h2><div class="tag">${selectedLabel}｜${formatHumanDuration(h)} / 8h</div></div><button class="btn today-add-top" type="button" data-action="add">＋ 加入工時</button></div><div class="panel-scroll-content today-entry-list">${list.length ? list.map(e => `<div class="entry"><div class="entry-main"><b>${escapeHtml(e.title)}</b><div class="muted">${escapeHtml(formatWorklogTimeRange(e))}｜${formatHumanDuration(e.hours)}${e.ecpTask ? `｜🏷 任務` : ""}${e.taskTitleSnapshot ? `｜🔗 ${escapeHtml(e.taskTitleSnapshot)}` : ""}</div></div><div class="actions compact entry-actions"><button class="btn amber" data-edit-id="${e.id}">編輯</button><button class="btn red" data-del-id="${e.id}">刪除</button></div></div>`).join("") : `<div class="empty today-empty-state"><b>${selectedIsToday ? "今天" : selectedLabel}尚未建立工時</b><span>按「加入工時」開始記錄今天的工作。</span></div>`}</div><div class="panel-fixed-footer today-panel-footer"><button class="btn2 full today-add-bottom" data-action="add">＋ 加入工時</button></div>`;
+  return `<div class="panel-head panel-fixed-header"><div><h2>我的工時</h2><div class="tag">${selectedLabel}｜${formatHumanDuration(h)} / 8h</div></div><button class="btn today-add-top" type="button" data-action="add">＋ 加入工時</button></div><div class="panel-scroll-content today-entry-list">${list.length ? list.map(e => `<div class="entry${e.dateOnly ? " date-only-entry" : ""}"><div class="entry-main"><b>${escapeHtml(e.title)}</b><div class="muted">${escapeHtml(formatWorklogTimeRange(e))}｜${formatHumanDuration(e.hours)}${e.ecpTask ? `｜🏷 任務` : ""}${e.taskTitleSnapshot ? `｜🔗 ${escapeHtml(e.taskTitleSnapshot)}` : ""}</div></div><div class="actions compact entry-actions">${e.dateOnly ? `<span class="muted">請在 TF 編輯日期工時／原任務</span>` : `<button class="btn amber" data-edit-id="${e.id}">編輯</button><button class="btn red" data-del-id="${e.id}">刪除</button>`}</div></div>`).join("") : `<div class="empty today-empty-state"><b>${selectedIsToday ? "今天" : selectedLabel}尚未建立工時</b><span>按「加入工時」開始記錄今天的工作。</span></div>`}</div><div class="panel-fixed-footer today-panel-footer"><button class="btn2 full today-add-bottom" data-action="add">＋ 加入工時</button></div>`;
 }
 
 function suggestionBatchSize(viewportWidth = window.innerWidth) {
@@ -4488,6 +4493,7 @@ function capture(editId = null, seed = null) {
   editId = editId || editingEntryId;
   seed = seed || captureSeed;
   const e = editId ? entries.find(x => x.id === editId) : null;
+  if (e?.dateOnly) return `<section class="panel"><h2>日期工時</h2><p>${escapeHtml(e.title)} · ${escapeHtml(e.date)} · ${formatHumanDuration(e.hours)}</p><p>請在 TF 的工時與月報調整這筆日期工時；沒有帶入任何開始時刻。</p><button class="btn2" data-capture-cancel="1">返回</button></section>`;
   const title = e ? e.title : (seed ? seed.title : "");
   const note = e ? (e.note || "") : (seed ? seed.note || "" : "");
   const taskUuid = e?.taskUuid || seed?.taskUuid || "";
@@ -6631,6 +6637,7 @@ function adjustSuggestion(id) {
 function bindCapture(editId = null) {
   editId = editId || editingEntryId;
   const editingEntry = editId ? entries.find(e => e.id === editId) : null;
+  if (editingEntry?.dateOnly) { document.querySelectorAll("[data-capture-cancel]").forEach(b => b.onclick = () => { view = "center"; editingEntryId = null; captureSeed = null; render(); }); return; }
   const suggestionSeed = !editingEntry && captureSeed ? { ...captureSeed } : null;
   let selectedH = editingEntry ? Number(editingEntry.hours) : Number(suggestionSeed?.hours || 1);
   // A suggestion seed may already carry an automatically resolved time. Keep
@@ -7558,8 +7565,8 @@ function workLogRowsForEcp() {
   return monthEntries().map(entry => ({
     title: entry.title || "",
     ecpTask: entry.ecpTask || "",
-    startAt: formatEcpDateTime(entry.at),
-    endAt: formatEcpDateTime(addHoursToDate(entry.at, entry.hours)),
+    startAt: entry.dateOnly ? entry.date : formatEcpDateTime(entry.at),
+    endAt: entry.dateOnly ? entry.date : formatEcpDateTime(addHoursToDate(entry.at, entry.hours)),
     hours: Number(entry.hours || 0),
     ecpOwner: profile?.ecpOwner || "",
     ecpDepartment: profile?.ecpDepartment || ""
