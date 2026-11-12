@@ -212,6 +212,33 @@ test('chengyu arriving with s=settings opens the 勇者 settings page directly',
   assert.equal(await page.evaluate(() => document.documentElement.classList.contains('app-settings-open')), false, 'a post-close pipeline rebuild must not re-open settings after the user left');
 });
 
+
+test('chengyu arrival intent survives the player-resume hash rewrite (s= stripped when the arriving player is auto-selected)', async t => {
+  const browser = await chromium.launch({ executablePath: resolveBrowserExecutable(), args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  t.after(() => browser.close());
+  await page.route('**/*.supabase.co/**', route => {
+    let action = ''; try { action = route.request().postDataJSON()?.action || ''; } catch (e) {}
+    const J = x => route.fulfill({ contentType: 'application/json', body: JSON.stringify(x) });
+    if (action === 'load') return J({ ok: true, learners: [{ id: 'hero1', name: '測試勇士' }], units: [], attempts: [] });
+    if (action === 'getStageStars') return J(STARS);
+    if (action === 'getDailyTasks') return J({ ok: true, tasks: [] });
+    return J({ ok: true });
+  });
+  await page.goto((await fixtureURL(CHENGYU)) + '#f=' + 'a'.repeat(41) + '&p=' + encodeURIComponent('測試勇士') + '&s=settings');
+  await page.waitForSelector('html.app-settings-open .app-settings:not([hidden])', { timeout: 15000 });
+  const r = await page.evaluate(() => ({
+    stashed: window.__sArrive === true,
+    stripped: !new URLSearchParams(location.hash.slice(1)).has('s'),
+    selected: window.chengyuProgressState?.().selectedId || ''
+  }));
+  assert.equal(r.stashed, true, 'arrival intent stashed in <head> before any hash rewrite');
+  assert.equal(r.stripped, true, 'the player resume rewrote the hash without s= (the rewrite this test guards against)');
+  assert.equal(r.selected, 'hero1', 'arriving player auto-selected');
+  await new Promise(r2 => setTimeout(r2, 2500));
+  assert.equal(await page.evaluate(() => document.documentElement.classList.contains('app-settings-open') && !document.querySelector('.app-settings').hidden), true, 'settings stays open after the full resume pipeline settles');
+});
+
 test('chengyu shared assets call the player 勇者, never 冒險者', () => {
   const fs = require('fs');
   for (const f of ['index.html', 'archipelago.js', 'adventure.js']) {
