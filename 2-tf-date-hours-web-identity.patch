@@ -1,0 +1,1564 @@
+diff --git a/app/Board/ai/index.html b/app/Board/ai/index.html
+index 79723f9e83..b1d3ed95ae 100644
+--- a/app/Board/ai/index.html
++++ b/app/Board/ai/index.html
+@@ -4,22 +4,22 @@
+ <meta charset="utf-8">
+ <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+     <title>TRQN｜AI Board</title>
+-<link rel="stylesheet" href="../../../shared/theme/zhuge-shell.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/task-card.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/task-drawer.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/task-board.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/golden-master.css?v=20261110-2012&security-contract=20260907-055035">
++<link rel="stylesheet" href="../../../shared/theme/zhuge-shell.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/task-card.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/task-drawer.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/task-board.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/golden-master.css?v=20261113-0651&security-contract=20260907-055035">
+ 
+-<link rel="stylesheet" href="../../../shared/theme/zhuge-workspace.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/zhuge-navigation.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/app-access.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/global-floating-hub.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/desktop-modernization.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/responsive-modernization.css?v=20261110-2012">
++<link rel="stylesheet" href="../../../shared/theme/zhuge-workspace.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/zhuge-navigation.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/app-access.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/global-floating-hub.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/desktop-modernization.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/responsive-modernization.css?v=20261113-0651">
+ <script>
+   if (new URLSearchParams(window.location.search).get("templateView") === "board") document.documentElement.dataset.templateView = "board";
+ </script>
+-    <link rel="stylesheet" href="../../../shared/theme/zhuge-functional-tabs.css?v=20261110-2012">
++    <link rel="stylesheet" href="../../../shared/theme/zhuge-functional-tabs.css?v=20261113-0651">
+   </head>
+ <body>
+ <div class="zhuge-module-shell workspace-shell" data-shared-navigation-mode="template-only" data-template-page-id="ai-board">
+@@ -48,53 +48,53 @@
+ </div>
+ 
+ 
+-<script src="../../../shared/config/version.js?v=20261110-2012"></script>
++<script src="../../../shared/config/version.js?v=20261113-0651"></script>
+ <script src="../../../shared/config/template-release.js?v=20260915-1707"></script>
+-<script src="../../../shared/services/template-adoption-policy.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/zhuge-navigation.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/zhuge-shell.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/zhuge-functional-tabs.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/task-card.js?v=20261110-2012"></script>
+-    <script src="../../../shared/components/task-drawer.js?v=20261110-2012"></script>
+-    <script src="../../../shared/components/task-board.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/golden-master.js?v=20261110-2012"></script>
+-<script src="../../../shared/theme/zhuge-appearance.js?v=20261110-2012"></script>
+- <script src="../../../shared/app-config.js?v=20261110-2012"></script>
+- <script src="../../../shared/utils/shared-utils.js?v=20261110-2012"></script>
+- <script src="../../../shared/storage/storage-migration.js?v=20261110-2012"></script>
+- <script src="../../../shared/api/data-result.js?v=20261110-2012"></script>
+- <script src="../../../shared/identity/identity-health.js?v=20261110-2012"></script>
+- <script src="../../../shared/auth/session-lifecycle.js?v=20261110-2012"></script>
+- <script src="../../../shared/core/repository-bootstrap.js?v=20261110-2012"></script>
+- <script src="../../../shared/app-state.js?v=20261110-2012"></script>
+- <script src="../../../shared/auth/auth-service.js?v=20261110-2012"></script>
+- <script src="../../../shared/identity/identity-service.js?v=20261110-2012"></script>
+- <script src="../../../shared/supabase/supabase-gateway.js?v=20261110-2012"></script>
+-<script src="../../../shared/auth/app-access-service.js?v=20261110-2012"></script>
+-<script src="../../../shared/auth/app-access-gate.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/global-floating-hub.js?v=20261110-2012"></script>
+-<script src="../../../shared/services/template-release-service.js?v=20261110-2012"></script>
+-<script src="../../../shared/engineering-memory/engineering-memory-resolver.js?v=20261110-2012"></script>
+- <script src="../../../shared/auth/session-service.js?v=20261110-2012"></script>
+-<script src="../../../shared/identity/creator-resolver.js?v=20261110-2012"></script>
+- <script src="../../../shared/security/permission-service.js?v=20261110-2012"></script>
+-<script src="../../../shared/security/mfa-service.js?v=20261110-2012&security-contract=20260907-055035"></script>
+-<script src="../../../shared/security/security-gate.js?v=20261110-2012"></script>
+-<script src="../../../shared/services/module-context.js?v=20261110-2012&security-contract=20260907-055035"></script>
+-<script src="../../../shared/services/shared-platform.js?v=20261110-2012"></script>
+- <script src="../../../shared/security/platform-policy.js?v=20261110-2012"></script>
+-<script src="../../../shared/auth/runtime-session-provider.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/activity-classifier.js?v=20261110-2012"></script>
+-<script src="../../../shared/board/board-read-service.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/task-action-contract.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/task-action-adapters.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/activity-text-renderer.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/task-card-summary.js?v=20261110-2012"></script>
+-<script src="../../../modules/worklog/knowledge-intelligence.js?v=20261110-2012"></script>
+-<script src="../../../modules/worklog/knowledge-engine.js?v=20261110-2012"></script>
+-<script src="../../../shared/attachments/attachment-context.js?v=20261110-2012"></script>
+-<script src="../../../shared/ai/attachment-reader.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/template-parity-engine.js?v=20261110-2012"></script>
++<script src="../../../shared/services/template-adoption-policy.js?v=20261113-0651"></script>
++<script src="../../../shared/components/zhuge-navigation.js?v=20261113-0651"></script>
++<script src="../../../shared/components/zhuge-shell.js?v=20261113-0651"></script>
++<script src="../../../shared/components/zhuge-functional-tabs.js?v=20261113-0651"></script>
++<script src="../../../shared/components/task-card.js?v=20261113-0651"></script>
++    <script src="../../../shared/components/task-drawer.js?v=20261113-0651"></script>
++    <script src="../../../shared/components/task-board.js?v=20261113-0651"></script>
++<script src="../../../shared/components/golden-master.js?v=20261113-0651"></script>
++<script src="../../../shared/theme/zhuge-appearance.js?v=20261113-0651"></script>
++ <script src="../../../shared/app-config.js?v=20261113-0651"></script>
++ <script src="../../../shared/utils/shared-utils.js?v=20261113-0651"></script>
++ <script src="../../../shared/storage/storage-migration.js?v=20261113-0651"></script>
++ <script src="../../../shared/api/data-result.js?v=20261113-0651"></script>
++ <script src="../../../shared/identity/identity-health.js?v=20261113-0651"></script>
++ <script src="../../../shared/auth/session-lifecycle.js?v=20261113-0651"></script>
++ <script src="../../../shared/core/repository-bootstrap.js?v=20261113-0651"></script>
++ <script src="../../../shared/app-state.js?v=20261113-0651"></script>
++ <script src="../../../shared/auth/auth-service.js?v=20261113-0651"></script>
++ <script src="../../../shared/identity/identity-service.js?v=20261113-0651"></script>
++ <script src="../../../shared/supabase/supabase-gateway.js?v=20261113-0651"></script>
++<script src="../../../shared/auth/app-access-service.js?v=20261113-0651"></script>
++<script src="../../../shared/auth/app-access-gate.js?v=20261113-0651"></script>
++<script src="../../../shared/components/global-floating-hub.js?v=20261113-0651"></script>
++<script src="../../../shared/services/template-release-service.js?v=20261113-0651"></script>
++<script src="../../../shared/engineering-memory/engineering-memory-resolver.js?v=20261113-0651"></script>
++ <script src="../../../shared/auth/session-service.js?v=20261113-0651"></script>
++<script src="../../../shared/identity/creator-resolver.js?v=20261113-0651"></script>
++ <script src="../../../shared/security/permission-service.js?v=20261113-0651"></script>
++<script src="../../../shared/security/mfa-service.js?v=20261113-0651&security-contract=20260907-055035"></script>
++<script src="../../../shared/security/security-gate.js?v=20261113-0651"></script>
++<script src="../../../shared/services/module-context.js?v=20261113-0651&security-contract=20260907-055035"></script>
++<script src="../../../shared/services/shared-platform.js?v=20261113-0651"></script>
++ <script src="../../../shared/security/platform-policy.js?v=20261113-0651"></script>
++<script src="../../../shared/auth/runtime-session-provider.js?v=20261113-0651"></script>
++<script src="../../../shared/components/activity-classifier.js?v=20261113-0651"></script>
++<script src="../../../shared/board/board-read-service.js?v=20261113-0651"></script>
++<script src="../../../shared/components/task-action-contract.js?v=20261113-0651"></script>
++<script src="../../../shared/components/task-action-adapters.js?v=20261113-0651"></script>
++<script src="../../../shared/components/activity-text-renderer.js?v=20261113-0651"></script>
++<script src="../../../shared/components/task-card-summary.js?v=20261113-0651"></script>
++<script src="../../../modules/worklog/knowledge-intelligence.js?v=20261113-0651"></script>
++<script src="../../../modules/worklog/knowledge-engine.js?v=20261113-0651"></script>
++<script src="../../../shared/attachments/attachment-context.js?v=20261113-0651"></script>
++<script src="../../../shared/ai/attachment-reader.js?v=20261113-0651"></script>
++<script src="../../../shared/components/template-parity-engine.js?v=20261113-0651"></script>
+ <script src="../../../shared/board/workspace-ordering-authority.js?v=20261002-task35"></script>
+-<script src="../../../shared/components/golden-master-runtime.js?v=20261110-2012&security-contract=20260907-055035"></script>
++<script src="../../../shared/components/golden-master-runtime.js?v=20261113-0651&security-contract=20260907-055035"></script>
+ </body></html>
+diff --git a/app/Board/investment/index.html b/app/Board/investment/index.html
+index 16d5710ad8..e89c4c8b07 100644
+--- a/app/Board/investment/index.html
++++ b/app/Board/investment/index.html
+@@ -4,20 +4,20 @@
+ <meta charset="utf-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+ <title>TRQN｜投資組合</title>
+-<link rel="stylesheet" href="../../../shared/theme/zhuge-shell.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/zhuge-navigation.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/task-card.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/task-drawer.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/task-board.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/golden-master.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/c-template-preview.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../modules/investment/assets/investment.css?v=20261110-2012">
+-<link rel="stylesheet" href="./investment-board.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/app-access.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/global-floating-hub.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/desktop-modernization.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/responsive-modernization.css?v=20261110-2012">
+-    <link rel="stylesheet" href="../../../shared/theme/zhuge-functional-tabs.css?v=20261110-2012">
++<link rel="stylesheet" href="../../../shared/theme/zhuge-shell.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/zhuge-navigation.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/task-card.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/task-drawer.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/task-board.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/golden-master.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/c-template-preview.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../modules/investment/assets/investment.css?v=20261113-0651">
++<link rel="stylesheet" href="./investment-board.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/app-access.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/global-floating-hub.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/desktop-modernization.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/responsive-modernization.css?v=20261113-0651">
++    <link rel="stylesheet" href="../../../shared/theme/zhuge-functional-tabs.css?v=20261113-0651">
+   </head>
+ <body class="c-template-motherboard-page" data-template-page-id="investment">
+ <div class="zhuge-module-shell workspace-shell" data-shared-navigation-mode="template-only">
+@@ -33,56 +33,56 @@
+     </main>
+   </div>
+ </div>
+-<script src="../../../shared/config/version.js?v=20261110-2012"></script>
++<script src="../../../shared/config/version.js?v=20261113-0651"></script>
+ <script src="../../../shared/config/template-release.js?v=20260915-1707"></script>
+-<script src="../../../shared/services/template-adoption-policy.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/zhuge-navigation.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/zhuge-shell.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/zhuge-functional-tabs.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/task-card.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/task-drawer.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/task-board.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/golden-master.js?v=20261110-2012"></script>
+-<script src="../../../shared/theme/zhuge-appearance.js?v=20261110-2012"></script>
+-<script src="../../../shared/app-config.js?v=20261110-2012"></script>
+-<script src="../../../shared/utils/shared-utils.js?v=20261110-2012"></script>
+-<script src="../../../shared/storage/storage-migration.js?v=20261110-2012"></script>
+-<script src="../../../shared/api/data-result.js?v=20261110-2012"></script>
+-<script src="../../../shared/identity/identity-health.js?v=20261110-2012"></script>
+-<script src="../../../shared/auth/session-lifecycle.js?v=20261110-2012"></script>
+-<script src="../../../shared/core/repository-bootstrap.js?v=20261110-2012"></script>
+-<script src="../../../shared/app-state.js?v=20261110-2012"></script>
+-<script src="../../../shared/auth/auth-service.js?v=20261110-2012"></script>
+-<script src="../../../shared/identity/identity-service.js?v=20261110-2012"></script>
+-<script src="../../../shared/supabase/supabase-gateway.js?v=20261110-2012"></script>
+-<script src="../../../shared/auth/app-access-service.js?v=20261110-2012"></script>
+-<script src="../../../shared/auth/app-access-gate.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/global-floating-hub.js?v=20261110-2012"></script>
+-<script src="../../../shared/services/template-release-service.js?v=20261110-2012"></script>
+-<script src="../../../shared/engineering-memory/engineering-memory-resolver.js?v=20261110-2012"></script>
+-<script src="../../../shared/auth/session-service.js?v=20261110-2012"></script>
+-<script src="../../../shared/identity/creator-resolver.js?v=20261110-2012"></script>
+-<script src="../../../shared/security/permission-service.js?v=20261110-2012"></script>
+-<script src="../../../shared/security/mfa-service.js?v=20261110-2012"></script>
+-<script src="../../../shared/security/security-gate.js?v=20261110-2012"></script>
+-<script src="../../../shared/services/module-context.js?v=20261110-2012"></script>
+-<script src="../../../shared/services/shared-platform.js?v=20261110-2012"></script>
+-<script src="../../../shared/security/platform-policy.js?v=20261110-2012"></script>
+-<script src="../../../shared/auth/runtime-session-provider.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/activity-classifier.js?v=20261110-2012"></script>
+-<script src="../../../shared/board/board-read-service.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/task-action-contract.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/task-action-adapters.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/activity-text-renderer.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/task-card-summary.js?v=20261110-2012"></script>
+-<script src="../../../modules/worklog/knowledge-intelligence.js?v=20261110-2012"></script>
+-<script src="../../../modules/worklog/knowledge-engine.js?v=20261110-2012"></script>
+-<script src="../../../shared/attachments/attachment-context.js?v=20261110-2012"></script>
+-<script src="../../../shared/ai/attachment-reader.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/c-template-preview.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/template-parity-engine.js?v=20261110-2012"></script>
+-<script src="../../../modules/investment/components/module-shell.js?v=20261110-2012"></script>
+-<script src="../../../modules/investment/utils/formatters.js?v=20261110-2012"></script>
++<script src="../../../shared/services/template-adoption-policy.js?v=20261113-0651"></script>
++<script src="../../../shared/components/zhuge-navigation.js?v=20261113-0651"></script>
++<script src="../../../shared/components/zhuge-shell.js?v=20261113-0651"></script>
++<script src="../../../shared/components/zhuge-functional-tabs.js?v=20261113-0651"></script>
++<script src="../../../shared/components/task-card.js?v=20261113-0651"></script>
++<script src="../../../shared/components/task-drawer.js?v=20261113-0651"></script>
++<script src="../../../shared/components/task-board.js?v=20261113-0651"></script>
++<script src="../../../shared/components/golden-master.js?v=20261113-0651"></script>
++<script src="../../../shared/theme/zhuge-appearance.js?v=20261113-0651"></script>
++<script src="../../../shared/app-config.js?v=20261113-0651"></script>
++<script src="../../../shared/utils/shared-utils.js?v=20261113-0651"></script>
++<script src="../../../shared/storage/storage-migration.js?v=20261113-0651"></script>
++<script src="../../../shared/api/data-result.js?v=20261113-0651"></script>
++<script src="../../../shared/identity/identity-health.js?v=20261113-0651"></script>
++<script src="../../../shared/auth/session-lifecycle.js?v=20261113-0651"></script>
++<script src="../../../shared/core/repository-bootstrap.js?v=20261113-0651"></script>
++<script src="../../../shared/app-state.js?v=20261113-0651"></script>
++<script src="../../../shared/auth/auth-service.js?v=20261113-0651"></script>
++<script src="../../../shared/identity/identity-service.js?v=20261113-0651"></script>
++<script src="../../../shared/supabase/supabase-gateway.js?v=20261113-0651"></script>
++<script src="../../../shared/auth/app-access-service.js?v=20261113-0651"></script>
++<script src="../../../shared/auth/app-access-gate.js?v=20261113-0651"></script>
++<script src="../../../shared/components/global-floating-hub.js?v=20261113-0651"></script>
++<script src="../../../shared/services/template-release-service.js?v=20261113-0651"></script>
++<script src="../../../shared/engineering-memory/engineering-memory-resolver.js?v=20261113-0651"></script>
++<script src="../../../shared/auth/session-service.js?v=20261113-0651"></script>
++<script src="../../../shared/identity/creator-resolver.js?v=20261113-0651"></script>
++<script src="../../../shared/security/permission-service.js?v=20261113-0651"></script>
++<script src="../../../shared/security/mfa-service.js?v=20261113-0651"></script>
++<script src="../../../shared/security/security-gate.js?v=20261113-0651"></script>
++<script src="../../../shared/services/module-context.js?v=20261113-0651"></script>
++<script src="../../../shared/services/shared-platform.js?v=20261113-0651"></script>
++<script src="../../../shared/security/platform-policy.js?v=20261113-0651"></script>
++<script src="../../../shared/auth/runtime-session-provider.js?v=20261113-0651"></script>
++<script src="../../../shared/components/activity-classifier.js?v=20261113-0651"></script>
++<script src="../../../shared/board/board-read-service.js?v=20261113-0651"></script>
++<script src="../../../shared/components/task-action-contract.js?v=20261113-0651"></script>
++<script src="../../../shared/components/task-action-adapters.js?v=20261113-0651"></script>
++<script src="../../../shared/components/activity-text-renderer.js?v=20261113-0651"></script>
++<script src="../../../shared/components/task-card-summary.js?v=20261113-0651"></script>
++<script src="../../../modules/worklog/knowledge-intelligence.js?v=20261113-0651"></script>
++<script src="../../../modules/worklog/knowledge-engine.js?v=20261113-0651"></script>
++<script src="../../../shared/attachments/attachment-context.js?v=20261113-0651"></script>
++<script src="../../../shared/ai/attachment-reader.js?v=20261113-0651"></script>
++<script src="../../../shared/components/c-template-preview.js?v=20261113-0651"></script>
++<script src="../../../shared/components/template-parity-engine.js?v=20261113-0651"></script>
++<script src="../../../modules/investment/components/module-shell.js?v=20261113-0651"></script>
++<script src="../../../modules/investment/utils/formatters.js?v=20261113-0651"></script>
+ <script>
+ (() => {
+   const target = document.getElementById("investmentNavigation");
+@@ -98,9 +98,9 @@
+   target.innerHTML = shell.renderPrimaryNavigation(state, { asLinks: true, hrefFor, panelId: "investmentBoardView", actionsMarkup: shell.renderToolNavigation(state, { asLinks: true, hrefFor }) });
+ })();
+ </script>
+-<script src="../../../modules/investment/services/ivtk-board-adapter.js?v=20261110-2012-transaction-entry"></script>
+-<script src="../../../modules/investment/components/holding-card-presentation.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/golden-master-runtime.js?v=20261110-2012-transaction-entry"></script>
+-<script src="./investment-cloud-bridge.js?v=20261110-2012-transaction-entry"></script>
++<script src="../../../modules/investment/services/ivtk-board-adapter.js?v=20261113-0651-transaction-entry"></script>
++<script src="../../../modules/investment/components/holding-card-presentation.js?v=20261113-0651"></script>
++<script src="../../../shared/components/golden-master-runtime.js?v=20261113-0651-transaction-entry"></script>
++<script src="./investment-cloud-bridge.js?v=20261113-0651-transaction-entry"></script>
+ </body>
+ </html>
+diff --git a/app/Board/procurement/index.html b/app/Board/procurement/index.html
+index 629fa2ddac..69d9e084d6 100644
+--- a/app/Board/procurement/index.html
++++ b/app/Board/procurement/index.html
+@@ -4,20 +4,20 @@
+ <meta charset="utf-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+ <title>TRQN｜庶務行政</title>
+-<link rel="stylesheet" href="../../../shared/theme/zhuge-shell.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/zhuge-navigation.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/task-card.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/task-drawer.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/task-board.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/golden-master.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/zhuge-workspace.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/c-template-preview.css?v=20261110-2012">
+-<link rel="stylesheet" href="./procurement.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/app-access.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/global-floating-hub.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/desktop-modernization.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/responsive-modernization.css?v=20261110-2012">
+-    <link rel="stylesheet" href="../../../shared/theme/zhuge-functional-tabs.css?v=20261110-2012">
++<link rel="stylesheet" href="../../../shared/theme/zhuge-shell.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/zhuge-navigation.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/task-card.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/task-drawer.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/task-board.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/golden-master.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/zhuge-workspace.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/c-template-preview.css?v=20261113-0651">
++<link rel="stylesheet" href="./procurement.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/app-access.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/global-floating-hub.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/desktop-modernization.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/responsive-modernization.css?v=20261113-0651">
++    <link rel="stylesheet" href="../../../shared/theme/zhuge-functional-tabs.css?v=20261113-0651">
+   </head>
+ <body class="c-template-motherboard-page" data-template-page-id="procurement">
+ <div class="zhuge-module-shell workspace-shell" data-shared-navigation-mode="template-only">
+@@ -38,59 +38,59 @@
+   </div>
+ </div>
+ <script src="./procurement-tabs.js?v=20260906-002"></script>
+-<script src="../../../shared/config/version.js?v=20261110-2012"></script>
++<script src="../../../shared/config/version.js?v=20261113-0651"></script>
+ <script src="../../../shared/config/template-release.js?v=20260915-1707"></script>
+-<script src="../../../shared/services/template-adoption-policy.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/zhuge-navigation.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/zhuge-shell.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/zhuge-functional-tabs.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/task-card.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/task-drawer.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/task-board.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/golden-master.js?v=20261110-2012"></script>
+-<script src="../../../shared/theme/zhuge-appearance.js?v=20261110-2012"></script>
++<script src="../../../shared/services/template-adoption-policy.js?v=20261113-0651"></script>
++<script src="../../../shared/components/zhuge-navigation.js?v=20261113-0651"></script>
++<script src="../../../shared/components/zhuge-shell.js?v=20261113-0651"></script>
++<script src="../../../shared/components/zhuge-functional-tabs.js?v=20261113-0651"></script>
++<script src="../../../shared/components/task-card.js?v=20261113-0651"></script>
++<script src="../../../shared/components/task-drawer.js?v=20261113-0651"></script>
++<script src="../../../shared/components/task-board.js?v=20261113-0651"></script>
++<script src="../../../shared/components/golden-master.js?v=20261113-0651"></script>
++<script src="../../../shared/theme/zhuge-appearance.js?v=20261113-0651"></script>
+ <script src="../../../shared/app-config.js?v=20260906-001"></script>
+-<script src="../../../shared/utils/shared-utils.js?v=20261110-2012"></script>
+-<script src="../../../shared/storage/storage-migration.js?v=20261110-2012"></script>
+-<script src="../../../shared/api/data-result.js?v=20261110-2012"></script>
+-<script src="../../../shared/identity/identity-health.js?v=20261110-2012"></script>
+-<script src="../../../shared/auth/session-lifecycle.js?v=20261110-2012"></script>
+-<script src="../../../shared/core/repository-bootstrap.js?v=20261110-2012"></script>
+-<script src="../../../shared/app-state.js?v=20261110-2012"></script>
+-<script src="../../../shared/auth/auth-service.js?v=20261110-2012"></script>
+-<script src="../../../shared/identity/identity-service.js?v=20261110-2012"></script>
+-<script src="../../../shared/supabase/supabase-gateway.js?v=20261110-2012"></script>
+-<script src="../../../shared/auth/app-access-service.js?v=20261110-2012"></script>
+-<script src="../../../shared/auth/app-access-gate.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/global-floating-hub.js?v=20261110-2012"></script>
+-<script src="../../../shared/services/template-release-service.js?v=20261110-2012"></script>
+-<script src="../../../shared/engineering-memory/engineering-memory-resolver.js?v=20261110-2012"></script>
+-<script src="../../../shared/auth/session-service.js?v=20261110-2012"></script>
+-<script src="../../../shared/identity/creator-resolver.js?v=20261110-2012"></script>
+-<script src="../../../shared/security/permission-service.js?v=20261110-2012"></script>
+-<script src="../../../shared/security/mfa-service.js?v=20261110-2012"></script>
+-<script src="../../../shared/security/security-gate.js?v=20261110-2012"></script>
+-<script src="../../../shared/services/module-context.js?v=20261110-2012"></script>
+-<script src="../../../shared/services/shared-platform.js?v=20261110-2012"></script>
+-<script src="../../../shared/security/platform-policy.js?v=20261110-2012"></script>
+-<script src="../../../shared/auth/runtime-session-provider.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/activity-classifier.js?v=20261110-2012"></script>
+-<script src="../../../shared/board/board-read-service.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/task-action-contract.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/task-action-adapters.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/activity-text-renderer.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/task-card-summary.js?v=20261110-2012"></script>
+-<script src="../../../modules/worklog/knowledge-intelligence.js?v=20261110-2012"></script>
+-<script src="../../../modules/worklog/knowledge-engine.js?v=20261110-2012"></script>
+-<script src="../../../shared/attachments/attachment-context.js?v=20261110-2012"></script>
+-<script src="../../../shared/ai/attachment-reader.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/c-template-preview.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/template-parity-engine.js?v=20261110-2012"></script>
++<script src="../../../shared/utils/shared-utils.js?v=20261113-0651"></script>
++<script src="../../../shared/storage/storage-migration.js?v=20261113-0651"></script>
++<script src="../../../shared/api/data-result.js?v=20261113-0651"></script>
++<script src="../../../shared/identity/identity-health.js?v=20261113-0651"></script>
++<script src="../../../shared/auth/session-lifecycle.js?v=20261113-0651"></script>
++<script src="../../../shared/core/repository-bootstrap.js?v=20261113-0651"></script>
++<script src="../../../shared/app-state.js?v=20261113-0651"></script>
++<script src="../../../shared/auth/auth-service.js?v=20261113-0651"></script>
++<script src="../../../shared/identity/identity-service.js?v=20261113-0651"></script>
++<script src="../../../shared/supabase/supabase-gateway.js?v=20261113-0651"></script>
++<script src="../../../shared/auth/app-access-service.js?v=20261113-0651"></script>
++<script src="../../../shared/auth/app-access-gate.js?v=20261113-0651"></script>
++<script src="../../../shared/components/global-floating-hub.js?v=20261113-0651"></script>
++<script src="../../../shared/services/template-release-service.js?v=20261113-0651"></script>
++<script src="../../../shared/engineering-memory/engineering-memory-resolver.js?v=20261113-0651"></script>
++<script src="../../../shared/auth/session-service.js?v=20261113-0651"></script>
++<script src="../../../shared/identity/creator-resolver.js?v=20261113-0651"></script>
++<script src="../../../shared/security/permission-service.js?v=20261113-0651"></script>
++<script src="../../../shared/security/mfa-service.js?v=20261113-0651"></script>
++<script src="../../../shared/security/security-gate.js?v=20261113-0651"></script>
++<script src="../../../shared/services/module-context.js?v=20261113-0651"></script>
++<script src="../../../shared/services/shared-platform.js?v=20261113-0651"></script>
++<script src="../../../shared/security/platform-policy.js?v=20261113-0651"></script>
++<script src="../../../shared/auth/runtime-session-provider.js?v=20261113-0651"></script>
++<script src="../../../shared/components/activity-classifier.js?v=20261113-0651"></script>
++<script src="../../../shared/board/board-read-service.js?v=20261113-0651"></script>
++<script src="../../../shared/components/task-action-contract.js?v=20261113-0651"></script>
++<script src="../../../shared/components/task-action-adapters.js?v=20261113-0651"></script>
++<script src="../../../shared/components/activity-text-renderer.js?v=20261113-0651"></script>
++<script src="../../../shared/components/task-card-summary.js?v=20261113-0651"></script>
++<script src="../../../modules/worklog/knowledge-intelligence.js?v=20261113-0651"></script>
++<script src="../../../modules/worklog/knowledge-engine.js?v=20261113-0651"></script>
++<script src="../../../shared/attachments/attachment-context.js?v=20261113-0651"></script>
++<script src="../../../shared/ai/attachment-reader.js?v=20261113-0651"></script>
++<script src="../../../shared/components/c-template-preview.js?v=20261113-0651"></script>
++<script src="../../../shared/components/template-parity-engine.js?v=20261113-0651"></script>
+ <script src="../../../shared/board/workspace-ordering-authority.js?v=20261002-task35"></script>
+-<script src="../../../shared/components/golden-master-runtime.js?v=20261110-2012"></script>
+-<script src="./vendor-sheet-service.js?v=20261110-2012"></script>
+-<script src="./vendor-task-association.js?v=20261110-2012"></script>
+-<script src="./vendor-list.js?v=20261110-2012"></script>
++<script src="../../../shared/components/golden-master-runtime.js?v=20261113-0651"></script>
++<script src="./vendor-sheet-service.js?v=20261113-0651"></script>
++<script src="./vendor-task-association.js?v=20261113-0651"></script>
++<script src="./vendor-list.js?v=20261113-0651"></script>
+ 
+ </body>
+ </html>
+diff --git a/app/Board/template-preview/index.html b/app/Board/template-preview/index.html
+index 5eba4ff99e..3d776a0329 100644
+--- a/app/Board/template-preview/index.html
++++ b/app/Board/template-preview/index.html
+@@ -4,18 +4,18 @@
+ <meta charset="utf-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+ <title>TRQN｜C 唯一看板母版</title>
+-<link rel="stylesheet" href="../../../shared/theme/zhuge-shell.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/zhuge-navigation.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/task-card.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/task-drawer.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/task-board.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/golden-master.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/c-template-preview.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/app-access.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/global-floating-hub.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/desktop-modernization.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/responsive-modernization.css?v=20261110-2012">
+-    <link rel="stylesheet" href="../../../shared/theme/zhuge-functional-tabs.css?v=20261110-2012">
++<link rel="stylesheet" href="../../../shared/theme/zhuge-shell.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/zhuge-navigation.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/task-card.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/task-drawer.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/task-board.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/golden-master.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/c-template-preview.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/app-access.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/global-floating-hub.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/desktop-modernization.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/responsive-modernization.css?v=20261113-0651">
++    <link rel="stylesheet" href="../../../shared/theme/zhuge-functional-tabs.css?v=20261113-0651">
+   </head>
+ <body class="c-template-motherboard-page" data-template-page-id="template-c">
+ <div class="zhuge-module-shell workspace-shell" data-shared-navigation-mode="template-only">
+@@ -33,55 +33,55 @@
+     </main>
+   </div>
+ </div>
+-<script src="../../../shared/config/version.js?v=20261110-2012"></script>
++<script src="../../../shared/config/version.js?v=20261113-0651"></script>
+ <script src="../../../shared/config/template-release.js?v=20260915-1707"></script>
+-<script src="../../../shared/services/template-adoption-policy.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/zhuge-navigation.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/zhuge-shell.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/zhuge-functional-tabs.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/task-card.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/task-drawer.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/task-board.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/golden-master.js?v=20261110-2012"></script>
+-<script src="../../../shared/theme/zhuge-appearance.js?v=20261110-2012"></script>
+-<script src="../../../shared/app-config.js?v=20261110-2012"></script>
+-<script src="../../../shared/utils/shared-utils.js?v=20261110-2012"></script>
+-<script src="../../../shared/storage/storage-migration.js?v=20261110-2012"></script>
+-<script src="../../../shared/api/data-result.js?v=20261110-2012"></script>
+-<script src="../../../shared/identity/identity-health.js?v=20261110-2012"></script>
+-<script src="../../../shared/auth/session-lifecycle.js?v=20261110-2012"></script>
+-<script src="../../../shared/core/repository-bootstrap.js?v=20261110-2012"></script>
+-<script src="../../../shared/app-state.js?v=20261110-2012"></script>
+-<script src="../../../shared/auth/auth-service.js?v=20261110-2012"></script>
+-<script src="../../../shared/identity/identity-service.js?v=20261110-2012"></script>
+-<script src="../../../shared/supabase/supabase-gateway.js?v=20261110-2012"></script>
+-<script src="../../../shared/auth/app-access-service.js?v=20261110-2012"></script>
+-<script src="../../../shared/auth/app-access-gate.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/global-floating-hub.js?v=20261110-2012"></script>
+-<script src="../../../shared/services/template-release-service.js?v=20261110-2012"></script>
+-<script src="../../../shared/engineering-memory/engineering-memory-resolver.js?v=20261110-2012"></script>
+-<script src="../../../shared/auth/session-service.js?v=20261110-2012"></script>
+-<script src="../../../shared/identity/creator-resolver.js?v=20261110-2012"></script>
+-<script src="../../../shared/security/permission-service.js?v=20261110-2012"></script>
+-<script src="../../../shared/security/mfa-service.js?v=20261110-2012"></script>
+-<script src="../../../shared/security/security-gate.js?v=20261110-2012"></script>
+-<script src="../../../shared/services/module-context.js?v=20261110-2012"></script>
+-<script src="../../../shared/services/shared-platform.js?v=20261110-2012"></script>
+-<script src="../../../shared/security/platform-policy.js?v=20261110-2012"></script>
+-<script src="../../../shared/auth/runtime-session-provider.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/activity-classifier.js?v=20261110-2012"></script>
+-<script src="../../../shared/board/board-read-service.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/task-action-contract.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/task-action-adapters.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/activity-text-renderer.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/task-card-summary.js?v=20261110-2012"></script>
+-<script src="../../../modules/worklog/knowledge-intelligence.js?v=20261110-2012"></script>
+-<script src="../../../modules/worklog/knowledge-engine.js?v=20261110-2012"></script>
+-<script src="../../../shared/attachments/attachment-context.js?v=20261110-2012"></script>
+-<script src="../../../shared/ai/attachment-reader.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/c-template-preview.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/template-parity-engine.js?v=20261110-2012"></script>
++<script src="../../../shared/services/template-adoption-policy.js?v=20261113-0651"></script>
++<script src="../../../shared/components/zhuge-navigation.js?v=20261113-0651"></script>
++<script src="../../../shared/components/zhuge-shell.js?v=20261113-0651"></script>
++<script src="../../../shared/components/zhuge-functional-tabs.js?v=20261113-0651"></script>
++<script src="../../../shared/components/task-card.js?v=20261113-0651"></script>
++<script src="../../../shared/components/task-drawer.js?v=20261113-0651"></script>
++<script src="../../../shared/components/task-board.js?v=20261113-0651"></script>
++<script src="../../../shared/components/golden-master.js?v=20261113-0651"></script>
++<script src="../../../shared/theme/zhuge-appearance.js?v=20261113-0651"></script>
++<script src="../../../shared/app-config.js?v=20261113-0651"></script>
++<script src="../../../shared/utils/shared-utils.js?v=20261113-0651"></script>
++<script src="../../../shared/storage/storage-migration.js?v=20261113-0651"></script>
++<script src="../../../shared/api/data-result.js?v=20261113-0651"></script>
++<script src="../../../shared/identity/identity-health.js?v=20261113-0651"></script>
++<script src="../../../shared/auth/session-lifecycle.js?v=20261113-0651"></script>
++<script src="../../../shared/core/repository-bootstrap.js?v=20261113-0651"></script>
++<script src="../../../shared/app-state.js?v=20261113-0651"></script>
++<script src="../../../shared/auth/auth-service.js?v=20261113-0651"></script>
++<script src="../../../shared/identity/identity-service.js?v=20261113-0651"></script>
++<script src="../../../shared/supabase/supabase-gateway.js?v=20261113-0651"></script>
++<script src="../../../shared/auth/app-access-service.js?v=20261113-0651"></script>
++<script src="../../../shared/auth/app-access-gate.js?v=20261113-0651"></script>
++<script src="../../../shared/components/global-floating-hub.js?v=20261113-0651"></script>
++<script src="../../../shared/services/template-release-service.js?v=20261113-0651"></script>
++<script src="../../../shared/engineering-memory/engineering-memory-resolver.js?v=20261113-0651"></script>
++<script src="../../../shared/auth/session-service.js?v=20261113-0651"></script>
++<script src="../../../shared/identity/creator-resolver.js?v=20261113-0651"></script>
++<script src="../../../shared/security/permission-service.js?v=20261113-0651"></script>
++<script src="../../../shared/security/mfa-service.js?v=20261113-0651"></script>
++<script src="../../../shared/security/security-gate.js?v=20261113-0651"></script>
++<script src="../../../shared/services/module-context.js?v=20261113-0651"></script>
++<script src="../../../shared/services/shared-platform.js?v=20261113-0651"></script>
++<script src="../../../shared/security/platform-policy.js?v=20261113-0651"></script>
++<script src="../../../shared/auth/runtime-session-provider.js?v=20261113-0651"></script>
++<script src="../../../shared/components/activity-classifier.js?v=20261113-0651"></script>
++<script src="../../../shared/board/board-read-service.js?v=20261113-0651"></script>
++<script src="../../../shared/components/task-action-contract.js?v=20261113-0651"></script>
++<script src="../../../shared/components/task-action-adapters.js?v=20261113-0651"></script>
++<script src="../../../shared/components/activity-text-renderer.js?v=20261113-0651"></script>
++<script src="../../../shared/components/task-card-summary.js?v=20261113-0651"></script>
++<script src="../../../modules/worklog/knowledge-intelligence.js?v=20261113-0651"></script>
++<script src="../../../modules/worklog/knowledge-engine.js?v=20261113-0651"></script>
++<script src="../../../shared/attachments/attachment-context.js?v=20261113-0651"></script>
++<script src="../../../shared/ai/attachment-reader.js?v=20261113-0651"></script>
++<script src="../../../shared/components/c-template-preview.js?v=20261113-0651"></script>
++<script src="../../../shared/components/template-parity-engine.js?v=20261113-0651"></script>
+ <script src="../../../shared/board/workspace-ordering-authority.js?v=20261002-task35"></script>
+-<script src="../../../shared/components/golden-master-runtime.js?v=20261110-2012"></script>
++<script src="../../../shared/components/golden-master-runtime.js?v=20261113-0651"></script>
+ </body>
+ </html>
+diff --git a/app/Board/worktodo/index.html b/app/Board/worktodo/index.html
+index 3624a6481d..029bb10de4 100644
+--- a/app/Board/worktodo/index.html
++++ b/app/Board/worktodo/index.html
+@@ -4,18 +4,18 @@
+ <meta charset="utf-8">
+ <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+     <title>TRQN｜工作待辦</title>
+-<link rel="stylesheet" href="../../../shared/theme/zhuge-shell.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/task-card.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/task-drawer.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/task-board.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/golden-master.css?v=20261110-2012">
++<link rel="stylesheet" href="../../../shared/theme/zhuge-shell.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/task-card.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/task-drawer.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/task-board.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/golden-master.css?v=20261113-0651">
+ 
+-<link rel="stylesheet" href="../../../shared/theme/zhuge-workspace.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/zhuge-navigation.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/app-access.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/global-floating-hub.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/desktop-modernization.css?v=20261110-2012">
+-<link rel="stylesheet" href="../../../shared/theme/responsive-modernization.css?v=20261110-2012">
++<link rel="stylesheet" href="../../../shared/theme/zhuge-workspace.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/zhuge-navigation.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/app-access.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/global-floating-hub.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/desktop-modernization.css?v=20261113-0651">
++<link rel="stylesheet" href="../../../shared/theme/responsive-modernization.css?v=20261113-0651">
+ <script>
+   if (new URLSearchParams(window.location.search).get("templateView") === "board") document.documentElement.dataset.templateView = "board";
+   if (new URLSearchParams(window.location.search).get("consumer") === "worktodo-old") {
+@@ -24,7 +24,7 @@
+     window.location.replace(`${canonicalUrl.pathname}${canonicalUrl.search}${canonicalUrl.hash}`);
+   }
+ </script>
+-    <link rel="stylesheet" href="../../../shared/theme/zhuge-functional-tabs.css?v=20261110-2012">
++    <link rel="stylesheet" href="../../../shared/theme/zhuge-functional-tabs.css?v=20261113-0651">
+   </head>
+ <body>
+ <div class="zhuge-module-shell workspace-shell" data-shared-navigation-mode="template-only" data-template-page-id="tasks-new">
+@@ -43,55 +43,55 @@
+ </div>
+ 
+ 
+-<script src="../../../shared/config/version.js?v=20261110-2012"></script>
++<script src="../../../shared/config/version.js?v=20261113-0651"></script>
+ <script src="../../../shared/config/template-release.js?v=20260915-1707"></script>
+-<script src="../../../shared/services/template-adoption-policy.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/zhuge-navigation.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/zhuge-shell.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/zhuge-functional-tabs.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/task-card.js?v=20261110-2012"></script>
+-    <script src="../../../shared/components/task-drawer.js?v=20261110-2012"></script>
+-    <script src="../../../shared/components/task-board.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/golden-master.js?v=20261110-2012"></script>
+-<script src="../../../shared/theme/zhuge-appearance.js?v=20261110-2012"></script>
+- <script src="../../../shared/app-config.js?v=20261110-2012"></script>
+- <script src="../../../shared/utils/shared-utils.js?v=20261110-2012"></script>
+- <script src="../../../shared/storage/storage-migration.js?v=20261110-2012"></script>
+- <script src="../../../shared/api/data-result.js?v=20261110-2012"></script>
+- <script src="../../../shared/identity/identity-health.js?v=20261110-2012"></script>
+- <script src="../../../shared/auth/session-lifecycle.js?v=20261110-2012"></script>
+- <script src="../../../shared/core/repository-bootstrap.js?v=20261110-2012"></script>
+- <script src="../../../shared/app-state.js?v=20261110-2012"></script>
+- <script src="../../../shared/auth/auth-service.js?v=20261110-2012"></script>
+- <script src="../../../shared/identity/identity-service.js?v=20261110-2012"></script>
+- <script src="../../../shared/supabase/supabase-gateway.js?v=20261110-2012"></script>
+-<script src="../../../shared/auth/app-access-service.js?v=20261110-2012"></script>
+-<script src="../../../shared/auth/app-access-gate.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/global-floating-hub.js?v=20261110-2012"></script>
+-<script src="../../../shared/services/template-release-service.js?v=20261110-2012"></script>
+-<script src="../../../shared/engineering-memory/engineering-memory-resolver.js?v=20261110-2012"></script>
+- <script src="../../../shared/auth/session-service.js?v=20261110-2012"></script>
+-<script src="../../../shared/identity/creator-resolver.js?v=20261110-2012"></script>
+- <script src="../../../shared/security/permission-service.js?v=20261110-2012"></script>
+-<script src="../../../shared/security/mfa-service.js?v=20261110-2012"></script>
+-<script src="../../../shared/security/security-gate.js?v=20261110-2012"></script>
+-<script src="../../../shared/services/module-context.js?v=20261110-2012"></script>
+-<script src="../../../shared/services/shared-platform.js?v=20261110-2012"></script>
+- <script src="../../../shared/security/platform-policy.js?v=20261110-2012"></script>
+-<script src="../../../shared/auth/runtime-session-provider.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/activity-classifier.js?v=20261110-2012"></script>
+-<script src="../../../shared/board/board-read-service.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/task-action-contract.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/task-action-adapters.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/activity-text-renderer.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/task-card-summary.js?v=20261110-2012"></script>
+-<script src="../../../modules/worklog/knowledge-intelligence.js?v=20261110-2012"></script>
+-<script src="../../../modules/worklog/knowledge-engine.js?v=20261110-2012"></script>
+-<script src="../../../shared/attachments/attachment-context.js?v=20261110-2012"></script>
+-<script src="../../../shared/ai/attachment-reader.js?v=20261110-2012"></script>
+-<script src="../../../modules/worklog/components/worktodo-task-adapter.js?v=20261110-2012"></script>
+-<script src="../../../modules/worklog/worktodo-ordering.js?v=20261110-2012"></script>
+-<script src="../../../shared/components/template-parity-engine.js?v=20261110-2012"></script>
++<script src="../../../shared/services/template-adoption-policy.js?v=20261113-0651"></script>
++<script src="../../../shared/components/zhuge-navigation.js?v=20261113-0651"></script>
++<script src="../../../shared/components/zhuge-shell.js?v=20261113-0651"></script>
++<script src="../../../shared/components/zhuge-functional-tabs.js?v=20261113-0651"></script>
++<script src="../../../shared/components/task-card.js?v=20261113-0651"></script>
++    <script src="../../../shared/components/task-drawer.js?v=20261113-0651"></script>
++    <script src="../../../shared/components/task-board.js?v=20261113-0651"></script>
++<script src="../../../shared/components/golden-master.js?v=20261113-0651"></script>
++<script src="../../../shared/theme/zhuge-appearance.js?v=20261113-0651"></script>
++ <script src="../../../shared/app-config.js?v=20261113-0651"></script>
++ <script src="../../../shared/utils/shared-utils.js?v=20261113-0651"></script>
++ <script src="../../../shared/storage/storage-migration.js?v=20261113-0651"></script>
++ <script src="../../../shared/api/data-result.js?v=20261113-0651"></script>
++ <script src="../../../shared/identity/identity-health.js?v=20261113-0651"></script>
++ <script src="../../../shared/auth/session-lifecycle.js?v=20261113-0651"></script>
++ <script src="../../../shared/core/repository-bootstrap.js?v=20261113-0651"></script>
++ <script src="../../../shared/app-state.js?v=20261113-0651"></script>
++ <script src="../../../shared/auth/auth-service.js?v=20261113-0651"></script>
++ <script src="../../../shared/identity/identity-service.js?v=20261113-0651"></script>
++ <script src="../../../shared/supabase/supabase-gateway.js?v=20261113-0651"></script>
++<script src="../../../shared/auth/app-access-service.js?v=20261113-0651"></script>
++<script src="../../../shared/auth/app-access-gate.js?v=20261113-0651"></script>
++<script src="../../../shared/components/global-floating-hub.js?v=20261113-0651"></script>
++<script src="../../../shared/services/template-release-service.js?v=20261113-0651"></script>
++<script src="../../../shared/engineering-memory/engineering-memory-resolver.js?v=20261113-0651"></script>
++ <script src="../../../shared/auth/session-service.js?v=20261113-0651"></script>
++<script src="../../../shared/identity/creator-resolver.js?v=20261113-0651"></script>
++ <script src="../../../shared/security/permission-service.js?v=20261113-0651"></script>
++<script src="../../../shared/security/mfa-service.js?v=20261113-0651"></script>
++<script src="../../../shared/security/security-gate.js?v=20261113-0651"></script>
++<script src="../../../shared/services/module-context.js?v=20261113-0651"></script>
++<script src="../../../shared/services/shared-platform.js?v=20261113-0651"></script>
++ <script src="../../../shared/security/platform-policy.js?v=20261113-0651"></script>
++<script src="../../../shared/auth/runtime-session-provider.js?v=20261113-0651"></script>
++<script src="../../../shared/components/activity-classifier.js?v=20261113-0651"></script>
++<script src="../../../shared/board/board-read-service.js?v=20261113-0651"></script>
++<script src="../../../shared/components/task-action-contract.js?v=20261113-0651"></script>
++<script src="../../../shared/components/task-action-adapters.js?v=20261113-0651"></script>
++<script src="../../../shared/components/activity-text-renderer.js?v=20261113-0651"></script>
++<script src="../../../shared/components/task-card-summary.js?v=20261113-0651"></script>
++<script src="../../../modules/worklog/knowledge-intelligence.js?v=20261113-0651"></script>
++<script src="../../../modules/worklog/knowledge-engine.js?v=20261113-0651"></script>
++<script src="../../../shared/attachments/attachment-context.js?v=20261113-0651"></script>
++<script src="../../../shared/ai/attachment-reader.js?v=20261113-0651"></script>
++<script src="../../../modules/worklog/components/worktodo-task-adapter.js?v=20261113-0651"></script>
++<script src="../../../modules/worklog/worktodo-ordering.js?v=20261113-0651"></script>
++<script src="../../../shared/components/template-parity-engine.js?v=20261113-0651"></script>
+ <script src="../../../shared/board/workspace-ordering-authority.js?v=20261002-task35"></script>
+-<script src="../../../shared/components/golden-master-runtime.js?v=20261110-2012"></script>
++<script src="../../../shared/components/golden-master-runtime.js?v=20261113-0651"></script>
+ </body></html>
+diff --git a/app/dashboard/index.html b/app/dashboard/index.html
+index f65e6e17a1..84f051fdce 100644
+--- a/app/dashboard/index.html
++++ b/app/dashboard/index.html
+@@ -14,13 +14,13 @@
+     <link rel="icon" href="../../shared/assets/logo/tron-icon.svg" type="image/svg+xml">
+     <title>TRQN</title>
+     <link rel="stylesheet" href="../../assets/zhuge-skeleton.css">
+-    <link rel="stylesheet" href="../../shared/theme/zhuge-shell.css?v=20261110-2012">
+-    <link rel="stylesheet" href="../../shared/theme/zhuge-dashboard.css?v=20261110-2012">
+-    <link rel="stylesheet" href="../../shared/theme/zhuge-navigation.css?v=20261110-2012">
+-    <link rel="stylesheet" href="../../shared/theme/desktop-modernization.css?v=20261110-2012">
+-    <link rel="stylesheet" href="../../shared/theme/responsive-modernization.css?v=20261110-2012">
++    <link rel="stylesheet" href="../../shared/theme/zhuge-shell.css?v=20261113-0651">
++    <link rel="stylesheet" href="../../shared/theme/zhuge-dashboard.css?v=20261113-0651">
++    <link rel="stylesheet" href="../../shared/theme/zhuge-navigation.css?v=20261113-0651">
++    <link rel="stylesheet" href="../../shared/theme/desktop-modernization.css?v=20261113-0651">
++    <link rel="stylesheet" href="../../shared/theme/responsive-modernization.css?v=20261113-0651">
+     <script src="../../shared/i18n/zh-TW.js"></script>
+-      <link rel="stylesheet" href="../../shared/theme/zhuge-functional-tabs.css?v=20261110-2012">
++      <link rel="stylesheet" href="../../shared/theme/zhuge-functional-tabs.css?v=20261113-0651">
+   </head>
+   <body>
+     <div class="zhuge-module-shell workspace-shell zhuge-dashboard-shell" data-shared-navigation-mode="template-only" data-template-page-id="dashboard">
+@@ -57,20 +57,20 @@
+         </main>
+       </div>
+     </div>
+-    <script src="../../shared/config/version.js?v=20261110-2012"></script>
+-    <script src="../../shared/app-config.js?v=20261110-2012"></script>
+-    <script src="../../shared/utils/shared-utils.js?v=20261110-2012"></script>
+-    <script src="../../shared/storage/storage-migration.js?v=20261110-2012"></script>
+-    <script src="../../shared/auth/session-lifecycle.js?v=20261110-2012"></script>
+-    <script src="../../shared/app-state.js?v=20261110-2012"></script>
+-    <script src="../../shared/auth/auth-service.js?v=20261110-2012"></script>
+-    <script src="../../shared/supabase/supabase-gateway.js?v=20261110-2012"></script>
+-    <script src="../../shared/identity/creator-resolver.js?v=20261110-2012"></script>
+-    <script src="../../shared/services/template-adoption-policy.js?v=20261110-2012"></script>
+-    <script src="../../shared/components/zhuge-navigation.js?v=20261110-2012"></script>
+-    <script src="../../shared/components/zhuge-shell.js?v=20261110-2012"></script>
+-<script src="../../shared/components/zhuge-functional-tabs.js?v=20261110-2012"></script>
+-    <script src="../../shared/theme/zhuge-appearance.js?v=20261110-2012"></script>
++    <script src="../../shared/config/version.js?v=20261113-0651"></script>
++    <script src="../../shared/app-config.js?v=20261113-0651"></script>
++    <script src="../../shared/utils/shared-utils.js?v=20261113-0651"></script>
++    <script src="../../shared/storage/storage-migration.js?v=20261113-0651"></script>
++    <script src="../../shared/auth/session-lifecycle.js?v=20261113-0651"></script>
++    <script src="../../shared/app-state.js?v=20261113-0651"></script>
++    <script src="../../shared/auth/auth-service.js?v=20261113-0651"></script>
++    <script src="../../shared/supabase/supabase-gateway.js?v=20261113-0651"></script>
++    <script src="../../shared/identity/creator-resolver.js?v=20261113-0651"></script>
++    <script src="../../shared/services/template-adoption-policy.js?v=20261113-0651"></script>
++    <script src="../../shared/components/zhuge-navigation.js?v=20261113-0651"></script>
++    <script src="../../shared/components/zhuge-shell.js?v=20261113-0651"></script>
++<script src="../../shared/components/zhuge-functional-tabs.js?v=20261113-0651"></script>
++    <script src="../../shared/theme/zhuge-appearance.js?v=20261113-0651"></script>
+     <script src="../router/index.js"></script>
+     <script>
+       // Keep the public landing page available to anonymous visitors, but
+diff --git a/app/dashboard/zhuge-dashboard.js b/app/dashboard/zhuge-dashboard.js
+index cc82b975d7..698bd078ac 100644
+--- a/app/dashboard/zhuge-dashboard.js
++++ b/app/dashboard/zhuge-dashboard.js
+@@ -134,7 +134,7 @@ function zhugeRootContinueMarkup() {
+ 
+ function zhugeRootReleaseMeta() {
+   const version = typeof VERSION !== "undefined" ? VERSION : "0.9.0-alpha.9.190";
+-  const build = typeof BUILD_TIME !== "undefined" ? BUILD_TIME : "20261110-2012";
++  const build = typeof BUILD_TIME !== "undefined" ? BUILD_TIME : "20261113-0651";
+   return `<div class="zhuge-root-release-meta" aria-label="版本資訊"><div><span>版本</span><strong>v${escapeHtml(version)}</strong></div><div><span>Build</span><strong>${escapeHtml(build)}</strong></div><div><span>環境</span><strong>Production</strong></div><div><span>Repository</span><strong>zhuge-ai-os</strong></div></div>`;
+ }
+ 
+diff --git a/index.html b/index.html
+index 82e3997af4..6476ec5b4f 100644
+--- a/index.html
++++ b/index.html
+@@ -54,4 +54,4 @@
+   if (!intro) return;
+   setTimeout(function () { intro.classList.add('collapsed'); }, 5000);
+ })();
+-</script><footer hidden id="zhuge-source-identity">Version 0.9.0-alpha.9.190 · Build 20261110-2012</footer></body></html>
++</script><footer hidden id="zhuge-source-identity">Version 0.9.0-alpha.9.190 · Build 20261113-0651</footer></body></html>
+diff --git a/labs/investment/app.js b/labs/investment/app.js
+index d20db6b040..1a88f9f9c9 100644
+--- a/labs/investment/app.js
++++ b/labs/investment/app.js
+@@ -1,21 +1,21 @@
+ import { createReadOnlyPortfolioAdapter } from "./src/portfolio/readonly-adapter.mjs";
+ import { createLabMarketProvider } from "./src/providers/lab-market-provider.mjs";
+-import { loadPortfolioHistoryMap } from "./src/portfolio/history.mjs?v=20261110-2012";
++import { loadPortfolioHistoryMap } from "./src/portfolio/history.mjs?v=20261113-0651";
+ import { formalWatchlistMembership } from "./src/portfolio/research-context.mjs";
+-import { renderPortfolioResearchContext, renderPortfolioSection } from "./src/portfolio/view.mjs?v=20261110-2012";
+-import { MiniMarketChart } from "./src/components/mini-market-chart.mjs?v=20261110-2012";
+-import { renderResearchOhlcvChart } from "./src/components/research-ohlcv-chart.mjs?v=20261110-2012";
++import { renderPortfolioResearchContext, renderPortfolioSection } from "./src/portfolio/view.mjs?v=20261113-0651";
++import { MiniMarketChart } from "./src/components/mini-market-chart.mjs?v=20261113-0651";
++import { renderResearchOhlcvChart } from "./src/components/research-ohlcv-chart.mjs?v=20261113-0651";
+ import { renderUsTreasuryContext } from "./src/components/us-treasury-context.mjs";
+ import { renderGlobalFxContext } from "./src/components/global-fx-context.mjs";
+-import { renderInstitutionalFlowSummary } from "./src/components/institutional-flow-view.mjs?v=20261110-2012";
+-import { renderChipCycleObservation } from "./src/components/chip-cycle-observation.mjs?v=20261110-2012";
+-import { renderTaiwanScanResults } from "./src/components/taiwan-scan-results.mjs?v=20261110-2012";
+-import { renderTaiwanSectorHeatmap } from "./src/components/taiwan-sector-heatmap.mjs?v=20261110-2012";
+-import { renderTaiwanMarginBalance, renderTdccOwnership } from "./src/components/taiwan-positioning-evidence.mjs?v=20261110-2012";
+-import { recordTdccLocalObservation } from "./src/domain/tdcc-local-observations.mjs?v=20261110-2012";
++import { renderInstitutionalFlowSummary } from "./src/components/institutional-flow-view.mjs?v=20261113-0651";
++import { renderChipCycleObservation } from "./src/components/chip-cycle-observation.mjs?v=20261113-0651";
++import { renderTaiwanScanResults } from "./src/components/taiwan-scan-results.mjs?v=20261113-0651";
++import { renderTaiwanSectorHeatmap } from "./src/components/taiwan-sector-heatmap.mjs?v=20261113-0651";
++import { renderTaiwanMarginBalance, renderTdccOwnership } from "./src/components/taiwan-positioning-evidence.mjs?v=20261113-0651";
++import { recordTdccLocalObservation } from "./src/domain/tdcc-local-observations.mjs?v=20261113-0651";
+ import { calculateIndicators } from "./src/domain/indicators.mjs";
+-import { buildTechnicalSignalMatrix, renderTechnicalSignalMatrix } from "./src/domain/technical-signal-matrix.mjs?v=20261110-2012";
+-import { buildChipCycleObservation } from "./src/domain/chip-cycle-observation.mjs?v=20261110-2012";
++import { buildTechnicalSignalMatrix, renderTechnicalSignalMatrix } from "./src/domain/technical-signal-matrix.mjs?v=20261113-0651";
++import { buildChipCycleObservation } from "./src/domain/chip-cycle-observation.mjs?v=20261113-0651";
+ import { filtersForTaiwanSector } from "./src/domain/taiwan-market-scan.mjs";
+ import { buildSmaCrossoverSignals, runSmaCrossoverBacktest } from "./src/domain/sma-crossover-backtest.mjs";
+ import { buildInvestmentAiEvidencePack, createInvestmentAiProvider } from "./src/ai/analysis-contract.mjs";
+diff --git a/labs/investment/index.html b/labs/investment/index.html
+index 1640382519..6eb83b9ef6 100644
+--- a/labs/investment/index.html
++++ b/labs/investment/index.html
+@@ -7,19 +7,19 @@
+   <meta name="description" content="TRQN Lab_投資：台股與美股研究、個人持股、正式觀察名單與平倉歷史。">
+   <title>Lab_投資｜TRQN</title>
+   <link rel="icon" href="../../shared/assets/logo/tron-icon.svg" type="image/svg+xml">
+-    <link rel="stylesheet" href="../../shared/theme/tokens.css?v=20261110-2012">
+-    <link rel="stylesheet" href="../../shared/theme/variables.css?v=20261110-2012">
+-    <link rel="stylesheet" href="../../shared/theme/typography.css?v=20261110-2012">
+-    <link rel="stylesheet" href="../../shared/theme/dark.css?v=20261110-2012">
+-    <link rel="stylesheet" href="../../shared/theme/zhuge-shell.css?v=20261110-2012">
+-    <link rel="stylesheet" href="../../shared/theme/zhuge-navigation.css?v=20261110-2012">
++    <link rel="stylesheet" href="../../shared/theme/tokens.css?v=20261113-0651">
++    <link rel="stylesheet" href="../../shared/theme/variables.css?v=20261113-0651">
++    <link rel="stylesheet" href="../../shared/theme/typography.css?v=20261113-0651">
++    <link rel="stylesheet" href="../../shared/theme/dark.css?v=20261113-0651">
++    <link rel="stylesheet" href="../../shared/theme/zhuge-shell.css?v=20261113-0651">
++    <link rel="stylesheet" href="../../shared/theme/zhuge-navigation.css?v=20261113-0651">
+     <link rel="stylesheet" href="./styles.css">
+-    <link rel="stylesheet" href="./portfolio.css?v=20261110-2012">
+-    <link rel="stylesheet" href="./mini-market-chart.css?v=20261110-2012">
+-    <link rel="stylesheet" href="./lab-product.css?v=20261110-2012">
+-    <link rel="stylesheet" href="../../shared/theme/zhuge-functional-tabs.css?v=20261110-2012">
+-    <script src="../../shared/config/version.js?v=20261110-2012"></script>
+-    <script src="../../shared/components/zhuge-functional-tabs.js?v=20261110-2012"></script>
++    <link rel="stylesheet" href="./portfolio.css?v=20261113-0651">
++    <link rel="stylesheet" href="./mini-market-chart.css?v=20261113-0651">
++    <link rel="stylesheet" href="./lab-product.css?v=20261113-0651">
++    <link rel="stylesheet" href="../../shared/theme/zhuge-functional-tabs.css?v=20261113-0651">
++    <script src="../../shared/config/version.js?v=20261113-0651"></script>
++    <script src="../../shared/components/zhuge-functional-tabs.js?v=20261113-0651"></script>
+   </head>
+ <body>
+   <div class="zhuge-module-shell investment-lab-shell">
+@@ -59,43 +59,43 @@
+     <div class="dialog-body" data-dialog-body></div>
+   </dialog>
+   <!-- Use the same root session, app-access, MFA and shared data boundaries as formal Investment. -->
+-  <script src="../../shared/app-config.js?v=20261110-2012"></script>
+-  <script src="../../shared/utils/shared-utils.js?v=20261110-2012"></script>
+-  <script src="../../shared/storage/storage-migration.js?v=20261110-2012"></script>
+-  <script src="../../shared/api/data-result.js?v=20261110-2012"></script>
+-  <script src="../../shared/identity/identity-health.js?v=20261110-2012"></script>
+-  <script src="../../shared/auth/session-lifecycle.js?v=20261110-2012"></script>
+-  <script src="../../shared/core/repository-bootstrap.js?v=20261110-2012"></script>
+-  <script src="../../shared/api/sync-queue.js?v=20261110-2012"></script>
+-  <script src="../../shared/foundation/index.js?v=20261110-2012"></script>
+-  <script src="../../shared/app-state.js?v=20261110-2012"></script>
+-  <script src="../../shared/auth/auth-service.js?v=20261110-2012"></script>
+-  <script src="../../shared/identity/identity-service.js?v=20261110-2012"></script>
+-  <script src="../../shared/auth/session-service.js?v=20261110-2012"></script>
+-  <script src="../../shared/identity/creator-resolver.js?v=20261110-2012"></script>
+-  <script src="../../shared/supabase/supabase-gateway.js?v=20261110-2012"></script>
+-  <script src="../../shared/auth/app-access-service.js?v=20261110-2012"></script>
+-  <script src="../../shared/auth/app-access-gate.js?v=20261110-2012"></script>
+-  <script src="../../shared/security/permission-service.js?v=20261110-2012"></script>
+-  <script src="../../shared/security/mfa-service.js?v=20261110-2012"></script>
+-  <script src="../../shared/security/security-gate.js?v=20261110-2012"></script>
+-  <script src="../../shared/services/module-context.js?v=20261110-2012"></script>
+-  <script src="../../shared/services/shared-platform.js?v=20261110-2012"></script>
+-  <script src="../../shared/security/platform-policy.js?v=20261110-2012"></script>
+-  <script src="../../shared/auth/runtime-session-provider.js?v=20261110-2012"></script>
+-  <script src="../../shared/components/zhuge-navigation.js?v=20261110-2012"></script>
+-  <script src="../../modules/investment/services/investment-intelligence-layer.js?v=20261110-2012"></script>
+-  <script src="../../modules/investment/services/investment-analysis-service.js?v=20261110-2012"></script>
+-  <script src="../../modules/investment/services/investment-strategy-library.js?v=20261110-2012"></script>
+-  <script src="../../modules/investment/services/investment-strategy-scanner.js?v=20261110-2012"></script>
+-  <script src="../../modules/investment/services/investment-homework-pack.js?v=20261110-2012"></script>
+-  <script src="../../modules/investment/services/investment-strategy-backtest.js?v=20261110-2012"></script>
+-  <script src="../../modules/investment/services/investment-volume-confirmation.js?v=20261110-2012"></script>
+-  <script src="../../modules/investment/services/investment-intelligence-providers.js?v=20261110-2012"></script>
++  <script src="../../shared/app-config.js?v=20261113-0651"></script>
++  <script src="../../shared/utils/shared-utils.js?v=20261113-0651"></script>
++  <script src="../../shared/storage/storage-migration.js?v=20261113-0651"></script>
++  <script src="../../shared/api/data-result.js?v=20261113-0651"></script>
++  <script src="../../shared/identity/identity-health.js?v=20261113-0651"></script>
++  <script src="../../shared/auth/session-lifecycle.js?v=20261113-0651"></script>
++  <script src="../../shared/core/repository-bootstrap.js?v=20261113-0651"></script>
++  <script src="../../shared/api/sync-queue.js?v=20261113-0651"></script>
++  <script src="../../shared/foundation/index.js?v=20261113-0651"></script>
++  <script src="../../shared/app-state.js?v=20261113-0651"></script>
++  <script src="../../shared/auth/auth-service.js?v=20261113-0651"></script>
++  <script src="../../shared/identity/identity-service.js?v=20261113-0651"></script>
++  <script src="../../shared/auth/session-service.js?v=20261113-0651"></script>
++  <script src="../../shared/identity/creator-resolver.js?v=20261113-0651"></script>
++  <script src="../../shared/supabase/supabase-gateway.js?v=20261113-0651"></script>
++  <script src="../../shared/auth/app-access-service.js?v=20261113-0651"></script>
++  <script src="../../shared/auth/app-access-gate.js?v=20261113-0651"></script>
++  <script src="../../shared/security/permission-service.js?v=20261113-0651"></script>
++  <script src="../../shared/security/mfa-service.js?v=20261113-0651"></script>
++  <script src="../../shared/security/security-gate.js?v=20261113-0651"></script>
++  <script src="../../shared/services/module-context.js?v=20261113-0651"></script>
++  <script src="../../shared/services/shared-platform.js?v=20261113-0651"></script>
++  <script src="../../shared/security/platform-policy.js?v=20261113-0651"></script>
++  <script src="../../shared/auth/runtime-session-provider.js?v=20261113-0651"></script>
++  <script src="../../shared/components/zhuge-navigation.js?v=20261113-0651"></script>
++  <script src="../../modules/investment/services/investment-intelligence-layer.js?v=20261113-0651"></script>
++  <script src="../../modules/investment/services/investment-analysis-service.js?v=20261113-0651"></script>
++  <script src="../../modules/investment/services/investment-strategy-library.js?v=20261113-0651"></script>
++  <script src="../../modules/investment/services/investment-strategy-scanner.js?v=20261113-0651"></script>
++  <script src="../../modules/investment/services/investment-homework-pack.js?v=20261113-0651"></script>
++  <script src="../../modules/investment/services/investment-strategy-backtest.js?v=20261113-0651"></script>
++  <script src="../../modules/investment/services/investment-volume-confirmation.js?v=20261113-0651"></script>
++  <script src="../../modules/investment/services/investment-intelligence-providers.js?v=20261113-0651"></script>
+   <script type="importmap">
+     {"imports":{"fflate":"./assets/vendor/fflate-browser.js","fast-xml-parser":"./assets/vendor/fast-xml-parser.mjs"}}
+   </script>
+   <script src="./assets/vendor/fast-xml-parser.min.js"></script>
+-  <script type="module" src="./app.js?v=20261110-2012"></script>
++  <script type="module" src="./app.js?v=20261113-0651"></script>
+ </body>
+ </html>
+diff --git a/labs/investment/src/portfolio/view.mjs b/labs/investment/src/portfolio/view.mjs
+index db261e7048..b8956bef69 100644
+--- a/labs/investment/src/portfolio/view.mjs
++++ b/labs/investment/src/portfolio/view.mjs
+@@ -1,5 +1,5 @@
+-import { MiniMarketChart } from "../components/mini-market-chart.mjs?v=20261110-2012";
+-import { portfolioHistoryForPosition } from "./history.mjs?v=20261110-2012";
++import { MiniMarketChart } from "../components/mini-market-chart.mjs?v=20261113-0651";
++import { portfolioHistoryForPosition } from "./history.mjs?v=20261113-0651";
+ 
+ const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, char => ({
+   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+diff --git a/labs/investment/version.json b/labs/investment/version.json
+index a1432eba7c..c865281416 100644
+--- a/labs/investment/version.json
++++ b/labs/investment/version.json
+@@ -1,6 +1,6 @@
+ {
+   "name": "Lab_投資",
+   "version": "0.9.0-alpha.9.190",
+-  "build": "20261110-2012",
++  "build": "20261113-0651",
+   "candidateBase": "20261001-2324"
+ }
+diff --git a/labs/taskflow/docs/DATE_HOURS_CANDIDATE_20261113.md b/labs/taskflow/docs/DATE_HOURS_CANDIDATE_20261113.md
+index 30d2eb718b..e91f69a860 100644
+--- a/labs/taskflow/docs/DATE_HOURS_CANDIDATE_20261113.md
++++ b/labs/taskflow/docs/DATE_HOURS_CANDIDATE_20261113.md
+@@ -33,7 +33,7 @@ A native TaskFlow issue's start and/or due date counts as one hour on that date
+ 
+ ## Remaining release gates
+ 
+-1. Legacy Pages reader now preserves dateOnly, shows no-clock labels, keeps daily/month totals and ECP exact date/hours, excludes date rows from timed slot allocation, skips them in bulk sync, blocks stale edit/delete with TF guidance. Five source tests and 390/1280 canonical panel/capture visual fixtures pass. Full legacy app acceptance remains to be run before activation.
++1. Legacy Pages reader now preserves dateOnly, shows no-clock labels, keeps daily/month totals and ECP exact date/hours, excludes date rows from timed slot allocation, skips them in bulk sync, blocks stale edit/delete with TF guidance. Five source tests and 390/1280 canonical panel/capture visual fixtures pass. Real index.html loader and synthetic signed-in runtime render now pass at 390/1440 including stale edit state. Existing sidebar/calendar wrapping reproduces on the unchanged base; not a whole-UI acceptance claim. Date-only guidance is stacked separately to preserve the new row title width.
+ 2. Broader browser/full overlay/build/CI validation and final runtime packaging, including copying date-hours module into the worker function package.
+ 3. SQL enrollment scope must be matched to the actual authorized owner/workspace, activation last after compatible readers and worker. No historic batch write.
+ 4. Source clear/re-add now inserts a fresh registration rather than reviving an old tombstoned Google binding. SQL test verifies new identity; full synthetic worker deletion/reintroduction acceptance passes with distinct Google identities. Existing ACL restriction forbids retry/bypass/reconnection. Do not claim live Google verification from synthetic tests.
+@@ -44,3 +44,7 @@ A native TaskFlow issue's start and/or due date counts as one hour on that date
+ ## Rollout order, only after gates
+ 
+ Install compatible disabled SQL, release matching Web/legacy reader and worker, verify current source versions, then explicitly enable the owner's workspace enrollment. Do not activate early. Rollback disables enrollment first; never drop date-only data or restore old NOT NULL constraints while those rows exist.
++
++## Worker isolation checkpoint
++
++The live worker v11 source is 5d1bc8e86ea041041197a8c196895adc83d8bec8, not current Web base. Do not deploy the general Web-tree worker bundle: it includes later ordinary linked-delete/classification changes beyond the date-only exception. The separate date-only worker branch review/tf-date-hours-worker-v11-20261113 adds only date imports, source-bound date edits, and date-only tombstone sync. Ordinary timed deletion still stays local as in v11. 110 baseline/date tests and bundle syntax check pass. Local checkpoint 3c7bcd15b7; cloud qualification and publishing still pending.
+diff --git a/labs/taskflow/index.html b/labs/taskflow/index.html
+index cb3f7fa9e0..67fb498117 100644
+--- a/labs/taskflow/index.html
++++ b/labs/taskflow/index.html
+@@ -5,8 +5,8 @@
+   <meta name="viewport" content="width=device-width,initial-scale=1" />
+   <meta name="theme-color" content="#07111f" />
+   <title>TaskFlow · Multica · TRQN</title>
+-  <script src="./runtime-config.js?v=20261110-2012"></script>
+-  <script src="./cli-sso.js?v=20261110-2012"></script>
++  <script src="./runtime-config.js?v=20261113-0651"></script>
++  <script src="./cli-sso.js?v=20261113-0651"></script>
+   <style>
+     :root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#07111f;color:#e5edf8}
+     *{box-sizing:border-box}
+diff --git a/modules/investment/index.html b/modules/investment/index.html
+index 2b0fa2a1d7..5e8d9805a3 100644
+--- a/modules/investment/index.html
++++ b/modules/investment/index.html
+@@ -7,106 +7,106 @@
+     <meta name="theme-color" content="#06101e">
+     <title>投資｜TRQN</title>
+     <link rel="icon" href="../../shared/assets/logo/tron-icon.svg" type="image/svg+xml">
+-    <link rel="stylesheet" href="../../shared/theme/tokens.css?v=20261110-2012">
+-    <link rel="stylesheet" href="../../shared/theme/variables.css?v=20261110-2012">
+-    <link rel="stylesheet" href="../../shared/theme/typography.css?v=20261110-2012">
+-    <link rel="stylesheet" href="../../shared/theme/dark.css?v=20261110-2012">
+-    <link rel="stylesheet" href="../../shared/theme/zhuge-shell.css?v=20261110-2012">
+-    <link rel="stylesheet" href="./assets/investment.css?v=20261110-2012&feature=broker-snapshot-pm-confirmed-20260902&security-contract=20260907-055035">
+-    <link rel="stylesheet" href="../../shared/theme/golden-master.css?v=20261110-2012">
+-    <link rel="stylesheet" href="../../shared/theme/task-board.css?v=20261110-2012">
+-    <link rel="stylesheet" href="../../shared/theme/task-card.css?v=20261110-2012">
+-    <link rel="stylesheet" href="../../shared/theme/task-drawer.css?v=20261110-2012">
+-    <link rel="stylesheet" href="../../shared/theme/zhuge-workspace.css?v=20261110-2012">
+-    <link rel="stylesheet" href="../../shared/theme/zhuge-navigation.css?v=20261110-2012">
+-    <link rel="stylesheet" href="../../shared/theme/app-access.css?v=20261110-2012">
+-    <link rel="stylesheet" href="../../shared/theme/global-floating-hub.css?v=20261110-2012">
+-    <link rel="stylesheet" href="../../shared/theme/desktop-modernization.css?v=20261110-2012">
+-    <link rel="stylesheet" href="../../shared/theme/responsive-modernization.css?v=20261110-2012">
+-      <link rel="stylesheet" href="../../shared/theme/zhuge-functional-tabs.css?v=20261110-2012">
++    <link rel="stylesheet" href="../../shared/theme/tokens.css?v=20261113-0651">
++    <link rel="stylesheet" href="../../shared/theme/variables.css?v=20261113-0651">
++    <link rel="stylesheet" href="../../shared/theme/typography.css?v=20261113-0651">
++    <link rel="stylesheet" href="../../shared/theme/dark.css?v=20261113-0651">
++    <link rel="stylesheet" href="../../shared/theme/zhuge-shell.css?v=20261113-0651">
++    <link rel="stylesheet" href="./assets/investment.css?v=20261113-0651&feature=broker-snapshot-pm-confirmed-20260902&security-contract=20260907-055035">
++    <link rel="stylesheet" href="../../shared/theme/golden-master.css?v=20261113-0651">
++    <link rel="stylesheet" href="../../shared/theme/task-board.css?v=20261113-0651">
++    <link rel="stylesheet" href="../../shared/theme/task-card.css?v=20261113-0651">
++    <link rel="stylesheet" href="../../shared/theme/task-drawer.css?v=20261113-0651">
++    <link rel="stylesheet" href="../../shared/theme/zhuge-workspace.css?v=20261113-0651">
++    <link rel="stylesheet" href="../../shared/theme/zhuge-navigation.css?v=20261113-0651">
++    <link rel="stylesheet" href="../../shared/theme/app-access.css?v=20261113-0651">
++    <link rel="stylesheet" href="../../shared/theme/global-floating-hub.css?v=20261113-0651">
++    <link rel="stylesheet" href="../../shared/theme/desktop-modernization.css?v=20261113-0651">
++    <link rel="stylesheet" href="../../shared/theme/responsive-modernization.css?v=20261113-0651">
++      <link rel="stylesheet" href="../../shared/theme/zhuge-functional-tabs.css?v=20261113-0651">
+   </head>
+   <body>
+     <div id="investmentApp"><main class="investment-loading"><span></span><p>正在載入投資模組…</p></main></div>
+ 
+     <!-- Existing root session binding. No Investment OAuth or Supabase client. -->
+-    <script src="../../shared/app-config.js?v=20261110-2012"></script>
+-    <script src="../../shared/utils/shared-utils.js?v=20261110-2012"></script>
+-    <script src="../../shared/storage/storage-migration.js?v=20261110-2012"></script>
+-    <script src="../../shared/api/data-result.js?v=20261110-2012"></script>
+-    <script src="../../shared/identity/identity-health.js?v=20261110-2012"></script>
+-    <script src="../../shared/auth/session-lifecycle.js?v=20261110-2012"></script>
+-    <script src="../../shared/core/repository-bootstrap.js?v=20261110-2012"></script>
+-    <script src="../../shared/api/sync-queue.js?v=20261110-2012"></script>
+-    <script src="../../shared/foundation/index.js?v=20261110-2012"></script>
+-    <script src="../../shared/app-state.js?v=20261110-2012"></script>
+-    <script src="../../shared/auth/auth-service.js?v=20261110-2012"></script>
+-    <script src="../../shared/identity/identity-service.js?v=20261110-2012"></script>
+-    <script src="../../shared/auth/session-service.js?v=20261110-2012"></script>
+-    <script src="../../shared/identity/creator-resolver.js?v=20261110-2012"></script>
+-    <script src="../../shared/supabase/supabase-gateway.js?v=20261110-2012"></script>
+-    <script src="../../shared/auth/app-access-service.js?v=20261110-2012"></script>
+-    <script src="../../shared/auth/app-access-gate.js?v=20261110-2012"></script>
+-    <script src="../../shared/components/global-floating-hub.js?v=20261110-2012"></script>
+-    <script src="../../shared/security/permission-service.js?v=20261110-2012"></script>
+-    <script src="../../shared/security/mfa-service.js?v=20261110-2012&security-contract=20260907-055035"></script>
+-    <script src="../../shared/security/security-gate.js?v=20261110-2012"></script>
+-    <script src="../../shared/services/module-context.js?v=20261110-2012&security-contract=20260907-055035"></script>
+-    <script src="../../shared/services/shared-platform.js?v=20261110-2012"></script>
+-    <script src="../../shared/security/platform-policy.js?v=20261110-2012"></script>
+-    <script src="../../shared/auth/runtime-session-provider.js?v=20261110-2012"></script>
+-    <script src="../../shared/components/index.js?v=20261110-2012"></script>
+-    <script src="../../shared/config/version.js?v=20261110-2012"></script>
++    <script src="../../shared/app-config.js?v=20261113-0651"></script>
++    <script src="../../shared/utils/shared-utils.js?v=20261113-0651"></script>
++    <script src="../../shared/storage/storage-migration.js?v=20261113-0651"></script>
++    <script src="../../shared/api/data-result.js?v=20261113-0651"></script>
++    <script src="../../shared/identity/identity-health.js?v=20261113-0651"></script>
++    <script src="../../shared/auth/session-lifecycle.js?v=20261113-0651"></script>
++    <script src="../../shared/core/repository-bootstrap.js?v=20261113-0651"></script>
++    <script src="../../shared/api/sync-queue.js?v=20261113-0651"></script>
++    <script src="../../shared/foundation/index.js?v=20261113-0651"></script>
++    <script src="../../shared/app-state.js?v=20261113-0651"></script>
++    <script src="../../shared/auth/auth-service.js?v=20261113-0651"></script>
++    <script src="../../shared/identity/identity-service.js?v=20261113-0651"></script>
++    <script src="../../shared/auth/session-service.js?v=20261113-0651"></script>
++    <script src="../../shared/identity/creator-resolver.js?v=20261113-0651"></script>
++    <script src="../../shared/supabase/supabase-gateway.js?v=20261113-0651"></script>
++    <script src="../../shared/auth/app-access-service.js?v=20261113-0651"></script>
++    <script src="../../shared/auth/app-access-gate.js?v=20261113-0651"></script>
++    <script src="../../shared/components/global-floating-hub.js?v=20261113-0651"></script>
++    <script src="../../shared/security/permission-service.js?v=20261113-0651"></script>
++    <script src="../../shared/security/mfa-service.js?v=20261113-0651&security-contract=20260907-055035"></script>
++    <script src="../../shared/security/security-gate.js?v=20261113-0651"></script>
++    <script src="../../shared/services/module-context.js?v=20261113-0651&security-contract=20260907-055035"></script>
++    <script src="../../shared/services/shared-platform.js?v=20261113-0651"></script>
++    <script src="../../shared/security/platform-policy.js?v=20261113-0651"></script>
++    <script src="../../shared/auth/runtime-session-provider.js?v=20261113-0651"></script>
++    <script src="../../shared/components/index.js?v=20261113-0651"></script>
++    <script src="../../shared/config/version.js?v=20261113-0651"></script>
+     <script src="../../shared/config/template-release.js?v=20260915-1707"></script>
+-    <script src="../../shared/services/template-adoption-policy.js?v=20261110-2012"></script>
+-    <script src="../../shared/components/zhuge-navigation.js?v=20261110-2012"></script>
+-    <script src="../../shared/components/zhuge-shell.js?v=20261110-2012"></script>
+-<script src="../../shared/components/zhuge-functional-tabs.js?v=20261110-2012"></script>
+-    <script src="../../shared/theme/zhuge-appearance.js?v=20261110-2012"></script>
+-    <script src="../../shared/components/task-card.js?v=20261110-2012"></script>
+-    <script src="../../shared/components/task-drawer.js?v=20261110-2012"></script>
+-    <script src="../../shared/components/task-board.js?v=20261110-2012"></script>
+-    <script src="../../shared/components/golden-master.js?v=20261110-2012"></script>
+-    <script src="../../shared/components/activity-classifier.js?v=20261110-2012"></script>
+-    <script src="../../shared/components/activity-text-renderer.js?v=20261110-2012"></script>
+-    <script src="../../shared/components/task-card-summary.js?v=20261110-2012"></script>
+-    <script src="../../shared/components/task-action-contract.js?v=20261110-2012"></script>
+-    <script src="../../shared/components/task-action-adapters.js?v=20261110-2012"></script>
+-    <script src="../../shared/components/template-parity-engine.js?v=20261110-2012"></script>
+-    <script src="../../shared/board/board-read-service.js?v=20261110-2012"></script>
+-    <script src="../../shared/services/template-release-service.js?v=20261110-2012"></script>
++    <script src="../../shared/services/template-adoption-policy.js?v=20261113-0651"></script>
++    <script src="../../shared/components/zhuge-navigation.js?v=20261113-0651"></script>
++    <script src="../../shared/components/zhuge-shell.js?v=20261113-0651"></script>
++<script src="../../shared/components/zhuge-functional-tabs.js?v=20261113-0651"></script>
++    <script src="../../shared/theme/zhuge-appearance.js?v=20261113-0651"></script>
++    <script src="../../shared/components/task-card.js?v=20261113-0651"></script>
++    <script src="../../shared/components/task-drawer.js?v=20261113-0651"></script>
++    <script src="../../shared/components/task-board.js?v=20261113-0651"></script>
++    <script src="../../shared/components/golden-master.js?v=20261113-0651"></script>
++    <script src="../../shared/components/activity-classifier.js?v=20261113-0651"></script>
++    <script src="../../shared/components/activity-text-renderer.js?v=20261113-0651"></script>
++    <script src="../../shared/components/task-card-summary.js?v=20261113-0651"></script>
++    <script src="../../shared/components/task-action-contract.js?v=20261113-0651"></script>
++    <script src="../../shared/components/task-action-adapters.js?v=20261113-0651"></script>
++    <script src="../../shared/components/template-parity-engine.js?v=20261113-0651"></script>
++    <script src="../../shared/board/board-read-service.js?v=20261113-0651"></script>
++    <script src="../../shared/services/template-release-service.js?v=20261113-0651"></script>
+ 
+-    <script src="./config/module-config.js?v=20261110-2012"></script>
+-    <script src="./utils/safe-html.js?v=20261110-2012"></script>
+-    <script src="./utils/formatters.js?v=20261110-2012"></script>
+-    <script src="./models/portfolio.js?v=20261110-2012"></script>
+-    <script src="./models/position.js?v=20261110-2012&feature=broker-snapshot-20260902"></script>
+-    <script src="./models/transaction.js?v=20261110-2012"></script>
+-    <script src="./models/watchlist-item.js?v=20261110-2012"></script>
+-    <script src="./models/strategy.js?v=20261110-2012"></script>
+-    <script src="./models/settings.js?v=20261110-2012"></script>
+-    <script src="./services/portfolio-calculation-service.js?v=20261110-2012"></script>
+-    <script src="./services/investment-intelligence-layer.js?v=20261110-2012"></script>
+-    <script src="./services/investment-intelligence-providers.js?v=20261110-2012"></script>
+-    <script src="./services/investment-strategy-library.js?v=20261110-2012"></script>
+-    <script src="./services/investment-analysis-service.js?v=20261110-2012"></script>
+-    <script src="./services/investment-strategy-scanner.js?v=20261110-2012"></script>
+-    <script src="./services/investment-homework-pack.js?v=20261110-2012"></script>
+-    <script src="./services/investment-strategy-backtest.js?v=20261110-2012"></script>
+-    <script src="./services/investment-volume-confirmation.js?v=20261110-2012"></script>
+-    <script src="./services/investment-repository.js?v=20261110-2012"></script>
+-    <script src="./services/supabase-investment-repository.js?v=20261110-2012-identity-repair&feature=broker-snapshot-20260902&mfa-pause=20260902_1328&security-contract=20260907-055035"></script>
+-    <script src="./services/screenshot-import-engine.js?v=20261110-2012&feature=broker-snapshot-pm-confirmed-20260902&pm-contract=required-fields-v2"></script>
+-    <script src="./services/investment-recognition-provider.js?v=20261110-2012"></script>
+-    <script src="./store/investment-store.js?v=20261110-2012"></script>
+-    <script src="./components/position-card.js?v=20261110-2012"></script>
+-    <script src="./components/module-shell.js?v=20261110-2012"></script>
+-    <script src="./pages/overview-page.js?v=20261110-2012"></script>
+-    <script src="./pages/transactions-page.js?v=20261110-2012"></script>
+-    <script src="./pages/screenshot-import-page.js?v=20261110-2012&feature=broker-snapshot-pm-confirmed-20260902&security-contract=20260907-055035"></script>
+-    <script src="./pages/portfolio-page.js?v=20261110-2012"></script>
+-    <script src="./pages/strategy-page.js?v=20261110-2012"></script>
+-    <script src="./pages/settings-page.js?v=20261110-2012"></script>
+-    <script src="./services/ivtk-board-adapter.js?v=20261110-2012"></script>
+-    <script src="./services/investment-module.js?v=20261110-2012&feature=broker-snapshot-pm-confirmed-20260902&mfa-pause=20260902_1328&security-contract=20260907-055035"></script>
++    <script src="./config/module-config.js?v=20261113-0651"></script>
++    <script src="./utils/safe-html.js?v=20261113-0651"></script>
++    <script src="./utils/formatters.js?v=20261113-0651"></script>
++    <script src="./models/portfolio.js?v=20261113-0651"></script>
++    <script src="./models/position.js?v=20261113-0651&feature=broker-snapshot-20260902"></script>
++    <script src="./models/transaction.js?v=20261113-0651"></script>
++    <script src="./models/watchlist-item.js?v=20261113-0651"></script>
++    <script src="./models/strategy.js?v=20261113-0651"></script>
++    <script src="./models/settings.js?v=20261113-0651"></script>
++    <script src="./services/portfolio-calculation-service.js?v=20261113-0651"></script>
++    <script src="./services/investment-intelligence-layer.js?v=20261113-0651"></script>
++    <script src="./services/investment-intelligence-providers.js?v=20261113-0651"></script>
++    <script src="./services/investment-strategy-library.js?v=20261113-0651"></script>
++    <script src="./services/investment-analysis-service.js?v=20261113-0651"></script>
++    <script src="./services/investment-strategy-scanner.js?v=20261113-0651"></script>
++    <script src="./services/investment-homework-pack.js?v=20261113-0651"></script>
++    <script src="./services/investment-strategy-backtest.js?v=20261113-0651"></script>
++    <script src="./services/investment-volume-confirmation.js?v=20261113-0651"></script>
++    <script src="./services/investment-repository.js?v=20261113-0651"></script>
++    <script src="./services/supabase-investment-repository.js?v=20261113-0651-identity-repair&feature=broker-snapshot-20260902&mfa-pause=20260902_1328&security-contract=20260907-055035"></script>
++    <script src="./services/screenshot-import-engine.js?v=20261113-0651&feature=broker-snapshot-pm-confirmed-20260902&pm-contract=required-fields-v2"></script>
++    <script src="./services/investment-recognition-provider.js?v=20261113-0651"></script>
++    <script src="./store/investment-store.js?v=20261113-0651"></script>
++    <script src="./components/position-card.js?v=20261113-0651"></script>
++    <script src="./components/module-shell.js?v=20261113-0651"></script>
++    <script src="./pages/overview-page.js?v=20261113-0651"></script>
++    <script src="./pages/transactions-page.js?v=20261113-0651"></script>
++    <script src="./pages/screenshot-import-page.js?v=20261113-0651&feature=broker-snapshot-pm-confirmed-20260902&security-contract=20260907-055035"></script>
++    <script src="./pages/portfolio-page.js?v=20261113-0651"></script>
++    <script src="./pages/strategy-page.js?v=20261113-0651"></script>
++    <script src="./pages/settings-page.js?v=20261113-0651"></script>
++    <script src="./services/ivtk-board-adapter.js?v=20261113-0651"></script>
++    <script src="./services/investment-module.js?v=20261113-0651&feature=broker-snapshot-pm-confirmed-20260902&mfa-pause=20260902_1328&security-contract=20260907-055035"></script>
+   </body>
+ </html>
+diff --git a/modules/investment/version.json b/modules/investment/version.json
+index 3da3841be2..2db5c7ffd7 100644
+--- a/modules/investment/version.json
++++ b/modules/investment/version.json
+@@ -1,6 +1,6 @@
+ {
+   "version": "0.9.0-alpha.9.190",
+-  "build": "20261110-2012",
++  "build": "20261113-0651",
+   "foundation": "1.0",
+   "module": "Investment",
+   "moduleVersion": "0.2.0-sit.2",
+diff --git a/modules/skyeye/index.html b/modules/skyeye/index.html
+index 42effab94b..b74bcf8060 100644
+--- a/modules/skyeye/index.html
++++ b/modules/skyeye/index.html
+@@ -7,16 +7,16 @@
+   <meta name="description" content="Tron 天眼：以地點為中心查看天氣、地震、空氣品質與道路影像公開資料。">
+   <title>天眼｜Tron</title>
+   <link rel="icon" href="../../shared/assets/logo/tron-icon.svg" type="image/svg+xml">
+-  <link rel="stylesheet" href="../../shared/theme/tokens.css?v=20261110-2012">
+-  <link rel="stylesheet" href="../../shared/theme/variables.css?v=20261110-2012">
+-  <link rel="stylesheet" href="../../shared/theme/typography.css?v=20261110-2012">
+-  <link rel="stylesheet" href="../../shared/theme/zhuge-shell.css?v=20261110-2012">
+-  <link rel="stylesheet" href="../../shared/theme/zhuge-navigation.css?v=20261110-2012">
+-  <link rel="stylesheet" href="../../shared/theme/global-floating-hub.css?v=20261110-2012">
+-  <link rel="stylesheet" href="../../shared/theme/app-access.css?v=20261110-2012">
++  <link rel="stylesheet" href="../../shared/theme/tokens.css?v=20261113-0651">
++  <link rel="stylesheet" href="../../shared/theme/variables.css?v=20261113-0651">
++  <link rel="stylesheet" href="../../shared/theme/typography.css?v=20261113-0651">
++  <link rel="stylesheet" href="../../shared/theme/zhuge-shell.css?v=20261113-0651">
++  <link rel="stylesheet" href="../../shared/theme/zhuge-navigation.css?v=20261113-0651">
++  <link rel="stylesheet" href="../../shared/theme/global-floating-hub.css?v=20261113-0651">
++  <link rel="stylesheet" href="../../shared/theme/app-access.css?v=20261113-0651">
+   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+-  <link rel="stylesheet" href="./assets/skyeye.css?v=20261110-2012">
+-    <link rel="stylesheet" href="../../shared/theme/zhuge-functional-tabs.css?v=20261110-2012">
++  <link rel="stylesheet" href="./assets/skyeye.css?v=20261113-0651">
++    <link rel="stylesheet" href="../../shared/theme/zhuge-functional-tabs.css?v=20261113-0651">
+   </head>
+ <body class="skyeye-page">
+   <div class="zhuge-module-shell skyeye-shell">
+@@ -77,27 +77,27 @@
+   </div>
+ 
+   <script>var session = null;</script>
+-  <script src="../../shared/config/version.js?v=20261110-2012"></script>
++  <script src="../../shared/config/version.js?v=20261113-0651"></script>
+   <script src="../../shared/config/template-release.js?v=20260915-1707"></script>
+-  <script src="../../shared/app-config.js?v=20261110-2012"></script>
+-  <script src="../../shared/utils/shared-utils.js?v=20261110-2012"></script>
+-  <script src="../../shared/storage/storage-migration.js?v=20261110-2012"></script>
+-  <script src="../../shared/identity/identity-health.js?v=20261110-2012"></script>
+-  <script src="../../shared/auth/session-lifecycle.js?v=20261110-2012"></script>
+-  <script src="../../shared/auth/auth-service.js?v=20261110-2012"></script>
+-  <script src="../../shared/identity/identity-service.js?v=20261110-2012"></script>
+-  <script src="../../shared/auth/session-service.js?v=20261110-2012"></script>
+-  <script src="../../shared/supabase/supabase-gateway.js?v=20261110-2012"></script>
+-  <script src="../../shared/auth/app-access-service.js?v=20261110-2012"></script>
+-  <script src="../../shared/auth/app-access-gate.js?v=20261110-2012"></script>
+-  <script src="../../shared/identity/creator-resolver.js?v=20261110-2012"></script>
+-  <script src="../../shared/components/zhuge-navigation.js?v=20261110-2012"></script>
+-  <script src="../../shared/components/zhuge-shell.js?v=20261110-2012"></script>
+-<script src="../../shared/components/zhuge-functional-tabs.js?v=20261110-2012"></script>
+-  <script src="../../shared/components/global-floating-hub.js?v=20261110-2012"></script>
++  <script src="../../shared/app-config.js?v=20261113-0651"></script>
++  <script src="../../shared/utils/shared-utils.js?v=20261113-0651"></script>
++  <script src="../../shared/storage/storage-migration.js?v=20261113-0651"></script>
++  <script src="../../shared/identity/identity-health.js?v=20261113-0651"></script>
++  <script src="../../shared/auth/session-lifecycle.js?v=20261113-0651"></script>
++  <script src="../../shared/auth/auth-service.js?v=20261113-0651"></script>
++  <script src="../../shared/identity/identity-service.js?v=20261113-0651"></script>
++  <script src="../../shared/auth/session-service.js?v=20261113-0651"></script>
++  <script src="../../shared/supabase/supabase-gateway.js?v=20261113-0651"></script>
++  <script src="../../shared/auth/app-access-service.js?v=20261113-0651"></script>
++  <script src="../../shared/auth/app-access-gate.js?v=20261113-0651"></script>
++  <script src="../../shared/identity/creator-resolver.js?v=20261113-0651"></script>
++  <script src="../../shared/components/zhuge-navigation.js?v=20261113-0651"></script>
++  <script src="../../shared/components/zhuge-shell.js?v=20261113-0651"></script>
++<script src="../../shared/components/zhuge-functional-tabs.js?v=20261113-0651"></script>
++  <script src="../../shared/components/global-floating-hub.js?v=20261113-0651"></script>
+   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+-  <script src="./services/skyeye-contract.js?v=20261110-2012"></script>
+-  <script src="./services/skyeye-overlay-contract.js?v=20261110-2012"></script>
+-  <script src="./skyeye-app.js?v=20261110-2012"></script>
++  <script src="./services/skyeye-contract.js?v=20261113-0651"></script>
++  <script src="./services/skyeye-overlay-contract.js?v=20261113-0651"></script>
++  <script src="./skyeye-app.js?v=20261113-0651"></script>
+ </body>
+ </html>
+diff --git a/modules/worklog/chat/index.html b/modules/worklog/chat/index.html
+index 187e044964..08fb10cbbb 100644
+--- a/modules/worklog/chat/index.html
++++ b/modules/worklog/chat/index.html
+@@ -5,36 +5,36 @@
+     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+     <title>TRQN</title>
+     <link rel="icon" href="data:,">
+-    <link rel="stylesheet" href="../worklog.css?v=20261110-2012">
+-    <link rel="stylesheet" href="../../../shared/theme/app-access.css?v=20261110-2012">
+-    <link rel="stylesheet" href="../../../shared/theme/global-floating-hub.css?v=20261110-2012">
+-    <link rel="stylesheet" href="../../../shared/theme/responsive-modernization.css?v=20261110-2012">
++    <link rel="stylesheet" href="../worklog.css?v=20261113-0651">
++    <link rel="stylesheet" href="../../../shared/theme/app-access.css?v=20261113-0651">
++    <link rel="stylesheet" href="../../../shared/theme/global-floating-hub.css?v=20261113-0651">
++    <link rel="stylesheet" href="../../../shared/theme/responsive-modernization.css?v=20261113-0651">
+   </head>
+   <body>
+     <div id="app"></div>
+-    <script src="../../../shared/theme/zhuge-appearance.js?v=20261110-2012"></script>
+-    <script src="../../../shared/i18n/zh-TW.js?v=20261110-2012"></script>
+-    <script src="../../../shared/app-config.js?v=20261110-2012"></script>
+-    <script src="../../../shared/utils/shared-utils.js?v=20261110-2012"></script>
+-    <script src="../../../shared/app-state.js?v=20261110-2012"></script>
+-    <script src="../../../shared/auth/auth-service.js?v=20261110-2012"></script>
+-    <script src="../../../shared/api/repositories.js?v=20261110-2012"></script>
+-    <script src="../../../shared/api/data-service.js?v=20261110-2012"></script>
+-    <script src="../work-intelligence.js?v=20261110-2012"></script>
+-    <script src="../suggestion-intelligence.js?v=20261110-2012"></script>
+-    <script src="../knowledge-intelligence.js?v=20261110-2012"></script>
+-    <script src="../knowledge-engine.js?v=20261110-2012"></script>
+-    <script src="../knowledge-repository-service.js?v=20261110-2012"></script>
+-    <script src="../../../shared/api/knowledge-api.js?v=20261110-2012"></script>
+-    <script src="../../../shared/google/google-drive-service.js?v=20261110-2012"></script>
+-    <script src="../knowledge-ingestion-service.js?v=20261110-2012"></script>
++    <script src="../../../shared/theme/zhuge-appearance.js?v=20261113-0651"></script>
++    <script src="../../../shared/i18n/zh-TW.js?v=20261113-0651"></script>
++    <script src="../../../shared/app-config.js?v=20261113-0651"></script>
++    <script src="../../../shared/utils/shared-utils.js?v=20261113-0651"></script>
++    <script src="../../../shared/app-state.js?v=20261113-0651"></script>
++    <script src="../../../shared/auth/auth-service.js?v=20261113-0651"></script>
++    <script src="../../../shared/api/repositories.js?v=20261113-0651"></script>
++    <script src="../../../shared/api/data-service.js?v=20261113-0651"></script>
++    <script src="../work-intelligence.js?v=20261113-0651"></script>
++    <script src="../suggestion-intelligence.js?v=20261113-0651"></script>
++    <script src="../knowledge-intelligence.js?v=20261113-0651"></script>
++    <script src="../knowledge-engine.js?v=20261113-0651"></script>
++    <script src="../knowledge-repository-service.js?v=20261113-0651"></script>
++    <script src="../../../shared/api/knowledge-api.js?v=20261113-0651"></script>
++    <script src="../../../shared/google/google-drive-service.js?v=20261113-0651"></script>
++    <script src="../knowledge-ingestion-service.js?v=20261113-0651"></script>
+     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.55.0/dist/umd/supabase.min.js"></script>
+-    <script src="../../../shared/supabase/supabase-gateway.js?v=20261110-2012"></script>
+-    <script src="../../../shared/auth/app-access-service.js?v=20261110-2012"></script>
+-    <script src="../../../shared/auth/app-access-gate.js?v=20261110-2012"></script>
+-    <script src="../../../shared/identity/creator-resolver.js?v=20261110-2012"></script>
+-    <script src="../../../shared/components/global-floating-hub.js?v=20261110-2012"></script>
+-    <script src="../../../shared/board/board-read-service.js?v=20261110-2012"></script>
+-    <script src="../worklog-app.js?v=20261110-2012"></script>
++    <script src="../../../shared/supabase/supabase-gateway.js?v=20261113-0651"></script>
++    <script src="../../../shared/auth/app-access-service.js?v=20261113-0651"></script>
++    <script src="../../../shared/auth/app-access-gate.js?v=20261113-0651"></script>
++    <script src="../../../shared/identity/creator-resolver.js?v=20261113-0651"></script>
++    <script src="../../../shared/components/global-floating-hub.js?v=20261113-0651"></script>
++    <script src="../../../shared/board/board-read-service.js?v=20261113-0651"></script>
++    <script src="../worklog-app.js?v=20261113-0651"></script>
+   </body>
+ </html>
+diff --git a/modules/worklog/index.html b/modules/worklog/index.html
+index b9f46f6d88..8352cbcb8b 100644
+--- a/modules/worklog/index.html
++++ b/modules/worklog/index.html
+@@ -10,7 +10,7 @@
+     <meta property="og:description" content="TRQN 是一套 AI 工作管理平台，提供文件管理與 AI 知識整理。">
+     <title>TRQN</title>
+     <link rel="icon" href="../../shared/assets/logo/tron-icon.svg" type="image/svg+xml">
+-    <link id="public-home-styles" rel="stylesheet" href="../../shared/theme/public-home.css?v=20261110-2012">
++    <link id="public-home-styles" rel="stylesheet" href="../../shared/theme/public-home.css?v=20261113-0651">
+     <style id="runtime-boot-shell-style">
+       .app-boot-shell{min-height:100vh;display:grid;grid-template-columns:minmax(220px,264px) minmax(0,1fr);gap:16px;padding:16px;background:radial-gradient(circle at 82% -10%,rgba(47,215,245,.12),transparent 30rem),#050b12;color:#e8f6fb;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans TC","Segoe UI",sans-serif}
+       .app-boot-sidebar,.app-boot-main{border:1px solid rgba(47,215,245,.24);background:linear-gradient(160deg,#0d1a24,#0b1520);border-radius:18px;box-shadow:0 18px 50px rgba(0,0,0,.28)}
+@@ -29,9 +29,9 @@
+     </style>
+     <script>/* ZG-69：開機前先套用外觀偏好，避免淺色使用者看到深色閃屏；與 shared/theme/zhuge-appearance.js 相同鍵值。 */
+     (function(){try{var v=localStorage.getItem("zhuge-appearance-v1");document.documentElement.dataset.theme=(v==="light"||v==="dark"||v==="system")?v:"system";}catch(e){document.documentElement.dataset.theme="system";}})();</script>
+-    <script src="../../shared/config/version.js?v=20261110-2012"></script>
++    <script src="../../shared/config/version.js?v=20261113-0651"></script>
+     <script src="../../shared/config/template-release.js?v=20260915-1707"></script>
+-    <script src="../../labs/taskflow/cli-sso.js?v=20261110-2012"></script>
++    <script src="../../labs/taskflow/cli-sso.js?v=20261113-0651"></script>
+     <script>
+       window.ZhugeTaskFlowCliSSO?.startLoginReturnMonitor(window);
+     </script>
+@@ -200,25 +200,25 @@
+           "../../shared/google/google-drive-service.js", "knowledge-ingestion-service.js", "worktodo-ordering.js", "../../labs/taskflow/taskflow-post-login.js", "worklog-app.js"
+         ];
+         const appStyles = [
+-          "../../shared/theme/zhuge-shell.css?v=20261110-2012",
+-          "../../shared/theme/task-card.css?v=20261110-2012",
+-          "../../shared/theme/task-drawer.css?v=20261110-2012",
+-          "../../shared/theme/task-board.css?v=20261110-2012",
+-          "./worklog.css?v=20261110-2012",
+-          "../../shared/theme/golden-master.css?v=20261110-2012",
+-          "../../shared/theme/zhuge-os.css?v=20261110-2012",
+-          "../../shared/theme/ai-product.css?v=20261110-2012",
+-          "../../shared/theme/zhuge-workspace.css?v=20261110-2012",
+-          "../../shared/theme/zhuge-navigation.css?v=20261110-2012",
+-          "../../shared/theme/app-access.css?v=20261110-2012",
+-          "../../shared/theme/global-floating-hub.css?v=20261110-2012",
+-          "../../shared/theme/user-access-management.css?v=20261110-2012",
+-          "../../shared/theme/desktop-modernization.css?v=20261110-2012",
+-          "../../shared/theme/responsive-modernization.css?v=20261110-2012",
+-          "../../shared/theme/zhuge-functional-tabs.css?v=20261110-2012"
++          "../../shared/theme/zhuge-shell.css?v=20261113-0651",
++          "../../shared/theme/task-card.css?v=20261113-0651",
++          "../../shared/theme/task-drawer.css?v=20261113-0651",
++          "../../shared/theme/task-board.css?v=20261113-0651",
++          "./worklog.css?v=20261113-0651",
++          "../../shared/theme/golden-master.css?v=20261113-0651",
++          "../../shared/theme/zhuge-os.css?v=20261113-0651",
++          "../../shared/theme/ai-product.css?v=20261113-0651",
++          "../../shared/theme/zhuge-workspace.css?v=20261113-0651",
++          "../../shared/theme/zhuge-navigation.css?v=20261113-0651",
++          "../../shared/theme/app-access.css?v=20261113-0651",
++          "../../shared/theme/global-floating-hub.css?v=20261113-0651",
++          "../../shared/theme/user-access-management.css?v=20261113-0651",
++          "../../shared/theme/desktop-modernization.css?v=20261113-0651",
++          "../../shared/theme/responsive-modernization.css?v=20261113-0651",
++          "../../shared/theme/zhuge-functional-tabs.css?v=20261113-0651"
+         ];
+         const appearanceScript = document.createElement("script");
+-        appearanceScript.src = "../../shared/theme/zhuge-appearance.js?v=20261110-2012";
++        appearanceScript.src = "../../shared/theme/zhuge-appearance.js?v=20261113-0651";
+         appearanceScript.onload = () => window.ZhugeAppearance?.apply(window.ZhugeAppearance.read());
+         document.body.appendChild(appearanceScript);
+         const params = new URLSearchParams(window.location.search);
+@@ -259,7 +259,7 @@
+         };
+         document.getElementById("public-home-styles")?.remove();
+         renderBootState("正在開啟工作空間…", "正在準備共用工作區與登入狀態", false);
+-        const phase1CacheVersion = "20261110-2012";
++        const phase1CacheVersion = "20261113-0651";
+         const runtimeUrl = file => file.includes("://") ? file : `${file}?v=${phase1CacheVersion}`;
+         const loadStyles = () => Promise.all(appStyles.map(href => new Promise((resolve, reject) => {
+           const link = document.createElement("link");
+diff --git a/modules/worklog/version.json b/modules/worklog/version.json
+index 1fbaa379f2..1daabcf797 100644
+--- a/modules/worklog/version.json
++++ b/modules/worklog/version.json
+@@ -1,6 +1,6 @@
+ {
+   "version": "0.9.0-alpha.9.190",
+-  "build": "20261110-2012",
++  "build": "20261113-0651",
+   "foundation": "1.0",
+   "module": "WorkLog",
+   "moduleVersion": "0.9",
+diff --git a/shared/app-config.js b/shared/app-config.js
+index 6fe5eb09e7..198ca73dab 100644
+--- a/shared/app-config.js
++++ b/shared/app-config.js
+@@ -1,7 +1,7 @@
+ // P5.2A-1 Foundation Split: configuration and static constants.
+ const VERSION = "0.9.0-alpha.9.190";
+ const RELEASE_VERSION = VERSION;
+-const BUILD_TIME = "20261110-2012";
++const BUILD_TIME = "20261113-0651";
+ const DEPLOY_SOURCE = `worklog-app.js?v=${BUILD_TIME}`;
+ const KNOWLEDGE_DEBUG_MODE = (() => {
+   try { return new URLSearchParams(location.search).has("debugKnowledge") || localStorage.getItem("zhuge_debug_knowledge") === "1"; }
+diff --git a/shared/config/template-release.js b/shared/config/template-release.js
+index ab7ea9ebe0..fc8e175c10 100644
+--- a/shared/config/template-release.js
++++ b/shared/config/template-release.js
+@@ -15,7 +15,7 @@
+   "schemaVersion": 1,
+   "templateId": "c",
+   "developmentVersion": "0.9.0-alpha.9.190",
+-  "developmentBuild": "20261110-2012",
++  "developmentBuild": "20261113-0651",
+   "publishedVersion": "0.9.0-alpha.9.13",
+   "publishedBuild": "20260915-1707",
+   "templateVersion": "0.9.0-alpha.9.13",
+diff --git a/shared/config/version.js b/shared/config/version.js
+index 02ff20c437..33ef257f40 100644
+--- a/shared/config/version.js
++++ b/shared/config/version.js
+@@ -3,7 +3,7 @@
+   const config = global.ZhugeFoundationConfig || {};
+   config.version = Object.freeze({
+     version: "0.9.0-alpha.9.190",
+-    build: "20261110-2012",
++    build: "20261113-0651",
+     foundation: "1.0",
+     module: "TRQN OS",
+     moduleVersion: "0.9",
+diff --git a/status-classic.html b/status-classic.html
+index 736260cfcc..9ed9c2bf42 100644
+--- a/status-classic.html
++++ b/status-classic.html
+@@ -12,8 +12,8 @@
+     <link rel="canonical" href="https://qqweasdzxc.github.io/zhuge-ai-os/">
+     <link rel="icon" href="shared/assets/logo/tron-icon.svg" type="image/svg+xml">
+     <title>經典報表（TaskFlow Dashboard） · TRQN</title>
+-    <link rel="stylesheet" href="shared/theme/responsive-modernization.css?v=20261110-2012">
+-    <link rel="stylesheet" href="labs/taskflow/pages-client/app.css?v=20261110-2012">
++    <link rel="stylesheet" href="shared/theme/responsive-modernization.css?v=20261113-0651">
++    <link rel="stylesheet" href="labs/taskflow/pages-client/app.css?v=20261113-0651">
+     <script id="taskflow-home-routing">
+       (() => {
+         "use strict";
+@@ -79,7 +79,7 @@
+         </section>
+         <section id="tf-detail" hidden class="tf-detail" aria-label="原生 TaskFlow 任務明細"></section>
+         <footer class="tf-footer">
+-          <p>© TRQN · Version 0.9.0-alpha.9.190 · Build 20261110-2012</p>
++          <p>© TRQN · Version 0.9.0-alpha.9.190 · Build 20261113-0651</p>
+           <nav aria-label="Legal and support links">
+             <a href="product/">Product</a>
+             <a href="privacy/">Privacy Policy</a>
+@@ -92,6 +92,6 @@
+         </footer>
+       </main>
+     </div>
+-    <script type="module" src="labs/taskflow/pages-client/app.mjs?v=20261110-2012"></script>
++    <script type="module" src="labs/taskflow/pages-client/app.mjs?v=20261113-0651"></script>
+   </body>
+ </html>
+diff --git a/version.json b/version.json
+index 6037cf9c89..a93e9f5b4a 100644
+--- a/version.json
++++ b/version.json
+@@ -1,6 +1,6 @@
+ {
+   "version": "0.9.0-alpha.9.190",
+-  "build": "20261110-2012",
++  "build": "20261113-0651",
+   "foundation": "1.0",
+   "module": "TRQN OS",
+   "moduleVersion": "0.9",
