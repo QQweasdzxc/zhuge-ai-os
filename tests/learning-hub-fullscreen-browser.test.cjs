@@ -106,3 +106,24 @@ test('mobile hub keeps its existing fullscreen portrait map and gets no desktop 
   });
   assert.deepEqual(r, { shellFixed: true, shellFull: true, chengyu: true, english: true, fitHidden: true, noFullClass: true, noScroll: true });
 });
+
+test('cover crop is biased toward the bottom and long names ellipsis in the adventure card', async t => {
+  const { browser, page } = await openHub(1440, 700);
+  t.after(() => browser.close());
+  const r = await page.evaluate(() => {
+    const st = document.querySelector('.voyage-stage');
+    const strong = document.querySelector('.d-pinfo strong');
+    return {
+      transform: st.style.transform, w: parseFloat(st.style.width), h: parseFloat(st.style.height),
+      iw: innerWidth, ih: innerHeight, full: document.documentElement.classList.contains('voyage-full'),
+      ellip: getComputedStyle(strong).textOverflow, nowrap: getComputedStyle(strong).whiteSpace
+    };
+  });
+  assert.equal(r.full, true, 'desktop fullscreen layout active');
+  assert.ok(r.h > r.ih, 'this fixture viewport needs vertical crop, got ' + JSON.stringify(r));
+  const expect = (r.h - r.ih) * 0.2;
+  const got = parseFloat(r.transform.match(/translateY\(([\d.]+)px\)/)?.[1] || '0');
+  assert.ok(Math.abs(got - expect) < 1, 'crop is biased toward the bottom (top keeps its buildings), got transform=' + r.transform + ' expected ~' + expect.toFixed(1));
+  assert.equal(r.ellip, 'ellipsis', 'long adventurer names ellipsis instead of overflowing');
+  assert.equal(r.nowrap, 'nowrap');
+});
