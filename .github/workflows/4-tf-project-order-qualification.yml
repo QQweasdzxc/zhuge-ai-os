@@ -1,0 +1,102 @@
+name: TF Project Column Order Qualification
+on:
+  push:
+    branches: ['review/tq6-native-qualification-20261111']
+    paths: ['.github/workflows/*tf-project-order-qualification.yml']
+permissions:
+  contents: read
+jobs:
+  compose:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    outputs:
+      candidate: ${{ steps.source.outputs.candidate }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Compose exact live-base web candidate, no deploy
+        id: source
+        run: |
+          set -euo pipefail
+          test "$(sha256sum 3-1-tf-project-order.patch | cut -d' ' -f1)" = 48d1fb62f02f140a69f1527923c06b5d9ff98bd96e79ac521213096197400fb4
+          cp 3-1-tf-project-order.patch /tmp/order.patch
+          git switch --detach 4f36d5ecba1f728b555759b2cda9047a83d38fe0
+          git apply --check /tmp/order.patch
+          git apply /tmp/order.patch
+          git diff --check
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add labs/taskflow
+          git commit -m 'Restore per-project column drag ordering and Traditional Chinese controls'
+          git push origin HEAD:refs/heads/review/tf-project-order-candidate-20261112
+          echo "candidate=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+  verify:
+    needs: compose
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.compose.outputs.candidate }}
+      - name: All TaskFlow overlay and boundary contracts
+        run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s labs/taskflow/tests -v
+  web:
+    needs: compose
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.compose.outputs.candidate }}
+      - name: Full native Web build and existing regressions, no deployment
+        shell: bash
+        run: |
+          set -o pipefail
+          docker build --progress=plain -f labs/taskflow/Dockerfile.web -t tf-order-web:qualification . 2>&1 | tee web-build.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tf-project-order-web-build
+          path: web-build.log
+  browser:
+    needs: compose
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    container:
+      image: mcr.microsoft.com/playwright:v1.58.2-noble
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.compose.outputs.candidate }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Native source fixture, not business data
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp -a third_party/multica /tmp/tf-order-native
+          python3 labs/taskflow/patches/apply-taskflow-zh-hant.py --target web --root /tmp/tf-order-native --overlays labs/taskflow/overrides
+          python3 labs/taskflow/patches/apply-taskflow-project-status.py --root /tmp/tf-order-native --overlays labs/taskflow/overrides
+          cp labs/taskflow/tests/project-column-browser/entry.tsx /tmp/tf-order-native/apps/ui-lab/src/order-entry.tsx
+          printf '%s\n' '<!DOCTYPE html><html lang="zh-Hant"><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div><script type="module" src="/src/order-entry.tsx"></script></body></html>' > /tmp/tf-order-native/apps/ui-lab/order.html
+          corepack enable
+          cd /tmp/tf-order-native
+          corepack prepare pnpm@10.28.2 --activate
+          pnpm install --ignore-scripts --filter @multica/core --filter @multica/views --filter @multica/ui --filter @multica/ui-lab
+          pnpm --filter @multica/core exec vitest run issue-statuses
+          pnpm --filter @multica/views exec vitest run issues/components/taskflow-project-status-settings.test.tsx issues/components/taskflow-project-status-drag-handle.test.tsx
+      - name: Actual column pointer drag, reopened order, Project isolation, failed save and mobile Traditional Chinese
+        shell: bash
+        env:
+          TF_NATIVE_ROOT: /tmp/tf-order-native
+        run: |
+          mkdir -p /downloads
+          export PLAYWRIGHT_MODULE="$(cd /tmp/tf-order-native && node -p 'require.resolve("@playwright/test")')"
+          node labs/taskflow/tests/project-column-browser/check.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tf-project-order-browser
+          path: /downloads/tf-project-order-*.png
