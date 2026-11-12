@@ -31,8 +31,15 @@ jobs:
           rm .github/workflows/taskflow-date-hours-qualification.yml
           git add labs/taskflow modules/worklog shared/api/data-service.js tests/worklog-date-hours-compat.test.js
           git commit -m 'Task date endpoints automatically count as adjustable hours'
-          git push origin HEAD:refs/heads/review/tf-date-hours-20261113
-          echo "candidate=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          candidate=$(git rev-parse HEAD)
+          existing=$(git ls-remote origin refs/heads/review/tf-date-hours-20261113 | cut -f1)
+          if [ -n "$existing" ]; then
+            test "$(git rev-parse HEAD^{tree})" = "$(git rev-parse "$existing^{tree}")"
+            candidate=$existing
+          else
+            git push origin HEAD:refs/heads/review/tf-date-hours-20261113
+          fi
+          echo "candidate=$candidate" >> "$GITHUB_OUTPUT"
   date-hours:
     needs: compose
     runs-on: ubuntu-24.04
@@ -41,6 +48,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ needs.compose.outputs.candidate }}
+          fetch-depth: 2
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -87,5 +95,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ needs.compose.outputs.candidate }}
+          fetch-depth: 2
       - name: Build exact native Web image without deployment
         run: docker build --progress=plain -f labs/taskflow/Dockerfile.web -t taskflow-date-hours-web:qualification .
