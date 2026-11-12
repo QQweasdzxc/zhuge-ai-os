@@ -4,6 +4,7 @@ const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
 const browserTests = [
+  "tests/learning-hub-fullscreen-browser.test.cjs",
   "tests/site-integration-browser.test.js",
   "tests/site-integration-contract.test.js",
   "tests/release-consistency.test.js",
