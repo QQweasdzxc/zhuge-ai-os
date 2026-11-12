@@ -636,3 +636,8 @@ html[data-theme="light"] .worklog-brand-wordmark{color:#1d2430}
 /* TRQN login: enlarged, centered wordmark and centered intro; the form below stays as is. */
 .auth-panel > h1,.auth-panel > .muted,.auth-panel > p{text-align:center}
 .auth-panel > h1 > img{display:block;width:min(370px,80%) !important;height:auto !important;margin:0 auto 6px !important;filter:drop-shadow(0 0 12px rgba(45,212,191,.45))}
+
+/* Date-only rows have a guidance line, not side-by-side timed edit actions. */
+.today-module .today-entry-list>.entry.date-only-entry{flex-direction:column;gap:8px}
+.today-module .date-only-entry .entry-main{width:100%;overflow:visible}
+.today-module .date-only-entry .entry-actions{display:block;width:100%;margin-top:0;text-align:left}
