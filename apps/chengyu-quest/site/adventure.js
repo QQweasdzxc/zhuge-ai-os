@@ -58,7 +58,7 @@ function flowBelow(el){
  if(sec)h+=parseFloat(getComputedStyle(sec).paddingBottom)||0;
  return h+48;
 }
-function stagePageSize(){
+function stagePageSize(reduce){
  const grid=$('adventureStages'),cards=[...grid.children];
  if(!cards.length)return{per:1,pages:1};
  cards.forEach(c=>{if(c.classList.contains('stage-page-hide'))c.classList.remove('stage-page-hide')});
@@ -68,18 +68,25 @@ function stagePageSize(){
  const cardH=cards[0].offsetHeight||96;
  const top=grid.getBoundingClientRect().top+window.scrollY;
  const avail=window.innerHeight-top-flowBelow(grid)-8;
- const rows=Math.max(1,Math.floor(avail/(cardH+gap)));
+ const rows=Math.max(1,Math.floor(avail/(cardH+gap))-(reduce||0));
  const per=Math.max(cols,rows*cols);
  return{per,pages:Math.max(1,Math.ceil(cards.length/per))};
 }
 function paintStagePage(){
  const grid=$('adventureStages');if(!grid)return;
  const cards=[...grid.children];if(!cards.length)return;
- const size=stagePageSize(),per=size.per,pages=size.pages;stagePer=per;
- if(stagePage>pages-1)stagePage=pages-1;if(stagePage<0)stagePage=0;
- cards.forEach((c,i)=>{const hide=Math.floor(i/per)!==stagePage;if(c.classList.contains('stage-page-hide')!==hide)c.classList.toggle('stage-page-hide',hide)});
- const pg=$('stagePager');
- if(pg){const hid=pages<2;if(pg.hidden!==hid)pg.hidden=hid;const t='第 '+(stagePage+1)+' / '+pages+' 頁',sp=pg.querySelector('span');if(sp.textContent!==t)sp.textContent=t;const b0=pg.querySelector('[data-pg="-1"]'),b1=pg.querySelector('[data-pg="1"]'),d0=stagePage===0,d1=stagePage===pages-1;if(b0.disabled!==d0)b0.disabled=d0;if(b1.disabled!==d1)b1.disabled=d1}
+ const cols=Math.max(1,getComputedStyle(grid).gridTemplateColumns.split(' ').filter(x=>x&&x!=='none').length);
+ // Dynamic chrome (sync banner, disclosures) can push the page past the viewport without a resize event:
+ // when that happens, shed rows until the home fits again. No overflow keeps the formula result untouched.
+ for(let reduce=0;;){
+  const size=stagePageSize(reduce),per=size.per,pages=size.pages;stagePer=per;
+  if(stagePage>pages-1)stagePage=pages-1;if(stagePage<0)stagePage=0;
+  cards.forEach((c,i)=>{const hide=Math.floor(i/per)!==stagePage;if(c.classList.contains('stage-page-hide')!==hide)c.classList.toggle('stage-page-hide',hide)});
+  const pg=$('stagePager');
+  if(pg){const hid=pages<2;if(pg.hidden!==hid)pg.hidden=hid;const t='第 '+(stagePage+1)+' / '+pages+' 頁',sp=pg.querySelector('span');if(sp.textContent!==t)sp.textContent=t;const b0=pg.querySelector('[data-pg="-1"]'),b1=pg.querySelector('[data-pg="1"]'),d0=stagePage===0,d1=stagePage===pages-1;if(b0.disabled!==d0)b0.disabled=d0;if(b1.disabled!==d1)b1.disabled=d1}
+  if(document.documentElement.scrollHeight<=window.innerHeight+1||per<=cols||reduce>=4)break;
+  reduce++;
+ }
 }
 function render(){
  const p=progress();available=window.learningVillagePassed?8:p.next;
