@@ -248,6 +248,9 @@ test('arriving with s=settings opens the 勇者 settings page directly with the 
   assert.ok(r.hero, 'settings page leads with the 勇者與進度 section, got ' + r.titles.join('/'));
   assert.ok(r.sound, 'settings page carries the 聲音 section, got ' + r.titles.join('/'));
   assert.equal(r.gearHidden, true, 'the gear entry stays as the in-page opener while settings is open');
+  // The sound section reuses the home .more-panel: inside the dark settings section its white card background must be stripped (no double white frame around the sound buttons).
+  const soundBg = await page.evaluate(() => { const m = document.querySelector('.app-setting-section .more-panel'); return m ? getComputedStyle(m).backgroundColor : 'missing'; });
+  assert.equal(soundBg, 'rgba(0, 0, 0, 0)', 'sound section .more-panel keeps a transparent background inside settings, got ' + soundBg);
   // The arrival intent is consumed once by the lifecycle; post-arrival star refresh + rebuild keeps the final page open through the keepSettings path, with no force-reopen.
   await page.evaluate(() => window.learningStarsRefresh(true));
   await new Promise(r2 => setTimeout(r2, 1500));
