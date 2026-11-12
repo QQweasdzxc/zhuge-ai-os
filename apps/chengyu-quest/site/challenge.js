@@ -43,6 +43,7 @@ function shuffle(arr,rng){const a=arr.slice();for(let i=a.length-1;i>0;i--){cons
 
 /* ---------- 狀態 ---------- */
 let bank={typo:[],pairing:[]},ready=false,loadError='';
+window.chengyuChallengeBank=function(){return ready?bank:null};
 let learnerDone=null; // {correct_count,question_count}
 let round=null;       // {qs:[],i,score,answers[],practice}
 
