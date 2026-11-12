@@ -122,10 +122,41 @@ test('stage cards stay readable and tappable on a phone', async t => {
   assert.ok(r.noWideScroll, 'no horizontal scrolling on the phone');
   const sizes = await page.evaluate(() => [...document.querySelectorAll('.adventure-stage .stage-exam:not(.stage-exam-retake)')].map(b => b.getBoundingClientRect().height));
   assert.ok(sizes.length >= 1 && sizes.every(h => h >= 40), 'exam entries stay tappable: ' + sizes.join(','));
-  assert.equal(r.pagerHidden, false, 'phone shows the card pager instead of a long list');
-  assert.deepEqual(r.visibleCards, ['1', '2', '3', '4'], 'phone page 1 shows four cards');
+  const fit = await page.evaluate(() => {
+    const pg = document.getElementById('stagePager');
+    const pgr = pg.getBoundingClientRect();
+    const vis = [...document.querySelectorAll('.adventure-stage')].filter(c => !c.classList.contains('stage-page-hide'));
+    const lastBottom = Math.max(...vis.map(c => c.getBoundingClientRect().bottom));
+    return { label: document.querySelector('#stagePager span').textContent, pagerHidden: pg.hidden, pagerInView: pgr.top >= 0 && pgr.bottom <= innerHeight + 1, cardsAbovePager: lastBottom <= pgr.top + 1, visCount: vis.length, ih: innerHeight, pagerBottom: pgr.bottom };
+  });
+  assert.equal(fit.pagerHidden, false, 'phone shows the card pager instead of a long list');
+  assert.ok(fit.visCount >= 1 && fit.visCount < 8, 'phone paginates a measured number of cards: ' + JSON.stringify(fit));
+  assert.ok(fit.pagerInView, 'pager controls stay inside the phone viewport without scrolling: ' + JSON.stringify(fit));
+  assert.ok(fit.cardsAbovePager, 'cards never slide under the pager: ' + JSON.stringify(fit));
   await page.click('#stagePager [data-pg="1"]');
-  const pg2 = await page.evaluate(() => ({ page: document.querySelector('#stagePager span').textContent, vis: [...document.querySelectorAll('.adventure-stage')].filter(c => !c.classList.contains('stage-page-hide')).map(c => c.dataset.zone) }));
-  assert.equal(pg2.page, '第 2 / 2 頁');
-  assert.deepEqual(pg2.vis, ['5', '6', '7', '8'], 'phone page 2 shows the remaining cards');
+  const pg2 = await page.evaluate(() => {
+    const pg = document.getElementById('stagePager');
+    const vis = [...document.querySelectorAll('.adventure-stage')].filter(c => !c.classList.contains('stage-page-hide')).map(c => c.dataset.zone);
+    return { page: document.querySelector('#stagePager span').textContent, vis, pagerInView: pg.getBoundingClientRect().bottom <= innerHeight + 1 };
+  });
+  assert.ok(pg2.page.startsWith('第 2 / '), 'pager advances to page 2: ' + pg2.page);
+  assert.deepEqual(pg2.vis[0], String(fit.visCount + 1), 'page 2 continues where page 1 stopped: ' + JSON.stringify(pg2));
+  assert.ok(pg2.pagerInView, 'pager stays in view on page 2');
+});
+
+test('desktop map, rules and pager fit one screen without scrolling', async t => {
+  const { browser, page } = await openChengyu(1280, 800);
+  t.after(() => browser.close());
+  const fit = await page.evaluate(() => {
+    const pg = document.getElementById('stagePager');
+    const pgr = pg.getBoundingClientRect();
+    const vis = [...document.querySelectorAll('.adventure-stage')].filter(c => !c.classList.contains('stage-page-hide'));
+    const lastBottom = Math.max(...vis.map(c => c.getBoundingClientRect().bottom));
+    const help = document.getElementById('stageHelp').getBoundingClientRect();
+    return { visCount: vis.length, pagerHidden: pg.hidden, pagerInView: pg.hidden || (pgr.top >= 0 && pgr.bottom <= innerHeight + 1), cardsAbovePager: pg.hidden || lastBottom <= pgr.top + 1, helpInView: help.bottom <= (pg.hidden ? innerHeight + 1 : pgr.top + 1) || help.bottom <= innerHeight + 1, ih: innerHeight, lastBottom };
+  });
+  assert.equal(fit.visCount >= 6, true, 'desktop shows most or all cards per page: ' + JSON.stringify(fit));
+  assert.ok(fit.pagerInView, 'when a desktop pager is needed it stays in the viewport: ' + JSON.stringify(fit));
+  assert.ok(fit.cardsAbovePager, 'desktop cards never slide under the pager');
+  assert.ok(fit.helpInView, 'the rules details stay on screen too');
 });
