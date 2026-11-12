@@ -88,7 +88,9 @@ test('vocab stage cards are state-driven with PASS marks, short labels and rules
   assert.equal(r.card3exam, false, 'locked stage has no exam button');
   assert.ok(r.lockedCards >= 5, 'stages 3-7 sit locked behind stage 2');
   assert.equal(r.lockedWithButtons, 0, 'locked cards show no disabled long-text buttons');
-  assert.match(r.final, /集滿 21 星開放 · 90 分通過/, 'village exam card states the rule');
+  assert.match(r.final, /集滿 21 星開放/, 'village exam card states the unlock condition');
+  assert.doesNotMatch(r.final, /90 分通過/, 'card face drops the passing score (rule stays in 說明)');
+  assert.match(r.help, /出村大考驗：集滿21星開放，90分通過。/, '說明 keeps the passing-score rule');
   assert.match(r.final, /目前集星 3 \/ 21/, 'village exam card shows live progress');
   assert.equal(r.finalBtn, false, 'village exam button only appears when unlocked');
   assert.equal(r.disabledExamButtons, 0, 'no disabled buttons anywhere in the panel');
@@ -177,16 +179,18 @@ test('phone folds 查看單字庫/成績/聲音 into the other-modes shell and t
         shellOpen: shell?.open,
         linksInShell: !!(links && links.closest('.entry-other-modes-shell')),
         soundInShell: !!(sound && sound.closest('.entry-other-modes-shell')),
+        soundInSettings: !!(sound && sound.closest('.app-settings')),
         scrollH: document.documentElement.scrollHeight,
         ih: innerHeight,
         missionInView: mission && mission.top >= 0 && mission.bottom <= innerHeight + 1,
         shellInView: (() => { const s = rOf(shell); return s && s.top >= 0 && s.bottom <= innerHeight + 1; })(),
-        strayBelow: !![...document.querySelectorAll('.more-panel')].find(e => !e.closest('.entry-other-modes-shell'))
+        strayBelow: !![...document.querySelectorAll('.more-panel')].find(e => !e.closest('.app-settings') && !e.closest('.entry-other-modes-shell'))
       };
     });
     assert.equal(r.linksInShell, true, '查看單字庫/成績 entries must live inside the collapsible shell');
-    assert.equal(r.soundInShell, true, '聲音與進階設定 must live inside the collapsible shell');
-    assert.equal(r.strayBelow, false, 'no duplicate settings panel may linger outside the shell');
+    assert.equal(r.soundInShell, false, '聲音與進階設定 leaves the practice home (moves to 勇者→設定)');
+    assert.equal(r.soundInSettings, true, '聲音與進階設定 lives in the 設定 page');
+    assert.equal(r.strayBelow, false, 'no duplicate settings panel may linger on the home');
     assert.ok(r.scrollH <= r.ih + 1, `collapsed phone home must not scroll (scrollH=${r.scrollH} vs ${r.ih})`);
     assert.equal(r.missionInView, true, 'mission must be fully visible');
     assert.equal(r.shellInView, true, 'collapsed shell must be fully visible');
