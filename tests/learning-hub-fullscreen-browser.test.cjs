@@ -177,6 +177,7 @@ test('mobile gap below the art continues the ocean scene instead of a flat band'
       top: parseFloat(cs.top), bottom: parseFloat(cs.bottom),
       stageB: stage.bottom, ih: innerHeight, iw: innerWidth,
       shellOverflow: getComputedStyle(shell).overflowY,
+      filter: cs.filter, mask: cs.maskImage || cs.webkitMaskImage,
       overlay: ov.backgroundImage, overlayTop: parseFloat(ov.top)
     };
   });
@@ -187,6 +188,9 @@ test('mobile gap below the art continues the ocean scene instead of a flat band'
   assert.ok(Math.abs(r.top - Math.min(1.7768 * r.iw, r.ih)) < 2, 'continuation starts exactly at the art bottom: ' + JSON.stringify(r));
   assert.ok(Math.abs(r.bottom) < 1 && r.ih - r.top > 20, 'continuation fills from the art bottom to the window bottom: ' + JSON.stringify(r));
   assert.ok(r.shellOverflow === 'hidden' || r.shellOverflow === 'clip', 'shell clips the mirrored layer');
+  assert.ok(r.filter === 'none', 'mirrored slice keeps the art unfiltered so the join has no seam line: ' + r.filter);
+  assert.ok(r.mask.includes('linear-gradient'), 'mirrored slice fades out before deep-sea rows: ' + r.mask);
+  assert.ok(/linear-gradient\(rgb\(0, 0, 0\).*rgba\(0, 0, 0, 0\)/.test(r.mask), 'mirrored slice fades to fully transparent below the join band: ' + r.mask);
   assert.ok(r.overlay.includes('linear-gradient'), 'deep-sea gradient overlay sinks the mirrored scene into depth: ' + r.overlay);
   assert.ok(r.overlayTop === r.top, 'gradient overlay covers the same continuation band');
 });
