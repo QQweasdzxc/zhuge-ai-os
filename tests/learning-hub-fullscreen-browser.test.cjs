@@ -163,3 +163,31 @@ test('cover crop is biased toward the bottom and long names ellipsis in the adve
   assert.equal(r.ellip, 'ellipsis', 'long adventurer names ellipsis instead of overflowing');
   assert.equal(r.nowrap, 'nowrap');
 });
+
+test('mobile gap below the art continues the ocean scene instead of a flat band', async t => {
+  const { browser, page } = await openHub(390, 844);
+  t.after(() => browser.close());
+  const r = await page.evaluate(() => {
+    const shell = document.querySelector('.voyage-shell');
+    const cs = getComputedStyle(shell, '::before');
+    const ov = getComputedStyle(shell, '::after');
+    const stage = document.querySelector('.voyage-stage').getBoundingClientRect();
+    return {
+      content: cs.content, bg: cs.backgroundImage, transform: cs.transform, repeat: cs.backgroundRepeat,
+      top: parseFloat(cs.top), bottom: parseFloat(cs.bottom),
+      stageB: stage.bottom, ih: innerHeight, iw: innerWidth,
+      shellOverflow: getComputedStyle(shell).overflowY,
+      overlay: ov.backgroundImage, overlayTop: parseFloat(ov.top)
+    };
+  });
+  assert.ok(r.content !== 'none' && r.content !== 'normal', 'continuation layer exists below the art');
+  assert.ok(r.bg.includes('1-6-archipelago-balanced-20261109.webp'), 'continuation reuses the same ocean art, got ' + r.bg);
+  assert.ok(/matrix\(1, 0, 0, -1/.test(r.transform), 'continuation is vertically mirrored for a seamless water join: ' + r.transform);
+  assert.equal(r.repeat, 'no-repeat', 'single mirrored slice, no tiling artifacts');
+  assert.ok(Math.abs(r.top - Math.min(1.7768 * r.iw, r.ih)) < 2, 'continuation starts exactly at the art bottom: ' + JSON.stringify(r));
+  assert.ok(Math.abs(r.bottom) < 1 && r.ih - r.top > 20, 'continuation fills from the art bottom to the window bottom: ' + JSON.stringify(r));
+  assert.ok(r.shellOverflow === 'hidden' || r.shellOverflow === 'clip', 'shell clips the mirrored layer');
+  assert.ok(r.overlay.includes('linear-gradient'), 'deep-sea gradient overlay sinks the mirrored scene into depth: ' + r.overlay);
+  assert.ok(r.overlayTop === r.top, 'gradient overlay covers the same continuation band');
+});
+
