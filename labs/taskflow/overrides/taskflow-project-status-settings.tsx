@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Check, Pencil, Settings2, X } from "lucide-react";
+import { ArrowUp, ArrowDown, Check, Pencil, Settings2, X } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@multica/ui/components/ui/button";
@@ -27,11 +27,13 @@ import { memberListOptions } from "@multica/core/workspace/queries";
 import { useIssueStatuses } from "@multica/core/issue-statuses/hooks";
 import { useCreateIssueStatus } from "@multica/core/issue-statuses/mutations";
 import {
+  moveTaskFlowStatus,
   createTaskFlowProjectStatusKey,
   taskFlowInternalProjectStatusName,
   taskFlowProjectIdFromStatusKey,
   useTaskFlowProjectStatusSettings,
 } from "@multica/core/issue-statuses/taskflow-project-status-scope";
+import { useStatusLabel } from "../utils/status-label";
 import type { IssueStatusCategory } from "@multica/core/types";
 import { useT } from "../../i18n";
 
@@ -40,6 +42,7 @@ const CATEGORIES: IssueStatusCategory[] = ["unstarted", "started", "done", "clos
 export function TaskFlowProjectStatusSettings({ projectId }: { projectId: string }) {
   const { t } = useT("issues");
   const workspaceId = useWorkspaceId();
+  const labelOf = useStatusLabel(workspaceId);
   const user = useAuthStore((state) => state.user);
   const { data: members = [] } = useQuery(memberListOptions(workspaceId));
   const role = members.find((member) => member.user_id === user?.id)?.role;
@@ -131,7 +134,7 @@ export function TaskFlowProjectStatusSettings({ projectId }: { projectId: string
           </DialogHeader>
 
           <div className="space-y-1" aria-label={t(($) => $.taskflow_project_status.fields)}>
-            {catalog.activeStatuses.map((status) => {
+            {catalog.activeStatuses.map((status, statusIndex) => {
               const visible = !settings.hiddenStatusKeys.includes(status.key);
               const projectOwned = taskFlowProjectIdFromStatusKey(status.key) === projectId.toLowerCase();
               const checkboxId = `taskflow-status-${status.id}`;
@@ -144,7 +147,7 @@ export function TaskFlowProjectStatusSettings({ projectId }: { projectId: string
                     disabled={settings.isLoading}
                     onChange={(event) => void saveVisibility(status.key, event.currentTarget.checked)}
                     aria-label={t(($) => $.taskflow_project_status.visibility, {
-                      name: settings.statusLabels[status.key] ?? status.name,
+                      name: labelOf(status.key),
                     })}
                     className="size-4 shrink-0 accent-primary"
                   />
@@ -166,9 +169,19 @@ export function TaskFlowProjectStatusSettings({ projectId }: { projectId: string
                     </div>
                   ) : (
                     <label htmlFor={checkboxId} className="min-w-0 flex-1 truncate py-1 text-body">
-                      {settings.statusLabels[status.key] ?? status.name}
+                      {labelOf(status.key)}
                     </label>
                   )}
+                  <Button type="button" variant="ghost" size="icon-sm"
+                    aria-label={t(($) => $.taskflow_project_status.move_up, { name: labelOf(status.key) })}
+                    disabled={statusIndex === 0 || settings.isLoading}
+                    onClick={() => void settings.saveStatusOrder(moveTaskFlowStatus(catalog.activeStatuses.map((entry) => entry.key), status.key, catalog.activeStatuses[statusIndex - 1]!.key)).catch(() => toast.error(t(($) => $.taskflow_project_status.save_failed)))}
+                  ><ArrowUp className="size-3.5" /></Button>
+                  <Button type="button" variant="ghost" size="icon-sm"
+                    aria-label={t(($) => $.taskflow_project_status.move_down, { name: labelOf(status.key) })}
+                    disabled={statusIndex === catalog.activeStatuses.length - 1 || settings.isLoading}
+                    onClick={() => void settings.saveStatusOrder(moveTaskFlowStatus(catalog.activeStatuses.map((entry) => entry.key), status.key, catalog.activeStatuses[statusIndex + 1]!.key)).catch(() => toast.error(t(($) => $.taskflow_project_status.save_failed)))}
+                  ><ArrowDown className="size-3.5" /></Button>
                   {status.is_system && (
                     <span className="shrink-0 text-caption text-muted-foreground">{t(($) => $.taskflow_project_status.built_in)}</span>
                   )}
@@ -203,7 +216,7 @@ export function TaskFlowProjectStatusSettings({ projectId }: { projectId: string
                         aria-label={t(($) => $.taskflow_project_status.edit_status)}
                         onClick={() => {
                           setEditingKey(status.key);
-                          setEditingName(settings.statusLabels[status.key] ?? status.name);
+                          setEditingName(labelOf(status.key));
                         }}
                       >
                         <Pencil className="size-4" />

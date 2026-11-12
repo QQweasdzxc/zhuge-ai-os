@@ -110,3 +110,15 @@ describe("TaskFlow Project status scope", () => {
     expect(excludeTaskFlowProjectStatuses([])).toEqual([]);
   });
 });
+
+// Exact keys only: no category changes, key loss, or cross-project status leak.
+describe("Project column order", () => {
+  it("moves by exact keys and preserves new/hidden status entries", async () => {
+    const { orderTaskFlowStatuses, moveTaskFlowStatus } = await import("./taskflow-project-status-scope");
+    const rows=[{key:"todo"},{key:"in_progress"},{key:"new-status"},{key:"cancelled"}];
+    expect(moveTaskFlowStatus(rows.map(x=>x.key),"in_progress","todo")).toEqual(["in_progress","todo","new-status","cancelled"]);
+    expect(orderTaskFlowStatuses(rows,["in_progress","todo","stale","todo"]).map(x=>x.key)).toEqual(["in_progress","todo","new-status","cancelled"]);
+    expect(rows.map(x=>x.key)).toEqual(["todo","in_progress","new-status","cancelled"]);
+    expect(moveTaskFlowStatus(["todo","in_progress"],"unknown","todo")).toEqual(["todo","in_progress"]);
+  });
+});

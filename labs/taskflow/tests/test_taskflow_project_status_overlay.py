@@ -33,6 +33,7 @@ PATCHED_PATHS = [
     *[f"packages/views/locales/{locale}/issues.json" for locale in ("en", "zh-Hant", "zh-Hans", "ja", "fr")],
     "packages/views/settings/components/issue-statuses-tab.tsx",
     "packages/views/settings/components/issue-statuses-tab.test.tsx",
+    "packages/core/issues/status-category.ts",
 ]
 
 SETTINGS_TAB_PATH = "packages/views/settings/components/issue-statuses-tab.tsx"

@@ -10,6 +10,7 @@ const state = vi.hoisted(() => ({
   save: vi.fn().mockResolvedValue(undefined),
   setVisible: vi.fn().mockResolvedValue(undefined),
   setLabel: vi.fn().mockResolvedValue(undefined),
+  saveOrder: vi.fn().mockResolvedValue(undefined),
   create: vi.fn().mockResolvedValue({ key: "project_status" }),
   catalogLoaded: true,
   catalogError: false,
@@ -62,17 +63,22 @@ vi.mock("@multica/core/issue-statuses/taskflow-project-status-scope", () => ({
     setStatusVisible: state.setVisible,
     statusLabels: { [state.ownedKey]: "Waiting for vendor" },
     setStatusLabel: state.setLabel,
+    saveStatusOrder: state.saveOrder,
   }),
+  moveTaskFlowStatus: (keys: string[], from: string, to: string) => { const copy = [...keys]; const a=copy.indexOf(from), b=copy.indexOf(to);copy.splice(a,1);copy.splice(b,0,from);return copy; },
   createTaskFlowProjectStatusKey: () => "p00000000000000000000000000_0002",
   taskFlowInternalProjectStatusName: (key: string) => `TF:${key}`,
   taskFlowProjectIdFromStatusKey: (key: string) => key === state.ownedKey ? state.projectId : null,
 }));
+vi.mock("../utils/status-label", () => ({ useStatusLabel: () => (key: string) => state.statuses.find(s => s.key === key)?.name ?? key }));
 vi.mock("../../i18n", () => ({
   useT: () => ({
     t: (resolve: (value: any) => unknown, params?: Record<string, string>) => {
       const messages = {
         taskflow_project_status: {
           button: "Project statuses",
+          move_up: "Move {{name}} earlier",
+          move_down: "Move {{name}} later",
           title: "Project statuses and fields",
           description: "Project-only settings. Hidden columns can be restored without deleting tasks.",
           fields: "Project status fields",

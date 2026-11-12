@@ -93,6 +93,8 @@ COPY labs/taskflow/overrides/taskflow-project-status-scope.tsx /taskflow-project
 COPY labs/taskflow/overrides/taskflow-project-status-scope.test.ts /taskflow-project-status/taskflow-project-status-scope.test.ts
 COPY labs/taskflow/overrides/taskflow-project-status-preferences.test.tsx /taskflow-project-status/taskflow-project-status-preferences.test.tsx
 COPY labs/taskflow/overrides/taskflow-project-status-settings.tsx /taskflow-project-status/taskflow-project-status-settings.tsx
+COPY labs/taskflow/overrides/taskflow-project-status-drag-handle.tsx /taskflow-project-status/taskflow-project-status-drag-handle.tsx
+COPY labs/taskflow/overrides/taskflow-project-status-drag-handle.test.tsx /taskflow-project-status/taskflow-project-status-drag-handle.test.tsx
 COPY labs/taskflow/overrides/taskflow-project-status-settings.test.tsx /taskflow-project-status/taskflow-project-status-settings.test.tsx
 COPY labs/taskflow/overrides/taskflow-project-status-locales.json /taskflow-project-status/taskflow-project-status-locales.json
 RUN TASKFLOW_PROJECT_STATUS_REPO_ROOT=/ \
@@ -233,7 +235,7 @@ RUN pnpm --filter @multica/core exec vitest run issues/taskflow-row-query.test.t
  && pnpm --filter @multica/views exec vitest run issues/surface/taskflow-pagination-recovery.test.tsx \
  && pnpm --filter @multica/views exec vitest run issues/surface/use-issue-status-branches.test.tsx issues/surface/use-issue-group-branches.test.tsx
 RUN pnpm --filter @multica/core exec vitest run issue-statuses/taskflow-project-status-scope.test.ts issue-statuses/taskflow-project-status-preferences.test.tsx \
- && pnpm --filter @multica/views exec vitest run issues/components/taskflow-project-status-settings.test.tsx settings/components/issue-statuses-tab.test.tsx
+ && pnpm --filter @multica/views exec vitest run issues/components/taskflow-project-status-settings.test.tsx issues/components/taskflow-project-status-drag-handle.test.tsx settings/components/issue-statuses-tab.test.tsx
 RUN pnpm --filter @multica/views exec vitest run common/taskflow-dispatch-center.test.tsx settings/components/taskflow-access-management.test.tsx settings/components/settings-page.test.tsx
 RUN pnpm --filter @multica/core exec vitest run issues/surface/taskflow-project-partition.test.ts \
  && pnpm --filter @multica/views exec vitest run projects/components/projects-page.test.tsx \

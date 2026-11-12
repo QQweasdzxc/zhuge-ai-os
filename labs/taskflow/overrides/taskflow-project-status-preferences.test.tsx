@@ -75,6 +75,7 @@ function Probe({ projectId, statusKey }: { projectId: string; statusKey: string 
       <button type="button" onClick={() => void settings.setStatusVisible(statusKey, true)}>
         Restore status
       </button>
+      <button type="button" onClick={() => void settings.saveStatusOrder(["in_review", "todo", statusKey])}>Save order</button>
       <output data-testid="project">{projectId}</output>
     </>
   );
@@ -92,8 +93,7 @@ function mount(projectId: string, statusKey: string) {
   return { ...view, client };
 }
 
-describe("TaskFlow Project status label persistence", () => {
-  beforeEach(() => {
+beforeEach(() => {
     state.preferences.clear();
     state.preferences.set(PROJECT_A, preference(PROJECT_A));
     state.preferences.set(PROJECT_B, preference(PROJECT_B));
@@ -105,6 +105,7 @@ describe("TaskFlow Project status label persistence", () => {
     });
   });
 
+describe("TaskFlow Project status label persistence", () => {
   it("persists same display names independently for two Projects and preserves existing view preferences", async () => {
     const projectA = mount(PROJECT_A, KEY_A);
     await screen.findByRole("button", { name: "Save label" });
@@ -147,5 +148,22 @@ describe("TaskFlow Project status label persistence", () => {
     await waitFor(() => expect(state.put).not.toHaveBeenCalled());
     expect(state.preferences.get(PROJECT_A)?.prefs.taskflow_project_status_labels).toEqual({});
     projectA.unmount();
+  });
+});
+
+
+describe("Project order persistence", () => {
+  it("preserves labels, hidden columns and native preferences when saving order", async () => {
+    const initial=preference(PROJECT_A);initial.prefs.taskflow_hidden_statuses=["cancelled"];
+    initial.prefs.taskflow_project_status_labels={ [KEY_A]: "Waiting" };state.preferences.set(PROJECT_A,initial);
+    const view=mount(PROJECT_A,KEY_A);
+    await waitFor(()=>expect(screen.getByTestId("label").textContent).toBe("Waiting"));
+    fireEvent.click(screen.getByText("Save order"));
+    await waitFor(()=>expect(state.preferences.get(PROJECT_A)?.prefs.taskflow_status_order).toEqual(["in_review","todo",KEY_A]));
+    expect(state.preferences.get(PROJECT_A)?.prefs.hidden).toEqual(["done"]);
+    expect(state.preferences.get(PROJECT_A)?.prefs.preserved_setting).toBe("keep");
+    expect(state.preferences.get(PROJECT_A)?.prefs.taskflow_hidden_statuses).toEqual(["cancelled"]);
+    view.unmount();mount(PROJECT_B,KEY_B);
+    expect(state.preferences.get(PROJECT_B)?.prefs.taskflow_status_order).toBeUndefined();
   });
 });

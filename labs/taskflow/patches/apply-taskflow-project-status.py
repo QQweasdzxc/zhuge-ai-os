@@ -39,12 +39,23 @@ def patch_status_hook(source: str) -> str:
   // TASKFLOW_PROJECT_STATUS_SCOPE: project-owned keys are assignable only in
   // their Project surface; all rows remain available for historical labels.
   return useMemo(
-    () => scopeTaskFlowStatusCatalog(catalog, projectStatusSettings.projectId, projectStatusSettings.statusLabels),
-    [catalog, projectStatusSettings.projectId, projectStatusSettings.statusLabels],
+    () => scopeTaskFlowStatusCatalog(catalog, projectStatusSettings.projectId, projectStatusSettings.statusLabels, projectStatusSettings.statusOrder),
+    [catalog, projectStatusSettings.projectId, projectStatusSettings.statusLabels, projectStatusSettings.statusOrder],
   );''',
         "scope project-owned status choices",
     )
     return source
+
+
+def patch_status_column_order(source: str) -> str:
+    source = replace_once(source,
+        "  return ALL_STATUSES.flatMap((category) => [",
+        "  const keys = ALL_STATUSES.flatMap((category) => [",
+        "collect native status columns")
+    return replace_once(source,
+        "  ]);\n}\n\n/** Exact-key filters",
+        "  ]);\n  // TASKFLOW_PROJECT_COLUMN_ORDER: per-user Project preference, never global status positions.\n  const order = (catalog as typeof catalog & { taskflowStatusOrder?: readonly string[] }).taskflowStatusOrder ?? [];\n  const rank = new Map(order.map((key, index) => [key, index]));\n  return keys.sort((a, b) => (rank.get(a) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b) ?? Number.MAX_SAFE_INTEGER));\n}\n\n/** Exact-key filters",
+        "apply scoped order without losing cold-load or archived columns")
 
 
 def patch_issue_surface(source: str) -> str:
@@ -209,7 +220,8 @@ def patch_board_column(source: str) -> str:
         'import { useViewStoreApi } from "@multica/core/issues/stores/view-store-context";\n',
         'import { useViewStoreApi } from "@multica/core/issues/stores/view-store-context";\n'
         'import { useTaskFlowProjectStatusSettings } from "@multica/core/issue-statuses/taskflow-project-status-scope";\n'
-        'import { toast } from "sonner";\n',
+        'import { toast } from "sonner";\n'
+        'import { TaskFlowProjectStatusDragHandle } from "./taskflow-project-status-drag-handle";\n',
         "board column Project status preferences import",
     )
     source = replace_once(
@@ -237,6 +249,14 @@ def patch_board_column(source: str) -> str:
         'onClick={hideStatus}',
         "board column hide click",
     )
+    source = replace_once(source,
+        '<div style={{ width: BOARD_COL_WIDTH }} className=',
+        '<div data-taskflow-column={projectStatusSettings.projectId ? status : undefined} style={{ width: BOARD_COL_WIDTH }} className=',
+        "project drag target")
+    source = replace_once(source,
+        '<BoardGroupHeading group={group} count={totalCount ?? issueIds.length} />',
+        '<div className="flex min-w-0 items-center gap-1">{status && projectId && <TaskFlowProjectStatusDragHandle status={status} />}<BoardGroupHeading group={group} count={totalCount ?? issueIds.length} /></div>',
+        "project drag handle")
     return source
 
 
@@ -435,6 +455,8 @@ def apply(root: Path, overlay: Path) -> None:
         overlay / "taskflow-project-status-scope.test.ts": root / "packages/core/issue-statuses/taskflow-project-status-scope.test.ts",
         overlay / "taskflow-project-status-preferences.test.tsx": root / "packages/core/issue-statuses/taskflow-project-status-preferences.test.tsx",
         settings_component: root / "packages/views/issues/components/taskflow-project-status-settings.tsx",
+        overlay / "taskflow-project-status-drag-handle.tsx": root / "packages/views/issues/components/taskflow-project-status-drag-handle.tsx",
+        overlay / "taskflow-project-status-drag-handle.test.tsx": root / "packages/views/issues/components/taskflow-project-status-drag-handle.test.tsx",
         overlay / "taskflow-project-status-settings.test.tsx": root / "packages/views/issues/components/taskflow-project-status-settings.test.tsx",
     }
     for source, target in copy_targets.items():
@@ -443,6 +465,7 @@ def apply(root: Path, overlay: Path) -> None:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(source.read_text())
 
+    write_patch(root, "packages/core/issues/status-category.ts", patch_status_column_order)
     write_patch(root, "packages/core/issue-statuses/hooks.ts", patch_status_hook)
     write_patch(root, "packages/views/issues/surface/issue-surface.tsx", patch_issue_surface)
     write_patch(root, "packages/views/issues/surface/use-issue-surface-controller.ts", patch_surface_controller)
