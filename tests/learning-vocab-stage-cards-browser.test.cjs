@@ -60,6 +60,7 @@ async function readPanel(page) {
       finalBtn: !!cards.find(c => c.classList.contains('village-final') && c.querySelector('button')),
       disabledExamButtons: [...document.querySelectorAll('.village-panel button:disabled:not([data-vpage])')].length,
       pager: document.getElementById('villagePager')?.hidden,
+      pagerDisplay: (pg => pg ? getComputedStyle(pg).display : null)(document.getElementById('villagePager')),
       visibleCards: [...document.querySelectorAll('.village-grid .village-cell')].filter(c => !c.classList.contains('vp-hide')).length,
       noWideScroll: document.documentElement.scrollWidth <= innerWidth
     };
@@ -87,6 +88,7 @@ test('vocab stage cards are state-driven with PASS marks, short labels and rules
   assert.equal(r.finalBtn, false, 'village exam button only appears when unlocked');
   assert.equal(r.disabledExamButtons, 0, 'no disabled buttons anywhere in the panel');
   assert.equal(r.pager, true, 'desktop hides the pager');
+  assert.equal(r.pagerDisplay, 'none', 'desktop computed style really hides the pager, got ' + r.pagerDisplay);
   assert.equal(r.visibleCards, 8, 'desktop shows all cards');
   assert.ok(r.noWideScroll);
 
@@ -118,6 +120,7 @@ test('phone uses an explicit pager instead of a long two-column list', async t =
   t.after(() => browser.close());
   const r = await readPanel(page);
   assert.equal(r.pager, false, 'phone shows the pager');
+  assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById('villagePager')).display), 'flex', 'phone computed style shows the pager');
   assert.equal(r.visibleCards, 4, 'phone page 1 shows four cards');
   assert.ok(r.noWideScroll);
   await page.click('#villagePager [data-vpage="1"]');
