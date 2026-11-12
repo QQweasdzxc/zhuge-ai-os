@@ -11,13 +11,8 @@ jobs:
     permissions:
       contents: write
     strategy:
-      fail-fast: false
       matrix:
         include:
-          - surface: pages
-            base: c8278f302569ca53ec143b161769ea06e56f3ace
-            branch: review/tf-date-hours-pages-reader-qualified-20261113
-            oldbuild: 20261113-0650
           - surface: web
             base: d0591a6f6a74eca64a5d57b1bae9ed1324a3453b
             branch: review/tf-date-hours-web-release-20261113
@@ -38,6 +33,7 @@ jobs:
           git apply --check /tmp/guard.patch
           git apply /tmp/guard.patch
           git grep -l "$OLD_BUILD" | xargs sed -i "s/$OLD_BUILD/20261113-0729/g"
+          if [ "${{ matrix.surface }}" = web ]; then sed -i s/20261110-2012/20261113-0729/g docs/index.html docs/status-classic.html; fi
           git diff --check
       - uses: actions/setup-node@v4
         with:
