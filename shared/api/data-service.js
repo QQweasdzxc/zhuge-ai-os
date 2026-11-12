@@ -567,7 +567,7 @@ const DataService = {
     }
   },
   async saveEntry(item) {
-    if (item?.dateOnly) throw new Error("日期工時請在 TF 工時與月報編輯；原紀錄保留");
+    if (item?.dateOnly || entries.some(entry => entry.dateOnly && ((item?.id && entry.id === item.id) || (item?.cloudId && entry.cloudId === item.cloudId) || (item?.id && entry.cloudId === item.id)))) throw new Error("日期工時請在 TF 工時與月報編輯；原紀錄保留");
     if (!dataServiceReady || !hasGoogleOAuthSession()) throw new Error("Cloud Sync 尚未就緒");
     if (dataServiceHydrating || migrationRequired || migrationRunning) throw new Error("Cloud Sync 正在初始化");
     this.setStatus("syncing");
