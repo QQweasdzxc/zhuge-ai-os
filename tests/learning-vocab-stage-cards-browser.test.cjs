@@ -121,10 +121,39 @@ test('phone uses an explicit pager instead of a long two-column list', async t =
   const r = await readPanel(page);
   assert.equal(r.pager, false, 'phone shows the pager');
   assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById('villagePager')).display), 'flex', 'phone computed style shows the pager');
-  assert.equal(r.visibleCards, 4, 'phone page 1 shows four cards');
+  const fit = await page.evaluate(() => {
+    const pg = document.getElementById('villagePager');
+    const pgr = pg.getBoundingClientRect();
+    const vis = [...document.querySelectorAll('.village-grid .village-cell')].filter(c => !c.classList.contains('vp-hide'));
+    const lastBottom = Math.max(...vis.map(c => c.getBoundingClientRect().bottom));
+    return { visCount: vis.length, pagerInView: pgr.top >= 0 && pgr.bottom <= innerHeight + 1, cardsAbovePager: lastBottom <= pgr.top + 1, ih: innerHeight, pagerBottom: pgr.bottom };
+  });
+  assert.ok(fit.visCount >= 1 && fit.visCount < 8, 'phone paginates a measured number of cards: ' + JSON.stringify(fit));
+  assert.ok(fit.pagerInView, 'pager controls stay inside the phone viewport without scrolling: ' + JSON.stringify(fit));
+  assert.ok(fit.cardsAbovePager, 'cards never slide under the pager');
   assert.ok(r.noWideScroll);
   await page.click('#villagePager [data-vpage="1"]');
-  const pg2 = await page.evaluate(() => ({ page: document.querySelector('#villagePager span').textContent, vis: [...document.querySelectorAll('.village-grid .village-cell')].filter(c => !c.classList.contains('vp-hide')).length }));
-  assert.equal(pg2.page, '第 2 / 2 頁');
-  assert.equal(pg2.vis, 4, 'phone page 2 shows the remaining cards');
+  const pg2 = await page.evaluate(() => {
+    const pg = document.getElementById('villagePager');
+    return { page: document.querySelector('#villagePager span').textContent, vis: [...document.querySelectorAll('.village-grid .village-cell')].filter(c => !c.classList.contains('vp-hide')).length, pagerInView: pg.getBoundingClientRect().bottom <= innerHeight + 1 };
+  });
+  assert.ok(pg2.page.startsWith('第 2 / '), 'pager advances to page 2: ' + pg2.page);
+  assert.ok(pg2.vis >= 1, 'phone page 2 shows the remaining cards');
+  assert.ok(pg2.pagerInView, 'pager stays in view on page 2');
+});
+
+test('desktop village panel, rules and pager fit one screen without scrolling', async t => {
+  CURRENT = STARS_B;
+  const { browser, page } = await openVocab(1280, 800);
+  t.after(() => browser.close());
+  const fit = await page.evaluate(() => {
+    const pg = document.getElementById('villagePager');
+    const pgr = pg.getBoundingClientRect();
+    const vis = [...document.querySelectorAll('.village-grid .village-cell')].filter(c => !c.classList.contains('vp-hide'));
+    const lastBottom = Math.max(...vis.map(c => c.getBoundingClientRect().bottom));
+    return { visCount: vis.length, pagerHidden: pg.hidden, pagerInView: pg.hidden || (pgr.top >= 0 && pgr.bottom <= innerHeight + 1), cardsAbovePager: pg.hidden || lastBottom <= pgr.top + 1, ih: innerHeight, lastBottom, pagerBottom: pgr.bottom };
+  });
+  assert.equal(fit.visCount >= 6, true, 'desktop shows most or all cards per page: ' + JSON.stringify(fit));
+  assert.ok(fit.pagerInView, 'when a desktop pager is needed it stays in the viewport: ' + JSON.stringify(fit));
+  assert.ok(fit.cardsAbovePager, 'desktop cards never slide under the pager');
 });
