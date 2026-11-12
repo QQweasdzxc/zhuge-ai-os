@@ -49,8 +49,8 @@ test('desktop hub defaults to a viewport-filling uncropped map with live island 
   assert.ok(r.noFitBtn && r.fsBtnVisible && r.chips, 'no layout toggle remains; browser-fullscreen control and status chips are present');
   assert.ok(r.shellClip === 'clip' || r.shellClip === 'hidden', 'shell clips overflow so no programmatic scroll can crop the art, got ' + r.shellClip);
   assert.equal(r.shellScroll, 0, 'shell is never scrolled');
-  assert.ok(r.stage.w >= r.iw && r.stage.h >= r.ih, 'capped cover fills the viewport edge to edge');
-  assert.ok((r.stage.w - r.iw) / 2 / r.stage.w <= 0.095 && (r.stage.h - r.ih) / 2 / r.stage.h <= 0.095, 'cover crop stays within 9% per side');
+  assert.ok(r.stage.w <= r.iw + 1 && r.stage.h <= r.ih + 1, 'whole map stays inside the viewport, no side is cropped: ' + JSON.stringify(r.stage) + ' in ' + r.iw + 'x' + r.ih);
+  assert.ok(r.stage.w >= 0.97 * r.iw || r.stage.h >= 0.97 * r.ih, 'map still spans the viewport edge to edge in at least one dimension');
   assert.ok(r.dbar && r.dbar.disp === 'flex' && r.dbar.top >= 0 && r.dbar.left >= 0, 'desktop hero card is pinned top-left');
   assert.equal(await page.evaluate(() => document.getElementById('profileChip')), null, 'duplicate dock hero entry is removed; the top-left hero card is the single desktop entry');
   assert.ok(r.dbar.coins !== undefined, 'hero card keeps the coins readout integrated');
@@ -66,7 +66,7 @@ test('desktop hub defaults to a viewport-filling uncropped map with live island 
   assert.equal(r.dbar.lv, '訪客', 'adventure card guest level');
   assert.ok(r.chipTop >= r.dbar.bottom - 1, 'island title chip sits below the adventure card');
   const hot = await page.evaluate(() => ['#islandChengyu', '#islandEnglish', '#heroBoardBtn'].map(id => { const e = document.querySelector(id).getBoundingClientRect(); return { l: e.left, r: e.right, t: e.top, b: e.bottom } }));
-  assert.ok(hot.every(e => e.l >= -1 && e.r <= 1280 + 1 && e.t >= -1 && e.b <= 800 + 1), 'all island entries stay inside the viewport under capped cover: ' + JSON.stringify(hot));
+  assert.ok(hot.every(e => e.l >= -1 && e.r <= 1280 + 1 && e.t >= -1 && e.b <= 800 + 1), 'all island entries stay inside the viewport with the whole map visible: ' + JSON.stringify(hot));
 
   assert.equal(await page.evaluate(() => document.getElementById('voyageFitBtn')), null, 'layout toggle is gone: desktop is always the adaptive map');
   const boatD = await page.evaluate(() => {
@@ -98,7 +98,7 @@ test('desktop hub defaults to a viewport-filling uncropped map with live island 
   assert.equal(legacy.fsBtnVisible, true, 'browser-fullscreen control remains');
 });
 
-test('extreme aspect ratios fall back to the uncropped fit instead of over-cropping', async t => {
+test('any viewport ratio keeps the whole map visible with no crop and no inline sizing', async t => {
   const { browser, page } = await openHub(1100, 1000);
   t.after(() => browser.close());
   const r = await page.evaluate(() => {
@@ -141,23 +141,25 @@ test('mobile hub keeps its existing fullscreen portrait map and gets no desktop 
   assert.ok(deck.boat.t >= deck.stage.t - 1 && deck.boat.b <= deck.stage.b + 2, 'boat entry stays on the art plane');
 });
 
-test('cover crop is biased toward the bottom and long names ellipsis in the adventure card', async t => {
+test('wide viewport keeps the whole map visible without crop and long names ellipsis in the adventure card', async t => {
   const { browser, page } = await openHub(1440, 700);
   t.after(() => browser.close());
   const r = await page.evaluate(() => {
     const st = document.querySelector('.voyage-stage');
+    const sr = st.getBoundingClientRect();
     const strong = document.querySelector('.d-pinfo strong');
     return {
-      transform: st.style.transform, w: parseFloat(st.style.width), h: parseFloat(st.style.height),
+      transform: st.style.transform, inlineW: st.style.width, w: sr.width, h: sr.height,
       iw: innerWidth, ih: innerHeight, full: document.documentElement.classList.contains('voyage-full'),
       ellip: getComputedStyle(strong).textOverflow, nowrap: getComputedStyle(strong).whiteSpace
     };
   });
   assert.equal(r.full, true, 'desktop fullscreen layout active');
-  assert.ok(r.h > r.ih, 'this fixture viewport needs vertical crop, got ' + JSON.stringify(r));
-  const expect = Math.min((r.h - r.ih) * 0.2, Math.max((r.ih - r.h) / 2, (r.h + r.ih) / 2 - Math.min(r.h, r.h * 0.97)));
-  const got = parseFloat(r.transform.match(/translateY\((-?[\d.]+)px\)/)?.[1] || '0');
-  assert.ok(Math.abs(got - expect) < 1, 'crop keeps the boat band visible (top takes the extra crop), got transform=' + r.transform + ' expected ~' + expect.toFixed(1));
+  assert.equal(r.inlineW, '', 'no inline cover sizing overrides the CSS contain fit');
+  assert.equal(r.transform, '', 'no cover-bias transform remains');
+  assert.ok(r.w <= r.iw + 1 && r.h <= r.ih + 1, 'wide viewport keeps the whole art inside, left and right edges never cropped: ' + JSON.stringify(r));
+  assert.ok(Math.abs(r.w / r.h - 1672 / 941) < 0.02, 'stage keeps the art ratio at wide viewports');
+  assert.ok(r.h >= 0.97 * r.ih || r.w >= 0.97 * r.iw, 'map still spans the viewport in one dimension: ' + JSON.stringify(r));
   const boat = await page.evaluate(() => { const b = document.getElementById('boatShopBtn').getBoundingClientRect(); return { t: b.top, b: b.bottom, l: b.left, r: b.right, iw: innerWidth, ih: innerHeight } });
   assert.ok(boat.l >= -1 && boat.r <= boat.iw + 1 && boat.t >= -1 && boat.t <= boat.ih - 60, 'boat shop entry stays visible and tappable at 1440x700: ' + JSON.stringify(boat));
   assert.equal(r.ellip, 'ellipsis', 'long adventurer names ellipsis instead of overflowing');
