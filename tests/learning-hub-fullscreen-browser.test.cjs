@@ -51,8 +51,10 @@ test('desktop hub defaults to a viewport-filling uncropped map with live island 
   assert.equal(r.shellScroll, 0, 'shell is never scrolled');
   assert.ok(r.stage.w >= r.iw && r.stage.h >= r.ih, 'capped cover fills the viewport edge to edge');
   assert.ok((r.stage.w - r.iw) / 2 / r.stage.w <= 0.095 && (r.stage.h - r.ih) / 2 / r.stage.h <= 0.095, 'cover crop stays within 9% per side');
-  assert.ok(r.dbar && r.dbar.disp === 'flex' && r.dbar.top >= 0 && r.dbar.left >= 0, 'desktop adventure card is pinned top-left');
-  assert.equal(r.dbar.name, '冒險者', 'adventure card guest name');
+  assert.ok(r.dbar && r.dbar.disp === 'flex' && r.dbar.top >= 0 && r.dbar.left >= 0, 'desktop hero card is pinned top-left');
+  assert.equal(await page.evaluate(() => document.getElementById('profileChip')), null, 'duplicate dock hero entry is removed; the top-left hero card is the single desktop entry');
+  assert.ok(r.dbar.coins !== undefined, 'hero card keeps the coins readout integrated');
+  assert.equal(r.dbar.name, '勇者', 'hero card guest name');
   assert.equal(r.dbar.lv, '訪客', 'adventure card guest level');
   assert.ok(r.chipTop >= r.dbar.bottom - 1, 'island title chip sits below the adventure card');
   const hot = await page.evaluate(() => ['#islandChengyu', '#islandEnglish', '#heroBoardBtn'].map(id => { const e = document.querySelector(id).getBoundingClientRect(); return { l: e.left, r: e.right, t: e.top, b: e.bottom } }));
