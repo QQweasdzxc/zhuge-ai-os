@@ -9,7 +9,10 @@ sequences, no CREATE on shared schemas, no table privileges on `lab_multica`,
 and no membership in `anon`, `authenticated`, `service_role`, or
 `multica_lab_runtime`. PostgreSQL's existing inherited `PUBLIC` schema
 USAGE/function EXECUTE baseline is accepted, but TaskFlow source and SQL must
-not call or resolve Zhuge public objects.
+not call or resolve Zhuge public objects. The single reviewed exception is
+`taskflow_gate.taskflow_app_access_decision(uuid)`, a targeted boolean read of
+the existing whole-site approval. It gives no table, listing, decision-write,
+or workspace access and uses the same approval as the original application.
 
 The API must not create schemas or install extensions at startup. A reviewed,
 repository-controlled bootstrap provisions the TaskFlow schema and role. The

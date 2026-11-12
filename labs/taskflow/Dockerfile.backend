@@ -99,6 +99,13 @@ RUN python3 /tmp/apply-taskflow-attachment-delete-actor.py --root /src
 COPY labs/taskflow/tests/service_agent_token_contract_test.go /src/server/internal/handler/service_agent_token_contract_test.go
 COPY labs/taskflow/tests/attachment_delete_actor_test.go /src/server/internal/handler/attachment_delete_actor_test.go
 
+# Single whole-site allowance lookup. No changes to member decisions or data ownership.
+COPY labs/taskflow/overrides/taskflow_app_access.go /tmp/taskflow-access/taskflow_app_access.go
+COPY labs/taskflow/overrides/taskflow_app_access_test.go /tmp/taskflow-access/taskflow_app_access_test.go
+COPY labs/taskflow/overrides/taskflow_app_access_lookup.go /tmp/taskflow-access/taskflow_app_access_lookup.go
+COPY labs/taskflow/patches/apply-taskflow-app-access.py /tmp/apply-taskflow-app-access.py
+RUN python3 /tmp/apply-taskflow-app-access.py --root /src --overrides /tmp/taskflow-access
+
 # Test the router after every TaskFlow and house-rule patch has been applied.
 COPY labs/taskflow/overrides/taskflow_router_contract_test.go /src/server/cmd/server/taskflow_router_contract_test.go
 COPY labs/taskflow/overrides/sat_activity_attribution_test.go /src/server/cmd/server/sat_activity_attribution_test.go
