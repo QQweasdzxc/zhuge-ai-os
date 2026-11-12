@@ -50,7 +50,7 @@ export class GoogleWorklogSync {
   }else{
    // binding:null maps the reviewed remote values onto the same entry while the
    // original storage rules keep local notes, task links, kind and identity.
-   const plan=planSelectedCalendarEvent({entry,event,binding:null,entries:this.worklog.snapshot?.entries||[],userId:this.userId,calendarId:this.calendarId,selectedCalendarId:this.calendarId,profile:this.worklog.snapshot?.profile,operationId});
+   const plan=planSelectedCalendarEvent({entry,event,binding:entry.dateOnly?{...binding,eventEtag:'owner-reviewed-'+event.etag,entryUpdatedAt:entry.updatedAt}:null,entries:this.worklog.snapshot?.entries||[],userId:this.userId,calendarId:this.calendarId,selectedCalendarId:this.calendarId,profile:this.worklog.snapshot?.profile,operationId});
    if(plan.action!=='update-entry')throw Object.assign(new Error(plan.message||'日曆版本無法套用，原資料保留'),{code:plan.code||'CONFLICT_CHANGED'});
    const[saved]=await this.worklog.saveBatch([plan.proposed],plan.proposed.date);
    await this.store.bind({userId:this.userId,calendarId:this.calendarId,eventId:event.id,eventEtag:event.etag,entryId:saved.cloudId,entryUpdatedAt:saved.updatedAt,operationId});
