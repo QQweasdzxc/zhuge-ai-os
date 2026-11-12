@@ -1,4 +1,4 @@
-/* Chengyu Quest V1.8.1: cloud-powered hero XP and sequential adventure map. Stage cards use the compact demo anatomy - left stage name, intro and one short status line; right side stars plus a compact summary-exam button only when earned - so the map is the single progress view. Pagination is height-aware: cards per page are computed from the measured viewport so the map, rules and pager fit one screen without vertical scrolling on phone and desktop; the pager stays visible whenever more than one page is needed. */
+/* Chengyu Quest V1.8.2: cloud-powered hero XP and sequential adventure map. Stage cards use the compact demo anatomy - left stage name, intro and one short status line; right side stars plus a compact summary-exam button only when earned - so the map is the single progress view. Pagination is height-aware: cards per page are computed from the measured viewport so the map, rules and pager fit one screen without vertical scrolling on phone and desktop; the pager stays visible whenever more than one page is needed. */
 (function(){
 'use strict';
 const zones=[
@@ -35,7 +35,7 @@ const section=document.createElement('section');section.id='adventureArea';secti
 section.innerHTML='<div class="adventure-head"><div><span class="eyebrow">⚔️ 成語勇士養成</span><h2>我的冒險地圖</h2><p>從簡單到困難。混合練習後，通過本關90%總結測驗解鎖下一張地圖！</p></div><div class="adventure-hero" id="adventureHero" role="status"></div></div><div class="adventure-stages" id="adventureStages"></div>';
 grid.before(section);
 config.zone=1;
-let lastPlayer=null,available=1;
+let lastPlayer=null,available=1,userPicked=false;
 function progress(){
  const data=window.chengyuProgressState?.()||{learners:[],attempts:[],selectedId:''};
  const player=data.learners.find(x=>x.id===data.selectedId);
@@ -47,8 +47,13 @@ function progress(){
 }
 let stagePage=0,stagePer=4;
 function flowBelow(el){
- let h=0,s=el.nextElementSibling;
- while(s){if(s.id!=='stagePager'&&s.offsetHeight)h+=s.offsetHeight+6;s=s.nextElementSibling}
+ let h=0,node=el;
+ while(node&&node!==document.body){
+  let s=node.nextElementSibling;
+  while(s){if(s.id!=='stagePager'&&s.offsetHeight)h+=s.offsetHeight+6;s=s.nextElementSibling}
+  if(node.id==='app'||node.classList.contains('screen'))break;
+  node=node.parentElement;
+ }
  const sec=el.closest('.adventure-area');
  if(sec)h+=parseFloat(getComputedStyle(sec).paddingBottom)||0;
  return h+48;
@@ -78,7 +83,8 @@ function paintStagePage(){
 }
 function render(){
  const p=progress();available=window.learningVillagePassed?8:p.next;
- if((p.player?.id||'')!==lastPlayer){lastPlayer=p.player?.id||'';config.zone=1}
+ if((p.player?.id||'')!==lastPlayer){lastPlayer=p.player?.id||'';userPicked=false}
+ if(!userPicked)config.zone=Math.min(8,Math.max(1,p.next));
  if(config.zone>available)config.zone=available;
  config.level=zones[config.zone-1][3];
  const xp=Number(p.player?.xp)||0;
@@ -105,6 +111,7 @@ function render(){
  if(!document.getElementById('stagePager')){const pg=document.createElement('div');pg.id='stagePager';pg.className='stage-pager';pg.hidden=true;pg.innerHTML='<button type="button" data-pg="-1">‹ 上一頁</button><span></span><button type="button" data-pg="1">下一頁 ›</button>';$('adventureStages').insertAdjacentElement('afterend',pg);pg.addEventListener('click',e=>{const b=e.target.closest('[data-pg]');if(!b)return;stagePage+=Number(b.dataset.pg);paintStagePage()});try{window.matchMedia('(max-width:680px)').addEventListener('change',paintStagePage)}catch(e){}let rsz;window.addEventListener('resize',()=>{clearTimeout(rsz);rsz=setTimeout(paintStagePage,150)});}
  stagePage=Math.floor(Math.max(0,Math.min(7,(config.zone||1)-1))/stagePer);
  paintStagePage();
+ requestAnimationFrame(()=>requestAnimationFrame(paintStagePage));
 }
 window.chengyuAdventurePool=(all,zone)=>pool(Number(zone)||1);
 window.chengyuAdventureCanStart=(review)=>{
@@ -125,8 +132,8 @@ window.chengyuAdventureAfterFinish=(snapshot,box)=>{
  }
  render();
 };
-$('adventureStages').addEventListener('click',e=>{if(e.target.closest('[data-stage-exam],[data-village-exam]'))return;const b=e.target.closest('[data-zone]');if(!b||b.getAttribute('aria-disabled')==='true')return;config.zone=Number(b.dataset.zone);render()});
-$('adventureStages').addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;if(e.target.closest('[data-stage-exam],[data-village-exam]'))return;const b=e.target.closest('[data-zone]');if(!b||b.getAttribute('aria-disabled')==='true')return;e.preventDefault();config.zone=Number(b.dataset.zone);render()});
+$('adventureStages').addEventListener('click',e=>{if(e.target.closest('[data-stage-exam],[data-village-exam]'))return;const b=e.target.closest('[data-zone]');if(!b||b.getAttribute('aria-disabled')==='true')return;userPicked=true;config.zone=Number(b.dataset.zone);render()});
+$('adventureStages').addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;if(e.target.closest('[data-stage-exam],[data-village-exam]'))return;const b=e.target.closest('[data-zone]');if(!b||b.getAttribute('aria-disabled')==='true')return;e.preventDefault();userPicked=true;config.zone=Number(b.dataset.zone);render()});
 render();
 })();
 
