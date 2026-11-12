@@ -218,3 +218,21 @@ test('mobile gap below the art continues the ocean scene instead of a flat band'
   assert.ok(r.overlayTop === r.top, 'gradient overlay covers the same continuation band');
 });
 
+
+test('hero profile drawer links both islands original settings pages with identity carried', async t => {
+  const { browser, page } = await openHub(1280, 800);
+  t.after(() => browser.close());
+  const r = await page.evaluate(() => {
+    const sec = [...document.querySelectorAll('#profileDrawer .drawer-section')].find(s => s.textContent.includes('設定與聲音'));
+    const c = document.getElementById('settingsChengyuLink'), e = document.getElementById('settingsEnglishLink');
+    return { hasSec: !!sec, c: c?.href || '', e: e?.href || '',
+      subtitle: (document.querySelector('meta[name=description]')?.content || '').includes('同一位勇者'),
+      oldSub: document.documentElement.innerHTML.includes('同一位勇士'),
+      trial: document.body.innerHTML.includes('勇者試煉批改中'), oldTrial: document.documentElement.innerHTML.includes('勇士試煉批改中') };
+  });
+  assert.ok(r.hasSec, '勇者檔案 drawer has a 設定與聲音 section');
+  assert.ok(r.c.includes('chengyu-quest-family.onrender.com') && r.c.includes('s=settings'), 'chengyu settings link carries s=settings, got ' + r.c);
+  assert.ok(r.e.includes('vocab-quest-family.onrender.com') && r.e.includes('s=settings'), 'vocab settings link carries s=settings, got ' + r.e);
+  assert.ok(r.subtitle && !r.oldSub, 'map subtitle calls the player 同一位勇者');
+  assert.ok(r.trial && !r.oldTrial, 'grading dialog calls it 勇者試煉');
+});
