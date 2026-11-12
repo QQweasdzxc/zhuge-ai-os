@@ -11,6 +11,7 @@ jobs:
     permissions:
       contents: write
     strategy:
+      fail-fast: false
       matrix:
         include:
           - surface: pages
@@ -45,7 +46,7 @@ jobs:
       - run: npm ci --ignore-scripts
       - name: Core, guard, source, release and entry regression
         run: |
-          npm run test:worklog
+          if [ "${{ matrix.surface }}" = web ]; then npm run test:worklog; fi
           node --test tests/worklog-date-hours-compat.test.js tests/shared-navigation.test.js tests/taskflow-entry.test.js tests/taskflow-cli-sso.test.js
           PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s labs/taskflow/tests -v
       - name: Publish source-only reviewed candidate
