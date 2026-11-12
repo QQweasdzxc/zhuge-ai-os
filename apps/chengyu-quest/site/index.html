@@ -503,7 +503,7 @@ function sync(){
  if(identity.textContent!==text)identity.textContent=text;
  const raw=idiom?$('#cloudStatus')?.textContent:window.vocabPlayerBridge?.snapshot().status;
  const warning=raw&&(/⚠|失敗|無法|錯誤/.test(raw));const token=new URLSearchParams(location.hash.slice(1)).get('f');const message=warning?(!token?'目前是試玩，進度不會儲存。請從總部進入。':'暫時無法同步，請重新整理再試。') : ''; 
- if(issue.textContent!==message)issue.textContent=message;issue.hidden=!warning;
+ if(issue.textContent!==message)issue.textContent=message;const bannerToggled=issue.hidden===!!warning;issue.hidden=!warning;if(bannerToggled&&idiom)window.chengyuProgressRefresh?.();
  if(document.documentElement.classList.contains('app-resuming')){
   const connected=idiom?state?.connected:window.vocabPlayerBridge?.snapshot().connected;
   if(state?.selectedId||connected||warning){document.documentElement.classList.remove('app-resuming');if(!state?.selectedId&&idiom){const gate=$('#playerGate');if(gate)gate.hidden=false}}

@@ -14,9 +14,14 @@ async function openChengyu(width, height) {
   const browser = await chromium.launch({ executablePath: resolveBrowserExecutable(), args: ['--no-sandbox', '--disable-dev-shm-usage'] });
   const page = await browser.newPage({ viewport: { width, height } });
   await page.route('**/*.supabase.co/**', route => {
-    let action = '';
-    try { action = route.request().postDataJSON()?.action || ''; } catch (e) {}
+    let action = '', body = {};
+    try { body = route.request().postDataJSON() || {}; action = body.action || ''; } catch (e) {}
     if (action === 'getStageStars') return route.fulfill({ contentType: 'application/json', body: JSON.stringify(STARS) });
+    // Healthy island cloud: a connected family with one player, so the home is in its normal no-banner state.
+    if (action === 'load' && !body.world) return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, learners: [{ id: 'hero1', name: '測試勇士', xp: 120 }], units: [], attempts: [] }) });
+    // Shared hero cloud: hero card, island XP and wallet for the settings/profile refresh.
+    if (action === 'load' && body.world) return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, hero: { name: '測試勇士', level: 4, totalXP: 680, nextXP: 800, eligible: false, profession: 'warrior', avatarStyle: 'boy' }, islandXP: { chengyu: 300, vocab: 380 }, wallet: { balance: 56 } }) });
+    if (action === 'getWallet' || action === 'claimLogin') return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, wallet: { balance: 56 } }) });
     if (action === 'startStageExam') return route.fulfill({ contentType: 'application/json', body: JSON.stringify(EXAM) });
     return route.abort();
   });
@@ -93,9 +98,9 @@ test('stage cards are state-driven: stars, what is missing, and the exam entry o
   assert.match(r.help, /集滿21星開放出村大考驗，90分通過才開放第8關/, '說明 keeps the full unlock contract');
   assert.ok(r.oldPanelGone, 'no second stacked progress panel remains');
   assert.match(r.entryZone, /第 2 關/, 'stage 1 passed, so the mission recommends stage 2, got ' + r.entryZone);
-  assert.equal(r.pagerHidden, false, 'desktop keeps the pager visible once the mission and bottom actions reserve their space');
-  assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById('stagePager')).display), 'flex', 'desktop computed style really shows the pager');
-  assert.equal(r.visibleCards.length, 6, 'desktop shows two measured rows (six cards), got ' + r.visibleCards.join(','));
+  assert.equal(r.pagerHidden, true, 'healthy desktop at 1280x900 fits all eight cards on one page, so the pager stays hidden');
+  assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById('stagePager')).display), 'none', 'hidden pager computes to display:none');
+  assert.equal(r.visibleCards.length, 8, 'healthy desktop shows all eight stage cards, got ' + r.visibleCards.join(','));
   const oneScreen = await page.evaluate(() => {
     const pg = document.getElementById('stagePager').getBoundingClientRect();
     const mission = document.querySelector('.entry-mission').getBoundingClientRect();
@@ -176,6 +181,57 @@ test('desktop map, rules and pager fit one screen without scrolling', async t =>
   assert.ok(fit.pagerInView, 'when a desktop pager is needed it stays in the viewport: ' + JSON.stringify(fit));
   assert.ok(fit.cardsAbovePager, 'desktop cards never slide under the pager');
   assert.ok(fit.helpInView, 'the rules details stay on screen too');
+});
+
+test('sync-warning banner reserves its height: the home repaginates instead of overflowing, and recovers', async t => {
+  const { browser, page } = await openChengyu(1280, 800);
+  t.after(() => browser.close());
+  const bottomBar = () => page.evaluate(() => {
+    const bar = [...document.querySelectorAll('summary')].find(s => s.textContent.includes('這次練習'));
+    const issue = document.querySelector('.app-sync-issue');
+    return { scrollH: document.documentElement.scrollHeight, ih: innerHeight, banner: !!issue && !issue.hidden, barBottom: bar ? Math.round(bar.getBoundingClientRect().bottom) : -1, visibleCards: [...document.querySelectorAll('.adventure-stage')].filter(c => !c.classList.contains('stage-page-hide')).length };
+  });
+  const base = await bottomBar();
+  assert.ok(base.scrollH <= base.ih + 1, 'clean home fits before the banner: ' + JSON.stringify(base));
+  // Failure state: the real failure string the cloud sync writes into #cloudStatus.
+  await page.evaluate(() => { document.getElementById('cloudStatus').textContent = '⚠️ 網路或雲端連線失敗。請重新整理後再試。'; });
+  await page.waitForFunction(() => { const i = document.querySelector('.app-sync-issue'); return i && !i.hidden; });
+  await new Promise(r => setTimeout(r, 1200));
+  const withBanner = await bottomBar();
+  assert.equal(withBanner.banner, true, 'banner visible in failure state');
+  assert.ok(withBanner.scrollH <= withBanner.ih + 1, 'banner state must repaginate and still fit one screen, not overflow: ' + JSON.stringify(withBanner));
+  assert.ok(withBanner.barBottom <= withBanner.ih + 1 && withBanner.barBottom > 0, 'the practice bar stays inside the viewport under the banner: ' + JSON.stringify(withBanner));
+  // Recovery: sync status returns to healthy, banner hides, layout returns to one screen.
+  await page.evaluate(() => { document.getElementById('cloudStatus').textContent = '✅ 雲端已連線・1 位測驗者・0 筆歷史成績'; });
+  await page.waitForFunction(() => { const i = document.querySelector('.app-sync-issue'); return !i || i.hidden; });
+  await new Promise(r => setTimeout(r, 1200));
+  const recovered = await bottomBar();
+  assert.equal(recovered.banner, false, 'banner hides after recovery');
+  assert.ok(recovered.scrollH <= recovered.ih + 1, 'recovered home fits one screen again: ' + JSON.stringify(recovered));
+  await browser.close();
+
+  // Low height: already at one row, so the banner's height can only scroll, not crush the layout.
+  const low = await openChengyu(1280, 700);
+  t.after(() => low.browser.close());
+  const lowBar = () => low.page.evaluate(() => {
+    const bar = [...document.querySelectorAll('summary')].find(s => s.textContent.includes('這次練習'));
+    const issue = document.querySelector('.app-sync-issue');
+    return { scrollH: document.documentElement.scrollHeight, ih: innerHeight, banner: !!issue && !issue.hidden, barBottom: bar ? Math.round(bar.getBoundingClientRect().bottom + window.scrollY) : -1, visibleCards: [...document.querySelectorAll('.adventure-stage')].filter(c => !c.classList.contains('stage-page-hide')).length };
+  });
+  const lowClean = await lowBar();
+  assert.ok(lowClean.scrollH <= lowClean.ih + 1, 'low-height clean home fits: ' + JSON.stringify(lowClean));
+  await low.page.evaluate(() => { document.getElementById('cloudStatus').textContent = '⚠️ 網路或雲端連線失敗。請重新整理後再試。'; });
+  await low.page.waitForFunction(() => { const i = document.querySelector('.app-sync-issue'); return i && !i.hidden; });
+  await new Promise(r => setTimeout(r, 1200));
+  const lowBanner = await lowBar();
+  assert.equal(lowBanner.banner, true, 'banner visible at low height');
+  assert.ok(lowBanner.visibleCards >= 3, 'low height keeps at least one full row of cards: ' + JSON.stringify(lowBanner));
+  assert.ok(lowBanner.barBottom <= lowBanner.scrollH, 'the practice bar stays inside the scrollable document at low height: ' + JSON.stringify(lowBanner));
+  await low.page.evaluate(() => { document.getElementById('cloudStatus').textContent = '✅ 雲端已連線・1 位測驗者・0 筆歷史成績'; });
+  await low.page.waitForFunction(() => { const i = document.querySelector('.app-sync-issue'); return !i || i.hidden; });
+  await new Promise(r => setTimeout(r, 1200));
+  const lowRecovered = await lowBar();
+  assert.ok(lowRecovered.scrollH <= lowRecovered.ih + 1, 'low-height home fits again after recovery: ' + JSON.stringify(lowRecovered));
 });
 
 test('chengyu arriving with s=settings opens the 勇者 settings page directly', async t => {
