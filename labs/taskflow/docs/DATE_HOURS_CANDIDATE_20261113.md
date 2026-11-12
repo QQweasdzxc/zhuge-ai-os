@@ -33,7 +33,7 @@ A native TaskFlow issue's start and/or due date counts as one hour on that date 
 
 ## Remaining release gates
 
-1. Legacy Pages reader now preserves dateOnly, shows no-clock labels, keeps daily/month totals and ECP exact date/hours, excludes date rows from timed slot allocation, skips them in bulk sync, blocks stale edit/delete with TF guidance. Five source tests and 390/1280 canonical panel/capture visual fixtures pass. Full legacy app acceptance remains to be run before activation.
+1. Legacy Pages reader now preserves dateOnly, shows no-clock labels, keeps daily/month totals and ECP exact date/hours, excludes date rows from timed slot allocation, skips them in bulk sync, blocks stale edit/delete with TF guidance. Five source tests and 390/1280 canonical panel/capture visual fixtures pass. Real index.html loader and synthetic signed-in runtime render now pass at 390/1440 including stale edit state. Existing sidebar/calendar wrapping reproduces on the unchanged base; not a whole-UI acceptance claim. Date-only guidance is stacked separately to preserve the new row title width.
 2. Broader browser/full overlay/build/CI validation and final runtime packaging, including copying date-hours module into the worker function package.
 3. SQL enrollment scope must be matched to the actual authorized owner/workspace, activation last after compatible readers and worker. No historic batch write.
 4. Source clear/re-add now inserts a fresh registration rather than reviving an old tombstoned Google binding. SQL test verifies new identity; full synthetic worker deletion/reintroduction acceptance passes with distinct Google identities. Existing ACL restriction forbids retry/bypass/reconnection. Do not claim live Google verification from synthetic tests.
@@ -44,3 +44,7 @@ A native TaskFlow issue's start and/or due date counts as one hour on that date 
 ## Rollout order, only after gates
 
 Install compatible disabled SQL, release matching Web/legacy reader and worker, verify current source versions, then explicitly enable the owner's workspace enrollment. Do not activate early. Rollback disables enrollment first; never drop date-only data or restore old NOT NULL constraints while those rows exist.
+
+## Worker isolation checkpoint
+
+The live worker v11 source is 5d1bc8e86ea041041197a8c196895adc83d8bec8, not current Web base. Do not deploy the general Web-tree worker bundle: it includes later ordinary linked-delete/classification changes beyond the date-only exception. The separate date-only worker branch review/tf-date-hours-worker-v11-20261113 adds only date imports, source-bound date edits, and date-only tombstone sync. Ordinary timed deletion still stays local as in v11. 110 baseline/date tests and bundle syntax check pass. Local checkpoint 3c7bcd15b7; cloud qualification and publishing still pending.
