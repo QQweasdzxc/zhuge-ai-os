@@ -1,0 +1,111 @@
+name: TQ6 Linked Delete Qualification
+on:
+  push:
+    branches: ['review/tq6-native-qualification-20261111']
+    paths: ['.github/workflows/*tq6-linked-delete-final-qualification.yml']
+permissions:
+  contents: read
+jobs:
+  compose:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    outputs:
+      candidate: ${{ steps.source.outputs.candidate }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Compose exact live-base web candidate, no deploy
+        id: source
+        run: |
+          set -euo pipefail
+          test "$(sha256sum 3-8-3-tq6-linked-delete-v15-final.patch | cut -d' ' -f1)" = 3837648b4d5975a9df9102dd5726a38e4faa0731db891ba905cac3506cfb217c
+          cp 3-8-3-tq6-linked-delete-v15-final.patch /tmp/order.patch
+          git switch --detach 6d4926cd64e75466f33c1788c1e2dcec7829ab03
+          git apply --check /tmp/order.patch
+          git apply /tmp/order.patch
+          git diff --check
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add modules/worklog/native labs/taskflow/tests/worklog-browser labs/taskflow/tests/worklog-server/statistics-check.mjs
+          git commit -m 'Delete only owner-confirmed exact bound Google events with durable tombstone retry'
+          git push origin HEAD:refs/heads/review/tq6-linked-delete-final-candidate-20261112
+          echo "candidate=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+  verify:
+    needs: compose
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.compose.outputs.candidate }}
+      - name: All TaskFlow overlay and boundary contracts
+        run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s labs/taskflow/tests -v
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: WorkLog connection and service regressions
+        run: npm ci && npm run test:worklog && node labs/taskflow/tests/worklog-server/statistics-check.mjs
+      - name: Worker SQL and build safety
+        working-directory: labs/taskflow/tests/worklog-server
+        run: npm ci && npm run test:sql && npm run test:bundle
+      - name: WorkLog view types
+        working-directory: labs/taskflow/tests/worklog-browser
+        run: npm ci && npx tsc --noEmit
+  web:
+    needs: compose
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.compose.outputs.candidate }}
+      - name: Full native Web build and existing regressions, no deployment
+        shell: bash
+        run: |
+          set -o pipefail
+          docker build --progress=plain -f labs/taskflow/Dockerfile.web -t tf-order-web:qualification . 2>&1 | tee web-build.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tf-project-order-web-build
+          path: web-build.log
+  browser:
+    needs: compose
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container:
+      image: mcr.microsoft.com/playwright:v1.58.2-noble
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.compose.outputs.candidate }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Direct add, retained reads, learning, queued sync and mutation regression on synthetic data
+        working-directory: labs/taskflow/tests/worklog-browser
+        shell: bash
+        env:
+          TQ6_TEST_CALENDAR_ENABLED: 'true'
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run dev > /tmp/vite.log 2>&1 &
+          server=$!
+          trap 'kill "$server"' EXIT
+          for i in $(seq 1 30); do if curl -fsS http://127.0.0.1:4177/native.html > /tmp/fixture.html; then break; fi; sleep 1; done
+          node linked-delete.cjs
+          node repeat-overtime.cjs
+          node visible-range.cjs
+          node direct-add.cjs
+          node retained-read.cjs
+          node background-sync.cjs
+          node native-calendar.cjs
+          node learning-parity.cjs
+          node mutations.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tq6-direct-add-browser
+          path: /downloads/tq6-*.png
