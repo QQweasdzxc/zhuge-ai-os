@@ -1,0 +1,104 @@
+name: TQ6 Direct Add Qualification
+on:
+  push:
+    branches: ['review/tq6-native-qualification-20261111']
+    paths: ['.github/workflows/*tq6-direct-add-qualification.yml']
+permissions:
+  contents: read
+jobs:
+  compose:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    outputs:
+      candidate: ${{ steps.source.outputs.candidate }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Compose exact live-base web candidate, no deploy
+        id: source
+        run: |
+          set -euo pipefail
+          test "$(sha256sum 4-1-tq6-direct-add-v12.patch | cut -d' ' -f1)" = 0a86b6ce85118656be90b2be78711914ba3306c3f08737dff8d23d7f86780e61
+          cp 4-1-tq6-direct-add-v12.patch /tmp/order.patch
+          git switch --detach a50390c65dfae3b3d798a487797ab6cb7dcaf3e2
+          git apply --check /tmp/order.patch
+          git apply /tmp/order.patch
+          git diff --check
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add modules/worklog/native labs/taskflow/tests/worklog-browser
+          git commit -m 'Show response-confirmed work immediately and separate single from batch add'
+          git push origin HEAD:refs/heads/review/tq6-direct-add-candidate-20261112
+          echo "candidate=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+  verify:
+    needs: compose
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.compose.outputs.candidate }}
+      - name: All TaskFlow overlay and boundary contracts
+        run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s labs/taskflow/tests -v
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: WorkLog connection and service regressions
+        run: npm ci && npm run test:worklog
+      - name: WorkLog view types
+        working-directory: labs/taskflow/tests/worklog-browser
+        run: npm ci && npx tsc --noEmit
+  web:
+    needs: compose
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.compose.outputs.candidate }}
+      - name: Full native Web build and existing regressions, no deployment
+        shell: bash
+        run: |
+          set -o pipefail
+          docker build --progress=plain -f labs/taskflow/Dockerfile.web -t tf-order-web:qualification . 2>&1 | tee web-build.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tf-project-order-web-build
+          path: web-build.log
+  browser:
+    needs: compose
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container:
+      image: mcr.microsoft.com/playwright:v1.58.2-noble
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.compose.outputs.candidate }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Direct add, retained reads, learning, queued sync and mutation regression on synthetic data
+        working-directory: labs/taskflow/tests/worklog-browser
+        env:
+          TQ6_TEST_CALENDAR_ENABLED: 'true'
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run dev > /tmp/vite.log 2>&1 &
+          server=$!
+          trap 'kill "$server"' EXIT
+          for i in $(seq 1 30); do if curl -fsS http://127.0.0.1:4177/native.html > /tmp/fixture.html; then break; fi; sleep 1; done
+          node direct-add.cjs
+          node retained-read.cjs
+          node background-sync.cjs
+          node native-calendar.cjs
+          node learning-parity.cjs
+          node mutations.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tq6-direct-add-browser
+          path: /downloads/tq6-*.png
