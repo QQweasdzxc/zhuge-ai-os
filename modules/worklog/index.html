@@ -10,7 +10,7 @@
     <meta property="og:description" content="TRQN 是一套 AI 工作管理平台，提供文件管理與 AI 知識整理。">
     <title>TRQN</title>
     <link rel="icon" href="../../shared/assets/logo/tron-icon.svg" type="image/svg+xml">
-    <link id="public-home-styles" rel="stylesheet" href="../../shared/theme/public-home.css?v=20261110-2012">
+    <link id="public-home-styles" rel="stylesheet" href="../../shared/theme/public-home.css?v=20261113-0650">
     <style id="runtime-boot-shell-style">
       .app-boot-shell{min-height:100vh;display:grid;grid-template-columns:minmax(220px,264px) minmax(0,1fr);gap:16px;padding:16px;background:radial-gradient(circle at 82% -10%,rgba(47,215,245,.12),transparent 30rem),#050b12;color:#e8f6fb;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans TC","Segoe UI",sans-serif}
       .app-boot-sidebar,.app-boot-main{border:1px solid rgba(47,215,245,.24);background:linear-gradient(160deg,#0d1a24,#0b1520);border-radius:18px;box-shadow:0 18px 50px rgba(0,0,0,.28)}
@@ -29,9 +29,9 @@
     </style>
     <script>/* ZG-69：開機前先套用外觀偏好，避免淺色使用者看到深色閃屏；與 shared/theme/zhuge-appearance.js 相同鍵值。 */
     (function(){try{var v=localStorage.getItem("zhuge-appearance-v1");document.documentElement.dataset.theme=(v==="light"||v==="dark"||v==="system")?v:"system";}catch(e){document.documentElement.dataset.theme="system";}})();</script>
-    <script src="../../shared/config/version.js?v=20261110-2012"></script>
+    <script src="../../shared/config/version.js?v=20261113-0650"></script>
     <script src="../../shared/config/template-release.js?v=20260915-1707"></script>
-    <script src="../../labs/taskflow/cli-sso.js?v=20261110-2012"></script>
+    <script src="../../labs/taskflow/cli-sso.js?v=20261113-0650"></script>
     <script>
       window.ZhugeTaskFlowCliSSO?.startLoginReturnMonitor(window);
     </script>
@@ -200,25 +200,25 @@
           "../../shared/google/google-drive-service.js", "knowledge-ingestion-service.js", "worktodo-ordering.js", "../../labs/taskflow/taskflow-post-login.js", "worklog-app.js"
         ];
         const appStyles = [
-          "../../shared/theme/zhuge-shell.css?v=20261110-2012",
-          "../../shared/theme/task-card.css?v=20261110-2012",
-          "../../shared/theme/task-drawer.css?v=20261110-2012",
-          "../../shared/theme/task-board.css?v=20261110-2012",
-          "./worklog.css?v=20261110-2012",
-          "../../shared/theme/golden-master.css?v=20261110-2012",
-          "../../shared/theme/zhuge-os.css?v=20261110-2012",
-          "../../shared/theme/ai-product.css?v=20261110-2012",
-          "../../shared/theme/zhuge-workspace.css?v=20261110-2012",
-          "../../shared/theme/zhuge-navigation.css?v=20261110-2012",
-          "../../shared/theme/app-access.css?v=20261110-2012",
-          "../../shared/theme/global-floating-hub.css?v=20261110-2012",
-          "../../shared/theme/user-access-management.css?v=20261110-2012",
-          "../../shared/theme/desktop-modernization.css?v=20261110-2012",
-          "../../shared/theme/responsive-modernization.css?v=20261110-2012",
-          "../../shared/theme/zhuge-functional-tabs.css?v=20261110-2012"
+          "../../shared/theme/zhuge-shell.css?v=20261113-0650",
+          "../../shared/theme/task-card.css?v=20261113-0650",
+          "../../shared/theme/task-drawer.css?v=20261113-0650",
+          "../../shared/theme/task-board.css?v=20261113-0650",
+          "./worklog.css?v=20261113-0650",
+          "../../shared/theme/golden-master.css?v=20261113-0650",
+          "../../shared/theme/zhuge-os.css?v=20261113-0650",
+          "../../shared/theme/ai-product.css?v=20261113-0650",
+          "../../shared/theme/zhuge-workspace.css?v=20261113-0650",
+          "../../shared/theme/zhuge-navigation.css?v=20261113-0650",
+          "../../shared/theme/app-access.css?v=20261113-0650",
+          "../../shared/theme/global-floating-hub.css?v=20261113-0650",
+          "../../shared/theme/user-access-management.css?v=20261113-0650",
+          "../../shared/theme/desktop-modernization.css?v=20261113-0650",
+          "../../shared/theme/responsive-modernization.css?v=20261113-0650",
+          "../../shared/theme/zhuge-functional-tabs.css?v=20261113-0650"
         ];
         const appearanceScript = document.createElement("script");
-        appearanceScript.src = "../../shared/theme/zhuge-appearance.js?v=20261110-2012";
+        appearanceScript.src = "../../shared/theme/zhuge-appearance.js?v=20261113-0650";
         appearanceScript.onload = () => window.ZhugeAppearance?.apply(window.ZhugeAppearance.read());
         document.body.appendChild(appearanceScript);
         const params = new URLSearchParams(window.location.search);
@@ -259,7 +259,7 @@
         };
         document.getElementById("public-home-styles")?.remove();
         renderBootState("正在開啟工作空間…", "正在準備共用工作區與登入狀態", false);
-        const phase1CacheVersion = "20261110-2012";
+        const phase1CacheVersion = "20261113-0650";
         const runtimeUrl = file => file.includes("://") ? file : `${file}?v=${phase1CacheVersion}`;
         const loadStyles = () => Promise.all(appStyles.map(href => new Promise((resolve, reject) => {
           const link = document.createElement("link");
