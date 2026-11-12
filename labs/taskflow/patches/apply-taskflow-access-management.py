@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install the Pages-only access panel on the copied TaskFlow web source."""
+"""Install the native global access panel on the copied TaskFlow web source."""
 import argparse
 from pathlib import Path
 
@@ -29,6 +29,8 @@ def apply(root, overlays):
     if "TaskFlow access settings workspace-role visibility" in shell_source:
         raise ValueError("access integration test already installed")
     integration_test = (overlays / "taskflow-access-settings-test-block.txt").read_text()
+    for name in ("taskflow-access-service.mjs", "taskflow-access-service.d.mts"):
+        (target.parent / name).write_text((overlays / name).read_text())
     target.write_text(source)
     (target.parent / "taskflow-access-management.tsx").write_text(component)
     (target.parent / "taskflow-access-management.test.tsx").write_text(test)

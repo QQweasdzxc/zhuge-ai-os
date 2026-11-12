@@ -1,13 +1,19 @@
 "use client";
-
-import React from "react";
-import { SettingsTab } from "./settings-layout";
-
-export function TaskFlowAccessManagement() {
-  return <SettingsTab title="全站存取管理">
-    <p className="text-body text-muted-foreground">需全站管理者登入，請另開管理頁進行設定。</p>
-    <a className="inline-flex rounded-lg border border-input px-4 py-2 text-body hover:bg-surface-hover"
-      href="https://qqweasdzxc.github.io/zhuge-ai-os/labs/taskflow/access-management/"
-      target="_blank" rel="noopener noreferrer">開啟全站存取管理</a>
-  </SettingsTab>;
+import React,{useEffect,useMemo,useRef,useState} from 'react';
+import {useAuthStore} from '@multica/core/auth';
+import {useCurrentWorkspace} from '@multica/core/paths';
+import {SettingsTab} from './settings-layout';
+import {WorklogConnection} from '../../common/taskflow-worklog/worklog-connection.mjs';
+import {createAccessService,type AccessRow,type AccessService} from './taskflow-access-service.mjs';
+const baseUrl=process.env.NEXT_PUBLIC_TASKFLOW_WORKLOG_SUPABASE_URL||'';
+const anonKey=process.env.NEXT_PUBLIC_TASKFLOW_WORKLOG_ANON_KEY||'';
+export function TaskFlowAccessManagement({testService}:{testService?:AccessService}={}){
+ const userId=useAuthStore(s=>s.user?.id),slug=useCurrentWorkspace()?.slug;
+ const [rows,setRows]=useState<AccessRow[]>([]),[error,setError]=useState(''),[busy,setBusy]=useState(true),[notice,setNotice]=useState('');const revision=useRef(0),intent=useRef<{id:string;enabled:boolean;key:string}|null>(null);
+ const connection=useMemo(()=>userId&&baseUrl&&anonKey&&typeof window!=='undefined'?new WorklogConnection({userId,supabaseUrl:baseUrl,anonKey,enabled:true,calendarEnabled:false,storage:window.localStorage,location:{origin:window.location.origin,href:window.location.href,assign:(url:string)=>window.location.assign(url),replaceHistory:(path:string)=>window.history.replaceState(null,'',path)}}):null,[userId]);
+ const service=useMemo(()=>testService||(connection&&userId&&baseUrl&&anonKey?createAccessService({userId,baseUrl,anonKey,getSession:()=>connection.getSession()}):null),[testService,connection,userId]);
+ const load=async()=>{const v=++revision.current;setBusy(true);setError('');try{if(!service)throw Error('請先使用目前帳號完成連線');const next=await service.list();if(v===revision.current)setRows(next);}catch(e){if(v===revision.current)setError(e instanceof Error?e.message:'無法確認權限');}finally{if(v===revision.current)setBusy(false);}};
+ useEffect(()=>{setRows([]);setNotice('');intent.current=null;void load();return()=>{revision.current++;};},[service]);
+ const toggle=async(row:AccessRow)=>{const enabled=!row.enabled;if(busy||!service||(!enabled&&(row.is_creator||row.applicant_user_id===userId)))return;if(!window.confirm(`${enabled?'允許':'停用'} ${row.display_name||row.email||'這位使用者'} 使用全站？`))return;const v=++revision.current;if(intent.current?.id!==row.applicant_user_id||intent.current.enabled!==enabled)intent.current={id:row.applicant_user_id,enabled,key:crypto.randomUUID()};setBusy(true);setNotice('');setError('');try{const next=await service.setEnabled(row,enabled,intent.current.key);if(v===revision.current){setRows(next);intent.current=null;setNotice('使用權限已更新。');}}catch(e){if(v===revision.current)setError(e instanceof Error?e.message:'決定未能確認，請重新確認清單後再試');}finally{if(v===revision.current)setBusy(false);}};
+ return <SettingsTab title="全站存取管理"><div className="space-y-4"><p className="text-body text-muted-foreground">每人核准一次即可使用全站，不需逐項開啟功能。原有資料歸屬與工作區範圍不變。</p><button className="rounded-lg border px-4 py-2" disabled={busy} onClick={()=>void load()}>{busy?'正在確認…':'重新確認'}</button>{error&&<div role="alert"><p>{error}</p>{connection&&<button onClick={()=>void connection.start('/'+encodeURIComponent(slug||'')+'/settings?tab=app-access').catch(e=>setError(e.message))}>連接目前帳號</button>}</div>}{notice&&<p role="status">{notice}</p>}<div className="grid gap-3 sm:grid-cols-2">{rows.map(row=><article key={row.applicant_user_id} className="min-w-0 rounded-xl border p-4"><h3 className="break-words font-medium">{row.display_name||row.email}</h3><p className="break-all text-sm text-muted-foreground">{row.email}</p><div className="mt-3 flex items-center justify-between gap-3"><span>{row.effective_allowed?'已允許使用':'未允許使用'}</span><button type="button" role="switch" aria-label={`${row.display_name||row.email} 全站使用`} aria-checked={row.enabled} disabled={busy||Boolean(error)||Boolean(row.is_creator)||row.applicant_user_id===userId} onClick={()=>void toggle(row)} className={'rounded-full border px-4 py-2 '+(row.enabled?'bg-primary text-primary-foreground':'bg-muted')}>{row.enabled?'On':'Off'}</button></div>{row.effective_allowed!==row.enabled&&<p className="mt-2 text-sm">{'這筆設定與目前使用權限不一致，請重新確認。'}</p>}</article>)}</div>{!busy&&!error&&!rows.length&&<p>目前沒有待管理的使用者。</p>}</div></SettingsTab>;
 }
