@@ -6,81 +6,39 @@ on:
 permissions:
   contents: read
 jobs:
-  compose:
+  role-helper:
     runs-on: ubuntu-24.04
     permissions:
       contents: write
-    outputs:
-      pages: ${{ steps.source.outputs.pages }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Compose independent exact-baseline readers, no deployment
-        id: source
+      - name: Compose only staged date SQL and production-role tests
         run: |
           set -euo pipefail
-          test "$(sha256sum 1-tf-date-hours-pages-parser.patch | cut -d' ' -f1)" = 6e521b77985e217280e4edd84e8b5fa43dd8107183595e9ab7dec4aed7e1f8ff
-          cp 1-tf-date-hours-pages-parser.patch /tmp/pages.patch
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git switch --detach be8767b26d055b7c335992f705938056831d30d7
-          git apply --check /tmp/pages.patch
-          git apply /tmp/pages.patch
-          git add package.json package-lock.json
-          git diff --cached --check
-          git commit -m 'Declare pinned parser required by date-only legacy contract tests'
-          candidate=$(git rev-parse HEAD)
-          existing=$(git ls-remote origin refs/heads/review/tf-date-hours-pages-reader-qualified-20261113 | cut -f1)
-          if [ -n "$existing" ]; then
-            test "$(git rev-parse HEAD^{tree})" = "$(git rev-parse "$existing^{tree}")"
-            candidate=$existing
-          else
-            git push origin HEAD:refs/heads/review/tf-date-hours-pages-reader-qualified-20261113
-          fi
-          echo "pages=$candidate" >> "$GITHUB_OUTPUT"
-  pages-reader:
-    needs: compose
-    runs-on: ubuntu-24.04
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.compose.outputs.pages }}
-          fetch-depth: 0
+          test "$(sha256sum 1-tf-date-hours-role-helper.patch | cut -d' ' -f1)" = 72bd8a0064e2ac68e64ccb4c43fad76ba8b1bfa235ddad45dee7dc7c5b9c1bb7
+          cp 1-tf-date-hours-role-helper.patch /tmp/role-helper.patch
+          git switch --detach d0591a6f6a74eca64a5d57b1bae9ed1324a3453b
+          git apply --check /tmp/role-helper.patch
+          git apply /tmp/role-helper.patch
+          git diff --check
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-      - run: |
-          git fetch origin main:refs/remotes/origin/main
-          node tools/release-governance.js preflight
       - run: npm ci --ignore-scripts
-      - run: |
-          node --test tests/worklog-*.test.js tests/release-consistency.test.js tests/release-governance.test.js tests/shared-navigation.test.js tests/taskflow-entry.test.js tests/taskflow-cli-sso.test.js
-          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s labs/taskflow/tests -v
-      - run: npx playwright install --with-deps chromium
-      - name: Actual legacy loader and main browser suite
+      - run: npm run test:worklog
+      - name: Production-like split ownership, blocked writes, tenant, replay and rollback
         run: |
-          sudo mkdir -p /downloads
-          sudo chmod 777 /downloads
-          export CHROME_PATH=$(node -e 'process.stdout.write(require("playwright").chromium.executablePath())')
-          export BROWSER_EXECUTABLE=$CHROME_PATH
-          node tests/worklog-date-hours-full-legacy.cjs
-          npm run test:browser
-      - name: Build original curated Pages artifact including pinned Pixel Office
+          npm ci --ignore-scripts --prefix labs/taskflow/tests/worklog-server
+          cd labs/taskflow/tests/worklog-server
+          node sql-check.mjs
+          node date-hours-check.mjs
+      - name: Preserve source-only SQL candidate without deployment
         run: |
-          node tools/build-pages-site.js "$RUNNER_TEMP/pages-site"
-          git init "$RUNNER_TEMP/zhuge-habblaud"
-          git -C "$RUNNER_TEMP/zhuge-habblaud" remote add origin https://github.com/marmottajr/habblaud.git
-          git -C "$RUNNER_TEMP/zhuge-habblaud" fetch --depth=1 origin faa1a012b5fbf632c66dc6801c5383e53a542406
-          git -C "$RUNNER_TEMP/zhuge-habblaud" checkout --detach FETCH_HEAD
-          npm ci --prefix "$RUNNER_TEMP/zhuge-habblaud" --ignore-scripts --no-audit --no-fund
-          node integrations/habblaud/build.mjs "$RUNNER_TEMP/zhuge-habblaud" "$RUNNER_TEMP/pages-site"
-          node tests/pages-publish-artifact.test.js "$RUNNER_TEMP/pages-site"
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: pages-date-reader-evidence
-          path: tests/evidence/
-          retention-days: 14
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add modules/worklog/native/server/date-hours*.sql labs/taskflow/tests/worklog-server/date-hours-check.mjs
+          git commit -m 'Stage narrow date SQL helpers under separate existing owners'
+          git push origin HEAD:refs/heads/review/tf-date-hours-role-helper-20261113
