@@ -91,6 +91,7 @@ test('stage cards are state-driven: stars, what is missing, and the exam entry o
   assert.match(r.help, /集滿21星開放出村大考驗，90分通過才開放第8關/, '說明 keeps the full unlock contract');
   assert.ok(r.oldPanelGone, 'no second stacked progress panel remains');
   assert.equal(r.pagerHidden, true, 'desktop shows all cards, pager hidden');
+  assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById('stagePager')).display), 'none', 'desktop computed style really hides the pager');
   assert.equal(r.visibleCards.length, 8, 'desktop shows every card at once');
   assert.ok(r.noWideScroll);
 
@@ -114,6 +115,8 @@ test('stage cards stay readable and tappable on a phone', async t => {
   const r = await readCards(page);
   assert.equal(r.count, 8);
   assert.ok(r.demoLayout, 'phone cards keep the compact demo anatomy');
+  const cols = await page.evaluate(() => getComputedStyle(document.getElementById('adventureStages')).gridTemplateColumns);
+  assert.ok(!cols.includes(' '), 'phone shows one card per row, got ' + cols);
   assert.equal(r.card2exam, '總結測驗', 'phone shows the short exam label');
   assert.match(r.title, /新手村集星 3 \/ 21/);
   assert.ok(r.noWideScroll, 'no horizontal scrolling on the phone');
