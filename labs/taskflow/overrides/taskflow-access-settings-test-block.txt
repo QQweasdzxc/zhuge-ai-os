@@ -4,10 +4,7 @@ describe("TaskFlow access settings workspace-role visibility", () => {
     navigationState.search = "tab=app-access";
     renderWithI18n(<SettingsPage />);
     expect(screen.getByRole("link", { name: "全站存取管理" })).toBeInTheDocument();
-    const link = screen.getByRole("link", { name: "開啟全站存取管理" });
-    expect(link).toHaveAttribute("target", "_blank");
-    expect(link).toHaveAttribute("rel", "noopener noreferrer");
-    expect(link).toHaveAttribute("href", "https://qqweasdzxc.github.io/zhuge-ai-os/labs/taskflow/access-management/");
+    expect(screen.getByText(/每人核准一次即可使用全站/)).toBeInTheDocument();
     expect(document.querySelector("iframe")).toBeNull();
     expect(screen.queryByRole("switch")).toBeNull();
   });

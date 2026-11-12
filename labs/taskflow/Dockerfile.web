@@ -173,6 +173,8 @@ RUN TASKFLOW_TRON_THEME_PATCH=/tmp/apply-taskflow-tron-theme.py \
 # Global access management: opens the Pages access panel in a new tab; no auth or DB changes
 COPY labs/taskflow/patches/apply-taskflow-access-management.py /tmp/apply-taskflow-access-management.py
 COPY labs/taskflow/overrides/taskflow-access-management.tsx /taskflow-access/taskflow-access-management.tsx
+COPY labs/taskflow/overrides/taskflow-access-service.mjs /taskflow-access/taskflow-access-service.mjs
+COPY labs/taskflow/overrides/taskflow-access-service.d.mts /taskflow-access/taskflow-access-service.d.mts
 COPY labs/taskflow/overrides/taskflow-access-management.test.tsx /taskflow-access/taskflow-access-management.test.tsx
 COPY labs/taskflow/overrides/taskflow-access-settings-test-block.txt /taskflow-access/taskflow-access-settings-test-block.txt
 RUN python3 /tmp/apply-taskflow-access-management.py --root /src --overlays /taskflow-access

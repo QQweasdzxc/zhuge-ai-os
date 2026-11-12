@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const {chromium, webkit} = require('playwright');
+const {chromium, webkit} = require('./fixture-clock.cjs');
 const output = path.resolve(process.env.WORKLOG_OUTPUT || 'test-results');
 fs.mkdirSync(output, {recursive:true});
 (async () => {
