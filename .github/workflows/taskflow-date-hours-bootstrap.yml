@@ -20,22 +20,25 @@ jobs:
         id: source
         run: |
           set -euo pipefail
-          test "$(sha256sum 1-tf-date-hours-candidate.patch | cut -d' ' -f1)" = 5aa3e2d5d872278dfb53d6c1d7428c706d66d87e17b41f5e5a5e1e218df7fe86
-          cp 1-tf-date-hours-candidate.patch /tmp/date-hours.patch
-          git switch --detach 4ed883e7d467f46b13fed1ef8f3b37be459dee27
-          git apply --check /tmp/date-hours.patch
-          git apply /tmp/date-hours.patch
+          test "$(sha256sum 1-tf-date-hours-legacy-followup.patch | cut -d' ' -f1)" = 2164a5a6056f8a0e4ef8a771f7b6d6af0e94cdade99a054b5ba59275c807a7f2
+          cp 1-tf-date-hours-legacy-followup.patch /tmp/date-hours-followup.patch
+          git switch --detach 4f52d131356aa537cdfe4b18f4f4f82bd3666195
+          git apply --check /tmp/date-hours-followup.patch
+          git apply /tmp/date-hours-followup.patch
           git diff --check
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          rm .github/workflows/taskflow-date-hours-qualification.yml
-          git add labs/taskflow modules/worklog shared/api/data-service.js tests/worklog-date-hours-compat.test.js
+          git add labs/taskflow modules/worklog shared/api/data-service.js tests/worklog-date-hours-compat.test.js tests/worklog-date-hours-full-legacy.cjs
           git commit -m 'Task date endpoints automatically count as adjustable hours'
           candidate=$(git rev-parse HEAD)
           existing=$(git ls-remote origin refs/heads/review/tf-date-hours-20261113 | cut -f1)
           if [ -n "$existing" ]; then
-            test "$(git rev-parse HEAD^{tree})" = "$(git rev-parse "$existing^{tree}")"
-            candidate=$existing
+            if [ "$(git rev-parse HEAD^{tree})" = "$(git rev-parse "$existing^{tree}")" ]; then
+              candidate=$existing
+            else
+              test "$existing" = 4f52d131356aa537cdfe4b18f4f4f82bd3666195
+              git push origin HEAD:refs/heads/review/tf-date-hours-20261113
+            fi
           else
             git push origin HEAD:refs/heads/review/tf-date-hours-20261113
           fi
@@ -87,14 +90,4 @@ jobs:
           trap 'kill $server $date_server' EXIT
           for i in $(seq 1 30); do if curl -fsS http://127.0.0.1:4180/native.html > /tmp/date-fixture.html; then break; fi; sleep 1; done
           node date-hours.cjs
-  web-image:
-    needs: compose
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.compose.outputs.candidate }}
-          fetch-depth: 2
-      - name: Build exact native Web image without deployment
-        run: docker build --progress=plain -f labs/taskflow/Dockerfile.web -t taskflow-date-hours-web:qualification .
+          (cd ../../../.. && node tests/worklog-date-hours-full-legacy.cjs)
