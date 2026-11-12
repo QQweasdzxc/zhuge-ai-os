@@ -1,0 +1,171 @@
+diff --git a/labs/taskflow/tests/worklog-server/date-hours-check.mjs b/labs/taskflow/tests/worklog-server/date-hours-check.mjs
+index 1ccb448cf4..e449bc5660 100644
+--- a/labs/taskflow/tests/worklog-server/date-hours-check.mjs
++++ b/labs/taskflow/tests/worklog-server/date-hours-check.mjs
+@@ -2,7 +2,32 @@ import {PGlite} from '@electric-sql/pglite';import {readFile} from 'node:fs/prom
+ const db=new PGlite();
+ await db.exec(`CREATE ROLE anon;CREATE ROLE authenticated;CREATE SCHEMA auth;CREATE SCHEMA taskflow;CREATE TABLE auth.users(id uuid PRIMARY KEY);CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$SELECT current_setting('request.jwt.claim.sub',true)::uuid$$;CREATE TABLE taskflow.member(user_id uuid,workspace_id uuid,role text);CREATE TABLE taskflow.workspace(id uuid,slug text);CREATE TABLE taskflow.issue(id uuid PRIMARY KEY,workspace_id uuid,title text,start_date date,due_date date);CREATE TABLE public.user_ecp_tasks(id uuid DEFAULT gen_random_uuid(),user_uuid uuid,name text,is_active boolean,sort_order int);CREATE TABLE public.user_work_profiles(user_uuid uuid,default_task text);CREATE TABLE public.work_entries(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),user_uuid uuid REFERENCES auth.users(id),work_date date,started_at timestamptz NOT NULL,ended_at timestamptz NOT NULL,hours numeric,title text,note text,event_type text,status text,source text,ecp_task_name_snapshot text,ecp_task_id uuid,legacy_id text,created_at timestamptz DEFAULT now(),updated_at timestamptz DEFAULT now(),deleted_at timestamptz,google_delete_requested_at timestamptz,CONSTRAINT work_entries_time_check CHECK(started_at<ended_at));CREATE FUNCTION public.stamp() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN NEW.updated_at=clock_timestamp();RETURN NEW;END$$;CREATE TRIGGER stamp BEFORE UPDATE ON public.work_entries FOR EACH ROW EXECUTE FUNCTION public.stamp();`);
+ await db.exec("CREATE FUNCTION public.is_app_access_approved() RETURNS boolean LANGUAGE sql STABLE AS $$SELECT coalesce(current_setting('test.app_approved',true),'true')='true'$$;");
+-await db.exec(await readFile('../../../../modules/worklog/native/server/date-hours.sql','utf8'));
++// Match production ownership and membership without granting general writes.
++await db.exec(`CREATE ROLE worklog_deployer NOSUPERUSER NOBYPASSRLS NOINHERIT;CREATE ROLE taskflow_migrator;CREATE ROLE taskflow_runtime;CREATE ROLE service_role;
++
++ALTER TABLE public.work_entries OWNER TO worklog_deployer;
++GRANT CREATE,USAGE ON SCHEMA public TO worklog_deployer;
++GRANT USAGE ON SCHEMA auth TO worklog_deployer;
++GRANT REFERENCES ON auth.users TO worklog_deployer;
++GRANT SELECT ON public.user_ecp_tasks,public.user_work_profiles TO worklog_deployer;
++ALTER SCHEMA taskflow OWNER TO taskflow_migrator;
++ALTER TABLE taskflow.issue OWNER TO taskflow_migrator;
++ALTER TABLE taskflow.member OWNER TO taskflow_migrator;
++ALTER TABLE taskflow.workspace OWNER TO taskflow_migrator;
++GRANT USAGE ON SCHEMA public TO taskflow_migrator;
++REVOKE ALL ON FUNCTION public.is_app_access_approved() FROM PUBLIC;
++GRANT EXECUTE ON FUNCTION public.is_app_access_approved() TO worklog_deployer;
++GRANT USAGE ON SCHEMA taskflow TO worklog_deployer;
++GRANT SELECT ON ALL TABLES IN SCHEMA taskflow TO worklog_deployer;
++GRANT USAGE ON SCHEMA public TO taskflow_migrator;
++`);
++const stage1=await readFile('../../../../modules/worklog/native/server/date-hours.sql','utf8');
++const stage2=(await readFile('../../../../modules/worklog/native/server/date-hours-taskflow.sql','utf8')).replaceAll('TO postgres;', 'TO worklog_deployer;');
++const stage3=await readFile('../../../../modules/worklog/native/server/date-hours-finalize.sql','utf8');
++await db.exec('SET ROLE worklog_deployer;'+stage1+'RESET ROLE;');
++await db.exec('SET ROLE taskflow_migrator;'+stage2+'RESET ROLE;');
++await db.exec('SET ROLE worklog_deployer;'+stage3+'RESET ROLE;');
++
+ const owner='11111111-1111-4111-8111-111111111111',other='22222222-2222-4222-8222-222222222222',workspace='33333333-3333-4333-8333-333333333333',issue='44444444-4444-4444-8444-444444444444';
+ await db.exec(`INSERT INTO auth.users VALUES('${owner}'),('${other}');INSERT INTO taskflow.workspace VALUES('${workspace}','real-workspace');INSERT INTO taskflow.member VALUES('${owner}','${workspace}','owner');INSERT INTO public.user_ecp_tasks(user_uuid,name,is_active,sort_order) VALUES('${owner}','原ECP',true,0);INSERT INTO public.user_work_profiles VALUES('${owner}','本人預設');INSERT INTO taskflow.issue VALUES('${issue}','${workspace}','原任務','2026-10-01','2026-10-01');`);
+ const rows=async()=> (await db.query(`SELECT * FROM public.work_entries WHERE status<>'deleted' ORDER BY work_date`)).rows;
+@@ -23,6 +48,35 @@ await db.exec(`UPDATE taskflow.issue SET due_date=NULL WHERE id='${issue}';`);as
+ await db.exec(`UPDATE taskflow.issue SET due_date='2026-11-15' WHERE id='${issue}';`);live=await rows();const rpcId=live[0].id,rpcVersion=live[0].updated_at;assert.notEqual(rpcId,first,'cleared source is a new registration, never revive deleted Google binding');const rpcResult=await db.query(`SELECT * FROM public.worklog_update_date_hours($1,$2,'2026-11-16','單次修改',1.5,'原備註','原ECP')`,[rpcId,rpcVersion]);assert.equal(Number(rpcResult.rows[0].hours),1.5);assert.equal((await db.query(`SELECT due_date::text FROM taskflow.issue WHERE id='${issue}'`)).rows[0].due_date,'2026-11-16');assert.equal(rpcResult.rows[0].started_at,null);await assert.rejects(db.query(`SELECT * FROM public.worklog_update_date_hours($1,$2,'2026-11-17','過時修改',2,'','')`,[rpcId,rpcVersion]),/changed/);await db.exec(`SELECT set_config('request.jwt.claim.sub','${other}',false)`);await assert.rejects(db.query(`SELECT * FROM public.worklog_update_date_hours($1,$2,'2026-11-17','越權',2,'','')`,[rpcId,rpcResult.rows[0].updated_at]),/owner workspace/);await db.exec(`SELECT set_config('request.jwt.claim.sub','${owner}',false);DELETE FROM taskflow.issue WHERE id='${issue}';`);assert.equal((await rows()).length,0);
+ await assert.rejects(db.exec(`INSERT INTO public.work_entries(user_uuid,work_date,started_at,ended_at,hours,title) VALUES('${owner}','2026-11-13',NULL,NULL,1,'普通工時不能沒時間')`),/work_entries_time_check/);
+ assert.equal((await db.query(`SELECT count(*)::int AS n FROM public.work_entries WHERE user_uuid='${other}'`)).rows[0].n,0);
++// Both production roles are non-superuser here. The worklog definer has no
++// general issue writes, and ordinary roles cannot call its narrow helpers.
++const privilege=async(role,table,action)=>(await db.query('SELECT has_table_privilege($1,$2,$3) AS ok',[role,table,action])).rows[0].ok;
++assert.equal(await privilege('worklog_deployer','taskflow.issue','UPDATE'),false);
++assert.equal(await privilege('worklog_deployer','taskflow.issue','TRIGGER'),false);
++assert.equal(await privilege('taskflow_migrator','public.work_entries','UPDATE'),false);
++const helperSig='taskflow.worklog_move_date_endpoint(uuid,uuid,uuid,text,date,date)';
++for(const role of ['anon','authenticated','taskflow_runtime','service_role']){
++ assert.equal((await db.query("SELECT has_function_privilege($1,$2,'EXECUTE') AS ok",[role,helperSig])).rows[0].ok,false);
++}
++await db.exec(`INSERT INTO taskflow.issue VALUES('${issue}','${workspace}','保留其他欄位',NULL,'2026-11-18');`);
++let guarded=(await rows())[0];assert.ok(guarded);
++await db.exec(`SET ROLE worklog_deployer;`);
++await assert.rejects(db.exec(`UPDATE taskflow.issue SET title='不可改' WHERE id='${issue}'`),/permission denied/);
++await assert.rejects(db.exec(`SELECT taskflow.worklog_move_date_endpoint('${issue}','${workspace}','${owner}','title','2026-11-18','2026-11-19')`),/endpoint required/);
++await assert.rejects(db.exec(`SELECT taskflow.worklog_move_date_endpoint('${issue}','${workspace}','${owner}','due','2026-11-17','2026-11-19')`),/dates changed/);
++await assert.rejects(db.exec(`SELECT * FROM taskflow.worklog_lock_date_issue('${issue}','${workspace}','${other}')`),/owner workspace/);
++await assert.rejects(db.exec(`SELECT * FROM taskflow.worklog_lock_date_issue('${issue}','55555555-5555-4555-8555-555555555555','${owner}')`),/owner workspace/);
++await db.exec('RESET ROLE;');
++await db.exec('BEGIN;');
++await db.query(`SELECT * FROM public.worklog_update_date_hours($1,$2,'2026-11-19','rollback-title',2,'','')`,[guarded.id,guarded.updated_at]);
++assert.equal((await rows())[0].title,'rollback-title');
++await assert.rejects(db.exec('SELECT 1/0;'),/division by zero/);
++await db.exec('ROLLBACK;');
++let afterRollback=(await rows())[0];assert.equal(afterRollback.title,guarded.title);assert.equal(afterRollback.work_date.toISOString(),guarded.work_date.toISOString());
++assert.equal((await db.query(`SELECT title,due_date::text FROM taskflow.issue WHERE id='${issue}'`)).rows[0].title,'保留其他欄位');
++const moved=await db.query(`SELECT * FROM public.worklog_update_date_hours($1,$2,'2026-11-19','only-hours-title',1.5,'','')`,[guarded.id,guarded.updated_at]);
++assert.equal((await db.query(`SELECT title,due_date::text FROM taskflow.issue WHERE id='${issue}'`)).rows[0].title,'保留其他欄位');
++await assert.rejects(db.query(`SELECT * FROM public.worklog_update_date_hours($1,$2,'2026-11-20','replay',2,'','')`,[guarded.id,guarded.updated_at]),/changed/);
+ // Exercise real SQL roles, not just caller-side guards.
+ await db.exec(`GRANT USAGE ON SCHEMA public,auth,taskflow TO authenticated;GRANT SELECT,INSERT,UPDATE,DELETE ON public.work_entries TO authenticated;SELECT set_config('request.jwt.claim.sub','${owner}',false);SET ROLE authenticated;`);
+ await assert.rejects(db.exec(`INSERT INTO public.work_entries(user_uuid,work_date,hours,title,date_only,taskflow_issue_ref) VALUES('${owner}','2026-11-20',1,'偽造',true,'{}')`),/owner-scoped transaction/);
+@@ -30,4 +84,4 @@ await assert.rejects(db.exec(`UPDATE public.work_entries SET hours=3 WHERE date_
+ await assert.rejects(db.exec(`DELETE FROM public.work_entries WHERE date_only`),/owner-scoped transaction/);
+ await assert.rejects(db.exec(`SELECT public.worklog_task_dates_changed()`),/permission denied/);
+ await db.exec('RESET ROLE;');
+-console.log(JSON.stringify({sqlDateHours:true,noHistoryBackfill:true,ownerWorkspace:true,datesCountAsHours:true,noFakeClock:true,manualHoursPreserved:true,repeatedTitleNoDuplicate:true,sameDayOnce:true,splitAndMove:true,clearAndDeleteTombstone:true,legacyTimedConstraint:true}));await db.close();
++console.log(JSON.stringify({separateNonSuperuserOwners:true,noInheritedIssueWrites:true,narrowHelpersOnly:true,crossTenantDenied:true,otherColumnsUnchanged:true,replayDenied:true,transactionRollbackVerified:true,sqlDateHours:true,noHistoryBackfill:true,ownerWorkspace:true,datesCountAsHours:true,noFakeClock:true,manualHoursPreserved:true,repeatedTitleNoDuplicate:true,sameDayOnce:true,splitAndMove:true,clearAndDeleteTombstone:true,legacyTimedConstraint:true}));await db.close();
+diff --git a/modules/worklog/native/server/date-hours-finalize.sql b/modules/worklog/native/server/date-hours-finalize.sql
+new file mode 100644
+index 0000000000..df9df784ce
+--- /dev/null
++++ b/modules/worklog/native/server/date-hours-finalize.sql
+@@ -0,0 +1,4 @@
++-- Stage 3/3: existing public owner. Remove installation-only trigger capability.
++BEGIN;
++REVOKE ALL ON FUNCTION public.worklog_task_dates_changed() FROM taskflow_migrator;
++COMMIT;
+diff --git a/modules/worklog/native/server/date-hours-taskflow.sql b/modules/worklog/native/server/date-hours-taskflow.sql
+new file mode 100644
+index 0000000000..a634c481d4
+--- /dev/null
++++ b/modules/worklog/native/server/date-hours-taskflow.sql
+@@ -0,0 +1,31 @@
++-- Stage 2/3: existing taskflow_migrator only. No new role membership or general grants.
++BEGIN;
++CREATE OR REPLACE FUNCTION taskflow.worklog_lock_date_issue(p_issue uuid,p_workspace uuid,p_owner uuid)
++RETURNS SETOF taskflow.issue LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,taskflow,public AS $$
++BEGIN
++ IF p_owner IS NULL OR NOT EXISTS(
++  SELECT 1 FROM taskflow.member WHERE user_id=p_owner AND workspace_id=p_workspace AND role='owner'
++ ) THEN RAISE EXCEPTION 'Current owner workspace required' USING ERRCODE='42501'; END IF;
++ RETURN QUERY SELECT * FROM taskflow.issue WHERE id=p_issue AND workspace_id=p_workspace FOR UPDATE;
++END $$;
++REVOKE ALL ON FUNCTION taskflow.worklog_lock_date_issue(uuid,uuid,uuid) FROM PUBLIC,anon,authenticated,service_role,taskflow_runtime;
++GRANT EXECUTE ON FUNCTION taskflow.worklog_lock_date_issue(uuid,uuid,uuid) TO postgres;
++CREATE OR REPLACE FUNCTION taskflow.worklog_move_date_endpoint(p_issue uuid,p_workspace uuid,p_owner uuid,p_kind text,p_previous date,p_date date)
++RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,taskflow,public AS $$
++DECLARE original taskflow.issue%ROWTYPE;
++BEGIN
++ SELECT * INTO original FROM taskflow.worklog_lock_date_issue(p_issue,p_workspace,p_owner);
++ IF original.id IS NULL OR p_previous IS NULL OR p_date IS NULL OR p_kind IS NULL OR p_kind NOT IN('start','due','both') THEN
++  RAISE EXCEPTION 'Original date endpoint required' USING ERRCODE='40001'; END IF;
++ IF (p_kind IN('start','both') AND original.start_date IS DISTINCT FROM p_previous)
++  OR (p_kind IN('due','both') AND original.due_date IS DISTINCT FROM p_previous) THEN
++  RAISE EXCEPTION 'Original task dates changed' USING ERRCODE='40001'; END IF;
++ UPDATE taskflow.issue SET start_date=CASE WHEN p_kind IN('start','both') THEN p_date ELSE start_date END,
++  due_date=CASE WHEN p_kind IN('due','both') THEN p_date ELSE due_date END WHERE id=p_issue AND workspace_id=p_workspace;
++END $$;
++REVOKE ALL ON FUNCTION taskflow.worklog_move_date_endpoint(uuid,uuid,uuid,text,date,date) FROM PUBLIC,anon,authenticated,service_role,taskflow_runtime;
++GRANT EXECUTE ON FUNCTION taskflow.worklog_move_date_endpoint(uuid,uuid,uuid,text,date,date) TO postgres;
++DROP TRIGGER IF EXISTS worklog_task_dates_changed ON taskflow.issue;
++CREATE TRIGGER worklog_task_dates_changed AFTER INSERT OR UPDATE OF start_date,due_date,title OR DELETE ON taskflow.issue
++FOR EACH ROW EXECUTE FUNCTION public.worklog_task_dates_changed();
++COMMIT;
+diff --git a/modules/worklog/native/server/date-hours.sql b/modules/worklog/native/server/date-hours.sql
+index 4760d3281e..ed7927c636 100644
+--- a/modules/worklog/native/server/date-hours.sql
++++ b/modules/worklog/native/server/date-hours.sql
+@@ -1,4 +1,5 @@
+--- Candidate only. No historical backfill, enrollment, deployment or activation.
++-- Stage 1/3: existing public owner. Disabled until explicit owner enrollment.
++-- No historical backfill. Install Stage 2 as existing TaskFlow owner, then Stage 3.
+ BEGIN;
+ ALTER TABLE public.work_entries
+  ADD COLUMN IF NOT EXISTS date_only boolean NOT NULL DEFAULT false,
+@@ -97,9 +98,8 @@ BEGIN
+  RETURN NEW;
+ END $$;
+ REVOKE ALL ON FUNCTION public.worklog_task_dates_changed() FROM PUBLIC,anon,authenticated;
+-DROP TRIGGER IF EXISTS worklog_task_dates_changed ON taskflow.issue;
+-CREATE TRIGGER worklog_task_dates_changed AFTER INSERT OR UPDATE OF start_date,due_date,title OR DELETE ON taskflow.issue
+-FOR EACH ROW EXECUTE FUNCTION public.worklog_task_dates_changed();
++-- Run date-hours-taskflow.sql as the existing TaskFlow owner next.
++GRANT EXECUTE ON FUNCTION public.worklog_task_dates_changed() TO taskflow_migrator;
+ -- Ordinary REST clients may not invent or rewrite native date registrations.
+ -- Only the fixed definer trigger/RPC can write these rows; timed rows retain RLS.
+ CREATE OR REPLACE FUNCTION public.worklog_guard_date_hours()
+@@ -126,7 +126,7 @@ BEGIN
+  SELECT (taskflow_issue_ref->>'id')::uuid,(taskflow_issue_ref->>'workspaceId')::uuid INTO task_id,ws_id
+  FROM public.work_entries WHERE id=p_entry AND user_uuid=auth.uid() AND date_only;
+  IF task_id IS NULL OR NOT EXISTS(SELECT 1 FROM taskflow.member WHERE workspace_id=ws_id AND user_id=auth.uid() AND role='owner') THEN RAISE EXCEPTION 'Original owner workspace required' USING ERRCODE='42501'; END IF;
+- SELECT * INTO issue_row FROM taskflow.issue WHERE id=task_id AND workspace_id=ws_id FOR UPDATE;
++ SELECT * INTO issue_row FROM taskflow.worklog_lock_date_issue(task_id,ws_id,auth.uid());
+  SELECT * INTO original FROM public.work_entries WHERE id=p_entry AND user_uuid=auth.uid() AND date_only AND status<>'deleted' AND deleted_at IS NULL FOR UPDATE;
+  IF original.id IS NULL OR issue_row.id IS NULL OR original.updated_at IS DISTINCT FROM p_expected THEN RAISE EXCEPTION 'Date hours changed, reload required' USING ERRCODE='40001'; END IF;
+  IF p_date IS NULL OR p_title IS NULL OR length(btrim(p_title))=0 OR p_hours IS NULL OR p_hours<=0 OR p_hours>10 THEN RAISE EXCEPTION 'Invalid date hours' USING ERRCODE='22023'; END IF;
+@@ -140,10 +140,7 @@ BEGIN
+   IF original.taskflow_issue_ref->>'kind'='both' AND (issue_row.start_date IS DISTINCT FROM original.work_date OR issue_row.due_date IS DISTINCT FROM original.work_date) THEN RAISE EXCEPTION 'Original task dates changed' USING ERRCODE='40001'; END IF;
+   IF original.taskflow_issue_ref->>'kind'='start' AND issue_row.start_date IS DISTINCT FROM original.work_date THEN RAISE EXCEPTION 'Original start date changed' USING ERRCODE='40001'; END IF;
+   IF original.taskflow_issue_ref->>'kind'='due' AND issue_row.due_date IS DISTINCT FROM original.work_date THEN RAISE EXCEPTION 'Original due date changed' USING ERRCODE='40001'; END IF;
+-  UPDATE taskflow.issue SET
+-   start_date=CASE WHEN original.taskflow_issue_ref->>'kind' IN('start','both') THEN p_date ELSE start_date END,
+-   due_date=CASE WHEN original.taskflow_issue_ref->>'kind' IN('due','both') THEN p_date ELSE due_date END
+-   WHERE id=task_id AND workspace_id=ws_id;
++  PERFORM taskflow.worklog_move_date_endpoint(task_id,ws_id,auth.uid(),original.taskflow_issue_ref->>'kind',original.work_date,p_date);
+  END IF;
+  UPDATE public.work_entries SET work_date=p_date,title=btrim(p_title),hours=p_hours,note=coalesce(p_note,''),ecp_task_name_snapshot=coalesce(p_ecp,''),ecp_task_id=ecp_id,taskflow_hours_adjusted=true
+  WHERE id=p_entry AND user_uuid=auth.uid();
