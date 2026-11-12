@@ -50,3 +50,5 @@ jobs:
           name: date-only-worker-v11-candidate
           path: /tmp/tq6-worklog-worker-bundle.mjs
           retention-days: 7
+
+# Inputs were staged and hash-verified before this qualification push.
