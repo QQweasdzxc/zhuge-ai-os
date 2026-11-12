@@ -116,8 +116,12 @@ function compose(seedNum){
 const card=document.createElement('div');
 card.className='cg-card';
 card.innerHTML='<div class="cg-card-text"><b>🌟 每日小挑戰</b><p id="cgCardStatus">讀取中…</p></div><button class="btn-primary" id="cgStart" type="button">開始挑戰</button>';
-const actionRow=home.querySelector('.action-row');
-if(actionRow)actionRow.after(card);else home.append(card);
+function mount(){
+ if(card.isConnected)return;
+ const actionRow=home.querySelector('.action-row');
+ if(actionRow)actionRow.after(card);else home.append(card);
+}
+mount();
 
 const screen=document.createElement('section');
 screen.id='screen-challenge';
@@ -136,6 +140,7 @@ screen.innerHTML=
 main.append(screen);
 
 function setCard(){
+ mount();
  const st=$('cgCardStatus'),btn=$('cgStart');
  const ps=window.chengyuProgressState?window.chengyuProgressState():null;
  if(!token()){st.textContent='使用家庭專用連結開啟，就能玩每天換新的小挑戰。';btn.disabled=true;return}
@@ -337,5 +342,7 @@ function restoreMid(){$('cgMid').innerHTML=midHTML}
  // 玩家切換或雲端狀態更新時刷新卡片
  const statusEl=$('cloudStatus');
  if(statusEl)new MutationObserver(async()=>{await refreshDone();setCard()}).observe(statusEl,{childList:true,characterData:true,subtree:true});
+ // 島首頁會整片重繪（星星同步、玩家切換等），卡片被清掉時自動掛回
+ new MutationObserver(()=>{if(!card.isConnected)setCard()}).observe(home,{childList:true});
 })();
 })();
