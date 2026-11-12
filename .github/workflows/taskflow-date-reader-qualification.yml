@@ -17,8 +17,8 @@ jobs:
       - name: Compose only staged date SQL and production-role tests
         run: |
           set -euo pipefail
-          test "$(sha256sum 1-tf-date-hours-role-helper.patch | cut -d' ' -f1)" = 72bd8a0064e2ac68e64ccb4c43fad76ba8b1bfa235ddad45dee7dc7c5b9c1bb7
-          cp 1-tf-date-hours-role-helper.patch /tmp/role-helper.patch
+          test "$(sha256sum 2-tf-date-hours-role-helper-v2.patch | cut -d' ' -f1)" = 4959fb964fecbde084e428e9116534a06279d11b4ef9f282703e711340d7a0a9
+          cp 2-tf-date-hours-role-helper-v2.patch /tmp/role-helper.patch
           git switch --detach d0591a6f6a74eca64a5d57b1bae9ed1324a3453b
           git apply --check /tmp/role-helper.patch
           git apply /tmp/role-helper.patch
@@ -41,4 +41,4 @@ jobs:
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add modules/worklog/native/server/date-hours*.sql labs/taskflow/tests/worklog-server/date-hours-check.mjs
           git commit -m 'Stage narrow date SQL helpers under separate existing owners'
-          git push origin HEAD:refs/heads/review/tf-date-hours-role-helper-20261113
+          git push origin HEAD:refs/heads/review/tf-date-hours-role-helper-v2-20261113
