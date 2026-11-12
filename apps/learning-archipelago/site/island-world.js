@@ -327,3 +327,4 @@ root.outerHTML='<section class="world expedition-world" id="worldMap" aria-label
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!overlay.hidden)hide()});
 })();
 })();
+
