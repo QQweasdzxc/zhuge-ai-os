@@ -1,4 +1,5 @@
--- Candidate only. No historical backfill, enrollment, deployment or activation.
+-- Stage 1/3: existing public owner. Disabled until explicit owner enrollment.
+-- No historical backfill. Install Stage 2 as existing TaskFlow owner, then Stage 3.
 BEGIN;
 ALTER TABLE public.work_entries
  ADD COLUMN IF NOT EXISTS date_only boolean NOT NULL DEFAULT false,
@@ -97,9 +98,8 @@ BEGIN
  RETURN NEW;
 END $$;
 REVOKE ALL ON FUNCTION public.worklog_task_dates_changed() FROM PUBLIC,anon,authenticated;
-DROP TRIGGER IF EXISTS worklog_task_dates_changed ON taskflow.issue;
-CREATE TRIGGER worklog_task_dates_changed AFTER INSERT OR UPDATE OF start_date,due_date,title OR DELETE ON taskflow.issue
-FOR EACH ROW EXECUTE FUNCTION public.worklog_task_dates_changed();
+-- Run date-hours-taskflow.sql as the existing TaskFlow owner next.
+GRANT EXECUTE ON FUNCTION public.worklog_task_dates_changed() TO taskflow_migrator;
 -- Ordinary REST clients may not invent or rewrite native date registrations.
 -- Only the fixed definer trigger/RPC can write these rows; timed rows retain RLS.
 CREATE OR REPLACE FUNCTION public.worklog_guard_date_hours()
@@ -126,7 +126,7 @@ BEGIN
  SELECT (taskflow_issue_ref->>'id')::uuid,(taskflow_issue_ref->>'workspaceId')::uuid INTO task_id,ws_id
  FROM public.work_entries WHERE id=p_entry AND user_uuid=auth.uid() AND date_only;
  IF task_id IS NULL OR NOT EXISTS(SELECT 1 FROM taskflow.member WHERE workspace_id=ws_id AND user_id=auth.uid() AND role='owner') THEN RAISE EXCEPTION 'Original owner workspace required' USING ERRCODE='42501'; END IF;
- SELECT * INTO issue_row FROM taskflow.issue WHERE id=task_id AND workspace_id=ws_id FOR UPDATE;
+ SELECT * INTO issue_row FROM taskflow.worklog_lock_date_issue(task_id,ws_id,auth.uid());
  SELECT * INTO original FROM public.work_entries WHERE id=p_entry AND user_uuid=auth.uid() AND date_only AND status<>'deleted' AND deleted_at IS NULL FOR UPDATE;
  IF original.id IS NULL OR issue_row.id IS NULL OR original.updated_at IS DISTINCT FROM p_expected THEN RAISE EXCEPTION 'Date hours changed, reload required' USING ERRCODE='40001'; END IF;
  IF p_date IS NULL OR p_title IS NULL OR length(btrim(p_title))=0 OR p_hours IS NULL OR p_hours<=0 OR p_hours>10 THEN RAISE EXCEPTION 'Invalid date hours' USING ERRCODE='22023'; END IF;
@@ -140,10 +140,7 @@ BEGIN
   IF original.taskflow_issue_ref->>'kind'='both' AND (issue_row.start_date IS DISTINCT FROM original.work_date OR issue_row.due_date IS DISTINCT FROM original.work_date) THEN RAISE EXCEPTION 'Original task dates changed' USING ERRCODE='40001'; END IF;
   IF original.taskflow_issue_ref->>'kind'='start' AND issue_row.start_date IS DISTINCT FROM original.work_date THEN RAISE EXCEPTION 'Original start date changed' USING ERRCODE='40001'; END IF;
   IF original.taskflow_issue_ref->>'kind'='due' AND issue_row.due_date IS DISTINCT FROM original.work_date THEN RAISE EXCEPTION 'Original due date changed' USING ERRCODE='40001'; END IF;
-  UPDATE taskflow.issue SET
-   start_date=CASE WHEN original.taskflow_issue_ref->>'kind' IN('start','both') THEN p_date ELSE start_date END,
-   due_date=CASE WHEN original.taskflow_issue_ref->>'kind' IN('due','both') THEN p_date ELSE due_date END
-   WHERE id=task_id AND workspace_id=ws_id;
+  PERFORM taskflow.worklog_move_date_endpoint(task_id,ws_id,auth.uid(),original.taskflow_issue_ref->>'kind',original.work_date,p_date);
  END IF;
  UPDATE public.work_entries SET work_date=p_date,title=btrim(p_title),hours=p_hours,note=coalesce(p_note,''),ecp_task_name_snapshot=coalesce(p_ecp,''),ecp_task_id=ecp_id,taskflow_hours_adjusted=true
  WHERE id=p_entry AND user_uuid=auth.uid();
