@@ -5,6 +5,7 @@ const path = require("node:path");
 const root = path.resolve(__dirname, "..");
 const browserTests = [
   "tests/learning-gentle-challenge-browser.test.cjs",
+  "tests/learning-stage-cards-browser.test.cjs",
   "tests/learning-village-exam.test.cjs",
   "tests/learning-stage-exam.test.cjs",
   "tests/learning-stage-types.test.cjs",
