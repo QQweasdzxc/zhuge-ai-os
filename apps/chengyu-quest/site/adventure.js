@@ -108,3 +108,4 @@ $('adventureStages').addEventListener('click',e=>{if(e.target.closest('[data-sta
 $('adventureStages').addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;if(e.target.closest('[data-stage-exam],[data-village-exam]'))return;const b=e.target.closest('[data-zone]');if(!b||b.getAttribute('aria-disabled')==='true')return;e.preventDefault();config.zone=Number(b.dataset.zone);render()});
 render();
 })();
+
