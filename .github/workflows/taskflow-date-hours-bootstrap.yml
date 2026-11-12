@@ -1,0 +1,90 @@
+name: TaskFlow Date Hours Compose and Qualify
+on:
+  push:
+    branches: [review/tf-date-hours-bootstrap-20261113]
+    paths: [.github/workflows/taskflow-date-hours-bootstrap.yml]
+permissions:
+  contents: read
+jobs:
+  compose:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      candidate: ${{ steps.source.outputs.candidate }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Compose exact candidate only, no deployment
+        id: source
+        run: |
+          set -euo pipefail
+          test "$(sha256sum 1-tf-date-hours-candidate.patch | cut -d' ' -f1)" = 5aa3e2d5d872278dfb53d6c1d7428c706d66d87e17b41f5e5a5e1e218df7fe86
+          cp 1-tf-date-hours-candidate.patch /tmp/date-hours.patch
+          git switch --detach 4ed883e7d467f46b13fed1ef8f3b37be459dee27
+          git apply --check /tmp/date-hours.patch
+          git apply /tmp/date-hours.patch
+          git diff --check
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add .github/workflows/taskflow-date-hours-qualification.yml labs/taskflow modules/worklog shared/api/data-service.js tests/worklog-date-hours-compat.test.js
+          git commit -m 'Task date endpoints automatically count as adjustable hours'
+          git push origin HEAD:refs/heads/review/tf-date-hours-20261113
+          echo "candidate=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+  date-hours:
+    needs: compose
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.compose.outputs.candidate }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Source and overlay contracts
+        run: |
+          git diff HEAD^ HEAD --check
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s labs/taskflow/tests -v
+          npm run test:worklog
+          node --test tests/worklog-date-hours-compat.test.js tests/worklog-sprint-3.test.js tests/worklog-sync-status-flicker.test.js
+      - name: Isolated SQL and worker bundle
+        run: |
+          npm ci --ignore-scripts --prefix labs/taskflow/tests/worklog-server
+          cd labs/taskflow/tests/worklog-server
+          node sql-check.mjs
+          node date-hours-check.mjs
+          npm run test:bundle
+      - name: Native and legacy browser fixture
+        run: |
+          sudo mkdir -p /downloads
+          sudo chmod 777 /downloads
+          npm ci --ignore-scripts --prefix labs/taskflow/tests/worklog-browser
+          cd labs/taskflow/tests/worklog-browser
+          npx tsc --noEmit
+          npx playwright install --with-deps chromium
+          export CHROME_PATH=$(node -e 'process.stdout.write(require("playwright").chromium.executablePath())')
+          npx vite --host 127.0.0.1 --port 4177 > /tmp/vite-4177.log 2>&1 &
+          server=$!
+          trap 'kill $server' EXIT
+          for i in $(seq 1 30); do if curl -fsS http://127.0.0.1:4177/native.html > /tmp/native-fixture.html; then break; fi; sleep 1; done
+          for test in native-wrapper mobile-editor task-markers task-dates visible-range export-parity editor-parity; do node "$test.cjs"; done
+          node legacy-date-hours.cjs
+          npx vite --host 127.0.0.1 --port 4180 > /tmp/vite-4180.log 2>&1 &
+          date_server=$!
+          trap 'kill $server $date_server' EXIT
+          for i in $(seq 1 30); do if curl -fsS http://127.0.0.1:4180/native.html > /tmp/date-fixture.html; then break; fi; sleep 1; done
+          node date-hours.cjs
+  web-image:
+    needs: compose
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.compose.outputs.candidate }}
+      - name: Build exact native Web image without deployment
+        run: docker build --progress=plain -f labs/taskflow/Dockerfile.web -t taskflow-date-hours-web:qualification .
