@@ -1,0 +1,351 @@
+diff --git a/labs/taskflow/DB_BOUNDARY.md b/labs/taskflow/DB_BOUNDARY.md
+index 91f2e85fb8..40a42d0b86 100644
+--- a/labs/taskflow/DB_BOUNDARY.md
++++ b/labs/taskflow/DB_BOUNDARY.md
+@@ -9,7 +9,10 @@ sequences, no CREATE on shared schemas, no table privileges on `lab_multica`,
+ and no membership in `anon`, `authenticated`, `service_role`, or
+ `multica_lab_runtime`. PostgreSQL's existing inherited `PUBLIC` schema
+ USAGE/function EXECUTE baseline is accepted, but TaskFlow source and SQL must
+-not call or resolve Zhuge public objects.
++not call or resolve Zhuge public objects. The single reviewed exception is
++`taskflow_gate.taskflow_app_access_decision(uuid)`, a targeted boolean read of
++the existing whole-site approval. It gives no table, listing, decision-write,
++or workspace access and uses the same approval as the original application.
+ 
+ The API must not create schemas or install extensions at startup. A reviewed,
+ repository-controlled bootstrap provisions the TaskFlow schema and role. The
+diff --git a/labs/taskflow/Dockerfile.backend b/labs/taskflow/Dockerfile.backend
+index 158c589e8e..ae98969632 100644
+--- a/labs/taskflow/Dockerfile.backend
++++ b/labs/taskflow/Dockerfile.backend
+@@ -99,6 +99,13 @@ RUN python3 /tmp/apply-taskflow-attachment-delete-actor.py --root /src
+ COPY labs/taskflow/tests/service_agent_token_contract_test.go /src/server/internal/handler/service_agent_token_contract_test.go
+ COPY labs/taskflow/tests/attachment_delete_actor_test.go /src/server/internal/handler/attachment_delete_actor_test.go
+ 
++# Single whole-site allowance lookup. No changes to member decisions or data ownership.
++COPY labs/taskflow/overrides/taskflow_app_access.go /tmp/taskflow-access/taskflow_app_access.go
++COPY labs/taskflow/overrides/taskflow_app_access_test.go /tmp/taskflow-access/taskflow_app_access_test.go
++COPY labs/taskflow/overrides/taskflow_app_access_lookup.go /tmp/taskflow-access/taskflow_app_access_lookup.go
++COPY labs/taskflow/patches/apply-taskflow-app-access.py /tmp/apply-taskflow-app-access.py
++RUN python3 /tmp/apply-taskflow-app-access.py --root /src --overrides /tmp/taskflow-access
++
+ # Test the router after every TaskFlow and house-rule patch has been applied.
+ COPY labs/taskflow/overrides/taskflow_router_contract_test.go /src/server/cmd/server/taskflow_router_contract_test.go
+ COPY labs/taskflow/overrides/sat_activity_attribution_test.go /src/server/cmd/server/sat_activity_attribution_test.go
+diff --git a/labs/taskflow/overrides/taskflow_app_access.go b/labs/taskflow/overrides/taskflow_app_access.go
+new file mode 100644
+index 0000000000..25fbeddb74
+--- /dev/null
++++ b/labs/taskflow/overrides/taskflow_app_access.go
+@@ -0,0 +1,83 @@
++package auth
++
++// ZG-71. Dormant until TASKFLOW_APP_ACCESS_ENFORCE=on. Per-request App access decision for
++// TaskFlow human credentials. Targeted lookup by user id against the same
++// resolver as the Supabase gates; bounded last-good cache; fail closed.
++
++import (
++	"context"
++	"os"
++	"strings"
++	"sync"
++	"time"
++)
++
++type AppAccessLookup func(ctx context.Context, userID string) (bool, error)
++
++const (
++	appAccessFreshTTL   = 15 * time.Second // max revocation delay when DB is reachable
++	appAccessStaleGrace = 60 * time.Second // max time a known-allowed answer survives a lookup outage
++	appAccessLookupTime = 2 * time.Second
++)
++
++type appAccessEntry struct {
++	allowed bool
++	at      time.Time
++}
++
++var (
++	appAccessMu     sync.Mutex
++	appAccessFn     AppAccessLookup
++	appAccessCache  = map[string]appAccessEntry{}
++	appAccessNow    = time.Now
++	appAccessEnable = func() bool {
++		return strings.EqualFold(strings.TrimSpace(os.Getenv("TASKFLOW_APP_ACCESS_ENFORCE")), "on")
++	}
++)
++
++// SetAppAccessLookup is called once at startup with a DB-backed lookup.
++func SetAppAccessLookup(fn AppAccessLookup) {
++	appAccessMu.Lock()
++	defer appAccessMu.Unlock()
++	appAccessFn = fn
++	appAccessCache = map[string]appAccessEntry{}
++}
++
++// IsAppAccessDeniedUserID reports whether App access is Off for this user.
++// Dormant (false) unless TASKFLOW_APP_ACCESS_ENFORCE=on. When enforced:
++//   - fresh cache (<=15s) answers;
++//   - otherwise a 2s targeted lookup; success refreshes the cache;
++//   - lookup failure: only a previously ALLOWED answer younger than 60s
++//     is honoured; anything else (never seen, denied, expired, no lookup
++//     wired, invalid id) is denied. No creator bypass: the DB refuses to
++//     switch a creator or oneself Off, so none is needed.
++func IsAppAccessDeniedUserID(userID string) bool {
++	if !appAccessEnable() {
++		return false
++	}
++	id := strings.ToLower(strings.TrimSpace(userID))
++	if id == "" {
++		return true
++	}
++	now := appAccessNow()
++	appAccessMu.Lock()
++	fn := appAccessFn
++	e, ok := appAccessCache[id]
++	appAccessMu.Unlock()
++	if ok && now.Sub(e.at) <= appAccessFreshTTL {
++		return !e.allowed
++	}
++	if fn == nil {
++		return true
++	}
++	ctx, cancel := context.WithTimeout(context.Background(), appAccessLookupTime)
++	defer cancel()
++	allowed, err := fn(ctx, id)
++	if err != nil {
++		return !(ok && e.allowed && now.Sub(e.at) <= appAccessStaleGrace)
++	}
++	appAccessMu.Lock()
++	appAccessCache[id] = appAccessEntry{allowed: allowed, at: now}
++	appAccessMu.Unlock()
++	return !allowed
++}
+diff --git a/labs/taskflow/overrides/taskflow_app_access_lookup.go b/labs/taskflow/overrides/taskflow_app_access_lookup.go
+new file mode 100644
+index 0000000000..132e4560ec
+--- /dev/null
++++ b/labs/taskflow/overrides/taskflow_app_access_lookup.go
+@@ -0,0 +1,25 @@
++package main
++
++import (
++	"context"
++	"errors"
++
++	"github.com/jackc/pgx/v5/pgxpool"
++	"github.com/multica-ai/multica/server/internal/auth"
++)
++
++// installTaskflowAppAccessLookup wires the targeted App access decision
++// (one boolean per user id, same resolver as the Supabase gates). It only
++// matters when TASKFLOW_APP_ACCESS_ENFORCE=on.
++func installTaskflowAppAccessLookup(pool *pgxpool.Pool) {
++	auth.SetAppAccessLookup(func(ctx context.Context, userID string) (bool, error) {
++		var allowed *bool
++		if err := pool.QueryRow(ctx, "select taskflow_gate.taskflow_app_access_decision($1::uuid)", userID).Scan(&allowed); err != nil {
++			return false, err
++		}
++		if allowed == nil {
++			return false, errors.New("app access decision returned null")
++		}
++		return *allowed, nil
++	})
++}
+diff --git a/labs/taskflow/overrides/taskflow_app_access_test.go b/labs/taskflow/overrides/taskflow_app_access_test.go
+new file mode 100644
+index 0000000000..d830778c70
+--- /dev/null
++++ b/labs/taskflow/overrides/taskflow_app_access_test.go
+@@ -0,0 +1,107 @@
++package auth
++
++import (
++	"context"
++	"errors"
++	"testing"
++	"time"
++)
++
++func setup(t *testing.T, fn AppAccessLookup) *time.Time {
++	t.Helper()
++	now := time.Unix(1000, 0)
++	appAccessNow = func() time.Time { return now }
++	appAccessEnable = func() bool { return true }
++	SetAppAccessLookup(fn)
++	t.Cleanup(func() { appAccessNow = time.Now })
++	return &now
++}
++
++func TestDormantWhenNotEnforced(t *testing.T) {
++	setup(t, func(context.Context, string) (bool, error) { return false, nil })
++	appAccessEnable = func() bool { return false }
++	if IsAppAccessDeniedUserID("u1") {
++		t.Fatal("dormant must not deny")
++	}
++}
++func TestOffDeniedOnDeniedAllowedPasses(t *testing.T) {
++	setup(t, func(_ context.Context, id string) (bool, error) { return id == "ok", nil })
++	if IsAppAccessDeniedUserID("ok") {
++		t.Fatal("allowed denied")
++	}
++	if !IsAppAccessDeniedUserID("off") {
++		t.Fatal("off allowed")
++	}
++	if !IsAppAccessDeniedUserID("") {
++		t.Fatal("empty id allowed")
++	}
++}
++func TestPendingNewIdentityNotAdmittedByCache(t *testing.T) {
++	// targeted lookup: a never-seen id is decided by the resolver, not by a list
++	setup(t, func(context.Context, string) (bool, error) { return false, nil })
++	if !IsAppAccessDeniedUserID("new-pending") {
++		t.Fatal("pending admitted")
++	}
++}
++func TestRevocationWithinFreshTTL(t *testing.T) {
++	allowed := true
++	now := setup(t, func(context.Context, string) (bool, error) { return allowed, nil })
++	if IsAppAccessDeniedUserID("u") {
++		t.Fatal()
++	}
++	allowed = false
++	*now = now.Add(appAccessFreshTTL + time.Second)
++	if !IsAppAccessDeniedUserID("u") {
++		t.Fatal("revocation not seen after TTL")
++	}
++}
++func TestOutageBoundedGraceThenClosed(t *testing.T) {
++	fail := false
++	now := setup(t, func(context.Context, string) (bool, error) {
++		if fail {
++			return false, errors.New("db down")
++		}
++		return true, nil
++	})
++	if IsAppAccessDeniedUserID("u") {
++		t.Fatal()
++	}
++	fail = true
++	*now = now.Add(appAccessFreshTTL + time.Second)
++	if IsAppAccessDeniedUserID("u") {
++		t.Fatal("grace not honoured")
++	}
++	*now = now.Add(appAccessStaleGrace)
++	if !IsAppAccessDeniedUserID("u") {
++		t.Fatal("not closed after grace")
++	}
++}
++func TestOutageNeverSeenOrDeniedStaysDenied(t *testing.T) {
++	setup(t, func(context.Context, string) (bool, error) { return false, errors.New("down") })
++	if !IsAppAccessDeniedUserID("never") {
++		t.Fatal()
++	}
++}
++func TestDeniedNotRescuedByOutage(t *testing.T) {
++	fail := false
++	now := setup(t, func(context.Context, string) (bool, error) {
++		if fail {
++			return false, errors.New("x")
++		}
++		return false, nil
++	})
++	if !IsAppAccessDeniedUserID("u") {
++		t.Fatal()
++	}
++	fail = true
++	*now = now.Add(appAccessFreshTTL + time.Second)
++	if !IsAppAccessDeniedUserID("u") {
++		t.Fatal("denied rescued")
++	}
++}
++func TestNoLookupWiredFailsClosed(t *testing.T) {
++	setup(t, nil)
++	if !IsAppAccessDeniedUserID("u") {
++		t.Fatal()
++	}
++}
+diff --git a/labs/taskflow/patches/apply-taskflow-app-access.py b/labs/taskflow/patches/apply-taskflow-app-access.py
+new file mode 100644
+index 0000000000..ae6a77076d
+--- /dev/null
++++ b/labs/taskflow/patches/apply-taskflow-app-access.py
+@@ -0,0 +1,47 @@
++#!/usr/bin/env python3
++"""ZG-71: wire the dormant App access decision into the vendored TaskFlow server.
++Each edit asserts exactly one anchor and fails if already patched."""
++import argparse, shutil
++from pathlib import Path
++
++def edit(path: Path, old: str, new: str, done: str):
++    s = path.read_text()
++    if done in s or s.count(old) != 1:
++        raise SystemExit(f"anchor missing, ambiguous or already patched: {path} :: {old[:50]!r}")
++    path.write_text(s.replace(old, new, 1))
++
++def main():
++    ap = argparse.ArgumentParser()
++    ap.add_argument("--root", required=True)
++    ap.add_argument("--overrides", required=True)
++    a = ap.parse_args()
++    root, ov = Path(a.root), Path(a.overrides)
++    srv = root / "server"
++    shutil.copy(ov / "taskflow_app_access.go", srv / "internal/auth/taskflow_app_access.go")
++    shutil.copy(ov / "taskflow_app_access_test.go", srv / "internal/auth/taskflow_app_access_test.go")
++    shutil.copy(ov / "taskflow_app_access_lookup.go", srv / "cmd/server/taskflow_app_access_lookup.go")
++
++    # 1. Single choke point: every id-based disabled check also asks App access.
++    edit(srv / "internal/auth/temporary_disabled_users.go",
++         "\t_, ok := temporarilyDisabledUserIDs[userID]\n\treturn ok\n}",
++         "\tif _, ok := temporarilyDisabledUserIDs[userID]; ok {\n\t\treturn true\n\t}\n\treturn IsAppAccessDeniedUserID(userID)\n}",
++         "IsAppAccessDeniedUserID")
++
++    # 2. Startup wiring right after the pool is created.
++    edit(srv / "cmd/server/main.go",
++         "\tdefer pool.Close()\n",
++         "\tdefer pool.Close()\n\tinstallTaskflowAppAccessLookup(pool)\n",
++         "installTaskflowAppAccessLookup")
++
++    hub = srv / "internal/realtime/hub.go"
++    # 3. Open websockets: recheck before each outbound message and on every ping tick.
++    edit(hub,
++         "\t\tcase message, ok := <-c.send:\n\t\t\tc.conn.SetWriteDeadline(time.Now().Add(writeWait))\n\t\t\tif !ok {",
++         "\t\tcase message, ok := <-c.send:\n\t\t\tif ok && auth.IsAppAccessDeniedUserID(c.userID) {\n\t\t\t\tc.conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.ClosePolicyViolation, \"account disabled\"))\n\t\t\t\treturn\n\t\t\t}\n\t\t\tc.conn.SetWriteDeadline(time.Now().Add(writeWait))\n\t\t\tif !ok {",
++         "ClosePolicyViolation")
++    edit(hub,
++         "\t\tcase <-ticker.C:\n\t\t\tc.conn.SetWriteDeadline(time.Now().Add(writeWait))\n\t\t\tif err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {",
++         "\t\tcase <-ticker.C:\n\t\t\tif auth.IsAppAccessDeniedUserID(c.userID) {\n\t\t\t\tc.conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.ClosePolicyViolation, \"account disabled\"))\n\t\t\t\treturn\n\t\t\t}\n\t\t\tc.conn.SetWriteDeadline(time.Now().Add(writeWait))\n\t\t\tif err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {",
++         "account disabled\"))\n\t\t\t\treturn\n\t\t\t}\n\t\t\tc.conn.SetWriteDeadline(time.Now().Add(writeWait))\n\t\t\tif err := c.conn.WriteMessage(websocket.PingMessage")
++if __name__ == "__main__":
++    main()
+diff --git a/labs/taskflow/patches/run-parity-tests.sh b/labs/taskflow/patches/run-parity-tests.sh
+index 064d7aa6b6..4473b7db1f 100644
+--- a/labs/taskflow/patches/run-parity-tests.sh
++++ b/labs/taskflow/patches/run-parity-tests.sh
+@@ -54,6 +54,7 @@ case "$PROFILE" in
+     run_gate locale 1 env TASKFLOW_LOCALE_CONTRACT_ONLY=1 CGO_ENABLED=0 go test ./internal/handler -v -run '^TestTaskFlowSupportedLocaleReplacement$' -count=1
+     run_gate backlog_planning 3 env CGO_ENABLED=0 go test ./internal/handler -v -run '^TestTaskFlowBacklog' -count=1
+     run_dispatch_gate
++    run_gate global_allow 8 env CGO_ENABLED=0 go test ./internal/auth -v -run 'Test(DormantWhenNotEnforced|OffDeniedOnDeniedAllowedPasses|PendingNewIdentityNotAdmittedByCache|RevocationWithinFreshTTL|OutageBoundedGraceThenClosed|OutageNeverSeenOrDeniedStaysDenied|DeniedNotRescuedByOutage|NoLookupWiredFailsClosed)$' -count=1
+     run_gate cli_auth 2 env CGO_ENABLED=0 go test ./internal/auth -v -run TestZhugeCLIAuthorizationCode -count=1
+     run_gate cli_mw 2 env CGO_ENABLED=0 go test ./internal/middleware -v -run TestZhugeCLIAuthorizationCode -count=1
+     run_gate cli_token 1 env CGO_ENABLED=0 go test ./internal/handler -v -run TestZhugeIssueCliToken -count=1
+diff --git a/labs/taskflow/sql/taskflow_global_allow_read.sql b/labs/taskflow/sql/taskflow_global_allow_read.sql
+new file mode 100644
+index 0000000000..e7709646a4
+--- /dev/null
++++ b/labs/taskflow/sql/taskflow_global_allow_read.sql
+@@ -0,0 +1,13 @@
++-- Add only the scalar whole-site decision lookup. No person decisions, cutoff,
++-- approval pause, workspaces, tasks or worklogs are changed.
++begin;
++create schema if not exists taskflow_gate;
++revoke all on schema taskflow_gate from public, anon, authenticated, service_role;
++grant usage on schema taskflow_gate to taskflow_runtime;
++create or replace function taskflow_gate.taskflow_app_access_decision(p_user_id uuid)
++returns boolean language sql stable security definer
++set search_path to pg_catalog, private, public, pg_temp
++as $$ select private.app_access_effective_allowed(p_user_id); $$;
++revoke all on function taskflow_gate.taskflow_app_access_decision(uuid) from public, anon, authenticated, service_role;
++grant execute on function taskflow_gate.taskflow_app_access_decision(uuid) to taskflow_runtime;
++commit;
