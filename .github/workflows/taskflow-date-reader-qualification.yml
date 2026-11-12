@@ -12,7 +12,6 @@ jobs:
       contents: write
     outputs:
       pages: ${{ steps.source.outputs.pages }}
-      web: ${{ steps.source.outputs.web }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -21,29 +20,18 @@ jobs:
         id: source
         run: |
           set -euo pipefail
-          test "$(sha256sum 1-tf-date-hours-pages-reader.patch | cut -d' ' -f1)" = d92a97c8bb0a3871597b37c591c25c7315d03aed8d08951db41488ca6fab71ec
-          test "$(sha256sum 2-tf-date-hours-web-identity.patch | cut -d' ' -f1)" = c612bf0b95fabb3cc923cc33586a393eb556ab8a4e30a121fff7500e8a59e31c
-          cp 1-tf-date-hours-pages-reader.patch /tmp/pages.patch
-          cp 2-tf-date-hours-web-identity.patch /tmp/web.patch
+          test "$(sha256sum 1-tf-date-hours-pages-parser.patch | cut -d' ' -f1)" = 6e521b77985e217280e4edd84e8b5fa43dd8107183595e9ab7dec4aed7e1f8ff
+          cp 1-tf-date-hours-pages-parser.patch /tmp/pages.patch
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git switch --detach 7390d1f0111bb4d3e8dc19807013aae7c67e1838
+          git switch --detach be8767b26d055b7c335992f705938056831d30d7
           git apply --check /tmp/pages.patch
           git apply /tmp/pages.patch
-          git add -u
-          git add tests/worklog-date-hours-compat.test.js tests/worklog-date-hours-full-legacy.cjs
+          git add package.json package-lock.json
           git diff --cached --check
-          git commit -m 'Add date-only legacy reader compatibility on exact Pages baseline'
-          git push origin HEAD:refs/heads/review/tf-date-hours-pages-reader-20261113
+          git commit -m 'Declare pinned parser required by date-only legacy contract tests'
+          git push origin HEAD:refs/heads/review/tf-date-hours-pages-reader-qualified-20261113
           echo "pages=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          git switch --detach f5e25463283f067b8dd8cf517204e4a4abeffd1f
-          git apply --check /tmp/web.patch
-          git apply /tmp/web.patch
-          git add -u
-          git diff --cached --check
-          git commit -m 'Set unique release cache identity for date-only Web release'
-          git push origin HEAD:refs/heads/review/tf-date-hours-web-release-20261113
-          echo "web=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
   pages-reader:
     needs: compose
     runs-on: ubuntu-24.04
@@ -89,13 +77,3 @@ jobs:
           name: pages-date-reader-evidence
           path: tests/evidence/
           retention-days: 14
-  web-image:
-    needs: compose
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.compose.outputs.web }}
-      - name: Build exact Web release image without deploying
-        run: docker build --pull --progress=plain -f labs/taskflow/Dockerfile.web -t taskflow-date-hours-web-release .
