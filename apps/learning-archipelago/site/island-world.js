@@ -119,10 +119,10 @@ style.textContent=[
 '/* v3.6.0 desktop fullscreen immersive map. Stage keeps the art ratio 1672:941; JS sizes it as a capped cover (total crop within the same cap) so the map fills the viewport edge to edge, falling back to an uncropped fit on extreme aspect ratios. The crop is biased toward the bottom (the top keeps about 30 percent of it) so the island buildings at the top of the art stay visible. The shell clips overflow so a programmatic scroll can never crop the art. A persistent top-left adventurer card mirrors the hero identity (name, LV, XP, coins); the 群島探索 chip moves below it. Islands entries, chips and the island index stay reachable. */',
 '@media(min-width:691px){html.voyage-full .voyage-shell{position:fixed;inset:0;z-index:30;border:0;border-radius:0;box-shadow:none;display:flex;align-items:center;justify-content:center;background:#0d2036;overflow:hidden;overflow:clip}html.voyage-full .voyage-shell:before{content:"";position:absolute;inset:0;background:url("./archipelago-v5.jpg") center/cover no-repeat;filter:blur(34px) brightness(.48) saturate(1.3);transform:scale(1.15)}html.voyage-full .voyage-stage{flex:none;width:min(100vw,177.68vh);height:min(100dvh,56.28vw);max-width:none;aspect-ratio:1672/941;margin:0;border:0}html.voyage-full .voyage-bg{background-size:100% 100%;animation:none}html.voyage-full .island-nav{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);z-index:36;width:min(94vw,600px);margin-top:0;display:flex;flex-direction:column-reverse}html.voyage-full .island-nav .index-scroll{max-height:44vh;overflow:auto}html.voyage-full .stage-chip-title{top:112px}html.voyage-full .d-topbar{display:flex;position:fixed;top:12px;left:12px;z-index:36;pointer-events:none;align-items:stretch;gap:8px}html.voyage-full .d-player{pointer-events:auto;display:flex;align-items:center;gap:9px;background:rgba(16,26,48,.88);border:2px solid #3c4b7a;border-radius:12px;padding:6px 14px 6px 7px;color:#eaf2ff;box-shadow:0 3px 0 #0a1430;cursor:pointer;font:inherit}html.voyage-full .d-player:hover{background:rgba(24,44,70,.95)}html.voyage-full .d-player:focus-visible,html.voyage-full .d-coins:focus-visible{outline:3px solid #ffdf75;outline-offset:2px}html.voyage-full .d-face{width:40px;height:40px;border-radius:9px;overflow:hidden;background:#fff7e7;display:flex;align-items:center;justify-content:center;flex:none;color:#3c4b7a}html.voyage-full .d-face svg{width:26px;height:26px}html.voyage-full .d-face .profile-portrait{width:100%;height:100%}html.voyage-full .d-pinfo{display:flex;flex-direction:column;gap:3px;min-width:148px}html.voyage-full .d-pinfo strong{font-size:13px;color:#fff;line-height:1.2}html.voyage-full .d-lvline{display:flex;align-items:center;gap:7px;font-size:10.5px;color:#9fb8e8;white-space:nowrap}html.voyage-full .d-xpbar{flex:1;min-width:70px;height:7px;border-radius:4px;background:#243356;overflow:hidden}html.voyage-full .d-xpbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#7fd0ff,#3f8fe0);border-radius:4px}html.voyage-full .d-xptext{font-size:10px;color:#7f97c4;min-height:1em}html.voyage-full .d-coins{pointer-events:auto;display:flex;align-items:center;gap:5px;background:rgba(16,26,48,.88);border:2px solid #3c4b7a;border-radius:12px;padding:6px 12px;color:#ffd873;font-weight:900;font-size:13px;box-shadow:0 3px 0 #0a1430;cursor:pointer;font:inherit}html.voyage-full .d-coins:hover{background:rgba(24,44,70,.95)}html.voyage-full .d-coins svg{width:17px;height:17px}html.voyage-full .d-coins span{font-size:10px;color:#d9b45a;font-weight:700}html.voyage-full .d-pinfo{max-width:220px}html.voyage-full .d-pinfo strong{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}',
 '.voyage-fit-btn,.voyage-fs-btn{position:absolute;right:10px;z-index:5;display:none;align-items:center;gap:5px;background:rgba(13,25,42,.78);border:2px solid #3d6a74;border-radius:7px;padding:7px 11px;font:inherit;font-size:11px;font-weight:700;color:#ffe6b8;cursor:pointer;letter-spacing:.06em}',
-'.voyage-fit-btn{top:46px}.voyage-fs-btn{top:84px}',
-'@media(min-width:691px){.voyage-fit-btn{display:inline-flex}html.voyage-full .voyage-fs-btn{display:inline-flex}}',
-'.voyage-fit-btn:hover,.voyage-fs-btn:hover{background:rgba(24,44,70,.95)}',
-'.voyage-fit-btn:focus-visible,.voyage-fs-btn:focus-visible{outline:3px solid #ffdf75;outline-offset:2px}',
+'.voyage-fs-btn{top:46px}',
+'@media(min-width:691px){html.voyage-full .voyage-fs-btn{display:inline-flex}}',
+'.voyage-fs-btn:hover{background:rgba(24,44,70,.95)}',
+'.voyage-fs-btn:focus-visible{outline:3px solid #ffdf75;outline-offset:2px}',
 ].join('\n');
 document.head.appendChild(style);
 
@@ -171,7 +171,6 @@ root.outerHTML='<section class="world expedition-world" id="worldMap" aria-label
  '<span class="stage-chip stage-chip-title">'+IC.island+'群島探索</span>'+
  '<span class="stage-chip stage-chip-status">'+IC.sail+'已開放 2 島</span>'+
  '<span class="stage-chip stage-chip-hint">'+IC.point+'點選島嶼即可前往</span>'+
- '<button class="voyage-fit-btn" id="voyageFitBtn" type="button" aria-pressed="true" title="切換地圖滿版或原始大小">還原</button>'+
  '<button class="voyage-fs-btn" id="voyageFsBtn" type="button" aria-pressed="false" title="瀏覽器全螢幕">全螢幕</button>'+
  '</div>'+
  '<details class="island-nav"><summary>'+IC.compass+'島嶼目錄 · 成語島 / 英文島 / 英雄榜</summary>'+
@@ -185,17 +184,16 @@ root.outerHTML='<section class="world expedition-world" id="worldMap" aria-label
  '<div class="hb-overlay" id="heroBoardOverlay" hidden><div class="hb-card" role="dialog" aria-modal="true" aria-label="英雄榜" id="heroBoardCard"></div></div>'+
  '</section>';
 
-/* v3.6.0 desktop fullscreen: default immersive viewport map, one-click browser fullscreen, restorable boxed layout. Mobile is untouched. The stage is sized in JS as a capped cover so the map really fills the viewport, the cover crop is biased toward the bottom so the top buildings stay in frame, and the shell is clipped + scroll-reset so a stray programmatic scroll can never crop the art. */
+/* v3.6.1 desktop fullscreen: desktop is always the adaptive immersive viewport map (no layout toggle), one-click browser fullscreen. Mobile is untouched. The stage is sized in JS as a capped cover so the map really fills the viewport, the cover crop is biased toward the bottom so the top buildings stay in frame, and the shell is clipped + scroll-reset so a stray programmatic scroll can never crop the art. */
 (function(){
  const shell=document.querySelector('.voyage-shell');if(!shell)return;
- const fitBtn=document.getElementById('voyageFitBtn'),fsBtn=document.getElementById('voyageFsBtn');
- if(!fitBtn||!fsBtn)return;
+ const fsBtn=document.getElementById('voyageFsBtn');
+ if(!fsBtn)return;
  const stage=shell.querySelector('.voyage-stage');
- const KEY='voyage-desktop-layout';
+ /* layout toggle removed: desktop is always the adaptive fullscreen map; clear any stale boxed preference so nobody stays stuck in it */
+ try{localStorage.removeItem('voyage-desktop-layout')}catch(e){}
  const mq=window.matchMedia('(min-width:691px)');
  const ART=1672/941,MAXCROP=0.09;
- function stored(){try{return localStorage.getItem(KEY)}catch(e){return null}}
- function save(v){try{localStorage.setItem(KEY,v)}catch(e){}}
  function fitStage(){
   if(!stage)return;
   if(!document.documentElement.classList.contains('voyage-full')||!mq.matches){stage.style.width='';stage.style.height='';stage.style.transform='';return}
@@ -209,16 +207,13 @@ root.outerHTML='<section class="world expedition-world" id="worldMap" aria-label
  }
  function resetScroll(){shell.scrollLeft=0;shell.scrollTop=0}
  function apply(){
-  const full=mq.matches&&stored()!=='boxed';
+  const full=mq.matches;
   document.documentElement.classList.toggle('voyage-full',full);
-  fitBtn.textContent=full?'⤡ 還原':'⛶ 滿版';
-  fitBtn.setAttribute('aria-pressed',full?'true':'false');
   fsBtn.hidden=!full;
   if(!full&&document.fullscreenElement)document.exitFullscreen().catch(()=>{});
   resetScroll();
   fitStage();
  }
- fitBtn.addEventListener('click',()=>{save(document.documentElement.classList.contains('voyage-full')?'boxed':'full');apply()});
  function syncFs(){const on=!!document.fullscreenElement;fsBtn.textContent=on?'✕ 離開全螢幕':'⛶ 全螢幕';fsBtn.setAttribute('aria-pressed',on?'true':'false')}
  fsBtn.addEventListener('click',()=>{
   if(document.fullscreenElement){document.exitFullscreen().catch(()=>{});return}
