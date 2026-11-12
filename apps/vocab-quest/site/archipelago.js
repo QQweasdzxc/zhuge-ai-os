@@ -14,7 +14,7 @@ let learnerId='',hero=null,loadSequence=0,exam=null,examIndex=0,examAnswers=[],b
 const $=id=>document.getElementById(id);
 function safe(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function token(){try{return new URLSearchParams(location.hash.replace(/^#/,'')).get('f')||''}catch(e){return ''}}
-function title(lv){return lv>=30?'傳說勇者':lv>=20?'神話冒險家':lv>=12?'大師級冒險者':lv>=8?'黃金勇士':lv>=5?'白銀勇士':lv>=3?'青銅勇士':lv>=2?'正式冒險者':'見習冒險者'}
+function title(lv){return lv>=30?'傳說勇者':lv>=20?'神話冒險家':lv>=12?'大師級勇者':lv>=8?'黃金勇士':lv>=5?'白銀勇士':lv>=3?'青銅勇士':lv>=2?'正式勇者':'見習勇者'}
 const style=document.createElement('style');
 style.textContent='.universal-hero{margin:13px 0 17px;padding:15px 17px;border:1px solid #d7d8f2;border-radius:19px;background:linear-gradient(120deg,#eae6ff,#e6f8f1);color:#323d64}.universal-hero[hidden],.adventure-modal[hidden]{display:none!important}.universal-hero .hero-title{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}.universal-hero .hero-title strong{font-size:18px;color:#4e38a4}.universal-hero .hero-label{font-size:12px;font-weight:900;letter-spacing:.05em;color:#6953bc}.universal-hero p{font-size:12px;margin:8px 0;color:#667690}.universal-hero .global-xp{height:11px;border-radius:18px;background:#cbcce5;overflow:hidden}.universal-hero .global-xp span{height:100%;display:block;background:linear-gradient(90deg,#6355ce,#d9a74a)}.universal-hero .island-totals{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.universal-hero .island-totals span{border:1px solid #dcd9ed;border-radius:9px;background:#fff;padding:6px 9px;font-size:12px}.universal-hero button{background:#6856d2;color:white;border:0;border-radius:12px;padding:10px 14px;font-weight:900;cursor:pointer;font-size:14px}.universal-hero button:disabled{opacity:.5}.adventure-modal{position:fixed;inset:0;z-index:10010;background:rgba(10,20,46,.9);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;overscroll-behavior:contain;padding:18px 11px 35px}.adventure-modal-card{width:min(100%,590px);margin:auto;padding:23px 20px;background:#fff;border-radius:23px;color:#283757;text-align:center;box-shadow:0 22px 70px #080e2c61}.adventure-modal-card h2{font-size:clamp(23px,5.5vw,30px);margin:10px 0}.adventure-modal-card p{color:#6e7a91;line-height:1.65;font-size:14px}.adventure-role-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;margin-top:19px}.adventure-role{border:2px solid #e2dff2;border-radius:17px;min-height:142px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px;background:#f7f6ff;color:#344268;cursor:pointer}.adventure-role .icon{font-size:35px}.adventure-role strong{font-size:20px}.adventure-role small{font-size:12px;line-height:1.4;color:#6b7894}.adventure-role:hover,.adventure-role:focus-visible{border-color:#7561d8;background:#eae5ff}.adventure-role:disabled{opacity:.55}.adventure-exam-progress{font-size:13px;font-weight:900;color:#6d5cc4;margin-top:12px}.adventure-exam-choices{display:grid;gap:9px;text-align:left;margin:17px 0}.adventure-exam-choice{display:block;border:2px solid #e4e3f0;border-radius:13px;background:#f8f9ff;padding:14px;font:inherit;color:#344063;text-align:left;cursor:pointer}.adventure-exam-choice:hover{border-color:#7b69db;background:#f1efff}.adventure-exam-action{background:#6957d7;color:white;border:0;border-radius:12px;padding:12px 17px;font-weight:900;font:inherit;cursor:pointer}.adventure-exam-review{text-align:left;font-size:13px;line-height:1.8;max-height:330px;overflow-y:auto}.adventure-exam-review div{padding:9px 0;border-bottom:1px solid #eee}.adventure-exam-status{font-size:14px;color:#a54d63}.adventure-exam-close{background:transparent;border:1px solid #c8c9d8;border-radius:11px;padding:9px 15px;cursor:pointer;margin-top:15px;color:#65718c}@media(max-width:480px){.adventure-role-grid{gap:9px}.adventure-role{min-height:135px;padding:8px}.adventure-role strong{font-size:17px}.adventure-modal-card{padding:20px 15px}.universal-hero{padding:12px 13px}}';
 style.textContent += '.adventure-hero-main{display:flex;align-items:center;gap:12px;min-width:0}.adventure-hero-main strong{line-height:1.5}.adventure-role-portrait{display:block;width:100%;aspect-ratio:256/180;background-image:var(--arch-role-art);background-size:200% 200%;background-repeat:no-repeat;border:2px solid #9587ce;border-radius:5px}.adventure-role-portrait.warrior{background-position:0 0}.adventure-role-portrait.mage{background-position:100% 0}.adventure-role-portrait.ranger{background-position:0 100%}.adventure-role-portrait.guardian{background-position:100% 100%}.adventure-role{min-height:190px!important;padding:8px!important;justify-content:flex-start!important}.adventure-role .icon{font-size:16px!important}.adventure-role strong{font-size:17px!important}.adventure-hero-portrait{display:block;flex:0 0 116px;width:116px;height:auto;aspect-ratio:256/180;max-width:35vw;border-radius:6px;border:2px solid #6673aa;background-image:var(--arch-role-art);background-size:200% 200%;background-repeat:no-repeat}.adventure-hero-portrait.warrior{background-position:0 0}.adventure-hero-portrait.mage{background-position:100% 0}.adventure-hero-portrait.ranger{background-position:0 100%}.adventure-hero-portrait.guardian{background-position:100% 100%}@media(max-width:450px){.adventure-hero-portrait{flex-basis:84px;width:84px;height:auto;aspect-ratio:256/180}.adventure-role{min-height:auto!important}}';
@@ -35,7 +35,7 @@ function showModal(html){
  $('adventureModalContent').innerHTML=html;
 }
 function closeModal(){modal.hidden=true;openDialog=false;document.body.style.overflow=oldOverflow}
-function loadingModal(){showModal('<h2 id="adventureModalTitle">⏳ 正在讀取冒險者資料</h2><p>正在確認雲端勇士身分…</p>')}
+function loadingModal(){showModal('<h2 id="adventureModalTitle">⏳ 正在讀取勇者資料</h2><p>正在確認雲端勇士身分…</p>')}
 async function call(action,extra){
  const t=token();
  if(!t||!learnerId)throw new Error('請使用家庭專用網址並選擇玩家');
@@ -50,7 +50,7 @@ function renderHero(stats,wallet){
  const xp=Number(hero.totalXP)||0,lv=Number(hero.level)||1,base=50*(lv-1)*lv,next=Number(hero.nextXP)||100,eligible=hero.eligible;
  const pct=Math.max(0,Math.min(100,Math.round((xp-base)/(next-base)*100)));
  const r=roles[hero.profession];
- card.innerHTML='<div class="hero-label">🌏 學習群島 · 我的共用冒險者</div>'+
+ card.innerHTML='<div class="hero-label">🌏 學習群島 · 我的共用勇者</div>'+
  '<div class="hero-title"><div class="adventure-hero-main">'+(r?'<span class="adventure-hero-portrait '+hero.profession+' '+(hero.avatarStyle||'boy')+'" role="img" aria-label="'+r.name+'角色插畫"></span>':'')+'<strong>'+(r?.icon||'⭐')+' '+safe(hero.name)+'｜Lv. '+lv+' '+title(lv)+'</strong></div><span>'+xp+' XP'+(wallet?' · '+Number(wallet.balance)+' 金幣':'')+'</span></div>'+
  (wallet?.loginAwarded?'<p role="status">今天登入 +1 金幣 · 兩島共用，一天領一次</p>':'')+
  '<p>'+(r?'職業：'+r.name+' · ':'尚未選擇職業 · ')+(eligible?'XP 已達標，請通過升級試煉才能正式升級':'距離下一次升級試煉還差 '+Math.max(0,next-xp)+' XP')+'</p>'+
@@ -88,7 +88,7 @@ function showAppearance(){
 function showClass(){
  if(!hero?.avatarStyle){showAppearance();return;}
  const choices=Object.entries(roles).map(([code,v])=>'<button type="button" class="adventure-role" data-role="'+code+'"><span class="adventure-role-portrait '+code+' '+(hero.avatarStyle||'boy')+'" role="img" aria-label="'+v.name+'角色插畫"></span><strong><span class="icon">'+v.icon+'</span> '+v.name+'</strong><small>'+safe(v.description)+'</small></button>').join('');
- showModal('<div style="font-size:40px">🌟</div><h2 id="adventureModalTitle">選擇你的冒險職業</h2><p>這是你的第一個職業！不管去英文島或成語島，都會是同一位冒險者。<br>四種職業的學習分數完全一樣。</p><div class="adventure-role-grid">'+choices+'</div><p class="adventure-exam-status" id="adventureRoleError" role="alert"></p>');
+ showModal('<div style="font-size:40px">🌟</div><h2 id="adventureModalTitle">選擇你的冒險職業</h2><p>這是你的第一個職業！不管去英文島或成語島，都會是同一位勇者。<br>四種職業的學習分數完全一樣。</p><div class="adventure-role-grid">'+choices+'</div><p class="adventure-exam-status" id="adventureRoleError" role="alert"></p>');
  $('adventureModalContent').querySelectorAll('[data-role]').forEach(b=>b.addEventListener('click',async()=>{
   if(busy)return;busy=true;
   $('adventureModalContent').querySelectorAll('[data-role]').forEach(x=>x.disabled=true);
@@ -119,7 +119,7 @@ async function refresh(){
  }catch(e){
   if(sequence!==loadSequence)return;
   card.hidden=false;
-  card.textContent='⚠️ 冒險者總部連線失敗：'+e.message+'（原本學習遊戲仍可使用）';
+  card.textContent='⚠️ 勇者總部連線失敗：'+e.message+'（原本學習遊戲仍可使用）';
  }
 }
 window.adventureProfileRefresh=function(nextWorld,nextId){
