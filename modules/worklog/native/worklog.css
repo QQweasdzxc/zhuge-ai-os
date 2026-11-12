@@ -60,3 +60,14 @@
 
 .worklog-read-warning{display:flex;align-items:center;gap:12px;padding:10px 14px;background:#3c3019;color:#ffe1a1;font:13px/1.5 sans-serif;flex-shrink:0}.worklog-read-warning span{flex:1}.worklog-read-warning button{flex-shrink:0;padding:8px;border:1px solid #9a8045;border-radius:6px;background:#312b1c;color:#ffe1a1}
 .tq6-worklog:has(.worklog-read-warning){display:flex;flex-direction:column}.tq6-worklog>.worklog-read-warning+.compact-app{flex:1;height:auto;min-height:0}
+
+/* Compact saved work cards preserve times, links and entry actions. */
+.tq6-worklog .entry-list{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));grid-auto-rows:max-content;align-content:start;gap:8px!important;padding:2px;}
+.tq6-worklog .entry{margin:0!important;padding:10px!important;min-width:0;min-height:0!important;gap:5px;}
+.tq6-worklog .entry-head{display:flex;flex-direction:column;align-items:flex-start;gap:5px;}
+.tq6-worklog .entry-head b{line-height:1.4;overflow-wrap:anywhere;}
+.tq6-worklog .entry-head>span{font-size:11px;white-space:normal;}
+.tq6-worklog .entry-meta{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin-top:8px;}
+.tq6-worklog .entry-meta>div{align-self:flex-end;}
+.tq6-worklog .worklog-operation-error{padding:10px 14px;background:#472631;border:1px solid #995967;border-radius:6px;color:#ffe2e6;}
+@media(max-width:650px){.tq6-worklog .entry-list{grid-template-columns:repeat(auto-fit,minmax(160px,1fr));}}
