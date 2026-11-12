@@ -157,3 +157,46 @@ test('desktop village panel, rules and pager fit one screen without scrolling', 
   assert.ok(fit.pagerInView, 'when a desktop pager is needed it stays in the viewport: ' + JSON.stringify(fit));
   assert.ok(fit.cardsAbovePager, 'desktop cards never slide under the pager');
 });
+
+test('phone folds 查看單字庫/成績/聲音 into the other-modes shell and the collapsed home fits one screen', async t => {
+  const { browser, page } = await openVocab(390, 844);
+  try {
+    await page.waitForTimeout(500);
+    const r = await page.evaluate(() => {
+      const shell = document.querySelector('.entry-other-modes-shell');
+      const links = [...document.querySelectorAll('.actions-inline')].find(e => e.querySelector('[data-action="list"]'));
+      const sound = document.querySelector('.more-panel');
+      const rOf = e => e?.getBoundingClientRect();
+      const mission = rOf(document.querySelector('.entry-mission'));
+      return {
+        shellOpen: shell?.open,
+        linksInShell: !!(links && links.closest('.entry-other-modes-shell')),
+        soundInShell: !!(sound && sound.closest('.entry-other-modes-shell')),
+        scrollH: document.documentElement.scrollHeight,
+        ih: innerHeight,
+        missionInView: mission && mission.top >= 0 && mission.bottom <= innerHeight + 1,
+        shellInView: (() => { const s = rOf(shell); return s && s.top >= 0 && s.bottom <= innerHeight + 1; })(),
+        strayBelow: !![...document.querySelectorAll('.more-panel')].find(e => !e.closest('.entry-other-modes-shell'))
+      };
+    });
+    assert.equal(r.linksInShell, true, '查看單字庫/成績 entries must live inside the collapsible shell');
+    assert.equal(r.soundInShell, true, '聲音與進階設定 must live inside the collapsible shell');
+    assert.equal(r.strayBelow, false, 'no duplicate settings panel may linger outside the shell');
+    assert.ok(r.scrollH <= r.ih + 1, `collapsed phone home must not scroll (scrollH=${r.scrollH} vs ${r.ih})`);
+    assert.equal(r.missionInView, true, 'mission must be fully visible');
+    assert.equal(r.shellInView, true, 'collapsed shell must be fully visible');
+    // Expanded: the entries are usable and the village pager repaints instead of overlapping.
+    await page.evaluate(() => { const s = document.querySelector('.entry-other-modes-shell'); s.open = true; s.dispatchEvent(new Event('toggle')); });
+    await page.waitForTimeout(500);
+    const open = await page.evaluate(() => {
+      const shell = document.querySelector('.entry-other-modes-shell');
+      const listBtn = shell.querySelector('[data-action="list"]');
+      const scoreLink = shell.querySelector('[data-action="scores"], a[href*="score"], [data-action="history"]');
+      return { listBtnVisible: !!(listBtn && listBtn.offsetParent), entries: shell.textContent.includes('查看單字庫') };
+    });
+    assert.equal(open.entries, true, 'expanded shell exposes 查看單字庫');
+    assert.equal(open.listBtnVisible, true, 'expanded 查看單字庫 button must be usable');
+  } finally {
+    await browser.close();
+  }
+});
