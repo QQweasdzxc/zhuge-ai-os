@@ -1,4 +1,4 @@
-/* Chengyu Quest V1.6: cloud-powered hero XP and sequential adventure map. Stage cards now carry their own stars, star progress and summary-exam entry, so the map is the single progress view. */
+/* Chengyu Quest V1.7: cloud-powered hero XP and sequential adventure map. Stage cards use the compact demo anatomy - left stage name, intro and one short status line; right side stars plus a compact summary-exam button only when earned - so the map is the single progress view. */
 (function(){
 'use strict';
 const zones=[
@@ -29,7 +29,7 @@ const grid=document.querySelector('.setup-grid'),levelField=$('levels')?.parentE
 if(!grid||!levelField)return;
 levelField.style.display='none';
 const style=document.createElement('style');
-style.textContent='.adventure-area{margin-bottom:22px;background:#fff;border:1px solid #e4e5ed;border-radius:20px;padding:19px;color:#2c3957}.adventure-head{display:flex;align-items:center;justify-content:space-between;gap:15px;flex-wrap:wrap}.adventure-head h2{margin:9px 0;font-size:24px}.adventure-head p,.adventure-hint{font-size:13px;color:#758199;line-height:1.7}.adventure-hero{flex:1 1 230px;padding:14px;background:linear-gradient(120deg,#ebe5ff,#e6f7ee);border-radius:16px}.adventure-hero strong{color:#4a3ab2;font-size:18px}.adventure-hero p{margin:5px 0;font-size:12px}.adventure-xp{height:10px;border-radius:20px;background:#dedde9;overflow:hidden}.adventure-xp span{display:block;height:100%;background:linear-gradient(90deg,#7762e3,#f0ab54);border-radius:20px}.adventure-stages{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px;margin:17px 0}.adventure-stage{min-height:123px;border:2px solid #e5e3f0;background:#fafaff;border-radius:16px;padding:12px;cursor:pointer;display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:4px;color:#34425d;font:inherit}.adventure-stage .stage-icon{font-size:25px}.adventure-stage strong{font-size:15px}.adventure-stage small{font-size:12px;color:#77829a;line-height:1.4}.adventure-stage .state{font-size:12px;font-weight:800;color:#6454b7;margin-top:auto}.adventure-stage[aria-pressed=true]{border-color:#7664d9;background:#f0edff}.adventure-stage:disabled{cursor:not-allowed;opacity:.55}.adventure-stage .state{margin-top:2px}.adventure-stage .stars{font-size:15px;letter-spacing:2px;color:#e8a93c;line-height:1.3}.adventure-stage .stars-off{color:#c9cfdd}.adventure-stage .star-progress{font-size:11px;color:#8a94a9;line-height:1.5}.adventure-stage .stage-exam{margin-top:auto;align-self:stretch;min-height:44px;border:1.5px solid #7664d9;background:#fff;border-radius:9px;padding:7px 9px;font:inherit;font-size:12px;font-weight:800;color:#5a49c4;cursor:pointer;text-align:center}.adventure-stage .stage-exam:disabled{border-color:#d4d8e6;color:#98a0b4;cursor:default;background:#f4f5fa}.adventure-stage .stage-exam:not(:disabled):hover{background:#f0edff}.adventure-stage:focus-visible{outline:3px solid #ffca62;outline-offset:3px}.adventure-stage[aria-disabled=true]{cursor:not-allowed}.adventure-stage[aria-disabled=true]>*:not(.stage-exam){opacity:.55}.adventure-hint{margin:0}.adventure-hint a{color:#6554c7;text-decoration:underline}@media(max-width:680px){.adventure-stages{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:470px){.adventure-area{padding:13px}.adventure-stages{gap:8px}.adventure-stage{padding:10px;min-height:118px}.adventure-stage strong{font-size:14px}}';
+style.textContent='.adventure-area{margin-bottom:22px;background:#fff;border:1px solid #e4e5ed;border-radius:20px;padding:19px;color:#2c3957}.adventure-head{display:flex;align-items:center;justify-content:space-between;gap:15px;flex-wrap:wrap}.adventure-head h2{margin:9px 0;font-size:24px}.adventure-head p,.adventure-hint{font-size:13px;color:#758199;line-height:1.7}.adventure-hero{flex:1 1 230px;padding:14px;background:linear-gradient(120deg,#ebe5ff,#e6f7ee);border-radius:16px}.adventure-hero strong{color:#4a3ab2;font-size:18px}.adventure-hero p{margin:5px 0;font-size:12px}.adventure-xp{height:10px;border-radius:20px;background:#dedde9;overflow:hidden}.adventure-xp span{display:block;height:100%;background:linear-gradient(90deg,#7762e3,#f0ab54);border-radius:20px}.adventure-stages{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px;margin:17px 0}.adventure-stage{min-height:104px;border:2px solid #e5e3f0;background:#fafaff;border-radius:16px;padding:12px 14px;cursor:pointer;display:flex;align-items:center;text-align:left;gap:10px;color:#34425d;font:inherit}.adventure-stage .stage-main{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:0}.adventure-stage .stage-side{margin-left:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;flex:none}.adventure-stage .stage-icon{font-size:24px;line-height:1.1}.adventure-stage strong{font-size:15px}.adventure-stage small{font-size:12px;color:#77829a;line-height:1.4}.adventure-stage .state{font-size:12px;font-weight:800;color:#6454b7;margin-top:2px}.adventure-stage[aria-pressed=true]{border-color:#7664d9;background:#f0edff}.adventure-stage:disabled{cursor:not-allowed;opacity:.55}.adventure-stage .stars{font-size:16px;letter-spacing:2px;color:#e8a93c;line-height:1.3}.adventure-stage .stars-off{color:#c9cfdd}.adventure-stage .stage-exam{width:68px;min-height:56px;border:0;border-radius:12px;padding:8px 6px;font:inherit;font-size:13px;font-weight:800;line-height:1.3;color:#fff;background:#0f7d8c;cursor:pointer;text-align:center}.adventure-stage .stage-exam:hover{background:#0b6572}.adventure-stage .stage-pass{color:#1a9e4b;font-size:15px;font-weight:900;white-space:nowrap}.adventure-stage .stage-exam-retake{border:0;background:none;padding:0;font-size:11px;font-weight:700;color:#8a94a9;text-decoration:underline;cursor:pointer}.adventure-stage .stage-exam-retake:hover{color:#5a49c4}.stage-help{margin:0 0 14px;font-size:12px;color:#758199;line-height:1.7}.stage-help summary{cursor:pointer;font-weight:800;color:#6554c7}.stage-help p{margin:6px 0}.stage-pager{display:flex;align-items:center;justify-content:center;gap:12px;margin:-4px 0 14px}.stage-pager button{border:1.5px solid #7664d9;background:#fff;border-radius:9px;padding:8px 14px;font:inherit;font-size:12px;font-weight:800;color:#5a49c4;cursor:pointer}.stage-pager button:disabled{opacity:.45;cursor:default}.stage-pager span{font-size:12px;color:#758199;font-weight:700}.adventure-stage.stage-page-hide{display:none}@media(min-width:681px){.stage-pager{display:none}}.adventure-stage:focus-visible{outline:3px solid #ffca62;outline-offset:3px}.adventure-stage[aria-disabled=true]{cursor:not-allowed;opacity:.68}.adventure-hint{margin:0}.adventure-hint a{color:#6554c7;text-decoration:underline}@media(max-width:680px){.adventure-stages{grid-template-columns:minmax(0,1fr)}}@media(max-width:470px){.adventure-area{padding:13px}.adventure-stages{gap:8px}.adventure-stage{padding:10px 12px;min-height:96px}.adventure-stage strong{font-size:14px}}';
 document.head.append(style);
 const section=document.createElement('section');section.id='adventureArea';section.className='adventure-area';
 section.innerHTML='<div class="adventure-head"><div><span class="eyebrow">⚔️ 成語勇士養成</span><h2>我的冒險地圖</h2><p>從簡單到困難。混合練習後，通過本關90%總結測驗解鎖下一張地圖！</p></div><div class="adventure-hero" id="adventureHero" role="status"></div></div><div class="adventure-stages" id="adventureStages"></div><p class="adventure-hint">🎯 答對 +10 XP，完成 +20 XP；Game Over 也保留學到的 XP。練習至少5題達80%取得第一星；第2星要同關3個詞各答對兩種角度，第3星要另一天再過關；總結測驗90%開下一關。本站題目為自編，尚未逐條與 <a href="https://dict.idioms.moe.edu.tw/" rel="noopener noreferrer" target="_blank">教育部《成語典》</a>核對。</p>';
@@ -45,6 +45,16 @@ function progress(){
  if(stars)for(let zone=1;zone<=6;zone++){if((stars.stagePassed||[]).includes(zone))next=zone+1;else break;}
  return {player,attempts,next};
 }
+let stagePage=0;
+function paintStagePage(){
+ const grid=$('adventureStages');if(!grid)return;
+ const mq=window.matchMedia('(max-width:680px)');
+ const cards=[...grid.children],per=4,pages=Math.max(1,Math.ceil(cards.length/per));
+ if(stagePage>pages-1)stagePage=pages-1;if(stagePage<0)stagePage=0;
+ cards.forEach((c,i)=>c.classList.toggle('stage-page-hide',mq.matches&&Math.floor(i/per)!==stagePage));
+ const pg=$('stagePager');
+ if(pg){const hid=!mq.matches;if(pg.hidden!==hid)pg.hidden=hid;const t='第 '+(stagePage+1)+' / '+pages+' 頁',sp=pg.querySelector('span');if(sp.textContent!==t)sp.textContent=t;const b0=pg.querySelector('[data-pg="-1"]'),b1=pg.querySelector('[data-pg="1"]'),d0=stagePage===0,d1=stagePage===pages-1;if(b0.disabled!==d0)b0.disabled=d0;if(b1.disabled!==d1)b1.disabled=d1}
+}
 function render(){
  const p=progress();available=window.learningVillagePassed?8:p.next;
  if((p.player?.id||'')!==lastPlayer){lastPlayer=p.player?.id||'';config.zone=1}
@@ -58,22 +68,22 @@ function render(){
  const examPassed=new Set(starsData?.stagePassed||[]);
  $('adventureStages').innerHTML=zones.map((z,i)=>{
   const n=i+1,locked=n===8?!window.learningVillagePassed:n>available;
-  const status=examPassed.has(n)?'✅ 總結已通過':passed.has(n)?'練習已完成':locked?(n===8?'🔒 出村考驗通過後開放':'🔒 未解鎖'):n===config.zone?'🎯 挑戰中':'▶ 前往挑戰';
+  const unlocked8=n===8&&!!starsData?.villageExamUnlocked,done8=n===8&&!!window.learningVillagePassed;
+  const status=n===8?(done8?'✅ 出村考驗已通過':unlocked8?'🎯 出村大考驗開放':'🔒 集滿 21 星開放 · 90 分通過'):examPassed.has(n)?'✅ PASS 已通關':passed.has(n)?'✔ 練習完成':locked?'🔒 未解鎖':n===config.zone?'🎯 挑戰中':'▶ 前往挑戰';
   let extra='';
   if(n<=7){
-   const s=(starsData?.stages||[]).find(x=>x.zone===n);
-   if(s){
-    const examOpen=s.first_star&&(n===1||examPassed.has(n-1));
-    extra='<span class="stars" aria-label="本關 '+s.stars+' 星，共 3 星">'+'★'.repeat(s.stars)+'<span class="stars-off">'+'☆'.repeat(3-s.stars)+'</span></span><span class="star-progress">'+s.diverse_words+'/3 詞已有兩種角度 · '+s.pass_days+' 個過關日</span><button type="button" class="stage-exam" data-stage-exam="'+n+'"'+(examOpen?'':' disabled')+'>'+(examPassed.has(n)?'總結測驗已通過 · 再測一次':examOpen?'總結測驗 → 達 90% 開下一關':'總結測驗（先完成練習取得第一星）')+'</button>';
-   }else{
-    extra='<span class="star-progress">星星進度同步後顯示在這裡</span>';
-   }
+   const s=(starsData?.stages||[]).find(x=>x.zone===n),st=s?s.stars:0;
+   const examOpen=!!s&&!!s.first_star&&(n===1||examPassed.has(n-1));
+   extra='<span class="stars" aria-label="本關 '+st+' 星，共 3 星">'+'★'.repeat(st)+'<span class="stars-off">'+'☆'.repeat(3-st)+'</span></span>'+(examPassed.has(n)?'<span class="stage-pass">✓PASS</span><button type="button" class="stage-exam-retake" data-stage-exam="'+n+'">再測一次</button>':examOpen?'<button type="button" class="stage-exam" data-stage-exam="'+n+'">總結測驗</button>':'');
   }else{
-   const unlocked=!!starsData?.villageExamUnlocked,done=!!window.learningVillagePassed;
-   extra='<span class="star-progress">新手村集星 '+(starsData?starsData.total:'…')+' / 21'+(done?' · 已通過出村考驗':'')+'</span><button type="button" class="stage-exam" data-village-exam'+(unlocked?'':' disabled')+'>'+(done?'出村大考驗已通過':unlocked?'出村大考驗 → 90 分通過才開放本關':'出村大考驗（集滿 21 星開放）')+'</button>';
+   extra='<span class="stars" aria-label="新手村集星 '+(starsData?starsData.total:'…')+' / 21">'+(starsData?starsData.total:'…')+'/21</span>'+(done8?'<span class="stage-pass">✓PASS</span>':unlocked8?'<button type="button" class="stage-exam" data-village-exam>出村大考驗</button>':'');
   }
-  return '<div class="adventure-stage" data-zone="'+n+'" role="button" tabindex="'+(locked?'-1':'0')+'" aria-disabled="'+(locked?'true':'false')+'" aria-pressed="'+(config.zone===n)+'"><span class="stage-icon">'+z[0]+'</span><strong>第 '+n+' 關｜'+z[1]+'</strong><small>'+z[2]+'・'+pool(n).length+' 則</small><span class="state">'+status+'</span>'+extra+'</div>'
+  return '<div class="adventure-stage" data-zone="'+n+'" role="button" tabindex="'+(locked?'-1':'0')+'" aria-disabled="'+(locked?'true':'false')+'" aria-pressed="'+(config.zone===n)+'"><div class="stage-main"><span class="stage-icon">'+z[0]+'</span><strong>第 '+n+' 關｜'+z[1]+'</strong><small>'+z[2]+'・'+pool(n).length+' 則</small><span class="state">'+status+'</span></div><div class="stage-side">'+extra+'</div></div>'
  }).join('');
+ if(!document.getElementById('stageHelp')){const h=document.createElement('details');h.id='stageHelp';h.className='stage-help';h.innerHTML='<summary>集星與測驗說明</summary><p>第1星：過關（至少5題、80%）。第2星：同關3則成語各答對兩種角度。第3星：另一天再過關。新賽季從第一關開始，舊紀錄與金幣保留。</p><p>每關先混合練習，再做本關總結測驗；達90%開下一關，三星另記學習進度。集滿21星開放出村大考驗，90分通過才開放第8關。</p>';$('adventureStages').insertAdjacentElement('afterend',h)}
+ if(!document.getElementById('stagePager')){const pg=document.createElement('div');pg.id='stagePager';pg.className='stage-pager';pg.hidden=true;pg.innerHTML='<button type="button" data-pg="-1">‹ 上一頁</button><span></span><button type="button" data-pg="1">下一頁 ›</button>';$('adventureStages').insertAdjacentElement('afterend',pg);pg.addEventListener('click',e=>{const b=e.target.closest('[data-pg]');if(!b)return;stagePage+=Number(b.dataset.pg);paintStagePage()});try{window.matchMedia('(max-width:680px)').addEventListener('change',paintStagePage)}catch(e){}}
+ stagePage=Math.floor(Math.max(0,Math.min(7,(config.zone||1)-1))/4);
+ paintStagePage();
 }
 window.chengyuAdventurePool=(all,zone)=>pool(Number(zone)||1);
 window.chengyuAdventureCanStart=(review)=>{
@@ -98,3 +108,4 @@ $('adventureStages').addEventListener('click',e=>{if(e.target.closest('[data-sta
 $('adventureStages').addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;if(e.target.closest('[data-stage-exam],[data-village-exam]'))return;const b=e.target.closest('[data-zone]');if(!b||b.getAttribute('aria-disabled')==='true')return;e.preventDefault();config.zone=Number(b.dataset.zone);render()});
 render();
 })();
+
