@@ -105,3 +105,9 @@
  .tq6-worklog .restore-rail{display:none!important}
 }
 @media(max-width:1099px){.tq6-worklog .card-bottom button{min-width:44px;min-height:44px;flex:none}.tq6-worklog .suggest-card{min-width:0}.tq6-worklog .suggest-card .card-bottom{min-width:0;column-gap:4px}}
+/* TF shell locks page overflow. Give mobile WorkLog its own vertical viewport. */
+@media(max-width:1099px){
+ .taskflow-worklog-host{overflow-y:auto;overflow-x:hidden;display:block;overscroll-behavior-y:contain;scrollbar-width:thin}
+ .taskflow-worklog-host>.tq6-worklog{height:auto;min-height:0}
+ .taskflow-worklog-host .compact-app{height:auto;min-height:100%}
+}
