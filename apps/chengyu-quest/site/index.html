@@ -222,8 +222,9 @@ function startGame(onlyWords){
    }
    if(z>=3&&pi>=0){newKindPlan[normalPos[pi]]={type:'fill',pos:1+Math.floor(Math.random()*3)};pi--;}
    if(z>=2&&bank&&bank.typo.length&&pi>=0){
-    const cand=bank.typo.map(it=>({it,w:matchTypoWord(it)})).filter(x=>x.w&&poolSet.has(x.w.word));
-    if(cand.length){const c=shuffle(cand)[0];if(!inRound(c.w))questions[normalPos[pi]]=c.w;newKindPlan[normalPos[pi]]={type:'typo',item:c.it,word:c.w};pi--;}
+    const cand=bank.typo.map(it=>({it,w:matchTypoWord(it)})).filter(x=>x.w);
+    const inPool=cand.filter(x=>poolSet.has(x.w.word)),pickFrom=inPool.length?inPool:cand;
+    if(pickFrom.length){const c=shuffle(pickFrom)[0];if(!inRound(c.w))questions[normalPos[pi]]=c.w;newKindPlan[normalPos[pi]]={type:'typo',item:c.it,word:c.w};pi--;}
    }
   }
   game={items:questions,index:0,correct:0,wrong:[],hearts:3,answered:false,angleIdx,gentle,mixedKinds:shuffle(['meaning','context','reverse']),angleOk:new Set(),newKindPlan,poolItems:pool};lastWrong=[];
