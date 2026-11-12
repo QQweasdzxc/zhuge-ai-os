@@ -38,15 +38,18 @@ async function readCards(page) {
     const at = n => cards.find(c => c.dataset.zone === String(n));
     return {
       count: cards.length,
-      starsEvery: cards.slice(0, 7).every(c => c.querySelector('.stars') && c.querySelector('.star-progress')),
+      demoLayout: cards.every(c => c.querySelector('.stage-main') && c.querySelector('.stage-side')),
+      starsInSide: cards.slice(0, 7).every(c => c.querySelector('.stage-side .stars') && !c.querySelector('.star-progress')),
       card1stars: at(1).querySelector('.stars').textContent,
       card1state: at(1).querySelector('.state').textContent,
+      card1pass: at(1).querySelector('.stage-side .stage-pass')?.textContent || '',
       card1exam: at(1).querySelector('[data-stage-exam]')?.textContent || '',
-      card2progress: at(2).querySelector('.star-progress').textContent,
+      card2stars: at(2).querySelector('.stars').textContent,
       card2exam: at(2).querySelector('[data-stage-exam]')?.textContent || '',
+      card3state: at(3).querySelector('.state').textContent,
       card3exam: !!at(3).querySelector('[data-stage-exam]'),
-      card3progress: at(3).querySelector('.star-progress').textContent,
       laterExams: cards.slice(3, 7).filter(c => c.querySelector('[data-stage-exam]')).length,
+      noLongButtons: ![...document.querySelectorAll('.adventure-stage button')].some(b => /先完成|取得第/.test(b.textContent)),
       zone3locked: at(3).getAttribute('aria-disabled') === 'true',
       zone8copy: at(8).textContent,
       zone8examBtn: !!at(8).querySelector('[data-village-exam]'),
@@ -65,21 +68,24 @@ test('stage cards are state-driven: stars, what is missing, and the exam entry o
   t.after(() => browser.close());
   const r = await readCards(page);
   assert.equal(r.count, 8);
-  assert.ok(r.starsEvery, 'every level card shows its stars and progress');
+  assert.ok(r.demoLayout, 'every card uses the compact demo anatomy: main column + side column');
+  assert.ok(r.starsInSide, 'stars sit in the card side, no long progress paragraph on the card face');
   assert.equal(r.card1stars, '★★☆', 'card shows the earned and the empty stars');
   assert.match(r.card1state, /PASS/, 'a passed stage carries a clear PASS mark');
+  assert.equal(r.card1pass, '✓PASS', 'a passed stage shows the PASS mark in the side');
   assert.equal(r.card1exam, '再測一次', 'a passed stage keeps a small retake link');
-  assert.match(r.card2progress, /兩種角度|過關日/, 'card shows what is still missing for the next star');
-  assert.equal(r.card2exam, '開始總結測驗', 'earned exam entry uses the short label');
+  assert.equal(r.card2stars, '★☆☆');
+  assert.equal(r.card2exam, '總結測驗', 'earned exam entry uses the short compact label');
+  assert.equal(r.card3state, '🔒 未解鎖', 'locked stage says so in one short line');
   assert.equal(r.card3exam, false, 'no exam button before the first star is earned');
-  assert.match(r.card3progress, /先完成本關練習取得第 1 星/, 'the card says what to do next instead');
   assert.equal(r.laterExams, 0, 'later stages show no disabled long-text exam buttons');
+  assert.ok(r.noLongButtons, 'no long disabled explanation buttons anywhere');
   assert.equal(r.zone3locked, true, 'stage 3 stays locked until stage 2 summary passes');
   assert.equal(r.zone8examBtn, false, 'no village-exam button before 21 stars');
   assert.match(r.zone8copy, /集滿 21 星開放/, 'village exam prerequisite stays visible as text');
   assert.match(r.zone8copy, /90 分通過/, 'village exam passing rule stays visible');
-  assert.match(r.zone8copy, /新手村集星 3 \/ 21/, 'village progress shows inside the final card');
-  assert.doesNotMatch(r.zone8copy, /出村大考驗已通過/, 'no false sense that the final stage is cleared');
+  assert.match(r.zone8copy, /3\/21/, 'village progress shows inside the final card');
+  assert.doesNotMatch(r.zone8copy, /出村考驗已通過/, 'no false sense that the final stage is cleared');
   assert.match(r.title, /新手村集星 3 \/ 21/, 'total stars sit with the map title');
   assert.match(r.help, /達90%開下一關/, 'rules move into the 說明 details');
   assert.match(r.help, /集滿21星開放出村大考驗，90分通過才開放第8關/, '說明 keeps the full unlock contract');
@@ -107,8 +113,8 @@ test('stage cards stay readable and tappable on a phone', async t => {
   t.after(() => browser.close());
   const r = await readCards(page);
   assert.equal(r.count, 8);
-  assert.ok(r.starsEvery, 'phone cards show stars and progress too');
-  assert.equal(r.card2exam, '開始總結測驗', 'phone shows the short exam label');
+  assert.ok(r.demoLayout, 'phone cards keep the compact demo anatomy');
+  assert.equal(r.card2exam, '總結測驗', 'phone shows the short exam label');
   assert.match(r.title, /新手村集星 3 \/ 21/);
   assert.ok(r.noWideScroll, 'no horizontal scrolling on the phone');
   const sizes = await page.evaluate(() => [...document.querySelectorAll('.adventure-stage .stage-exam:not(.stage-exam-retake)')].map(b => b.getBoundingClientRect().height));
