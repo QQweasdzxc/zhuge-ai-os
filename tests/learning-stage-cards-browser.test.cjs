@@ -199,6 +199,13 @@ test('chengyu arriving with s=settings opens the 勇者 settings page directly',
   assert.ok(r.hero, 'settings section renamed to 勇者與進度, got ' + r.titles.join('/'));
   assert.ok(r.sound, 'settings page carries the 聲音 section');
   assert.equal(r.old, false, 'no 冒險者 section title remains');
+  // Manual close within the arrival window must NOT be re-opened by the auto-open hook.
+  await page.click('.app-settings .app-back');
+  await page.waitForSelector('html:not(.app-settings-open)');
+  await new Promise(r2 => setTimeout(r2, 3000));
+  assert.equal(await page.evaluate(() => document.documentElement.classList.contains('app-settings-open')), false, 'manual close is never re-opened by the arrival hook');  await page.evaluate(() => window.learningStarsRefresh(true));
+  await new Promise(r3 => setTimeout(r3, 1500));
+  assert.equal(await page.evaluate(() => document.documentElement.classList.contains('app-settings-open')), false, 'a post-close pipeline rebuild must not re-open settings after the user left');
 });
 
 test('chengyu shared assets call the player 勇者, never 冒險者', () => {
