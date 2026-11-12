@@ -6,7 +6,7 @@ on:
 permissions:
   contents: read
 jobs:
-  role-helper:
+  worker-v14:
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -14,14 +14,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Compose only staged date SQL and production-role tests
+      - name: Compose date-only delta on exact live v14 linked-delete source
         run: |
           set -euo pipefail
-          test "$(sha256sum 2-tf-date-hours-role-helper-v2.patch | cut -d' ' -f1)" = 4959fb964fecbde084e428e9116534a06279d11b4ef9f282703e711340d7a0a9
-          cp 2-tf-date-hours-role-helper-v2.patch /tmp/role-helper.patch
-          git switch --detach d0591a6f6a74eca64a5d57b1bae9ed1324a3453b
-          git apply --check /tmp/role-helper.patch
-          git apply /tmp/role-helper.patch
+          test "$(sha256sum 1-tf-date-hours-worker-v14.patch | cut -d' ' -f1)" = 686c34d7dbc924513796a964de2767c1d00a1cb2d7ac6016bdb1ac9a4cedffb3
+          cp 1-tf-date-hours-worker-v14.patch /tmp/worker-v14.patch
+          git switch --detach e80f25e60398fcd790f64fdb4eb2910f9b784ee0
+          git apply --check /tmp/worker-v14.patch
+          git apply /tmp/worker-v14.patch
           git diff --check
       - uses: actions/setup-node@v4
         with:
@@ -29,16 +29,22 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: npm run test:worklog
-      - name: Production-like split ownership, blocked writes, tenant, replay and rollback
+      - name: Bundle exact candidate without deployment
         run: |
           npm ci --ignore-scripts --prefix labs/taskflow/tests/worklog-server
           cd labs/taskflow/tests/worklog-server
-          node sql-check.mjs
-          node date-hours-check.mjs
-      - name: Preserve source-only SQL candidate without deployment
+          npm run test:bundle
+          node --check /tmp/tq6-worklog-worker-bundle.mjs
+          test "$(sha256sum /tmp/tq6-worklog-worker-bundle.mjs | cut -d' ' -f1)" = 87f8186a3fded832aef3c6798a4a7bdaaf5259db80b6f47ffc463f6e439bdbed
+      - name: Preserve source-only candidate
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add modules/worklog/native/server/date-hours*.sql labs/taskflow/tests/worklog-server/date-hours-check.mjs
-          git commit -m 'Stage narrow date SQL helpers under separate existing owners'
-          git push origin HEAD:refs/heads/review/tf-date-hours-role-helper-v2-20261113
+          git add modules/worklog/native
+          git commit -m 'Date-only worker increment preserving exact live v14 linked delete'
+          git push origin HEAD:refs/heads/review/tf-date-hours-worker-v14-20261113
+      - uses: actions/upload-artifact@v4
+        with:
+          name: date-only-worker-v14-candidate
+          path: /tmp/tq6-worklog-worker-bundle.mjs
+          retention-days: 7
