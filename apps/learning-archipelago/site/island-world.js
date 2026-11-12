@@ -116,8 +116,8 @@ style.textContent=[
 '.island-nav .index-scroll{padding:2px 9px 8px;display:flex;flex-direction:column;gap:2px}',
 '.island-nav .index-foot{padding:9px 14px;border-top:2px solid #2e4a5f;font-size:11px;color:#9fc3cf}',
 '@media(max-width:690px){.expedition-world{margin-left:-13px;margin-right:-13px}.voyage-shell{position:fixed;inset:0;z-index:30;border:0;border-radius:0;display:flex;flex-direction:column;justify-content:center;overflow:hidden;background:#0d2036;padding:calc(64px + env(safe-area-inset-top,0px)) 0 calc(88px + env(safe-area-inset-bottom,0px))}.voyage-stage{flex:none;width:auto;height:min(calc(100dvh - 165px),177.68vw);max-width:100%;aspect-ratio:941/1672;margin:0 auto;border:0}.voyage-bg{background-image:url("./1-archipelago-portrait.jpg");animation:none}.voyage-mist,.voyage-glow,.voyage-shimmer,#voyageSea{display:none}.voyage-hot-chengyu{left:26%;top:13.5%;width:38%;height:19%}.voyage-hot-english{left:66%;top:80%;width:52%;height:26%}.voyage-hot-board{left:70%;top:33%}.stage-chip-title,.stage-chip-status{display:none}.stage-chip-hint{font-size:10px;position:static;display:inline-block;margin:10px auto 0}.island-nav{display:none}}',
-'/* v3.4.0 desktop fullscreen immersive map. Stage keeps the art ratio 1672:941 and fits the viewport, so 成語島 and 英文島 are never cropped; the blurred backdrop only fills the leftover bands. Islands entries, chips and the island index stay reachable. */',
-'@media(min-width:691px){html.voyage-full .voyage-shell{position:fixed;inset:0;z-index:30;border:0;border-radius:0;box-shadow:none;display:flex;align-items:center;justify-content:center;background:#0d2036}html.voyage-full .voyage-shell:before{content:"";position:absolute;inset:0;background:url("./archipelago-v5.jpg") center/cover no-repeat;filter:blur(34px) brightness(.48) saturate(1.3);transform:scale(1.15)}html.voyage-full .voyage-stage{flex:none;width:min(100vw,177.68vh);height:min(100dvh,56.28vw);max-width:none;aspect-ratio:1672/941;margin:0;border:0}html.voyage-full .voyage-bg{background-size:100% 100%;animation:none}html.voyage-full .island-nav{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);z-index:36;width:min(94vw,600px);margin-top:0;display:flex;flex-direction:column-reverse}html.voyage-full .island-nav .index-scroll{max-height:44vh;overflow:auto}}',
+'/* v3.5.0 desktop fullscreen immersive map. Stage keeps the art ratio 1672:941; JS sizes it as a capped cover (crop <= 9% per side, symmetric) so the map fills the viewport edge to edge, falling back to an uncropped fit on extreme aspect ratios. The shell clips overflow so a programmatic scroll can never crop the art. A persistent top-left adventurer card mirrors the hero identity (name, LV, XP, coins); the 群島探索 chip moves below it. Islands entries, chips and the island index stay reachable. */',
+'@media(min-width:691px){html.voyage-full .voyage-shell{position:fixed;inset:0;z-index:30;border:0;border-radius:0;box-shadow:none;display:flex;align-items:center;justify-content:center;background:#0d2036;overflow:hidden;overflow:clip}html.voyage-full .voyage-shell:before{content:"";position:absolute;inset:0;background:url("./archipelago-v5.jpg") center/cover no-repeat;filter:blur(34px) brightness(.48) saturate(1.3);transform:scale(1.15)}html.voyage-full .voyage-stage{flex:none;width:min(100vw,177.68vh);height:min(100dvh,56.28vw);max-width:none;aspect-ratio:1672/941;margin:0;border:0}html.voyage-full .voyage-bg{background-size:100% 100%;animation:none}html.voyage-full .island-nav{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);z-index:36;width:min(94vw,600px);margin-top:0;display:flex;flex-direction:column-reverse}html.voyage-full .island-nav .index-scroll{max-height:44vh;overflow:auto}html.voyage-full .stage-chip-title{top:112px}html.voyage-full .d-topbar{display:flex;position:fixed;top:12px;left:12px;z-index:36;pointer-events:none;align-items:stretch;gap:8px}html.voyage-full .d-player{pointer-events:auto;display:flex;align-items:center;gap:9px;background:rgba(16,26,48,.88);border:2px solid #3c4b7a;border-radius:12px;padding:6px 14px 6px 7px;color:#eaf2ff;box-shadow:0 3px 0 #0a1430;cursor:pointer;font:inherit}html.voyage-full .d-player:hover{background:rgba(24,44,70,.95)}html.voyage-full .d-player:focus-visible,html.voyage-full .d-coins:focus-visible{outline:3px solid #ffdf75;outline-offset:2px}html.voyage-full .d-face{width:40px;height:40px;border-radius:9px;overflow:hidden;background:#fff7e7;display:flex;align-items:center;justify-content:center;flex:none;color:#3c4b7a}html.voyage-full .d-face svg{width:26px;height:26px}html.voyage-full .d-face .profile-portrait{width:100%;height:100%}html.voyage-full .d-pinfo{display:flex;flex-direction:column;gap:3px;min-width:148px}html.voyage-full .d-pinfo strong{font-size:13px;color:#fff;line-height:1.2}html.voyage-full .d-lvline{display:flex;align-items:center;gap:7px;font-size:10.5px;color:#9fb8e8;white-space:nowrap}html.voyage-full .d-xpbar{flex:1;min-width:70px;height:7px;border-radius:4px;background:#243356;overflow:hidden}html.voyage-full .d-xpbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#7fd0ff,#3f8fe0);border-radius:4px}html.voyage-full .d-xptext{font-size:10px;color:#7f97c4;min-height:1em}html.voyage-full .d-coins{pointer-events:auto;display:flex;align-items:center;gap:5px;background:rgba(16,26,48,.88);border:2px solid #3c4b7a;border-radius:12px;padding:6px 12px;color:#ffd873;font-weight:900;font-size:13px;box-shadow:0 3px 0 #0a1430;cursor:pointer;font:inherit}html.voyage-full .d-coins:hover{background:rgba(24,44,70,.95)}html.voyage-full .d-coins svg{width:17px;height:17px}html.voyage-full .d-coins span{font-size:10px;color:#d9b45a;font-weight:700}}',
 '.voyage-fit-btn,.voyage-fs-btn{position:absolute;right:10px;z-index:5;display:none;align-items:center;gap:5px;background:rgba(13,25,42,.78);border:2px solid #3d6a74;border-radius:7px;padding:7px 11px;font:inherit;font-size:11px;font-weight:700;color:#ffe6b8;cursor:pointer;letter-spacing:.06em}',
 '.voyage-fit-btn{top:46px}.voyage-fs-btn{top:84px}',
 '@media(min-width:691px){.voyage-fit-btn{display:inline-flex}html.voyage-full .voyage-fs-btn{display:inline-flex}}',
@@ -185,15 +185,27 @@ root.outerHTML='<section class="world expedition-world" id="worldMap" aria-label
  '<div class="hb-overlay" id="heroBoardOverlay" hidden><div class="hb-card" role="dialog" aria-modal="true" aria-label="英雄榜" id="heroBoardCard"></div></div>'+
  '</section>';
 
-/* v3.4.0 desktop fullscreen: default immersive viewport map, one-click browser fullscreen, restorable boxed layout. Mobile is untouched. */
+/* v3.5.0 desktop fullscreen: default immersive viewport map, one-click browser fullscreen, restorable boxed layout. Mobile is untouched. The stage is sized in JS as a capped cover so the map really fills the viewport, and the shell is clipped + scroll-reset so a stray programmatic scroll can never crop the art. */
 (function(){
  const shell=document.querySelector('.voyage-shell');if(!shell)return;
  const fitBtn=document.getElementById('voyageFitBtn'),fsBtn=document.getElementById('voyageFsBtn');
  if(!fitBtn||!fsBtn)return;
+ const stage=shell.querySelector('.voyage-stage');
  const KEY='voyage-desktop-layout';
  const mq=window.matchMedia('(min-width:691px)');
+ const ART=1672/941,MAXCROP=0.09;
  function stored(){try{return localStorage.getItem(KEY)}catch(e){return null}}
  function save(v){try{localStorage.setItem(KEY,v)}catch(e){}}
+ function fitStage(){
+  if(!stage)return;
+  if(!document.documentElement.classList.contains('voyage-full')||!mq.matches){stage.style.width='';stage.style.height='';return}
+  const vw=shell.clientWidth,vh=shell.clientHeight;if(!vw||!vh)return;
+  let w=vw,h=w/ART;if(h<vh){h=vh;w=h*ART}
+  const cx=(w-vw)/2/w,cy=(h-vh)/2/h;
+  if(cx>MAXCROP||cy>MAXCROP){stage.style.width='';stage.style.height='';return}
+  stage.style.width=w.toFixed(1)+'px';stage.style.height=h.toFixed(1)+'px';
+ }
+ function resetScroll(){shell.scrollLeft=0;shell.scrollTop=0}
  function apply(){
   const full=mq.matches&&stored()!=='boxed';
   document.documentElement.classList.toggle('voyage-full',full);
@@ -201,6 +213,8 @@ root.outerHTML='<section class="world expedition-world" id="worldMap" aria-label
   fitBtn.setAttribute('aria-pressed',full?'true':'false');
   fsBtn.hidden=!full;
   if(!full&&document.fullscreenElement)document.exitFullscreen().catch(()=>{});
+  resetScroll();
+  requestAnimationFrame(fitStage);
  }
  fitBtn.addEventListener('click',()=>{save(document.documentElement.classList.contains('voyage-full')?'boxed':'full');apply()});
  function syncFs(){const on=!!document.fullscreenElement;fsBtn.textContent=on?'✕ 離開全螢幕':'⛶ 全螢幕';fsBtn.setAttribute('aria-pressed',on?'true':'false')}
@@ -209,7 +223,8 @@ root.outerHTML='<section class="world expedition-world" id="worldMap" aria-label
   const p=document.documentElement.requestFullscreen?document.documentElement.requestFullscreen():null;
   if(p&&p.catch)p.catch(()=>{fsBtn.textContent='瀏覽器不支援全螢幕'});
  });
- document.addEventListener('fullscreenchange',syncFs);
+ document.addEventListener('fullscreenchange',()=>{syncFs();resetScroll();requestAnimationFrame(fitStage)});
+ window.addEventListener('resize',()=>{if(document.documentElement.classList.contains('voyage-full'))fitStage()});
  if(mq.addEventListener)mq.addEventListener('change',apply);else if(mq.addListener)mq.addListener(apply);
  apply();syncFs();
 })();
