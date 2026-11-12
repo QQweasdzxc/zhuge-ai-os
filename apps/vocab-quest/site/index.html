@@ -877,7 +877,7 @@ function arrangeParent(){if(idiom||!parentView||root.querySelector('.entry-missi
 function close(){document.documentElement.classList.remove('app-settings-open');if(page)page.hidden=true;gear.hidden=false;place.textContent=idiom?'成語練習':'英文練習';window.scrollTo(0,homeScroll)}
 function open(){if(!page)return;homeScroll=scrollY;page.hidden=false;profile.hidden=false;document.documentElement.classList.add('app-settings-open');place.textContent='';gear.hidden=true;window.scrollTo(0,0);page.querySelector('button')?.focus()}
 gear.addEventListener('click',open);
-if(new URLSearchParams(location.hash.slice(1)).get('s')==='settings'){let _tries=0,_opened=null;const _timer=setInterval(()=>{if(page&&page!==_opened){open();_opened=page}else if(_opened&&(page.hidden||!document.documentElement.classList.contains('app-settings-open'))){clearInterval(_timer)}if(++_tries>48)clearInterval(_timer)},250)}
+if(new URLSearchParams(location.hash.slice(1)).get('s')==='settings'){let _tries=0,_opened=null,_cancel=false;document.addEventListener('click',e=>{const t=e.target;if(t&&t.closest&&t.closest('.app-settings'))_cancel=true},true);const _timer=setInterval(()=>{if(_cancel){clearInterval(_timer);return}if(page&&page!==_opened){open();_opened=page}if(++_tries>48)clearInterval(_timer)},250)}
 function section(title){const e=document.createElement('section');e.className='app-setting-section';const h=document.createElement('h2');h.textContent=title;e.append(h);return e}
 function settings(){const e=document.createElement('section');e.className='app-settings';e.hidden=true;e.setAttribute('aria-label','設定');e.innerHTML='<button class="app-back" type="button">‹ 返回學習</button><h1>設定</h1>';e.firstElementChild.addEventListener('click',close);return e}
 function sync(){
