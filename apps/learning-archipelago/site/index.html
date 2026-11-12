@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#152347">
-<meta name="description" content="學習冒險島：同一位勇士，航向英文、成語與更多知識島嶼。">
+<meta name="description" content="學習冒險島：同一位勇者，航向英文、成語與更多知識島嶼。">
 <title>學習冒險島｜勇者總部</title>
 <style>
 :root{--ink:#182448;--paper:#f7f4e8;--sea:#4aa8bb;--sea-dark:#247f9e;--blue:#18274d;--sun:#ffcc66;--violet:#8464d7;--mint:#95e3c4;--shadow:#0c183c;--border:#273759}
@@ -657,6 +657,13 @@ window.ArchipelagoDaily={mount({container,request,worlds=['chengyu','vocab']}){
    <div class="stat-row"><span>🏆 已通過晉級試煉</span><strong id="examWins">— 次</strong></div>
   </div>
   <div class="drawer-section"><h3>🏆 英雄榜</h3><p class="drawer-note">燈塔英雄榜：成語島、英文島各自分開排名。</p><button class="btn secondary" id="drawerBoardBtn" type="button">🏆 打開英雄榜</button></div>
+  <div class="drawer-section"><h3>⚙️ 設定與聲音</h3>
+   <p class="drawer-note">聲音與環境測試在各島的「勇者→設定」裡，玩家身分會由總部帶入。</p>
+   <div class="actions">
+    <a class="btn secondary" id="settingsChengyuLink" href="https://chengyu-quest-family.onrender.com/">📖 成語島設定</a>
+    <a class="btn secondary" id="settingsEnglishLink" href="https://vocab-quest-family.onrender.com/">🔤 英文島設定</a>
+   </div>
+  </div>
   <div class="drawer-section"><h3>📊 家長觀察室</h3>
    <p class="drawer-note">雲端歷史成績、正確率與錯題保留在各學習島。前往島內的「家長成績」查看,玩家身分會由總部帶入。</p>
    <div class="actions">
@@ -738,9 +745,10 @@ async function call(action,more={}){
  if(!response.ok||!data?.ok)throw Error(data?.error||'雲端連線暫時失敗');
  return data;
 }
-function childLink(world){
+function childLink(world,view){
  const domain=world==='chengyu'?'https://chengyu-quest-family.onrender.com/':'https://vocab-quest-family.onrender.com/';
- return domain+(isFamily()?'#f='+encodeURIComponent(token)+(player?'&p='+encodeURIComponent(player.name):''):'');
+ const hash=isFamily()?'#f='+encodeURIComponent(token)+(player?'&p='+encodeURIComponent(player.name):''):'';
+ return domain+hash+(view?(hash?'&':'#')+'s='+view:'');
 }
 function setLinks(){
  $('islandChengyu').href=childLink('chengyu');
@@ -748,6 +756,8 @@ function setLinks(){
  document.querySelectorAll('[data-world],[data-quest]').forEach(a=>{a.href=childLink((a.dataset.world||a.dataset.quest)==='chengyu'?'chengyu':'vocab')});
  $('parentChengyuLink').href=childLink('chengyu');
  $('parentEnglishLink').href=childLink('vocab');
+ $('settingsChengyuLink').href=childLink('chengyu','settings');
+ $('settingsEnglishLink').href=childLink('vocab','settings');
 }
 const SPRITES={
  warrior:{
@@ -1005,7 +1015,7 @@ function renderExam(){
  });
 }
 async function submitExam(){
- busy=true;show('<div class="dialog-icon">📜</div><h2 id="dialogTitle">勇士試煉批改中…</h2><p>正在雲端確認你的正式等級。</p>','grading');
+ busy=true;show('<div class="dialog-icon">📜</div><h2 id="dialogTitle">勇者試煉批改中…</h2><p>正在雲端確認你的正式等級。</p>','grading');
  try{
   const data=await call('submitExam',{examId:exam.id,answers:examAnswers});
   hero=data.hero;
