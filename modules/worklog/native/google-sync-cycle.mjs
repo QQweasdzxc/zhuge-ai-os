@@ -22,7 +22,7 @@ export async function runGoogleSyncCycle({connection,store,provider,sync,worklog
   const until=now();
   // Owner-filtered source query belongs to WorkLog's own worker identity/session.
   const changed=await store.changedEntries(userId,{after:state.localCursor||connection.activatedAt,through:until});
-  for(const entry of changed){if(entry.status==='deleted')continue;try{await sync.exportEntry(entry);}catch(error){failures.push({entryId:entry.cloudId,code:error.code||'EXPORT_FAILED'});}}
+  for(const entry of changed){try{await sync.exportEntry(entry);}catch(error){failures.push({entryId:entry.cloudId,code:error.code||'EXPORT_FAILED'});}}
   if(failures.length){await store.cycleFailure(userId,calendarId,failures);return{status:'incomplete',failures};}
   await store.advance(userId,calendarId,{syncToken:cursor,localCursor:until,lease});return{status:baseline?'initialized':'synced',seen:count,exported:changed.length};
  }finally{await store.release(userId,calendarId,lease);}
