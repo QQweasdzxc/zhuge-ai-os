@@ -214,7 +214,7 @@ root.outerHTML='<section class="world expedition-world" id="worldMap" aria-label
   fsBtn.hidden=!full;
   if(!full&&document.fullscreenElement)document.exitFullscreen().catch(()=>{});
   resetScroll();
-  requestAnimationFrame(fitStage);
+  fitStage();
  }
  fitBtn.addEventListener('click',()=>{save(document.documentElement.classList.contains('voyage-full')?'boxed':'full');apply()});
  function syncFs(){const on=!!document.fullscreenElement;fsBtn.textContent=on?'✕ 離開全螢幕':'⛶ 全螢幕';fsBtn.setAttribute('aria-pressed',on?'true':'false')}
