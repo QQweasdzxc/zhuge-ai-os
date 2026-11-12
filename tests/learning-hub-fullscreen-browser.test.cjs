@@ -130,6 +130,15 @@ test('mobile hub keeps its existing fullscreen portrait map and gets no desktop 
     };
   });
   assert.deepEqual(r, { shellFixed: true, shellFull: true, chengyu: true, english: true, fitHidden: true, boatInView: true, noShopEntries: true, noFullClass: true, noScroll: true });
+  const deck = await page.evaluate(() => {
+    const R = sel => { const e = document.querySelector(sel); if (!e) return null; const r = e.getBoundingClientRect(); return { t: r.top, b: r.bottom, l: r.left, r: r.right } };
+    return { stage: R('.voyage-stage'), boat: R('#boatShopBtn'), face: R('.m-face'), hud: R('.m-hud'), tasks: R('#mTasksBtn'), iw: innerWidth, ih: innerHeight };
+  });
+  assert.ok(Math.abs(deck.stage.t) < 1 && Math.abs(deck.stage.b - Math.min(1.7768 * deck.iw, deck.ih)) < 2, 'portrait art plane is top-anchored at its native ratio, HUD deck below: ' + JSON.stringify(deck.stage));
+  assert.ok(deck.boat.b <= deck.face.t + 1, 'boat entry fully clears the avatar/HUD zone: ' + JSON.stringify(deck));
+  assert.ok(deck.face.b <= deck.ih - 8, 'hero avatar no longer flush against the window edge: ' + JSON.stringify(deck.face));
+  assert.ok(deck.boat.r <= deck.tasks.l + 1, 'boat entry does not collide with the tasks button: ' + JSON.stringify(deck));
+  assert.ok(deck.boat.t >= deck.stage.t - 1 && deck.boat.b <= deck.stage.b + 2, 'boat entry stays on the art plane');
 });
 
 test('cover crop is biased toward the bottom and long names ellipsis in the adventure card', async t => {
