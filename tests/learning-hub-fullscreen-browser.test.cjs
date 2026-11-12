@@ -141,6 +141,44 @@ test('mobile hub keeps its existing fullscreen portrait map and gets no desktop 
   assert.ok(deck.boat.t >= deck.stage.t - 1 && deck.boat.b <= deck.stage.b + 2, 'boat entry stays on the art plane');
 });
 
+
+test('sign chips match the in-art wooden signs, nails stay clear of text, and the map never double-tap zooms', async t => {
+  for (const [w, h] of [[390, 844], [1280, 800]]) {
+    const { browser, page } = await openHub(w, h);
+    t.after(() => browser.close());
+    const r = await page.evaluate(() => {
+      const cs = (el, pseudo) => getComputedStyle(el, pseudo);
+      const signs = [...document.querySelectorAll('.voyage-sign')].map(sign => {
+        const s = sign.getBoundingClientRect();
+        const range = document.createRange(); range.selectNodeContents(sign);
+        const t = range.getBoundingClientRect();
+        const before = cs(sign, '::before');
+        const nw = parseFloat(before.width), nl = parseFloat(before.left), nt = parseFloat(before.top);
+        const leftNail = { l: s.left + nl, r: s.left + nl + nw, t: s.top + nt, b: s.top + nt + nw };
+        const rightNail = { l: s.right - nl - nw, r: s.right - nl, t: s.top + nt, b: s.top + nt + nw };
+        const overlap = n => !(n.r <= t.left || n.l >= t.right || n.b <= t.top || n.t >= t.bottom);
+        return { label: sign.textContent.trim(), border: parseFloat(cs(sign).borderTopWidth), nail: nw,
+          clear: !overlap(leftNail) && !overlap(rightNail) };
+      });
+      return {
+        taShell: cs(document.querySelector('.voyage-shell')).touchAction,
+        taStage: cs(document.querySelector('.voyage-stage')).touchAction,
+        taHot: cs(document.querySelector('.voyage-hot')).touchAction,
+        signs
+      };
+    });
+    assert.equal(r.taShell, 'manipulation', 'shell blocks double-tap zoom at ' + w);
+    assert.equal(r.taStage, 'manipulation', 'stage blocks double-tap zoom at ' + w);
+    assert.equal(r.taHot, 'manipulation', 'entries block double-tap zoom at ' + w);
+    assert.ok(r.signs.length >= 2, 'both board signs present at ' + w + ': ' + JSON.stringify(r.signs));
+    for (const s of r.signs) {
+      assert.ok(s.border <= 2.5, s.label + ' thin frame like the in-art signs: ' + JSON.stringify(s));
+      assert.ok(s.nail <= 4.5, s.label + ' small nails: ' + JSON.stringify(s));
+      assert.ok(s.clear, s.label + ' nails clear of glyphs: ' + JSON.stringify(s));
+    }
+  }
+});
+
 test('wide viewport keeps the whole map visible without crop and long names ellipsis in the adventure card', async t => {
   const { browser, page } = await openHub(1440, 700);
   t.after(() => browser.close());
