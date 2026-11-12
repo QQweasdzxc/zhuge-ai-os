@@ -181,6 +181,7 @@ function renderQ(){
  $('cgPair').innerHTML='';
  $('cgChoices').innerHTML='';
  $('cgChoices').style.display='';
+ $('cgPrompt').style.display='';
  if(q.type==='typo'){
   $('cgModeTag').textContent='🔍 找出錯別字';
   $('cgLevelTag').textContent=q.level;
@@ -199,8 +200,8 @@ function renderQ(){
   $('cgModeTag').textContent='✝️ 十字組詞';
   $('cgLevelTag').textContent=q.level;
   $('cgTitle').textContent='幫中間的「'+q.payload.c+'」找四個好夥伴：左邊兩格組「◯'+q.payload.c+'」，右邊兩格組「'+q.payload.c+'◯」。';
-  $('cgPrompt').className='prompt-word';
   $('cgPrompt').textContent='';
+  $('cgPrompt').style.display='none';
   $('cgChoices').style.display='none';
   renderPair(q);
  }
