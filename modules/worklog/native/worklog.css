@@ -71,3 +71,17 @@
 .tq6-worklog .entry-meta>div{align-self:flex-end;}
 .tq6-worklog .worklog-operation-error{padding:10px 14px;background:#472631;border:1px solid #995967;border-radius:6px;color:#ffe2e6;}
 @media(max-width:650px){.tq6-worklog .entry-list{grid-template-columns:repeat(auto-fit,minmax(160px,1fr));}}
+
+/* Mobile suggestions share the compact saved-card density, not two large rows. */
+@media(max-width:650px){
+ .tq6-worklog .suggest-panel.panel.mobile-active{height:620px;min-height:0;}
+ .tq6-worklog .suggest-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));grid-template-rows:none;grid-auto-rows:max-content;align-content:start;flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;gap:8px;padding:2px;scrollbar-width:thin;scrollbar-color:#406775 #10232e;}
+ .tq6-worklog .suggest-card{min-height:128px;padding:10px;gap:8px;justify-content:space-between;}
+ .tq6-worklog .suggest-title{min-width:0;}
+ .tq6-worklog .suggest-title .source-detail{line-height:1.4;overflow-wrap:anywhere;}
+ .tq6-worklog .card-bottom{padding-left:0;gap:4px;}
+ .tq6-worklog .card-bottom span{flex-basis:100%;flex:none;width:100%;line-height:1.4;}
+ .tq6-worklog .card-bottom button{min-height:44px;min-width:44px;padding:5px 8px;}
+ .tq6-worklog .suggest-panel .pager{flex:none;margin-top:8px;}
+ .tq6-worklog .suggest-list:focus-visible{outline:1px solid #5c9bad;outline-offset:2px;}
+}
