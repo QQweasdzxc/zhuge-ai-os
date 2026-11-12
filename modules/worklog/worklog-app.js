@@ -3067,6 +3067,7 @@ async function executeWorklogCommand(intent) {
     const list = dayEntries();
     const last = list[list.length - 1];
     if (!last) return assistantResult("今天目前沒有可修改的工時。");
+    if (last.dateOnly) return assistantResult("日期工時請在 TF 工時與月報編輯；原紀錄保留。");
     if (!intent.hours) return assistantResult("請告訴我要把最後一筆改成幾小時。");
     const item = createEntry({ ...last, hours: intent.hours, id: last.id, cloudId: last.cloudId });
     const error = validateEntry(item); if (error) return assistantResult(error);
