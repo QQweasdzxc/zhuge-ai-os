@@ -498,7 +498,7 @@ const DataService = {
         await SupabaseRepository.saveEcpTasks(ecpTasks());
         await SupabaseRepository.saveTasks(tasks);
       }
-      for (const entry of entries.filter(e => e.status !== "deleted")) {
+      for (const entry of entries.filter(e => !e.dateOnly && e.status !== "deleted")) {
         const saved = await SupabaseRepository.saveEntry(entry);
         if (saved?.id) entry.cloudId = saved.id;
       }
@@ -538,7 +538,7 @@ const DataService = {
         await SupabaseRepository.saveEcpTasks(ecpTasks());
         await SupabaseRepository.saveTasks(tasks);
       }
-      for (const entry of entries.filter(e => e.status !== "deleted")) {
+      for (const entry of entries.filter(e => !e.dateOnly && e.status !== "deleted")) {
         const saved = await SupabaseRepository.saveEntry(entry);
         if (saved?.id) entry.cloudId = saved.id;
       }
@@ -552,6 +552,7 @@ const DataService = {
     }
   },
   async deleteEntry(entry) {
+    if (entry?.dateOnly) throw new Error("日期工時請在 TF 原任務移除日期；原紀錄保留");
     if (!dataServiceReady || !hasGoogleOAuthSession()) throw new Error("Cloud Sync 尚未就緒");
     if (dataServiceHydrating || migrationRequired || migrationRunning) throw new Error("Cloud Sync 正在初始化");
     this.setStatus("syncing");
@@ -566,6 +567,7 @@ const DataService = {
     }
   },
   async saveEntry(item) {
+    if (item?.dateOnly) throw new Error("日期工時請在 TF 工時與月報編輯；原紀錄保留");
     if (!dataServiceReady || !hasGoogleOAuthSession()) throw new Error("Cloud Sync 尚未就緒");
     if (dataServiceHydrating || migrationRequired || migrationRunning) throw new Error("Cloud Sync 正在初始化");
     this.setStatus("syncing");

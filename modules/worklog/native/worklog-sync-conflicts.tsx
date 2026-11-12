@@ -10,12 +10,12 @@
 // worklog.css is owned by the integrator and stays untouched here.
 import React,{useCallback,useEffect,useState} from 'react';
 
-export type ConflictSide={title:string;date:string;at:string;hours:number};
+export type ConflictSide={title:string;date:string;at:string;hours:number;dateOnly?:boolean};
 export type WorklogSyncConflict={operationId:string;eventId:string;entryId:string;eventEtag:string;entryUpdatedAt:string|null;eventUpdated:string|null;local:ConflictSide;remote:ConflictSide;updatedAt:string};
 type ConflictRequest=(action:string,body?:Record<string,unknown>)=>Promise<any>;
 
 const FIELDS:[keyof ConflictSide,string][]=[['title','標題'],['date','日期'],['at','開始時間'],['hours','時數']];
-const fmt=(side:ConflictSide,key:keyof ConflictSide)=>key==='hours'?`${side.hours} 小時`:key==='at'?String(side.at||'').replace('T',' '):String(side[key]??'');
+const fmt=(side:ConflictSide,key:keyof ConflictSide)=>key==='hours'?`${side.hours} 小時`:key==='at'?(side.dateOnly?'未指定時刻':String(side.at||'').replace('T',' ')):String(side[key]??'');
 const when=(value:string|null)=>{if(!value)return '未知';const time=new Date(value);return Number.isFinite(time.getTime())?time.toLocaleString('zh-TW',{timeZone:'Asia/Taipei',hour12:false}):'未知';};
 
 const styles:Record<string,React.CSSProperties>={
