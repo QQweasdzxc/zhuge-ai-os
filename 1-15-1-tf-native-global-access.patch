@@ -1,0 +1,237 @@
+diff --git a/labs/taskflow/Dockerfile.web b/labs/taskflow/Dockerfile.web
+index 9fff470bfd..ea3a26a933 100644
+--- a/labs/taskflow/Dockerfile.web
++++ b/labs/taskflow/Dockerfile.web
+@@ -173,6 +173,8 @@ RUN TASKFLOW_TRON_THEME_PATCH=/tmp/apply-taskflow-tron-theme.py \
+ # Global access management: opens the Pages access panel in a new tab; no auth or DB changes
+ COPY labs/taskflow/patches/apply-taskflow-access-management.py /tmp/apply-taskflow-access-management.py
+ COPY labs/taskflow/overrides/taskflow-access-management.tsx /taskflow-access/taskflow-access-management.tsx
++COPY labs/taskflow/overrides/taskflow-access-service.mjs /taskflow-access/taskflow-access-service.mjs
++COPY labs/taskflow/overrides/taskflow-access-service.d.mts /taskflow-access/taskflow-access-service.d.mts
+ COPY labs/taskflow/overrides/taskflow-access-management.test.tsx /taskflow-access/taskflow-access-management.test.tsx
+ COPY labs/taskflow/overrides/taskflow-access-settings-test-block.txt /taskflow-access/taskflow-access-settings-test-block.txt
+ RUN python3 /tmp/apply-taskflow-access-management.py --root /src --overlays /taskflow-access
+diff --git a/labs/taskflow/overrides/taskflow-access-management.test.tsx b/labs/taskflow/overrides/taskflow-access-management.test.tsx
+index b2df0b83ac..914f0fd558 100644
+--- a/labs/taskflow/overrides/taskflow-access-management.test.tsx
++++ b/labs/taskflow/overrides/taskflow-access-management.test.tsx
+@@ -1,17 +1,14 @@
+-import React from "react";
+-import { render, screen } from "@testing-library/react";
+-import { describe, expect, it, vi } from "vitest";
+-import { TaskFlowAccessManagement } from "./taskflow-access-management";
+-vi.mock("./settings-layout", () => ({ SettingsTab: ({children}: {children: React.ReactNode}) => <div>{children}</div> }));
+-describe("TF access management launch button", () => {
+-  it("opens the fixed Pages URL securely without loading a frame or RPC", () => {
+-    render(<TaskFlowAccessManagement />);
+-    const link = screen.getByRole("link", { name: "開啟全站存取管理" });
+-    expect(link).toHaveAttribute("href", "https://qqweasdzxc.github.io/zhuge-ai-os/labs/taskflow/access-management/");
+-    expect(link).toHaveAttribute("target", "_blank");
+-    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+-    expect(screen.getByText(/需全站管理者登入/)).toBeInTheDocument();
+-    expect(document.querySelector("iframe")).toBeNull();
+-    expect(screen.queryByRole("switch")).toBeNull();
+-  });
++import React from 'react';
++import {render,screen,fireEvent,waitFor} from '@testing-library/react';
++import {describe,expect,it,vi} from 'vitest';
++import {TaskFlowAccessManagement} from './taskflow-access-management';
++vi.mock('./settings-layout',()=>({SettingsTab:({children}:{children:React.ReactNode})=><div>{children}</div>}));
++vi.mock('@multica/core/auth',()=>({useAuthStore:(fn:any)=>fn({user:{id:'owner'}})}));
++vi.mock('@multica/core/paths',()=>({useCurrentWorkspace:()=> ({slug:'test'})}));
++vi.mock('../../common/taskflow-worklog/worklog-connection.mjs',()=>({WorklogConnection:class{}}));
++describe('Native global access cards',()=>{
++ it('reads without writes and only sends a confirmed owner decision',async()=>{
++ const row={applicant_user_id:'member',display_name:'合成會員',enabled:false,effective_allowed:false};const service={list:vi.fn(async()=>[row]),setEnabled:vi.fn(async()=>[{...row,enabled:true,effective_allowed:true}])};
++ render(<TaskFlowAccessManagement testService={service}/>);const toggle=await screen.findByRole('switch',{name:'合成會員 全站使用'});expect(service.setEnabled).not.toHaveBeenCalled();expect(document.querySelector('iframe')).toBeNull();vi.spyOn(window,'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);fireEvent.click(toggle);expect(service.setEnabled).not.toHaveBeenCalled();fireEvent.click(toggle);await waitFor(()=>expect(toggle).toHaveAttribute('aria-checked','true'));expect(service.setEnabled).toHaveBeenCalledTimes(1);expect(service.setEnabled).toHaveBeenCalledWith(row,true,expect.any(String));
++ });
+ });
+diff --git a/labs/taskflow/overrides/taskflow-access-management.tsx b/labs/taskflow/overrides/taskflow-access-management.tsx
+index 4c895e74f0..f817e7f655 100644
+--- a/labs/taskflow/overrides/taskflow-access-management.tsx
++++ b/labs/taskflow/overrides/taskflow-access-management.tsx
+@@ -1,13 +1,19 @@
+ "use client";
+-
+-import React from "react";
+-import { SettingsTab } from "./settings-layout";
+-
+-export function TaskFlowAccessManagement() {
+-  return <SettingsTab title="全站存取管理">
+-    <p className="text-body text-muted-foreground">需全站管理者登入，請另開管理頁進行設定。</p>
+-    <a className="inline-flex rounded-lg border border-input px-4 py-2 text-body hover:bg-surface-hover"
+-      href="https://qqweasdzxc.github.io/zhuge-ai-os/labs/taskflow/access-management/"
+-      target="_blank" rel="noopener noreferrer">開啟全站存取管理</a>
+-  </SettingsTab>;
++import React,{useEffect,useMemo,useRef,useState} from 'react';
++import {useAuthStore} from '@multica/core/auth';
++import {useCurrentWorkspace} from '@multica/core/paths';
++import {SettingsTab} from './settings-layout';
++import {WorklogConnection} from '../../common/taskflow-worklog/worklog-connection.mjs';
++import {createAccessService,type AccessRow,type AccessService} from './taskflow-access-service.mjs';
++const baseUrl=process.env.NEXT_PUBLIC_TASKFLOW_WORKLOG_SUPABASE_URL||'';
++const anonKey=process.env.NEXT_PUBLIC_TASKFLOW_WORKLOG_ANON_KEY||'';
++export function TaskFlowAccessManagement({testService}:{testService?:AccessService}={}){
++ const userId=useAuthStore(s=>s.user?.id),slug=useCurrentWorkspace()?.slug;
++ const [rows,setRows]=useState<AccessRow[]>([]),[error,setError]=useState(''),[busy,setBusy]=useState(true),[notice,setNotice]=useState('');const revision=useRef(0),intent=useRef<{id:string;enabled:boolean;key:string}|null>(null);
++ const connection=useMemo(()=>userId&&baseUrl&&anonKey&&typeof window!=='undefined'?new WorklogConnection({userId,supabaseUrl:baseUrl,anonKey,enabled:true,calendarEnabled:false,storage:window.localStorage,location:{origin:window.location.origin,href:window.location.href,assign:(url:string)=>window.location.assign(url),replaceHistory:(path:string)=>window.history.replaceState(null,'',path)}}):null,[userId]);
++ const service=useMemo(()=>testService||(connection&&userId&&baseUrl&&anonKey?createAccessService({userId,baseUrl,anonKey,getSession:()=>connection.getSession()}):null),[testService,connection,userId]);
++ const load=async()=>{const v=++revision.current;setBusy(true);setError('');try{if(!service)throw Error('請先使用目前帳號完成連線');const next=await service.list();if(v===revision.current)setRows(next);}catch(e){if(v===revision.current)setError(e instanceof Error?e.message:'無法確認權限');}finally{if(v===revision.current)setBusy(false);}};
++ useEffect(()=>{setRows([]);setNotice('');intent.current=null;void load();return()=>{revision.current++;};},[service]);
++ const toggle=async(row:AccessRow)=>{const enabled=!row.enabled;if(busy||!service||(!enabled&&(row.is_creator||row.applicant_user_id===userId)))return;if(!window.confirm(`${enabled?'允許':'停用'} ${row.display_name||row.email||'這位使用者'} 使用全站？`))return;const v=++revision.current;if(intent.current?.id!==row.applicant_user_id||intent.current.enabled!==enabled)intent.current={id:row.applicant_user_id,enabled,key:crypto.randomUUID()};setBusy(true);setNotice('');setError('');try{const next=await service.setEnabled(row,enabled,intent.current.key);if(v===revision.current){setRows(next);intent.current=null;setNotice('使用權限已更新。');}}catch(e){if(v===revision.current)setError(e instanceof Error?e.message:'決定未能確認，請重新確認清單後再試');}finally{if(v===revision.current)setBusy(false);}};
++ return <SettingsTab title="全站存取管理"><div className="space-y-4"><p className="text-body text-muted-foreground">每人核准一次即可使用全站，不需逐項開啟功能。原有資料歸屬與工作區範圍不變。</p><button className="rounded-lg border px-4 py-2" disabled={busy} onClick={()=>void load()}>{busy?'正在確認…':'重新確認'}</button>{error&&<div role="alert"><p>{error}</p>{connection&&<button onClick={()=>void connection.start('/'+encodeURIComponent(slug||'')+'/settings?tab=app-access').catch(e=>setError(e.message))}>連接目前帳號</button>}</div>}{notice&&<p role="status">{notice}</p>}<div className="grid gap-3 sm:grid-cols-2">{rows.map(row=><article key={row.applicant_user_id} className="min-w-0 rounded-xl border p-4"><h3 className="break-words font-medium">{row.display_name||row.email}</h3><p className="break-all text-sm text-muted-foreground">{row.email}</p><div className="mt-3 flex items-center justify-between gap-3"><span>{row.effective_allowed?'已允許使用':'未允許使用'}</span><button type="button" role="switch" aria-label={`${row.display_name||row.email} 全站使用`} aria-checked={row.enabled} disabled={busy||Boolean(error)||Boolean(row.is_creator)||row.applicant_user_id===userId} onClick={()=>void toggle(row)} className={'rounded-full border px-4 py-2 '+(row.enabled?'bg-primary text-primary-foreground':'bg-muted')}>{row.enabled?'On':'Off'}</button></div>{row.effective_allowed!==row.enabled&&<p className="mt-2 text-sm">{'這筆設定與目前使用權限不一致，請重新確認。'}</p>}</article>)}</div>{!busy&&!error&&!rows.length&&<p>目前沒有待管理的使用者。</p>}</div></SettingsTab>;
+ }
+diff --git a/labs/taskflow/overrides/taskflow-access-service.d.mts b/labs/taskflow/overrides/taskflow-access-service.d.mts
+new file mode 100644
+index 0000000000..521ec064c2
+--- /dev/null
++++ b/labs/taskflow/overrides/taskflow-access-service.d.mts
+@@ -0,0 +1,3 @@
++export type AccessRow={applicant_user_id:string;display_name?:string;email?:string;enabled:boolean;effective_allowed:boolean;is_creator?:boolean;status?:string;latest_event_no?:number};
++export type AccessService={list:()=>Promise<AccessRow[]>;setEnabled:(row:AccessRow,enabled:boolean,key:string)=>Promise<AccessRow[]>};
++export function createAccessService(options:{userId:string;getSession:()=>Promise<any>;baseUrl:string;anonKey:string;fetchImpl?:typeof fetch}):AccessService;
+diff --git a/labs/taskflow/overrides/taskflow-access-service.mjs b/labs/taskflow/overrides/taskflow-access-service.mjs
+new file mode 100644
+index 0000000000..c9f38d6ac9
+--- /dev/null
++++ b/labs/taskflow/overrides/taskflow-access-service.mjs
+@@ -0,0 +1,8 @@
++// One owner decision grants application access, never data ownership or per-feature roles.
++export function createAccessService({userId,getSession,baseUrl,anonKey,fetchImpl=fetch}){
++ if(!userId||!getSession||!baseUrl||!anonKey)throw Error('存取管理連線尚未完成');
++ const rpc=async(name,args={})=>{const session=await getSession();if(session?.user?.id!==userId||!session.access_token)throw Error('請先使用目前帳號完成連線');const response=await fetchImpl(new URL('/rest/v1/rpc/'+name,baseUrl),{method:'POST',headers:{apikey:anonKey,Authorization:'Bearer '+session.access_token,'Content-Type':'application/json'},body:JSON.stringify(args),cache:'no-store'});const result=await response.json();if(!response.ok)throw Error(response.status===403?'只有全站管理者可以管理使用權限':result?.message||'存取管理尚未完成');return result;};
++ const creator=async()=>{const value=await rpc('resolve_creator_capability');if(value?.is_creator!==true||value.user_id!==userId)throw Error('只有全站管理者可以管理使用權限');};
++ const list=async()=>{await creator();const rows=await rpc('list_app_access_applications');if(!Array.isArray(rows)||rows.some(x=>!x.applicant_user_id||typeof x.enabled!=='boolean'||typeof x.effective_allowed!=='boolean'))throw Error('權限清單尚未完整載入');return rows;};
++ return{list,async setEnabled(row,enabled,key){if(!row?.applicant_user_id||typeof enabled!=='boolean'||!key)throw Error('權限決定資料不完整');if(!enabled&&(row.is_creator||row.applicant_user_id===userId))throw Error('不能停用自己或全站管理者');await creator();await rpc('set_app_access_user_enabled',{p_applicant_user_id:row.applicant_user_id,p_enabled:enabled,p_note:null,p_idempotency_key:key});const next=await list();const saved=next.find(x=>x.applicant_user_id===row.applicant_user_id);if(!saved||saved.enabled!==enabled||saved.effective_allowed!==enabled)throw Error('尚未確認使用權限已更新，請重新確認');return next;}};
++}
+diff --git a/labs/taskflow/overrides/taskflow-access-service.test.mjs b/labs/taskflow/overrides/taskflow-access-service.test.mjs
+new file mode 100644
+index 0000000000..9410197bd1
+--- /dev/null
++++ b/labs/taskflow/overrides/taskflow-access-service.test.mjs
+@@ -0,0 +1,8 @@
++import test from 'node:test';import assert from 'node:assert/strict';import{createAccessService}from './taskflow-access-service.mjs';
++function fixture({sessionOwner='owner',creator=true,rows=[{applicant_user_id:'member',enabled:false,effective_allowed:false}],fail=false}={}){const calls=[];const service=createAccessService({userId:'owner',baseUrl:'https://synthetic.invalid',anonKey:'not-real',getSession:async()=>({user:{id:sessionOwner},access_token:'synthetic'}),fetchImpl:async(url,opt)=>{const name=url.pathname.split('/').at(-1);calls.push([name,JSON.parse(opt.body)]);if(name==='set_app_access_user_enabled'){rows[0].enabled=JSON.parse(opt.body).p_enabled;rows[0].effective_allowed=rows[0].enabled;}return {ok:!fail,status:fail?403:200,json:async()=>name==='resolve_creator_capability'?{user_id:'owner',is_creator:creator}:name==='list_app_access_applications'?rows:{enabled:true}}}});return{calls,service,rows};}
++test('load only reads existing creator and members, no ensure or decisions',async()=>{const f=fixture();assert.equal((await f.service.list()).length,1);assert.deepEqual(f.calls.map(x=>x[0]),['resolve_creator_capability','list_app_access_applications']);});
++test('one confirmed decision is global, preserves subject and idempotency',async()=>{const f=fixture();await f.service.setEnabled(f.rows[0],true,'same-operation');assert.deepEqual(f.calls.find(x=>x[0]==='set_app_access_user_enabled')[1],{p_applicant_user_id:'member',p_enabled:true,p_note:null,p_idempotency_key:'same-operation'});assert.equal(f.calls.at(-1)[0],'list_app_access_applications');});
++test('never borrows another account session',async()=>{const f=fixture({sessionOwner:'other'});await assert.rejects(()=>f.service.list());assert.equal(f.calls.length,0);});
++test('workspace owner is not global creator',async()=>{const f=fixture({creator:false});await assert.rejects(()=>f.service.list());assert.equal(f.calls.length,1);await assert.rejects(()=>f.service.setEnabled(f.rows[0],true,'operation'));assert.equal(f.calls.some(x=>x[0].startsWith('set_')),false);});
++test('self and creator cannot be disabled',async()=>{const f=fixture();await assert.rejects(()=>f.service.setEnabled({applicant_user_id:'owner'},false,'x'));await assert.rejects(()=>f.service.setEnabled({applicant_user_id:'creator',is_creator:true},false,'x'));assert.equal(f.calls.length,0);});
++test('incomplete responses and denied API never mean empty or saved',async()=>{for(const options of[{rows:null},{rows:[{applicant_user_id:'member'}]},{fail:true}]){const f=fixture(options);await assert.rejects(()=>f.service.list());}});
+diff --git a/labs/taskflow/overrides/taskflow-access-settings-test-block.txt b/labs/taskflow/overrides/taskflow-access-settings-test-block.txt
+index 182cdc9ab2..bc507e518f 100644
+--- a/labs/taskflow/overrides/taskflow-access-settings-test-block.txt
++++ b/labs/taskflow/overrides/taskflow-access-settings-test-block.txt
+@@ -4,10 +4,7 @@ describe("TaskFlow access settings workspace-role visibility", () => {
+     navigationState.search = "tab=app-access";
+     renderWithI18n(<SettingsPage />);
+     expect(screen.getByRole("link", { name: "全站存取管理" })).toBeInTheDocument();
+-    const link = screen.getByRole("link", { name: "開啟全站存取管理" });
+-    expect(link).toHaveAttribute("target", "_blank");
+-    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+-    expect(link).toHaveAttribute("href", "https://qqweasdzxc.github.io/zhuge-ai-os/labs/taskflow/access-management/");
++    expect(screen.getByText(/每人核准一次即可使用全站/)).toBeInTheDocument();
+     expect(document.querySelector("iframe")).toBeNull();
+     expect(screen.queryByRole("switch")).toBeNull();
+   });
+diff --git a/labs/taskflow/patches/apply-taskflow-access-management.py b/labs/taskflow/patches/apply-taskflow-access-management.py
+index 48adb4c3ce..f1e17e0526 100644
+--- a/labs/taskflow/patches/apply-taskflow-access-management.py
++++ b/labs/taskflow/patches/apply-taskflow-access-management.py
+@@ -1,5 +1,5 @@
+ #!/usr/bin/env python3
+-"""Install the Pages-only access panel on the copied TaskFlow web source."""
++"""Install the native global access panel on the copied TaskFlow web source."""
+ import argparse
+ from pathlib import Path
+ 
+@@ -29,6 +29,8 @@ def apply(root, overlays):
+     if "TaskFlow access settings workspace-role visibility" in shell_source:
+         raise ValueError("access integration test already installed")
+     integration_test = (overlays / "taskflow-access-settings-test-block.txt").read_text()
++    for name in ("taskflow-access-service.mjs", "taskflow-access-service.d.mts"):
++        (target.parent / name).write_text((overlays / name).read_text())
+     target.write_text(source)
+     (target.parent / "taskflow-access-management.tsx").write_text(component)
+     (target.parent / "taskflow-access-management.test.tsx").write_text(test)
+diff --git a/labs/taskflow/tests/worklog-browser/access-native.cjs b/labs/taskflow/tests/worklog-browser/access-native.cjs
+new file mode 100644
+index 0000000000..a6c12f7a71
+--- /dev/null
++++ b/labs/taskflow/tests/worklog-browser/access-native.cjs
+@@ -0,0 +1,2 @@
++const{chromium}=require('playwright');const assert=require('node:assert/strict');
++(async()=>{const b=await chromium.launch({executablePath:process.env.CHROME_PATH||(require('fs').existsSync('/usr/bin/google-chrome-stable')?'/usr/bin/google-chrome-stable':undefined),headless:true,args:['--no-sandbox']});try{for(const width of[320,390,1440]){const p=await b.newPage({viewport:{width,height:900}});await p.goto('http://127.0.0.1:4177/access-native.html');await p.getByRole('switch',{name:'合成會員 1 全站使用'}).waitFor();assert.equal(await p.evaluate(()=>window.writes.length),0);assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.equal(await p.getByRole('switch',{name:'合成管理者 全站使用'}).isDisabled(),true);p.once('dialog',d=>d.dismiss());await p.getByRole('switch',{name:'合成會員 1 全站使用'}).click();assert.equal(await p.evaluate(()=>window.writes.length),0);p.once('dialog',d=>d.accept());await p.getByRole('switch',{name:'合成會員 1 全站使用'}).click();await p.getByText('使用權限已更新。').waitFor();assert.equal(await p.evaluate(()=>window.writes.length),1);await p.screenshot({path:'/downloads/tf-access-native-'+width+'.png',fullPage:true});await p.evaluate(()=>window.readError=true);await p.getByRole('button',{name:'重新確認'}).click();await p.getByRole('alert').waitFor();assert.equal(await p.getByRole('switch',{name:'合成會員 1 全站使用'}).isDisabled(),true);await p.close();}console.log('Native access 320/390/1440; read-only initial, self protected, cancel/no write, confirmed one global decision, failure read-only: PASS');}finally{await b.close()}})().catch(e=>{console.error(e);process.exit(1)});
+diff --git a/labs/taskflow/tests/worklog-browser/access-native.html b/labs/taskflow/tests/worklog-browser/access-native.html
+new file mode 100644
+index 0000000000..328c1b66e7
+--- /dev/null
++++ b/labs/taskflow/tests/worklog-browser/access-native.html
+@@ -0,0 +1 @@
++<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"/></head><body><div id="root"></div><script type="module" src="/access-native.tsx"></script></body></html>
+diff --git a/labs/taskflow/tests/worklog-browser/access-native.tsx b/labs/taskflow/tests/worklog-browser/access-native.tsx
+new file mode 100644
+index 0000000000..8e2157f742
+--- /dev/null
++++ b/labs/taskflow/tests/worklog-browser/access-native.tsx
+@@ -0,0 +1,4 @@
++import React from 'react';import{createRoot}from'react-dom/client';import{TaskFlowAccessManagement}from'../../overrides/taskflow-access-management';
++const rows=[{applicant_user_id:'owner',display_name:'合成管理者',email:'owner@synthetic.invalid',enabled:true,effective_allowed:true,is_creator:true},...Array.from({length:5},(_,i)=>({applicant_user_id:'member'+i,display_name:'合成會員 '+i,email:'a-long-synthetic-member-address-'+i+'@synthetic.invalid',enabled:i%2===0,effective_allowed:i%2===0}))];(window as any).writes=[];
++const service={list:async()=>{if((window as any).readError)throw Error('合成讀取失敗');return [...rows]},setEnabled:async(row:any,enabled:boolean,key:string)=>{(window as any).writes.push({id:row.applicant_user_id,enabled,key});const saved=rows.find(x=>x.applicant_user_id===row.applicant_user_id)!;saved.enabled=enabled;saved.effective_allowed=enabled;return [...rows]}};
++createRoot(document.getElementById('root')!).render(<TaskFlowAccessManagement testService={service}/>);
+diff --git a/labs/taskflow/tests/worklog-browser/access-settings-fixture.tsx b/labs/taskflow/tests/worklog-browser/access-settings-fixture.tsx
+new file mode 100644
+index 0000000000..d1b7fc7059
+--- /dev/null
++++ b/labs/taskflow/tests/worklog-browser/access-settings-fixture.tsx
+@@ -0,0 +1 @@
++import React from 'react';export function SettingsTab({title,children}:any){return <main style={{maxWidth:850,margin:'auto',padding:16,fontFamily:'sans-serif'}}><h1>{title}</h1>{children}<style>{`*{box-sizing:border-box}body{margin:0;background:#081720;color:#d7e7ee}button{min-height:44px;color:inherit;background:#17333f;border:1px solid #557686;border-radius:18px;padding:8px 15px}button:disabled{opacity:.5}.space-y-4>*{margin-bottom:16px}.grid{display:grid;gap:12px}article{min-width:0;border:1px solid #355764;border-radius:12px;padding:16px}.break-all{word-break:break-all}.flex{display:flex;align-items:center;justify-content:space-between;gap:12px}.text-muted-foreground{color:#adc2ce}.bg-primary{background:#287b99}@media(min-width:640px){.grid{grid-template-columns:1fr 1fr}}`}</style></main>}
+diff --git a/labs/taskflow/tests/worklog-browser/native-path-fixture.ts b/labs/taskflow/tests/worklog-browser/native-path-fixture.ts
+index 94938d097e..c598e2a383 100644
+--- a/labs/taskflow/tests/worklog-browser/native-path-fixture.ts
++++ b/labs/taskflow/tests/worklog-browser/native-path-fixture.ts
+@@ -1 +1,2 @@
+ export function useWorkspaceSlug(){return 'synthetic-tq6'}
++export function useCurrentWorkspace(){return {slug:'synthetic-tq6',id:'synthetic-workspace'}}
+diff --git a/labs/taskflow/tests/worklog-browser/vite.config.mjs b/labs/taskflow/tests/worklog-browser/vite.config.mjs
+index fbf855079e..8201b9af4b 100644
+--- a/labs/taskflow/tests/worklog-browser/vite.config.mjs
++++ b/labs/taskflow/tests/worklog-browser/vite.config.mjs
+@@ -1 +1 @@
+-import{defineConfig}from'vite';import{fileURLToPath}from'node:url';import{readFileSync}from'node:fs';export default defineConfig({plugins:[{name:'official-holiday-fixtures',configureServer(server){server.middlewares.use((req,res,next)=>{const match=req.url?.match(/^\/worklog-assets\/holidays\/(2026|2027)\.json$/);if(!match)return next();res.setHeader('Content-Type','application/json');res.end(readFileSync(fileURLToPath(new URL('../../../../modules/worklog/native/holiday-data/'+match[1]+'.json',import.meta.url))))})}}],define:{'process.env.NEXT_PUBLIC_TASKFLOW_WORKLOG_CALENDAR_ENABLED':JSON.stringify(process.env.TQ6_TEST_CALENDAR_ENABLED||'false'),'process.env.NEXT_PUBLIC_TASKFLOW_WORKLOG_ENABLED':JSON.stringify('true'),'process.env.NEXT_PUBLIC_TASKFLOW_WORKLOG_SUPABASE_URL':JSON.stringify('https://synthetic-tq6.supabase.test'),'process.env.NEXT_PUBLIC_TASKFLOW_WORKLOG_ANON_KEY':JSON.stringify('synthetic-public-key')},resolve:{alias:{'@multica/core/api':fileURLToPath(new URL('./native-api-fixture.ts',import.meta.url)),'@multica/core/hooks':fileURLToPath(new URL('./native-workspace-fixture.ts',import.meta.url)),'@multica/core/auth':fileURLToPath(new URL('./native-auth-fixture.ts',import.meta.url)),'@multica/core/paths':fileURLToPath(new URL('./native-path-fixture.ts',import.meta.url)),react:fileURLToPath(new URL('./node_modules/react',import.meta.url)),'react-dom':fileURLToPath(new URL('./node_modules/react-dom',import.meta.url))}},publicDir:fileURLToPath(new URL('../../../../modules/worklog',import.meta.url)),server:{host:'127.0.0.1',port:4177,fs:{allow:[fileURLToPath(new URL('../../../../',import.meta.url))]}}});
++import{defineConfig}from'vite';import{fileURLToPath}from'node:url';import{readFileSync}from'node:fs';export default defineConfig({plugins:[{name:'official-holiday-fixtures',configureServer(server){server.middlewares.use((req,res,next)=>{const match=req.url?.match(/^\/worklog-assets\/holidays\/(2026|2027)\.json$/);if(!match)return next();res.setHeader('Content-Type','application/json');res.end(readFileSync(fileURLToPath(new URL('../../../../modules/worklog/native/holiday-data/'+match[1]+'.json',import.meta.url))))})}}],define:{'process.env.NEXT_PUBLIC_TASKFLOW_WORKLOG_CALENDAR_ENABLED':JSON.stringify(process.env.TQ6_TEST_CALENDAR_ENABLED||'false'),'process.env.NEXT_PUBLIC_TASKFLOW_WORKLOG_ENABLED':JSON.stringify('true'),'process.env.NEXT_PUBLIC_TASKFLOW_WORKLOG_SUPABASE_URL':JSON.stringify('https://synthetic-tq6.supabase.test'),'process.env.NEXT_PUBLIC_TASKFLOW_WORKLOG_ANON_KEY':JSON.stringify('synthetic-public-key')},resolve:{alias:{'./settings-layout':fileURLToPath(new URL('./access-settings-fixture.tsx',import.meta.url)),'../../common/taskflow-worklog/worklog-connection.mjs':fileURLToPath(new URL('../../../../modules/worklog/native/worklog-connection.mjs',import.meta.url)),'@multica/core/api':fileURLToPath(new URL('./native-api-fixture.ts',import.meta.url)),'@multica/core/hooks':fileURLToPath(new URL('./native-workspace-fixture.ts',import.meta.url)),'@multica/core/auth':fileURLToPath(new URL('./native-auth-fixture.ts',import.meta.url)),'@multica/core/paths':fileURLToPath(new URL('./native-path-fixture.ts',import.meta.url)),react:fileURLToPath(new URL('./node_modules/react',import.meta.url)),'react-dom':fileURLToPath(new URL('./node_modules/react-dom',import.meta.url))}},publicDir:fileURLToPath(new URL('../../../../modules/worklog',import.meta.url)),server:{host:'127.0.0.1',port:4177,fs:{allow:[fileURLToPath(new URL('../../../../',import.meta.url))]}}});
+diff --git a/modules/worklog/native/worklog-connection.mjs b/modules/worklog/native/worklog-connection.mjs
+index 562fab1b89..1693fa7c3d 100644
+--- a/modules/worklog/native/worklog-connection.mjs
++++ b/modules/worklog/native/worklog-connection.mjs
+@@ -4,6 +4,7 @@ import {WorklogError} from './worklog-service.mjs';
+ const encode=bytes=>btoa(String.fromCharCode(...bytes)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+ // Share refreshes across independent page consumers without sharing credentials
+ // across owners, origins or storage contexts. Web Locks also serializes tabs.
++const validReturn=(target,calendar=false)=>!target.hash&&(/^\/[^/]+\/worklog$/.test(target.pathname)&&!target.search||!calendar&&/^\/[^/]+\/settings$/.test(target.pathname)&&target.search==='?tab=app-access');
+ const refreshes=new WeakMap();
+ function sharedRefresh(storage,key,run){let jobs=refreshes.get(storage);if(!jobs){jobs=new Map();refreshes.set(storage,jobs);}if(jobs.has(key))return jobs.get(key);const job=Promise.resolve().then(run).finally(()=>{if(jobs.get(key)===job)jobs.delete(key);});jobs.set(key,job);return job;}
+ export class WorklogConnection {
+@@ -11,10 +12,10 @@ export class WorklogConnection {
+  headers(){return {apikey:this.anonKey,'Content-Type':'application/json'};}
+  read(key){try{return JSON.parse(this.storage.getItem(key)||'null')}catch{return null;}}
+  disconnect(){this.storage.removeItem(this.key);this.storage.removeItem(this.pendingKey);}
+- async start(returnPath,{calendar=false}={}){if(calendar&&!this.calendarEnabled)throw new WorklogError('CALENDAR_NOT_ENABLED','Google 工時日曆同步尚未啟用，沒有更改資料');if(!this.enabled)throw new WorklogError('CONNECTION_NOT_ENABLED','工時連線尚未啟用，目前沒有更改你的登入或授權');const target=new URL(returnPath,this.location.origin);if(target.origin!==this.location.origin||!target.pathname.endsWith('/worklog')||target.hash)throw new Error('Invalid return path');const verifier=encode(this.crypto.getRandomValues(new Uint8Array(48)));const challenge=encode(new Uint8Array(await this.crypto.subtle.digest('SHA-256',new TextEncoder().encode(verifier))));this.storage.setItem(this.pendingKey,JSON.stringify({verifier,at:this.now(),returnPath:target.pathname,calendar}));const redirect=new URL('/auth/worklog',this.location.origin);const url=new URL('/auth/v1/authorize',this.base);url.search=new URLSearchParams({provider:'google',redirect_to:redirect.href,code_challenge:challenge,code_challenge_method:'S256',scopes:'openid email profile'+(calendar?' https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.calendarlist.readonly':'')}).toString();if(calendar){url.searchParams.set('access_type','offline');url.searchParams.set('prompt','consent');}this.location.assign(url.href);}
++ async start(returnPath,{calendar=false}={}){if(calendar&&!this.calendarEnabled)throw new WorklogError('CALENDAR_NOT_ENABLED','Google 工時日曆同步尚未啟用，沒有更改資料');if(!this.enabled)throw new WorklogError('CONNECTION_NOT_ENABLED','工時連線尚未啟用，目前沒有更改你的登入或授權');const target=new URL(returnPath,this.location.origin);if(target.origin!==this.location.origin||!validReturn(target,calendar))throw new Error('Invalid return path');const verifier=encode(this.crypto.getRandomValues(new Uint8Array(48)));const challenge=encode(new Uint8Array(await this.crypto.subtle.digest('SHA-256',new TextEncoder().encode(verifier))));this.storage.setItem(this.pendingKey,JSON.stringify({verifier,at:this.now(),returnPath:target.pathname+target.search,calendar}));const redirect=new URL('/auth/worklog',this.location.origin);const url=new URL('/auth/v1/authorize',this.base);url.search=new URLSearchParams({provider:'google',redirect_to:redirect.href,code_challenge:challenge,code_challenge_method:'S256',scopes:'openid email profile'+(calendar?' https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.calendarlist.readonly':'')}).toString();if(calendar){url.searchParams.set('access_type','offline');url.searchParams.set('prompt','consent');}this.location.assign(url.href);}
+  async verify(session,{persist=true}={}){if(!session?.access_token||!session?.refresh_token)throw new WorklogError('CONNECTION_REQUIRED','Google 登入尚未完成，請重試');const response=await this.fetch(new URL('/auth/v1/user',this.base),{headers:{...this.headers(),Authorization:'Bearer '+session.access_token},cache:'no-store'});if(!response.ok)throw new WorklogError('CONNECTION_UNAVAILABLE','目前無法確認工時登入，已保留連線；請稍後重新載入');const user=await response.json();if(user.id!==this.userId)throw new WorklogError('OWNER_MISMATCH','請使用目前 TF 登入的同一個 Google 帳號；沒有切換或覆蓋資料');const clean={access_token:session.access_token,refresh_token:session.refresh_token,expires_at:Number(session.expires_at)||Math.floor(this.now()/1000)+Number(session.expires_in||3600),user:{id:user.id}};if(persist)this.storage.setItem(this.key,JSON.stringify(clean));return clean;}
+  async token(body){let response;try{response=await this.fetch(new URL('/auth/v1/token?grant_type='+body.grant_type,this.base),{method:'POST',headers:this.headers(),body:JSON.stringify(Object.fromEntries(Object.entries(body).filter(([k])=>k!=='grant_type'))),cache:'no-store'});}catch{throw new WorklogError('CONNECTION_UNAVAILABLE','網路暫時無法更新工時登入，已保留連線；請稍後重新載入');}if(!response.ok){let result={};try{result=await response.json()}catch{}const invalid=body.grant_type==='refresh_token'&&[400,401].includes(response.status)&&['refresh_token_not_found','refresh_token_already_used','session_not_found','session_expired','user_banned','user_not_found'].includes(result.error_code||result.code);throw new WorklogError(invalid?'CONNECTION_REVOKED':'CONNECTION_UNAVAILABLE',invalid?'工時登入已失效，請重新連接原有工時資料':'暫時無法更新工時登入，已保留連線；請稍後重新載入');}return response.json();}
+- async finish(){if(!this.enabled)throw new WorklogError('CONNECTION_NOT_ENABLED','工時連線尚未啟用');const url=new URL(this.location.href);const code=url.searchParams.get('code'),denied=url.searchParams.has('error');this.location.replaceHistory?.(url.pathname);const pending=this.read(this.pendingKey);this.storage.removeItem(this.pendingKey);if(denied)throw new WorklogError('CONSENT_DECLINED','未完成授權，既有資料及連線未更改');if(!code||!pending?.verifier||this.now()-pending.at>300000||pending.at>this.now())throw new WorklogError('CONNECTION_EXPIRED','這次連線已過期，請從工時頁重新開始');const target=new URL(pending.returnPath,this.location.origin);if(target.origin!==this.location.origin||!/^\/[^/]+\/worklog$/.test(target.pathname)||target.search||target.hash)throw new WorklogError('CONNECTION_EXPIRED','請從工時頁重新開始連線');const session=await this.token({grant_type:'pkce',auth_code:code,code_verifier:pending.verifier});if(pending.calendar){if(!this.calendarEnabled)throw new WorklogError('CALENDAR_NOT_ENABLED','Google 日曆同步尚未啟用');const clean=await this.verify(session,{persist:false});if(!session.provider_token||!session.provider_refresh_token)throw new WorklogError('CALENDAR_CONSENT_REQUIRED','Google 未回傳可持續同步的授權，請重新連接日曆；既有工時連線未更改');const response=await this.fetch(new URL('/functions/v1/worklog-google-sync',this.base),{method:'POST',headers:{...this.headers(),Authorization:'Bearer '+clean.access_token},body:JSON.stringify({action:'connect',session:clean,googleAccessToken:session.provider_token,googleRefreshToken:session.provider_refresh_token}),cache:'no-store'});if(!response.ok)throw new WorklogError('CALENDAR_CONNECT_FAILED','Google 工時日曆連線未完成，沒有顯示同步成功');const result=await response.json();if(result.owner!==this.userId||result.status!=='connected')throw new WorklogError('OWNER_MISMATCH','日曆連線擁有者無法確認');}else await this.verify(session);return pending.returnPath;}
++ async finish(){if(!this.enabled)throw new WorklogError('CONNECTION_NOT_ENABLED','工時連線尚未啟用');const url=new URL(this.location.href);const code=url.searchParams.get('code'),denied=url.searchParams.has('error');this.location.replaceHistory?.(url.pathname);const pending=this.read(this.pendingKey);this.storage.removeItem(this.pendingKey);if(denied)throw new WorklogError('CONSENT_DECLINED','未完成授權，既有資料及連線未更改');if(!code||!pending?.verifier||this.now()-pending.at>300000||pending.at>this.now())throw new WorklogError('CONNECTION_EXPIRED','這次連線已過期，請從工時頁重新開始');const target=new URL(pending.returnPath,this.location.origin);if(target.origin!==this.location.origin||!validReturn(target,pending.calendar===true))throw new WorklogError('CONNECTION_EXPIRED','請從工時頁重新開始連線');const session=await this.token({grant_type:'pkce',auth_code:code,code_verifier:pending.verifier});if(pending.calendar){if(!this.calendarEnabled)throw new WorklogError('CALENDAR_NOT_ENABLED','Google 日曆同步尚未啟用');const clean=await this.verify(session,{persist:false});if(!session.provider_token||!session.provider_refresh_token)throw new WorklogError('CALENDAR_CONSENT_REQUIRED','Google 未回傳可持續同步的授權，請重新連接日曆；既有工時連線未更改');const response=await this.fetch(new URL('/functions/v1/worklog-google-sync',this.base),{method:'POST',headers:{...this.headers(),Authorization:'Bearer '+clean.access_token},body:JSON.stringify({action:'connect',session:clean,googleAccessToken:session.provider_token,googleRefreshToken:session.provider_refresh_token}),cache:'no-store'});if(!response.ok)throw new WorklogError('CALENDAR_CONNECT_FAILED','Google 工時日曆連線未完成，沒有顯示同步成功');const result=await response.json();if(result.owner!==this.userId||result.status!=='connected')throw new WorklogError('OWNER_MISMATCH','日曆連線擁有者無法確認');}else await this.verify(session);return pending.returnPath;}
+  async getSession(){
+  const readOwn=()=>{const saved=this.read(this.key);if(!saved)throw new WorklogError('CONNECTION_REQUIRED','請先連接原有工時資料');if(saved.user?.id!==this.userId){throw new WorklogError('OWNER_MISMATCH','工時帳號與目前 TF 帳號不符；沒有切換或覆蓋資料');}return saved;};
+  const fresh=s=>Number(s.expires_at)*1000-this.now()>120000;
+diff --git a/modules/worklog/native/worklog-connection.test.mjs b/modules/worklog/native/worklog-connection.test.mjs
+index ef2be6a9e8..e662e5e797 100644
+--- a/modules/worklog/native/worklog-connection.test.mjs
++++ b/modules/worklog/native/worklog-connection.test.mjs
+@@ -22,3 +22,5 @@ test('explicit revoked refresh clears only the rejected saved session',async()=>
+ test('late failed refresh cannot erase a newer connection from another tab',async()=>{const f=fixture();f.storage.setItem(f.connection.key,JSON.stringify(expired));f.connection.fetch=async()=>{f.storage.setItem(f.connection.key,JSON.stringify({...expired,access_token:'newer',refresh_token:'newer-refresh',expires_at:999999}));return{ok:false,status:400,json:async()=>({error_code:'refresh_token_already_used'})}};assert.equal((await f.connection.getSession()).access_token,'newer');assert.equal(JSON.parse(f.storage.getItem(f.connection.key)).refresh_token,'newer-refresh');});
+ test('transient owner verification failure does not discard the connection',async()=>{const f=fixture();f.storage.setItem(f.connection.key,JSON.stringify(expired));f.connection.fetch=async(url)=>String(url).includes('/user')?{ok:false,status:503}:{ok:true,json:async()=>({...expired,access_token:'fresh',refresh_token:'fresh-refresh',expires_in:3600})};await assert.rejects(f.connection.getSession(),e=>e.code==='CONNECTION_UNAVAILABLE');assert.deepEqual(JSON.parse(f.storage.getItem(f.connection.key)),expired);});
+ test('cross-tab lock re-reads a session renewed while waiting',async()=>{const f=fixture({locks:{request:async(name,run)=>{assert.match(name,/taskflow-worklog-refresh/);f.storage.setItem(f.connection.key,JSON.stringify({...expired,expires_at:999999}));return run()}}});f.storage.setItem(f.connection.key,JSON.stringify(expired));await f.connection.getSession();assert.equal(f.calls.length,0);});
++test('native access management returns only to its exact settings tab with minimal scopes',async()=>{const f=fixture();await f.connection.start('/w/settings?tab=app-access');assert.equal(new URL(f.location.assigned).searchParams.get('scopes'),'openid email profile');assert.equal(await f.connection.finish(),'/w/settings?tab=app-access');});
++test('other settings, extra query keys and calendar connection cannot widen redirect scope',async()=>{for(const path of ['/w/settings?tab=workspace','/w/settings?tab=app-access&redirect=https://evil.invalid','/w/worklog?x=1']){const f=fixture();await assert.rejects(f.connection.start(path));assert.equal(f.data.size,0);}const f=fixture({calendarEnabled:true});await assert.rejects(f.connection.start('/w/settings?tab=app-access',{calendar:true}));assert.equal(f.data.size,0);});
