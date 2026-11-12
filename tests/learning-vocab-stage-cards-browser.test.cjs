@@ -51,7 +51,9 @@ async function readPanel(page) {
       card1exam: at(1)?.querySelector('[data-stage-exam]')?.textContent || null,
       card2exam: at(2)?.querySelector('[data-stage-exam]')?.textContent || null,
       card3exam: at(3) ? !!at(3).querySelector('[data-stage-exam]') : null,
-      card3go: at(3)?.querySelector('[data-village-stage]')?.textContent || null,
+      card3practice: at(3) ? at(3).hasAttribute('data-village-stage') : null,
+      card3state: at(3)?.querySelector('.village-state')?.textContent || null,
+      demoLayout: cards.every(c => c.querySelector('.village-main') && c.querySelector('.village-side')) && cards.filter(c => !c.classList.contains('village-final')).every(c => c.querySelector('.village-side .village-stars')),
       lockedCards: cards.filter(c => c.classList.contains('village-locked')).length,
       lockedWithButtons: cards.filter(c => c.classList.contains('village-locked') && c.querySelector('button')).length,
       final: cards.find(c => c.classList.contains('village-final'))?.textContent || '',
@@ -75,7 +77,8 @@ test('vocab stage cards are state-driven with PASS marks, short labels and rules
   assert.match(r.help, /達90%開下一關/, 'rules move into 說明');
   assert.match(r.card1, /PASS/, 'passed stage carries a PASS mark');
   assert.equal(r.card1exam, '再測一次', 'passed stage keeps a small retake link');
-  assert.equal(r.card2exam, '開始總結測驗', 'earned exam entry uses the short label');
+  assert.equal(r.card2exam, '總結測驗', 'earned exam entry uses the short compact label');
+  assert.ok(r.demoLayout, 'cards use the compact demo anatomy: main column + side stars');
   assert.equal(r.card3exam, false, 'locked stage has no exam button');
   assert.ok(r.lockedCards >= 5, 'stages 3-7 sit locked behind stage 2');
   assert.equal(r.lockedWithButtons, 0, 'locked cards show no disabled long-text buttons');
@@ -96,14 +99,15 @@ test('vocab stage cards are state-driven with PASS marks, short labels and rules
   await page.click('.village-exam [data-village-close]');
 });
 
-test('an unlocked unpracticed stage offers practice first and explains the next step', async t => {
+test('an unlocked unpracticed stage is tappable for practice and shows no exam entry', async t => {
   CURRENT = STARS_B;
   const { browser, page } = await openVocab(1280, 900);
   t.after(() => browser.close());
   const r = await readPanel(page);
-  assert.equal(r.card3go, '開始練習', 'stage 3 offers practice');
+  assert.equal(r.card3practice, true, 'the stage 3 card itself is the practice entry');
   assert.equal(r.card3exam, false, 'no exam button before the first star');
-  assert.match(r.card3, /先完成本關練習取得第 1 星/, 'the card says what to do next');
+  assert.match(r.card3state, /挑戰中/, 'one short status line, no long explanation');
+  assert.doesNotMatch(r.card3, /先完成本關練習取得第 1 星/, 'no long hint paragraph on the card face');
   assert.match(r.card1, /PASS/);
   assert.match(r.card2, /PASS/);
 });
