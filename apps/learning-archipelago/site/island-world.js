@@ -267,10 +267,10 @@ root.outerHTML='<section class="world expedition-world" id="worldMap" aria-label
   const mode=modes[active],list=rows.slice().sort((a,b)=>b[mode.key]-a[mode.key]||a.order-b.order);
   let html=head()+'<div class="hb-tabs" role="tablist" aria-label="排行榜類別">';
   modes.forEach((m,i)=>html+='<button type="button" role="tab" id="hbTab'+i+'" aria-controls="hbPanel" aria-selected="'+(active===i)+'" tabindex="'+(active===i?0:-1)+'" data-hb-tab="'+i+'">'+esc(m.label)+'</button>');
-  html+='</div><div class="hb-board" id="hbPanel" role="tabpanel" aria-labelledby="hbTab'+active+'"><table><caption>'+esc(mode.label)+(active===2?'':'島 · 累積 XP')+'</caption><thead><tr><th scope="col">冒險者</th><th scope="col">'+esc(mode.unit)+'</th></tr></thead><tbody>';
+  html+='</div><div class="hb-board" id="hbPanel" role="tabpanel" aria-labelledby="hbTab'+active+'"><table><caption>'+esc(mode.label)+(active===2?'':'島 · 累積 XP')+'</caption><thead><tr><th scope="col">勇者</th><th scope="col">'+esc(mode.unit)+'</th></tr></thead><tbody>';
   let last=null,rank=0;
   list.forEach((r,i)=>{const value=r[mode.key];if(value!==last)rank=i+1;last=value;html+='<tr><td><span class="hb-rank">'+rank+'</span><span class="hb-ava" style="background:#526e99">'+esc(Array.from(r.name)[0]||'?')+'</span>'+esc(r.name)+'</td><td><strong>'+value.toLocaleString('zh-TW')+'</strong></td></tr>'});
-  if(!list.length)html+='<tr><td colspan="2" class="hb-state">還沒有冒險者完成角色連結。選好玩家後再來看看。</td></tr>';
+  if(!list.length)html+='<tr><td colspan="2" class="hb-state">還沒有勇者完成角色連結。選好玩家後再來看看。</td></tr>';
   html+='</tbody></table></div><p class="hb-note">'+(active===2?'只計登入、通關與每日任務實際獲得的金幣。兌換不扣排名，退還的金幣也不會重複加分。':'依這座島的累積 XP 排名，不和另一座島相加。')+'同分並列；只顯示這個家庭。每次打開燈塔會重新讀取。</p>'+closeButton();
   card.innerHTML=html;wireClose();
   card.querySelectorAll('[data-hb-tab]').forEach(btn=>{btn.onclick=()=>{active=Number(btn.dataset.hbTab);render(true)};btn.onkeydown=e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();active=e.key==='Home'?0:e.key==='End'?2:(active+(e.key==='ArrowRight'?1:2))%3;render(true)}});
