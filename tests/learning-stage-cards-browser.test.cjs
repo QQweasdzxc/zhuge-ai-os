@@ -84,7 +84,8 @@ test('stage cards are state-driven: stars, what is missing, and the exam entry o
   assert.equal(r.zone3locked, true, 'stage 3 stays locked until stage 2 summary passes');
   assert.equal(r.zone8examBtn, false, 'no village-exam button before 21 stars');
   assert.match(r.zone8copy, /集滿 21 星開放/, 'village exam prerequisite stays visible as text');
-  assert.match(r.zone8copy, /90 分通過/, 'village exam passing rule stays visible');
+  assert.match(r.zone8copy, /集滿 21 星開放/, 'zone 8 card states the unlock condition');
+  assert.doesNotMatch(r.zone8copy, /90 分通過/, 'zone 8 card face drops the passing score (rule stays in 說明)');
   assert.match(r.zone8copy, /3\/21/, 'village progress shows inside the final card');
   assert.doesNotMatch(r.zone8copy, /出村考驗已通過/, 'no false sense that the final stage is cleared');
   assert.match(r.title, /新手村集星 3 \/ 21/, 'total stars sit with the map title');

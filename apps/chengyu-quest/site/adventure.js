@@ -96,7 +96,7 @@ function render(){
  $('adventureStages').innerHTML=zones.map((z,i)=>{
   const n=i+1,locked=n===8?!window.learningVillagePassed:n>available;
   const unlocked8=n===8&&!!starsData?.villageExamUnlocked,done8=n===8&&!!window.learningVillagePassed;
-  const status=n===8?(done8?'✅ 出村考驗已通過':unlocked8?'🎯 出村大考驗開放':'🔒 集滿 21 星開放 · 90 分通過'):examPassed.has(n)?'✅ PASS 已通關':passed.has(n)?'✔ 練習完成':locked?'🔒 未解鎖':n===config.zone?'🎯 挑戰中':'▶ 前往挑戰';
+  const status=n===8?(done8?'✅ 出村考驗已通過':unlocked8?'🎯 出村大考驗開放':'🔒 集滿 21 星開放'):examPassed.has(n)?'✅ PASS 已通關':passed.has(n)?'✔ 練習完成':locked?'🔒 未解鎖':n===config.zone?'🎯 挑戰中':'▶ 前往挑戰';
   let extra='';
   if(n<=7){
    const s=(starsData?.stages||[]).find(x=>x.zone===n),st=s?s.stars:0;
