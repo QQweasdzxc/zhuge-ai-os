@@ -1,6 +1,9 @@
 "use client";
 import React,{useEffect,useState,useRef,useCallback} from 'react';
 import {useAuthStore} from '@multica/core/auth';
+import {api} from '@multica/core/api';
+import {useWorkspaceId} from '@multica/core/hooks';
+import {loadTaskDueDates} from './task-due-calendar.mjs';
 import {useWorkspaceSlug} from '@multica/core/paths';
 import {TaskFlowWorklog} from './taskflow-worklog';
 import {WorklogSyncConflicts} from './worklog-sync-conflicts';
@@ -13,7 +16,8 @@ const anonKey=process.env.NEXT_PUBLIC_TASKFLOW_WORKLOG_ANON_KEY||'';
 const library='https://qqweasdzxc.github.io/zhuge-ai-os/modules/worklog/?app=1&workspace=library';
 function connection(userId:string){return new WorklogConnection({userId,supabaseUrl,anonKey,enabled,calendarEnabled,storage:window.localStorage,location:{origin:window.location.origin,href:window.location.href,assign:(url:string)=>window.location.assign(url),replaceHistory:(path:string)=>window.history.replaceState(null,'',path)}})}
 export function TaskFlowWorklogPage(){
- const userId=useAuthStore(s=>s.user?.id),slug=useWorkspaceSlug();
+ const userId=useAuthStore(s=>s.user?.id),slug=useWorkspaceSlug(),workspaceId=useWorkspaceId();
+ const loadDueTasks=useCallback((from:string,to:string)=>loadTaskDueDates(params=>api.listIssues(params),{workspaceId,from,to}),[workspaceId]);
  const operationVersion=useRef(0);
  const [syncing,setSyncing]=useState(false);const syncRunning=useRef(false),syncQueued=useRef(false);
  const [service,setService]=useState<WorklogService|null>(null),[error,setError]=useState(''),[notice,setNotice]=useState(''),[refreshSignal,setRefreshSignal]=useState(0),[conflictsRefresh,setConflictsRefresh]=useState(0),[calendar,setCalendar]=useState<{status:string;calendarName?:string;lastSyncedAt?:string|null;error?:string}|null>(null);
@@ -24,7 +28,7 @@ export function TaskFlowWorklogPage(){
  const connectGoogle=async()=>{if(!userId||!slug)return;if(!calendarEnabled){setNotice('Google 日曆雙向同步尚未開放；目前不會建立或更改日曆事件。');return}try{await connection(userId).start('/'+encodeURIComponent(slug)+'/worklog',{calendar:true})}catch(e){setNotice(e instanceof Error?e.message:'日曆連線未完成')}};
  const connect=async()=>{if(!userId||!slug)return;try{await connection(userId).start('/'+encodeURIComponent(slug)+'/worklog')}catch(e){setError(e instanceof Error?e.message:'無法開始連線')}};
  if(!service)return <section className="p-6"><h1>工時與月報</h1><p>{error||(!userId?'請先登入 TF。':!enabled?'原生工時整合尚未開放。既有工時、工作知識與月報仍保留在原入口。':'正在準備工時連線…')}</p><a href={library}>開啟既有我的工作與工時</a></section>;
- return <div className="taskflow-worklog-host">{error&&<p role="alert">{error}</p>}{notice&&<p role="status">{notice}<button onClick={()=>setNotice('')}>關閉</button></p>}{calendar?.status==='connected'&&<p role="status">Google 工時日曆：{calendar.calendarName}{calendar.lastSyncedAt&&<small className="worklog-last-sync">最後同步 {new Intl.DateTimeFormat('zh-TW',{timeZone:'Asia/Taipei',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(calendar.lastSyncedAt))}</small>}{calendar.error?' · '+calendar.error:''}<button disabled={syncing} onClick={()=>void syncAfterSave(false)}>{syncing?'同步中…':'同步'}</button><button onClick={()=>void calendarAction('disconnect').then(()=>calendarAction('status')).catch(()=>setNotice('連線正在同步，請稍後再試'))}>中斷同步</button></p>}{calendar?.status==='connected'&&<WorklogSyncConflicts request={calendarAction} refreshSignal={conflictsRefresh} onResolved={()=>{void calendarAction('status');setRefreshSignal(v=>v+1);}}/>}<TaskFlowWorklog deleteLinkedGoogle={calendar?.status==='connected'} onOperationStart={()=>{operationVersion.current++;setNotice('')}} refreshSignal={refreshSignal} onAfterSave={()=>syncAfterSave(true)} onConnectData={connect} service={service} onOpenLibrary={()=>window.location.assign(library)} onConnectGoogle={connectGoogle}/></div>;
+ return <div className="taskflow-worklog-host">{error&&<p role="alert">{error}</p>}{notice&&<p role="status">{notice}<button onClick={()=>setNotice('')}>關閉</button></p>}{calendar?.status==='connected'&&<p role="status">Google 工時日曆：{calendar.calendarName}{calendar.lastSyncedAt&&<small className="worklog-last-sync">最後同步 {new Intl.DateTimeFormat('zh-TW',{timeZone:'Asia/Taipei',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(calendar.lastSyncedAt))}</small>}{calendar.error?' · '+calendar.error:''}<button disabled={syncing} onClick={()=>void syncAfterSave(false)}>{syncing?'同步中…':'同步'}</button><button onClick={()=>void calendarAction('disconnect').then(()=>calendarAction('status')).catch(()=>setNotice('連線正在同步，請稍後再試'))}>中斷同步</button></p>}{calendar?.status==='connected'&&<WorklogSyncConflicts request={calendarAction} refreshSignal={conflictsRefresh} onResolved={()=>{void calendarAction('status');setRefreshSignal(v=>v+1);}}/>}<TaskFlowWorklog loadDueTasks={loadDueTasks} taskBasePath={'/'+encodeURIComponent(slug||'')+'/issues/'} deleteLinkedGoogle={calendar?.status==='connected'} onOperationStart={()=>{operationVersion.current++;setNotice('')}} refreshSignal={refreshSignal} onAfterSave={()=>syncAfterSave(true)} onConnectData={connect} service={service} onOpenLibrary={()=>window.location.assign(library)} onConnectGoogle={connectGoogle}/></div>;
 }
 export function TaskFlowWorklogConnect(){
  const started=useRef(false);const userId=useAuthStore(s=>s.user?.id),status=useAuthStore(s=>s.status),[message,setMessage]=useState('正在確認工時連線…');

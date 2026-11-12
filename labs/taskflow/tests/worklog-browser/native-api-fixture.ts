@@ -1,0 +1,1 @@
+export const api={listIssues:async(params:any)=>{const rows=(window as any).syntheticDueTasks||[];if((window as any).failDueTasks)throw new Error('synthetic load failure');const filtered=rows.filter((x:any)=>x.workspace_id===params.workspace_id&&(x.start_date||x.due_date));return {issues:filtered.slice(params.offset,params.offset+params.limit),total:filtered.length}}};
