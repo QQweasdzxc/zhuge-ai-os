@@ -1,0 +1,52 @@
+name: TaskFlow Date Only Worker V11 Qualification
+on:
+  push:
+    branches: [review/tf-date-hours-bootstrap-20261113]
+    paths: [.github/workflows/taskflow-date-hours-worker-qualification.yml]
+permissions:
+  contents: read
+jobs:
+  worker:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Compose only date changes against exact deployed worker source
+        run: |
+          set -euo pipefail
+          test "$(sha256sum 1-tf-date-hours-worker-v11-isolated.patch | cut -d' ' -f1)" = 3a89e0e99374f21c2faf15aa6ed606ef8fc3fa89c6518fc5dd2b4fa544f227e5
+          cp 1-tf-date-hours-worker-v11-isolated.patch /tmp/worker.patch
+          git switch --detach 5d1bc8e86ea041041197a8c196895adc83d8bec8
+          git apply --check /tmp/worker.patch
+          git apply /tmp/worker.patch
+          git diff --check
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Baseline v11 and date-only behavior qualification
+        run: npm run test:worklog
+      - name: Build exact candidate without publishing function
+        run: |
+          npm ci --ignore-scripts --prefix labs/taskflow/tests/worklog-server
+          cd labs/taskflow/tests/worklog-server
+          npm run test:bundle
+          node --check /tmp/tq6-worklog-worker-bundle.mjs
+          sha256sum /tmp/tq6-worklog-worker-bundle.mjs
+      - name: Preserve source-only review branch, no deployment
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add modules/worklog/native
+          git commit -m 'Date-only hours sync on exact deployed v11 worker source'
+          git push origin HEAD:refs/heads/review/tf-date-hours-worker-v11-20261113
+      - uses: actions/upload-artifact@v4
+        with:
+          name: date-only-worker-v11-candidate
+          path: /tmp/tq6-worklog-worker-bundle.mjs
+          retention-days: 7
