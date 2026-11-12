@@ -534,7 +534,7 @@ var KIND_LABEL={meaning:"英翻中",zh2en:"中翻英",ipa:"音標",spelling:"拼
 function opts(){
  var id=s.order[s.q],key=(s.retry?"retry":s.stage)+":"+s.q+":"+id;
  if(s.choiceKey===key)return s.choiceList;
- var pool=s.pool.length>=4?s.pool:allIndices();
+ var pool=s.pool.length>=3?s.pool:allIndices();
  var alternatives=pool.filter(function(i){return i!==id&&words[i]&&words[i][0]!==words[id][0]&&words[i][1]!==words[id][1]});
  var kind=baseKind();
  if(kind==="meaning"&&!s.retry&&s.stage===0&&s.q%3===2){
@@ -542,7 +542,10 @@ function opts(){
   kind=(Math.floor(s.q/3)%2===1&&words[id][4]&&ipaAlt.length>=3)?"ipa":"zh2en";
   if(kind==="ipa")alternatives=ipaAlt;
  }
- var others=shuffled(alternatives);
+ // Keep the current material, but place plausible word shapes among the options.
+ var target=words[id][0].toLowerCase();
+ function closeness(i){var x=words[i][0].toLowerCase();return (x[0]===target[0]?3:0)+(x.slice(-2)===target.slice(-2)?2:0)+Math.max(0,3-Math.abs(x.length-target.length));}
+ var others=shuffled(alternatives);if(s.villageStage&&!s.retry)others.sort(function(a,b){return closeness(b)-closeness(a)});
  var order=shuffled([id].concat(others.slice(0,3)));
  s.choiceKey=key;s.choiceList=order;s.qKind=kind;return order
 }
