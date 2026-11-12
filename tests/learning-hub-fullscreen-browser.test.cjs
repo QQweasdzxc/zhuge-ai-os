@@ -33,7 +33,11 @@ test('desktop hub defaults to a viewport-filling uncropped map with live island 
       links: [document.getElementById('islandChengyu').href, document.getElementById('islandEnglish').href],
       fitBtn: !!document.getElementById('voyageFitBtn'), fsBtnVisible: !document.getElementById('voyageFsBtn').hidden,
       chips: ['.stage-chip-title', '.stage-chip-status', '.stage-chip-hint'].every(q => { const e = document.querySelector(q); return e && e.getBoundingClientRect().width > 0 }),
-      bgFills: getComputedStyle(document.querySelector('.voyage-bg')).backgroundSize === '100% 100%'
+      bgFills: getComputedStyle(document.querySelector('.voyage-bg')).backgroundSize === '100% 100%',
+      shellClip: getComputedStyle(document.querySelector('.voyage-shell')).overflowY,
+      shellScroll: document.querySelector('.voyage-shell').scrollLeft + document.querySelector('.voyage-shell').scrollTop,
+      chipTop: document.querySelector('.stage-chip-title').getBoundingClientRect().top,
+      dbar: (() => { const d = document.querySelector('.d-topbar'); if (!d) return null; const cs = getComputedStyle(d), b = d.getBoundingClientRect(); return { disp: cs.display, bottom: b.bottom, left: b.left, top: b.top, name: document.getElementById('dName').textContent, lv: document.getElementById('dLv').textContent, coins: document.getElementById('dCoinsN').textContent, xp: document.getElementById('dXpFill').style.width } })()
     };
   });
   assert.equal(r.fullClass, true, 'desktop defaults to the fullscreen layout');
@@ -43,6 +47,16 @@ test('desktop hub defaults to a viewport-filling uncropped map with live island 
   assert.ok(r.chengyu && r.english && r.board, 'both island entries and the hero board stay inside the stage');
   assert.ok(r.links[0].includes('chengyu-quest-family.onrender.com') && r.links[1].includes('vocab-quest-family.onrender.com'), 'island entries keep their destinations');
   assert.ok(r.fitBtn && r.fsBtnVisible && r.chips, 'fullscreen controls and status chips are present');
+  assert.ok(r.shellClip === 'clip' || r.shellClip === 'hidden', 'shell clips overflow so no programmatic scroll can crop the art, got ' + r.shellClip);
+  assert.equal(r.shellScroll, 0, 'shell is never scrolled');
+  assert.ok(r.stage.w >= r.iw && r.stage.h >= r.ih, 'capped cover fills the viewport edge to edge');
+  assert.ok((r.stage.w - r.iw) / 2 / r.stage.w <= 0.095 && (r.stage.h - r.ih) / 2 / r.stage.h <= 0.095, 'cover crop stays within 9% per side');
+  assert.ok(r.dbar && r.dbar.disp === 'flex' && r.dbar.top >= 0 && r.dbar.left >= 0, 'desktop adventure card is pinned top-left');
+  assert.equal(r.dbar.name, '冒險者', 'adventure card guest name');
+  assert.equal(r.dbar.lv, '訪客', 'adventure card guest level');
+  assert.ok(r.chipTop >= r.dbar.bottom - 1, 'island title chip sits below the adventure card');
+  const hot = await page.evaluate(() => ['#islandChengyu', '#islandEnglish', '#heroBoardBtn'].map(id => { const e = document.querySelector(id).getBoundingClientRect(); return { l: e.left, r: e.right, t: e.top, b: e.bottom } }));
+  assert.ok(hot.every(e => e.l >= -1 && e.r <= 1280 + 1 && e.t >= -1 && e.b <= 800 + 1), 'all island entries stay inside the viewport under capped cover: ' + JSON.stringify(hot));
 
   await page.click('#voyageFitBtn');
   const boxed = await page.evaluate(() => ({
@@ -54,9 +68,23 @@ test('desktop hub defaults to a viewport-filling uncropped map with live island 
   assert.equal(boxed.full, false, 'restore leaves the fullscreen layout');
   assert.ok(boxed.w < boxed.iw * 0.97, 'restored layout is the original boxed map');
   assert.equal(boxed.stored, 'boxed', 'restore choice is remembered');
+  assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('.d-topbar')).display), 'none', 'adventure card is fullscreen-only');
+  assert.equal(await page.evaluate(() => document.querySelector('.voyage-stage').style.width), '', 'boxed mode clears the cover sizing');
 
   await page.click('#voyageFitBtn');
   assert.equal(await page.evaluate(() => document.documentElement.classList.contains('voyage-full')), true, 'toggling back restores the fullscreen map');
+});
+
+test('extreme aspect ratios fall back to the uncropped fit instead of over-cropping', async t => {
+  const { browser, page } = await openHub(1100, 1000);
+  t.after(() => browser.close());
+  const r = await page.evaluate(() => {
+    const s = document.querySelector('.voyage-stage').getBoundingClientRect();
+    return { inline: document.querySelector('.voyage-stage').style.width, w: s.width, h: s.height, iw: innerWidth, ih: innerHeight };
+  });
+  assert.equal(r.inline, '', 'fit fallback uses CSS sizing, no cover override');
+  assert.ok(r.w <= r.iw + 1 && r.h <= r.ih + 1, 'fit keeps the whole stage inside the viewport');
+  assert.ok(Math.abs(r.w / r.h - 1672 / 941) < 0.02, 'fit keeps the art ratio');
 });
 
 test('mobile hub keeps its existing fullscreen portrait map and gets no desktop controls', async t => {
