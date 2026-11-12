@@ -6,45 +6,60 @@ on:
 permissions:
   contents: read
 jobs:
-  worker-v14:
+  guard-readers:
     runs-on: ubuntu-24.04
     permissions:
       contents: write
+    strategy:
+      matrix:
+        include:
+          - surface: pages
+            base: c8278f302569ca53ec143b161769ea06e56f3ace
+            branch: review/tf-date-hours-pages-reader-qualified-20261113
+            oldbuild: 20261113-0650
+          - surface: web
+            base: d0591a6f6a74eca64a5d57b1bae9ed1324a3453b
+            branch: review/tf-date-hours-web-release-20261113
+            oldbuild: 20261113-0651
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Compose date-only delta on exact live v14 linked-delete source
+      - name: Compose date-only identity guards on exact reader baseline
+        env:
+          BASE: ${{ matrix.base }}
+          OLD_BUILD: ${{ matrix.oldbuild }}
         run: |
           set -euo pipefail
-          test "$(sha256sum 1-tf-date-hours-worker-v14.patch | cut -d' ' -f1)" = 686c34d7dbc924513796a964de2767c1d00a1cb2d7ac6016bdb1ac9a4cedffb3
-          cp 1-tf-date-hours-worker-v14.patch /tmp/worker-v14.patch
-          git switch --detach e80f25e60398fcd790f64fdb4eb2910f9b784ee0
-          git apply --check /tmp/worker-v14.patch
-          git apply /tmp/worker-v14.patch
+          test "$(sha256sum 1-tf-date-legacy-guard.patch | cut -d' ' -f1)" = cc9cb4a352608e9f678f2334c8f59ad45aea20e93db491932ed0dc053ef27dce
+          cp 1-tf-date-legacy-guard.patch /tmp/guard.patch
+          git switch --detach "$BASE"
+          git apply --check /tmp/guard.patch
+          git apply /tmp/guard.patch
+          git grep -l "$OLD_BUILD" | xargs sed -i "s/$OLD_BUILD/20261113-0729/g"
           git diff --check
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: npm run test:worklog
-      - name: Bundle exact candidate without deployment
+      - name: Core, guard, source, release and entry regression
         run: |
-          npm ci --ignore-scripts --prefix labs/taskflow/tests/worklog-server
-          cd labs/taskflow/tests/worklog-server
-          npm run test:bundle
-          node --check /tmp/tq6-worklog-worker-bundle.mjs
-          test "$(sha256sum /tmp/tq6-worklog-worker-bundle.mjs | cut -d' ' -f1)" = 87f8186a3fded832aef3c6798a4a7bdaaf5259db80b6f47ffc463f6e439bdbed
-      - name: Preserve source-only candidate
+          npm run test:worklog
+          node --test tests/worklog-date-hours-compat.test.js tests/shared-navigation.test.js tests/taskflow-entry.test.js tests/taskflow-cli-sso.test.js
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s labs/taskflow/tests -v
+      - name: Publish source-only reviewed candidate
+        env:
+          TARGET_BRANCH: ${{ matrix.branch }}
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add modules/worklog/native
-          git commit -m 'Date-only worker increment preserving exact live v14 linked delete'
-          git push origin HEAD:refs/heads/review/tf-date-hours-worker-v14-20261113
-      - uses: actions/upload-artifact@v4
-        with:
-          name: date-only-worker-v14-candidate
-          path: /tmp/tq6-worklog-worker-bundle.mjs
-          retention-days: 7
+          git add -u
+          git commit -m 'Guard date-only source identity before legacy assistant normalization'
+          git push origin HEAD:refs/heads/$TARGET_BRANCH
+      - name: Qualify exact Web image without deploy
+        if: matrix.surface == 'web'
+        run: |
+          set -o pipefail
+          docker build --pull --progress=plain -f labs/taskflow/Dockerfile.web -t taskflow-date-hours-guard:parity . 2>&1 | tee /tmp/web-build.log
+          grep -F 'TASKFLOW_SOURCE_MODE=vendored SHA=8db6cfe19ae6fd5c35ec71bd8fea42a3ef3861ec; upstream application source clone=disabled' /tmp/web-build.log
