@@ -261,6 +261,27 @@ test('arriving with s=settings opens the 勇者 settings page directly with the 
   assert.equal(await page.evaluate(() => document.documentElement.classList.contains('app-settings-open')), false, 'a post-close pipeline rebuild must not re-open settings after the user left');
 });
 
+test('vocab arrival intent is stashed before the pipeline runs (p= arrival: settings opens once and stays open)', async t => {
+  CURRENT = STARS_A;
+  const browser = await chromium.launch({ executablePath: resolveBrowserExecutable(), args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  t.after(() => browser.close());
+  await page.route('**/*.supabase.co/**', route => {
+    let action = ''; try { action = route.request().postDataJSON()?.action || ''; } catch (e) {}
+    const J = x => route.fulfill({ contentType: 'application/json', body: JSON.stringify(x) });
+    if (action === 'load') return J({ ok: true, learners: [{ id: 'hero1', name: '測試' }], units: [{ id: 'u1', category: 'c', title: 't', week: '1', words: [{ en: 'apple', zh: '蘋果', sentence: 'x' }] }], attempts: [] });
+    if (action === 'getStageStars') return J(CURRENT);
+    if (action === 'getDailyTasks') return J({ ok: true, tasks: [] });
+    return J({ ok: true });
+  });
+  await page.goto((await fixtureURL(VOCAB)) + '#f=' + 'a'.repeat(41) + '&p=' + encodeURIComponent('測試') + '&s=settings');
+  await page.waitForSelector('html.app-settings-open .app-settings:not([hidden])', { timeout: 15000 });
+  const r = await page.evaluate(() => ({ stashed: window.__sArrive === true }));
+  assert.equal(r.stashed, true, 'arrival intent stashed in <head> before any hash rewrite');
+  await new Promise(r2 => setTimeout(r2, 2500));
+  assert.equal(await page.evaluate(() => document.documentElement.classList.contains('app-settings-open') && !document.querySelector('.app-settings').hidden), true, 'settings stays open after the full resume pipeline settles');
+});
+
 test('vocab shared assets call the player 勇者, never 冒險者', () => {
   const fs = require('fs');
   for (const f of ['archipelago.js', 'progress.js']) {
