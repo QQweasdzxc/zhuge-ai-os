@@ -1,0 +1,80 @@
+name: Learning islands Pages migration
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: learning-islands-pages-release
+  cancel-in-progress: false
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 3367e554b9213801618933ea8938713368a6ebbe
+          path: main-source
+      - uses: actions/checkout@v4
+        with:
+          ref: 33ecf40fe26f1b99c6a966f3020ba4f697eb2e01
+          path: hub-source
+      - uses: actions/checkout@v4
+        with:
+          ref: 47061d8b1a63629335e4c722baa1a9b4d0eda150
+          path: chengyu-source
+      - uses: actions/checkout@v4
+        with:
+          ref: fc8e30303aed3171f606661cc6b50ee60de39bd9
+          path: vocab-source
+      - uses: actions/checkout@v4
+        with:
+          repository: marmottajr/habblaud
+          ref: faa1a012b5fbf632c66dc6801c5383e53a542406
+          path: pixel-source
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Preserve current curated Pages content and Pixel Office
+        run: |
+          node main-source/tools/build-pages-site.js "$RUNNER_TEMP/pages-site"
+          npm ci --prefix pixel-source --ignore-scripts --no-audit --no-fund
+          node main-source/integrations/habblaud/build.mjs "$GITHUB_WORKSPACE/pixel-source" "$RUNNER_TEMP/pages-site"
+      - name: Add exact current illustrated islands and newest phrase audio
+        run: |
+          mkdir -p "$RUNNER_TEMP/pages-site/learning/chengyu" "$RUNNER_TEMP/pages-site/learning/vocab"
+          cp -a hub-source/apps/learning-archipelago/site/. "$RUNNER_TEMP/pages-site/learning/"
+          cp -a chengyu-source/apps/chengyu-quest/site/. "$RUNNER_TEMP/pages-site/learning/chengyu/"
+          cp -a vocab-source/apps/vocab-quest/site/. "$RUNNER_TEMP/pages-site/learning/vocab/"
+          python3 - <<'PY'
+          import pathlib,os,json
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'pages-site'/'learning'
+          replacements={'https://learning-archipelago-family.onrender.com/':'https://qqweasdzxc.github.io/zhuge-ai-os/learning/','https://chengyu-quest-family.onrender.com/':'https://qqweasdzxc.github.io/zhuge-ai-os/learning/chengyu/','https://vocab-quest-family.onrender.com/':'https://qqweasdzxc.github.io/zhuge-ai-os/learning/vocab/'}
+          for p in root.rglob('*'):
+            if p.suffix not in ['.html','.js','.json','.css']:continue
+            s=p.read_text()
+            for a,b in replacements.items():s=s.replace(a,b)
+            guard="!['learning-archipelago-family.onrender.com','chengyu-quest-family.onrender.com','vocab-quest-family.onrender.com'].includes(parsed.hostname)"
+            new="!(['learning-archipelago-family.onrender.com','chengyu-quest-family.onrender.com','vocab-quest-family.onrender.com'].includes(parsed.hostname)||(parsed.hostname==='qqweasdzxc.github.io'&&/^\\/zhuge-ai-os\\/learning\\/(?:$|index\\.html$|(?:chengyu|vocab)\\/(?:index\\.html)?$)/.test(parsed.pathname)))"
+            p.write_text(s.replace(guard,new))
+          assert len(list((root/'vocab').glob('*.mp3')))==20
+          assert json.loads((root/'vocab/release.json').read_text())['version']=='2.9.13'
+          assert (root/'index.html').exists() and (root/'chengyu/index.html').exists()
+          PY
+      - name: Validate existing Pages paths are preserved
+        run: node main-source/tests/pages-publish-artifact.test.js "$RUNNER_TEMP/pages-site"
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ runner.temp }}/pages-site
+          retention-days: 1
+  deploy:
+    needs: prepare
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - uses: actions/deploy-pages@v5
+        id: deployment
