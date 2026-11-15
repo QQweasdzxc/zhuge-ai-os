@@ -209,7 +209,7 @@ function playAudio(word,slow){
     speechFallback(word,item.slow);
   })}catch(e){if(requestEpoch===wordPlayEpoch&&audioActive===audio){item.playing=false;speechFallback(word,item.slow)}}
 }
-/* Offline candidate: phrase audio only. No preload, cloud writes or scoring changes. */
+/* Bundled phrase audio only. No preload, cloud writes or scoring changes. */
 var phraseAudioFiles={"to play cricket":"./1-international-a-01.mp3?v=20261115-1","to do archery":"./2-international-a-02.mp3?v=20261115-1","to do taekwondo":"./3-international-a-03.mp3?v=20261115-1","be in progress":"./4-international-a-04.mp3?v=20261115-1","to show someone around":"./5-international-a-05.mp3?v=20261115-1","for months":"./6-international-a-06.mp3?v=20261115-1","to give it a try":"./7-international-a-07.mp3?v=20261115-1","to be in great shape":"./8-international-a-08.mp3?v=20261115-1","some equipment":"./9-international-a-09.mp3?v=20261115-1","to kayak":"./10-international-a-10.mp3?v=20261115-1","than ever":"./11-international-b-01.mp3?v=20261115-1","to defeat someone":"./12-international-b-02.mp3?v=20261115-1","to announce something":"./13-international-b-03.mp3?v=20261115-1","a distance":"./14-international-b-04.mp3?v=20261115-1","to perform":"./15-international-b-05.mp3?v=20261115-1","a success":"./16-international-b-06.mp3?v=20261115-1","to measure":"./17-international-b-07.mp3?v=20261115-1","some determination":"./18-international-b-08.mp3?v=20261115-1","some sewage":"./19-international-b-09.mp3?v=20261115-1","the previous one":"./20-international-b-10.mp3?v=20261115-1"};
 var phraseAudio=null, phraseVoice=null, phraseEpoch=0, phraseTimer=null;
 function stopPhraseAudio(){
@@ -674,6 +674,7 @@ s.view="game";s.retry=!!retry;s.challengeMode=retry?s.challengeMode:(typeof whic
 window.vocabVillageUnit=()=>s.scope<0?null:wordUnits[s.scope].id;window.vocabVillageStart=function(n){if(currentPool().length<3){alert("這份教材至少需3個詞才能開始混合關，請選另一週或總複習");return}start(false,undefined,n)};
 function answer(val){
  if(s.answered||s.gameOver||s.view!=="game")return;
+ stopPhraseAudio();
  var idx=s.order[s.q],correct=(s.retry||s.stage===1)?([words[idx][0]].concat(words[idx][5]||[])).some(function(v){return String(val).trim().toLowerCase().replace(/\s+/g," ")===String(v).trim().toLowerCase().replace(/\s+/g," ")}):Number(val)===idx;
  s.answered=true;s.correct=correct;s.selected=s.retry||s.stage===1?null:Number(val);
  s.score+=correct?(s.clue?7:10):0;
@@ -696,6 +697,7 @@ function answer(val){
 }
 function endGameOver(){
  if(s.gameOver)return;
+ stopPhraseAudio();
  cancelAutoNext();
  s.gameOver=true;s.view="gameOver";
  familyCloud.saving="☁️ 正在記錄 Game Over…";
@@ -718,6 +720,7 @@ function gameOverScreen(){
  '<p class="game-over-meta" role="status">'+safe(familyCloud.saving)+'</p></section>'
 }
 function next(){
+ stopPhraseAudio();
  cancelAutoNext();
  if(s.view!=="game")return;
  s.q++;s.answered=false;s.typed="";s.clue=false;s.selected=null;s.choiceKey="";s.choiceList=[];
