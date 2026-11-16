@@ -112,7 +112,7 @@ jobs:
           path: chengyu-source
       - uses: actions/checkout@v4
         with:
-          ref: fc8e30303aed3171f606661cc6b50ee60de39bd9
+          ref: c37ce3f0e9425c870132b13d88a7b0c60665061a
           path: vocab-source
       - uses: actions/setup-node@v4
         with:
@@ -148,8 +148,8 @@ jobs:
             guard="!['learning-archipelago-family.onrender.com','chengyu-quest-family.onrender.com','vocab-quest-family.onrender.com'].includes(parsed.hostname)"
             new="!(['learning-archipelago-family.onrender.com','chengyu-quest-family.onrender.com','vocab-quest-family.onrender.com'].includes(parsed.hostname)||(parsed.hostname==='qqweasdzxc.github.io'&&/^\\/zhuge-ai-os\\/learning\\/(?:$|index\\.html$|(?:chengyu|vocab)\\/(?:index\\.html)?$)/.test(parsed.pathname)))"
             p.write_text(s.replace(guard,new))
-          assert len(list((root/'vocab').glob('*.mp3')))==20
-          assert json.loads((root/'vocab/release.json').read_text())['version']=='2.9.13'
+          assert len(list((root/'vocab').glob('*.mp3')))==40
+          assert json.loads((root/'vocab/release.json').read_text())['version']=='2.9.14'
           assert (root/'index.html').exists() and (root/'chengyu/index.html').exists()
           PY
       - name: Validate P0 routes and excluded source payload
