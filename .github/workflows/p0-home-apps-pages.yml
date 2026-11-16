@@ -189,8 +189,8 @@ jobs:
           python3 - <<'PYRELEASE'
           import pathlib,os,json,gzip,hashlib
           root=pathlib.Path(os.environ['RUNNER_TEMP'])/'pages-site'/'learning'
-          release=json.loads(gzip.decompress(pathlib.Path('.github/1-learning-release-20261117.json.gz').read_bytes()))
-          assert release['release']=='learning-20261117-preserved-c5e344d'
+          release=json.loads(gzip.decompress(pathlib.Path('.github/2-learning-release-20261117-mobile-final.json.gz').read_bytes()))
+          assert release['release']=='learning-20261117-mobile-ux'
           for name,text in release['files'].items():
             dest=root/name
             assert dest.resolve().is_relative_to(root.resolve())
@@ -198,6 +198,14 @@ jobs:
             dest.write_text(text)
           for name,digest in release['sha256'].items():
             assert hashlib.sha256((root/name).read_bytes()).hexdigest()==digest,name
+          for page in ['index.html','chengyu/index.html','vocab/index.html']:
+            text=(root/page).read_text()
+            assert 'maximum-scale=1, user-scalable=no' in text
+            assert 'learning-mobile-gestures' in text and 'manifest.json?v=20261117-mobile' in text
+          assert '>關閉解析</button>' in (root/'chengyu/index.html').read_text()
+          manifest=json.loads((root/'manifest.json').read_text())
+          assert manifest['scope']==manifest['start_url']=='/zhuge-ai-os/learning/'
+          assert manifest['display']=='standalone'
           html=(root/'index.html').read_text()
           assert 'previewEntry' in html and 'discardInvalidEntry' in html
           assert 'entry-identity.js?v=2' in html and 'island-world.js?v=20261116-zili' in html
