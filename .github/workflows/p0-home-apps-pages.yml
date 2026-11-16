@@ -1,6 +1,7 @@
 name: P0 TaskFlow Home and Curated Pages
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -14,7 +15,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: p0-pages-${{ github.ref }}
+  group: canonical-site-pages-release
   cancel-in-progress: false
 
 jobs:
@@ -104,7 +105,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
         with:
-          ref: 7fd958bb50a3ef18b155951bd5293c8bef65c3a9
+          ref: 980e505dfdaad7334dc8df43f397ecb1f176ac0b
           path: hub-source
       - uses: actions/checkout@v4
         with:
@@ -148,6 +149,28 @@ jobs:
             guard="!['learning-archipelago-family.onrender.com','chengyu-quest-family.onrender.com','vocab-quest-family.onrender.com'].includes(parsed.hostname)"
             new="!(['learning-archipelago-family.onrender.com','chengyu-quest-family.onrender.com','vocab-quest-family.onrender.com'].includes(parsed.hostname)||(parsed.hostname==='qqweasdzxc.github.io'&&/^\\/zhuge-ai-os\\/learning\\/(?:$|index\\.html$|(?:chengyu|vocab)\\/(?:index\\.html)?$)/.test(parsed.pathname)))"
             p.write_text(s.replace(guard,new))
+          # Approved 2026-11-16 island-name update only; game names, rules and IDs stay unchanged.
+          for p in root.rglob('*'):
+            if p.suffix not in ['.html','.js','.json','.css']:continue
+            s=p.read_text().replace('成語島','字裡乾坤')
+            s=s.replace('5-archipelago-four-20261116-q85.webp','1-zili-landscape.webp').replace('2-archipelago-four-portrait-20261116.webp','2-zili-portrait.webp')
+            s=s.replace('主島直達 · 成語 / 英文 / 金銀 / Office','主島直達 · 字裡乾坤 / 英文 / 金銀 / Office')
+            s=s.replace('island-world.js?v=20261116-four','island-world.js?v=20261116-zili')
+            if p==root/'chengyu/index.html':
+              s=s.replace('成語闖關王','字裡乾坤').replace("idiom?'成語練習'","idiom?'字裡乾坤'")
+              s=s.replace('<title>字裡乾坤｜隨機測驗・語音解析</title>','<title>字裡乾坤｜成語闖關・字音字形・組詞</title>')
+            p.write_text(s)
+          for name in ['5-archipelago-four-20261116-q85.webp','2-archipelago-four-portrait-20261116.webp']:
+            (root/name).unlink()
+          assert (root/'1-zili-landscape.webp').stat().st_size==293236
+          assert (root/'2-zili-portrait.webp').stat().st_size==316816
+          # Prevent retired cards from painting while the actual scene script loads.
+          p=root/'index.html'
+          shell='<style id="archipelago-first-paint">\n/* The real map is built progressively. Never paint the retired six-card scaffold. */\n.world:not(.expedition-world){visibility:hidden;min-height:100dvh}\nbody:has(.world:not(.expedition-world))::before{content:"";position:fixed;inset:0;background:#183d51 url(\'./1-zili-landscape.webp\') center/contain no-repeat;z-index:29;pointer-events:none}\n@media(max-width:690px){body:has(.world:not(.expedition-world))::before{background-image:url(\'./2-zili-portrait.webp\');background-size:cover}}\n</style>\n'
+          p.write_text(p.read_text().replace('</head>',shell+'</head>'))
+          # Remove the redundant visible direct-destination strip; island hit targets remain.
+          world=root/'island-world.js'
+          world.write_text(world.read_text()+"\n;(()=>{const s=document.createElement('style');s.id='direct-route-strip-removed';s.textContent='.four-journeys{display:none!important}';document.head.appendChild(s)})();\n")
           vocab=root/'vocab'
           import re
           html=(vocab/'index.html').read_text()
@@ -161,6 +184,29 @@ jobs:
           assert json.loads((root/'vocab/release.json').read_text())['version']=='2.9.15'
           assert (root/'index.html').exists() and (root/'chengyu/index.html').exists()
           PY
+      - name: Restore canonical learning release and verify every scoped file
+        run: |
+          python3 - <<'PYRELEASE'
+          import pathlib,os,json,gzip,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'pages-site'/'learning'
+          release=json.loads(gzip.decompress(pathlib.Path('.github/1-learning-release-20261117.json.gz').read_bytes()))
+          assert release['release']=='learning-20261117-preserved-c5e344d'
+          for name,text in release['files'].items():
+            dest=root/name
+            assert dest.resolve().is_relative_to(root.resolve())
+            assert hashlib.sha256(text.encode()).hexdigest()==release['sha256'][name]
+            dest.write_text(text)
+          for name,digest in release['sha256'].items():
+            assert hashlib.sha256((root/name).read_bytes()).hexdigest()==digest,name
+          html=(root/'index.html').read_text()
+          assert 'previewEntry' in html and 'discardInvalidEntry' in html
+          assert 'entry-identity.js?v=2' in html and 'island-world.js?v=20261116-zili' in html
+          assert 'direct-route-strip-removed' in (root/'island-world.js').read_text()
+          assert (root/'1-zili-landscape.webp').stat().st_size==293236
+          assert (root/'2-zili-portrait.webp').stat().st_size==316816
+          (root/'release-manifest.json').write_text(json.dumps({'release':release['release'],'sha256':release['sha256']},indent=2))
+          print('Canonical learning source and SHA256 gate passed:',len(release['files']))
+          PYRELEASE
       - name: Validate P0 routes and excluded source payload
         run: node tests/pages-publish-artifact.test.js "$RUNNER_TEMP/pages-site"
       - name: Upload candidate artifact without deploying
@@ -222,6 +268,10 @@ jobs:
       pages: write
       id-token: write
     steps:
+      - name: Reject superseded main commits before publishing
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: test "$(gh api repos/$GITHUB_REPOSITORY/commits/main --jq .sha)" = "$GITHUB_SHA"
       - name: Deploy the verified Pages artifact
         id: deployment
         uses: actions/deploy-pages@v5
