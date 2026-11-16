@@ -189,8 +189,8 @@ jobs:
           python3 - <<'PYRELEASE'
           import pathlib,os,json,gzip,hashlib
           root=pathlib.Path(os.environ['RUNNER_TEMP'])/'pages-site'/'learning'
-          release=json.loads(gzip.decompress(pathlib.Path('.github/1-learning-release-20261117-cards.json.gz').read_bytes()))
-          assert release['release']=='learning-20261117-daily-cards'
+          release=json.loads(gzip.decompress(pathlib.Path('.github/1-1-learning-release-20261117-challenge.json.gz').read_bytes()))
+          assert release['release']=='learning-20261117-challenge-repair'
           for name,text in release['files'].items():
             dest=root/name
             assert dest.resolve().is_relative_to(root.resolve())
