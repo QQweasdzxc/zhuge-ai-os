@@ -104,7 +104,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
         with:
-          ref: 4076dfcf0a08cdbdcb1ae7a533347eaefd03207f
+          ref: 4994819ff313321d4494ef8040d4083b09f053ff
           path: hub-source
       - uses: actions/checkout@v4
         with:
