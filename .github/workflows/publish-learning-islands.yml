@@ -16,7 +16,7 @@ jobs:
           path: main-source
       - uses: actions/checkout@v4
         with:
-          ref: 85a550d6c0b4429a64702044acb38e3c49ef256d
+          ref: 980e505dfdaad7334dc8df43f397ecb1f176ac0b
           path: hub-source
       - uses: actions/checkout@v4
         with:
@@ -56,6 +56,21 @@ jobs:
             guard="!['learning-archipelago-family.onrender.com','chengyu-quest-family.onrender.com','vocab-quest-family.onrender.com'].includes(parsed.hostname)"
             new="!(['learning-archipelago-family.onrender.com','chengyu-quest-family.onrender.com','vocab-quest-family.onrender.com'].includes(parsed.hostname)||(parsed.hostname==='qqweasdzxc.github.io'&&/^\\/zhuge-ai-os\\/learning\\/(?:$|index\\.html$|(?:chengyu|vocab)\\/(?:index\\.html)?$)/.test(parsed.pathname)))"
             p.write_text(s.replace(guard,new))
+          # Approved 2026-11-16 island-name update only; game names, rules and IDs stay unchanged.
+          for p in root.rglob('*'):
+            if p.suffix not in ['.html','.js','.json','.css']:continue
+            s=p.read_text().replace('成語島','字裡乾坤')
+            s=s.replace('5-archipelago-four-20261116-q85.webp','1-zili-landscape.webp').replace('2-archipelago-four-portrait-20261116.webp','2-zili-portrait.webp')
+            s=s.replace('主島直達 · 成語 / 英文 / 金銀 / Office','主島直達 · 字裡乾坤 / 英文 / 金銀 / Office')
+            s=s.replace('island-world.js?v=20261116-four','island-world.js?v=20261116-zili')
+            if p==root/'chengyu/index.html':
+              s=s.replace('成語闖關王','字裡乾坤').replace("idiom?'成語練習'","idiom?'字裡乾坤'")
+              s=s.replace('<title>字裡乾坤｜隨機測驗・語音解析</title>','<title>字裡乾坤｜成語闖關・字音字形・組詞</title>')
+            p.write_text(s)
+          for name in ['5-archipelago-four-20261116-q85.webp','2-archipelago-four-portrait-20261116.webp']:
+            (root/name).unlink()
+          assert (root/'1-zili-landscape.webp').stat().st_size==293236
+          assert (root/'2-zili-portrait.webp').stat().st_size==316816
           vocab=root/'vocab'
           import re
           html=(vocab/'index.html').read_text()
