@@ -112,7 +112,7 @@ jobs:
           path: chengyu-source
       - uses: actions/checkout@v4
         with:
-          ref: c37ce3f0e9425c870132b13d88a7b0c60665061a
+          ref: dc1248d90cafa7fa1bf6c5590ee64cced5e7bc99
           path: vocab-source
       - uses: actions/setup-node@v4
         with:
@@ -148,8 +148,17 @@ jobs:
             guard="!['learning-archipelago-family.onrender.com','chengyu-quest-family.onrender.com','vocab-quest-family.onrender.com'].includes(parsed.hostname)"
             new="!(['learning-archipelago-family.onrender.com','chengyu-quest-family.onrender.com','vocab-quest-family.onrender.com'].includes(parsed.hostname)||(parsed.hostname==='qqweasdzxc.github.io'&&/^\\/zhuge-ai-os\\/learning\\/(?:$|index\\.html$|(?:chengyu|vocab)\\/(?:index\\.html)?$)/.test(parsed.pathname)))"
             p.write_text(s.replace(guard,new))
-          assert len(list((root/'vocab').glob('*.mp3')))==40
-          assert json.loads((root/'vocab/release.json').read_text())['version']=='2.9.14'
+          vocab=root/'vocab'
+          import re
+          html=(vocab/'index.html').read_text()
+          maps=re.findall(r'var (?:phrase|sentence)AudioFiles=(\{.*?\});',html)
+          assert len(maps)==2
+          keep={url.split('?')[0].removeprefix('./') for mapping in maps for url in json.loads(mapping).values()}
+          assert len(keep)==142
+          for asset in vocab.glob('*.mp3'):
+            if asset.name not in keep:asset.unlink()
+          assert {p.name for p in vocab.glob('*.mp3')}==keep
+          assert json.loads((root/'vocab/release.json').read_text())['version']=='2.9.15'
           assert (root/'index.html').exists() and (root/'chengyu/index.html').exists()
           PY
       - name: Validate P0 routes and excluded source payload
