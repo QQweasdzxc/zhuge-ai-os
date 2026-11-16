@@ -71,6 +71,10 @@ jobs:
             (root/name).unlink()
           assert (root/'1-zili-landscape.webp').stat().st_size==293236
           assert (root/'2-zili-portrait.webp').stat().st_size==316816
+          # Prevent retired cards from painting while the actual scene script loads.
+          p=root/'index.html'
+          shell='<style id="archipelago-first-paint">\n/* The real map is built progressively. Never paint the retired six-card scaffold. */\n.world:not(.expedition-world){visibility:hidden;min-height:100dvh}\nbody:has(.world:not(.expedition-world))::before{content:"";position:fixed;inset:0;background:#183d51 url(\'./1-zili-landscape.webp\') center/contain no-repeat;z-index:29;pointer-events:none}\n@media(max-width:690px){body:has(.world:not(.expedition-world))::before{background-image:url(\'./2-zili-portrait.webp\');background-size:cover}}\n</style>\n'
+          p.write_text(p.read_text().replace('</head>',shell+'</head>'))
           vocab=root/'vocab'
           import re
           html=(vocab/'index.html').read_text()
