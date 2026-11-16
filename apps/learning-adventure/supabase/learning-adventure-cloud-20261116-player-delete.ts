@@ -1,0 +1,958 @@
+// Family Learning Archipelago API V1 — capability-token family scope, server-authoritative class/XP/promotion.
+const BASE = Deno.env.get("SUPABASE_URL") || "";
+const KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const ORIGINS = [
+  "https://chengyu-quest-family.onrender.com",
+  "https://vocab-quest-family.onrender.com",
+  "https://learning-archipelago-family.onrender.com","https://qqweasdzxc.github.io"
+];
+// 成語島正式字卡白名單，與 apps/chengyu-quest/site/index.html 的 DATA（155 字）同步維護；收藏限於此清單。
+const CHENGYU_WORDS = new Set(["一帆風順", "一心一意", "一目了然", "一絲不苟", "一舉兩得", "一鳴驚人", "七上八下", "三心二意", "下里巴人", "不恥下問", "不約而同", "不翼而飛", "不脛而走", "事倍功半", "事半功倍", "五光十色", "五花八門", "井底之蛙", "亡羊補牢", "人山人海", "以訛傳訛", "任重道遠", "信口開河", "信口雌黃", "優柔寡斷", "全力以赴", "出類拔萃", "別出心裁", "刻舟求劍", "削足適履", "前功盡棄", "功虧一簣", "十全十美", "千方百計", "千鈞一髮", "半途而廢", "南轅北轍", "危言聳聽", "同心協力", "名不副實", "名副其實", "含沙射影", "喜出望外", "嘆為觀止", "噤若寒蟬", "因噎廢食", "因地制宜", "因陋就簡", "垂頭喪氣", "墨守成規", "大公無私", "大相逕庭", "好高騖遠", "如火如荼", "如虎添翼", "守望相助", "守株待兔", "家喻戶曉", "寥寥無幾", "實事求是", "專心致志", "對牛彈琴", "尾大不掉", "左支右絀", "弄巧成拙", "循序漸進", "心滿意足", "心花怒放", "急中生智", "投鼠忌器", "披荊斬棘", "抱殘守缺", "指鹿為馬", "按部就班", "捉襟見肘", "捨本逐末", "推己及人", "揠苗助長", "故步自封", "旁敲側擊", "日新月異", "曲高和寡", "有條不紊", "望塵莫及", "望梅止渴", "朝令夕改", "未卜先知", "未雨綢繆", "本末倒置", "杯弓蛇影", "杯水車薪", "東張西望", "欲速不達", "歷歷在目", "水落石出", "沽名釣譽", "津津有味", "溫故知新", "潛移默化", "爭先恐後", "牽強附會", "狐假虎威", "甚囂塵上", "畫蛇添足", "畫龍點睛", "當機立斷", "百發百中", "目不暇接", "目不轉睛", "相形見絀", "相得益彰", "矯枉過正", "積重難返", "穿鑿附會", "精益求精", "緣木求魚", "繼往開來", "罄竹難書", "義不容辭", "背道而馳", "胸有成竹", "腳踏實地", "膠柱鼓瑟", "臨渴掘井", "自相矛盾", "興高采烈", "舉一反三", "虛懷若谷", "蜚短流長", "融會貫通", "見微知著", "見義勇為", "觸類旁通", "言而有信", "諱莫如深", "責無旁貸", "迎刃而解", "迫不及待", "過河拆橋", "釜底抽薪", "錦上添花", "防微杜漸", "陽春白雪", "隔靴搔癢", "隨機應變", "集思廣益", "雪中送炭", "鞭辟入裡", "飲水思源", "飲鴆止渴", "首鼠兩端", "鬼斧神工", "鳥語花香", "鳳毛麟角", "鶴立雞群"]);
+function originFor(req) {
+  const o = req.headers.get("Origin");
+  return ORIGINS.includes(o) ? o : ORIGINS[0];
+}
+function cors(req) {
+  return {
+    "Access-Control-Allow-Origin": originFor(req),
+    "Access-Control-Allow-Methods": "POST,OPTIONS",
+    "Access-Control-Allow-Headers": "content-type,apikey,authorization",
+    "Vary": "Origin",
+    "Cache-Control": "no-store"
+  };
+}
+function respond(req, value, status = 200) {
+  return new Response(JSON.stringify(value), {
+    status,
+    headers: {
+      ...cors(req),
+      "Content-Type": "application/json"
+    }
+  });
+}
+function fail(req, msg, status = 400) {
+  return respond(req, {
+    ok: false,
+    error: msg
+  }, status);
+}
+function uuid(v) {
+  return typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+}
+function safe(v, n = 100) {
+  return typeof v === "string" ? v.trim().slice(0, n) : "";
+}
+async function sha(v) {
+  const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(v));
+  return [
+    ...new Uint8Array(d)
+  ].map((x)=>x.toString(16).padStart(2, "0")).join("");
+}
+async function db(table, qs = "", method = "GET", body = undefined) {
+  const r = await fetch(BASE + "/rest/v1/" + table + (qs ? "?" + qs : ""), {
+    method,
+    headers: {
+      "apikey": KEY,
+      "Authorization": "Bearer " + KEY,
+      "Content-Type": "application/json",
+      ...method !== "GET" ? {
+        "Prefer": "return=representation"
+      } : {}
+    },
+    body: body === undefined ? undefined : JSON.stringify(body)
+  });
+  const data = await r.json().catch(()=>null);
+  if (!r.ok) {
+    console.error("adventure db", table, r.status, JSON.stringify(data).slice(0, 500));
+    throw new Error("雲端資料暫時無法完成操作");
+  }
+  return data;
+}
+const shuffled = (a)=>{
+  const arr = [
+    ...a
+  ];
+  for(let i = arr.length - 1; i > 0; i--){
+    const n = crypto.getRandomValues(new Uint32Array(1))[0] % (i + 1);
+    [arr[i], arr[n]] = [
+      arr[n],
+      arr[i]
+    ];
+  }
+  return arr;
+};
+const threshold = (level)=>50 * level * (level + 1);
+function publicHero(h) {
+  return {
+    id: h.id,
+    name: h.display_name,
+    profession: h.profession,
+    avatarStyle: h.avatar_style || null,
+    totalXP: h.total_xp,
+    level: h.verified_level,
+    nextXP: threshold(h.verified_level),
+    eligible: !!h.profession && h.total_xp >= threshold(h.verified_level) && h.verified_level < 100
+  };
+}
+function visibleExam(e) {
+  if (!e) return null;
+  return {
+    id: e.id,
+    fromLevel: e.level_before,
+    count: (e.questions || []).length,
+    questions: (e.questions || []).map((q, i)=>({
+        index: i,
+        kind: q.kind,
+        stem: q.stem,
+        choices: q.choices
+      })),
+    startedAt: e.started_at
+  };
+}
+function choiceSet(correct, others) {
+  const candidates = [
+    ...new Set(others.filter((x)=>x && x !== correct))
+  ];
+  const vals = shuffled([
+    correct,
+    ...shuffled(candidates).slice(0, 3)
+  ]);
+  if (vals.length < 4) throw new Error("題庫可用選項不足");
+  return {
+    choices: vals,
+    answerIndex: vals.indexOf(correct)
+  };
+}
+// Wrong-answer weighting shared by both islands (proposal: at most 40% of one island's exam slots).
+// Weight = number of wrong answers in the newest 100 attempts; a word enters the priority list when its
+// latest answer was wrong, or it was wrong at least twice. Order: more wrong answers first, ties random.
+function wrongPriority(attempts, key) {
+  const stat = new Map();
+  for (const a of attempts) {
+    const list = Array.isArray(a.answers) ? a.answers : [];
+    for (const x of list) {
+      const w = typeof x?.word === "string" ? x.word.trim() : "";
+      if (!w || typeof x.correct !== "boolean") continue;
+      const k = key(w);
+      const st = stat.get(k) || { wrong: 0, latestWrong: null };
+      if (!x.correct) st.wrong++;
+      if (st.latestWrong === null) st.latestWrong = !x.correct;
+      stat.set(k, st);
+    }
+  }
+  return [...stat.entries()].filter(([, v])=>v.wrong >= 2 || v.latestWrong && v.wrong >= 1).map(([k, v])=>({
+      k,
+      wrong: v.wrong,
+      r: Math.random()
+    })).sort((a, b)=>b.wrong - a.wrong || a.r - b.r).map((x)=>x.k);
+}
+// Wrong answers and collected items share one priority pool: alternate them (wrong first), no duplicates.
+function mergePriority(wrong, collected) {
+  const out = [], seen = new Set();
+  for (let i = 0; i < Math.max(wrong.length, collected.length); i++) {
+    for (const k of [wrong[i], collected[i]]) {
+      if (k && !seen.has(k)) {
+        seen.add(k);
+        out.push(k);
+      }
+    }
+  }
+  return out;
+}
+function pickWithPriority(pool, count, priority, key) {
+  const cap = Math.ceil(count * 0.4);
+  const byKey = new Map(pool.map((p)=>[key(p), p]));
+  const first = [];
+  for (const k of priority) {
+    if (first.length >= cap) break;
+    const p = byKey.get(k);
+    if (p && !first.includes(p)) first.push(p);
+  }
+  const rest = shuffled(pool.filter((p)=>!first.includes(p)));
+  return shuffled(first).concat(rest).slice(0, count);
+}
+function idiomQuiz(pool, count, priority = []) {
+  if (pool.length < Math.max(count, 4)) throw new Error("成語題庫不足");
+  const picked = pickWithPriority(pool, count, priority, (p)=>p.word);
+  return picked.map((p, i)=>{
+    const kind = i % 3, word = p.word;
+    if (kind === 0) {
+      const s = choiceSet(p.meaning, pool.filter((x)=>x.word !== word).map((x)=>x.meaning));
+      return {
+        kind: "idiom-meaning",
+        stem: "「" + word + "」的意思是什麼？",
+        ...s
+      };
+    }
+    if (kind === 1) {
+      const s = choiceSet(word, pool.filter((x)=>x.word !== word).map((x)=>x.word));
+      return {
+        kind: "idiom-reverse",
+        stem: "哪個成語最符合這個意思？" + p.meaning,
+        ...s
+      };
+    }
+    const example = String(p.example || "").replace(word, "＿＿");
+    const s = choiceSet(word, pool.filter((x)=>x.word !== word).map((x)=>x.word));
+    return {
+      kind: "idiom-context",
+      stem: "哪個成語最適合填入句子？" + example,
+      ...s
+    };
+  });
+}
+function englishQuiz(pool, count, priority = []) {
+  if (pool.length < Math.max(count, 4)) throw new Error("英文題庫不足");
+  const picked = pickWithPriority(pool, count, priority, (p)=>p.en.toLowerCase());
+  return picked.map((p, i)=>{
+    if (i % 2 === 0) {
+      const s = choiceSet(p.zh, pool.filter((x)=>x.en !== p.en).map((x)=>x.zh));
+      return {
+        kind: "english-meaning",
+        stem: "英文單字「" + p.en + "」的中文意思是什麼？",
+        ...s
+      };
+    }
+    const s = choiceSet(p.en, pool.filter((x)=>x.en !== p.en).map((x)=>x.en));
+    return {
+      kind: "english-reverse",
+      stem: "哪個英文單字最符合「" + p.zh + "」？",
+      ...s
+    };
+  });
+}
+const CHENGYU_STAGE_WORDS={"1": ["一舉兩得", "半途而廢", "一心一意", "全力以赴", "人山人海", "目不轉睛", "東張西望", "迫不及待", "大公無私", "同心協力", "飲水思源", "一目了然", "言而有信", "急中生智", "三心二意", "腳踏實地"], "2": ["畫蛇添足", "守株待兔", "井底之蛙", "對牛彈琴", "刻舟求劍", "狐假虎威", "亡羊補牢", "自相矛盾", "胸有成竹", "水落石出", "雪中送炭", "錦上添花", "畫龍點睛", "一鳴驚人", "推己及人", "七上八下", "十全十美", "五光十色", "喜出望外", "一帆風順", "鳥語花香", "五花八門", "心花怒放", "津津有味", "心滿意足", "興高采烈", "專心致志", "千方百計", "不約而同", "守望相助", "爭先恐後", "見義勇為", "垂頭喪氣", "百發百中", "歷歷在目"], "3": ["按部就班", "循序漸進", "事半功倍", "事倍功半", "南轅北轍", "背道而馳", "削足適履", "本末倒置", "見微知著", "防微杜漸", "未雨綢繆", "臨渴掘井", "當機立斷", "優柔寡斷", "鶴立雞群", "出類拔萃"], "4": ["名副其實", "名不副實", "不脛而走", "不翼而飛", "望梅止渴", "望塵莫及", "捨本逐末", "因噎廢食", "投鼠忌器", "如虎添翼", "相形見絀", "舉一反三", "融會貫通", "大相逕庭", "杯弓蛇影", "過河拆橋"], "5": ["指鹿為馬", "沽名釣譽", "曲高和寡", "陽春白雪", "下里巴人", "緣木求魚", "釜底抽薪", "隔靴搔癢", "信口雌黃", "信口開河", "穿鑿附會", "牽強附會", "膠柱鼓瑟", "抱殘守缺", "含沙射影", "旁敲側擊"], "6": ["首鼠兩端", "朝令夕改", "積重難返", "尾大不掉", "噤若寒蟬", "諱莫如深", "捉襟見肘", "左支右絀", "杯水車薪", "飲鴆止渴", "揠苗助長", "矯枉過正", "未卜先知", "蜚短流長", "因陋就簡", "甚囂塵上"], "7": ["畫蛇添足", "守株待兔", "井底之蛙", "對牛彈琴", "刻舟求劍", "狐假虎威", "亡羊補牢", "自相矛盾", "一舉兩得", "半途而廢", "一心一意", "全力以赴", "胸有成竹", "水落石出", "雪中送炭", "錦上添花", "畫龍點睛", "人山人海", "目不轉睛", "東張西望", "迫不及待", "大公無私", "同心協力", "飲水思源", "一目了然", "言而有信", "急中生智", "三心二意", "腳踏實地", "一鳴驚人", "推己及人", "七上八下", "十全十美", "五光十色", "喜出望外", "一帆風順", "鳥語花香", "五花八門", "心花怒放", "津津有味", "心滿意足", "興高采烈", "專心致志", "千方百計", "不約而同", "守望相助", "爭先恐後", "見義勇為", "垂頭喪氣", "百發百中", "歷歷在目", "按部就班", "循序漸進", "事半功倍", "事倍功半", "南轅北轍", "背道而馳", "削足適履", "本末倒置", "見微知著", "防微杜漸", "未雨綢繆", "臨渴掘井", "當機立斷", "優柔寡斷", "鶴立雞群", "出類拔萃", "名副其實", "名不副實", "不脛而走", "不翼而飛", "望梅止渴", "望塵莫及", "捨本逐末", "因噎廢食", "投鼠忌器", "如虎添翼", "相形見絀", "舉一反三", "融會貫通", "大相逕庭", "杯弓蛇影", "過河拆橋", "迎刃而解", "潛移默化", "相得益彰", "日新月異", "繼往開來", "家喻戶曉", "千鈞一髮", "隨機應變", "因地制宜", "精益求精", "實事求是", "義不容辭", "集思廣益", "任重道遠", "一絲不苟", "有條不紊", "觸類旁通", "溫故知新", "責無旁貸", "虛懷若谷", "指鹿為馬", "沽名釣譽", "曲高和寡", "陽春白雪", "下里巴人", "緣木求魚", "釜底抽薪", "隔靴搔癢", "信口雌黃", "信口開河", "穿鑿附會", "牽強附會", "膠柱鼓瑟", "抱殘守缺", "含沙射影", "旁敲側擊", "首鼠兩端", "朝令夕改", "積重難返", "尾大不掉", "噤若寒蟬", "諱莫如深", "捉襟見肘", "左支右絀", "杯水車薪", "飲鴆止渴", "揠苗助長", "矯枉過正", "未卜先知", "蜚短流長", "因陋就簡", "甚囂塵上", "鞭辟入裡", "罄竹難書", "危言聳聽", "以訛傳訛", "好高騖遠", "墨守成規", "故步自封", "弄巧成拙", "欲速不達", "功虧一簣", "前功盡棄", "如火如荼", "鳳毛麟角", "寥寥無幾", "目不暇接", "嘆為觀止", "鬼斧神工", "別出心裁", "不恥下問", "披荊斬棘"]};
+async function stageQuestions(family,hero,world,stage,unitId){
+ let pool=[];
+ if(world==='chengyu'){
+  const bank=await db('learning_adventure_exam_bank','select=word,meaning,example,zone&limit=500');
+  pool=bank.filter(x=>CHENGYU_STAGE_WORDS[stage].includes(x.word));
+  if(pool.length<4)throw Error('這關題庫不足，請稍後再試');
+  return idiomQuiz(pool,Math.min(10,pool.length));
+ }
+ const units=await db('vocab_family_units','family_id=eq.'+family.sourceFamilyId+'&select=id,words&limit=150');
+ if(unitId&&!units.some(u=>u.id===unitId))throw Error('教材不屬於這個家庭');
+ const seen=new Set();
+ for(const u of units.filter(u=>!unitId||u.id===unitId))for(const w of u.words||[]){if(w.en&&w.zh&&!seen.has(w.en.toLowerCase())){seen.add(w.en.toLowerCase());pool.push({en:w.en,zh:w.zh,sentence:w.sentence||''});}}
+ if(pool.length<3)throw Error('教材至少需3詞才能作總結測驗');
+ // Small units use both directions; no need to invent words or require unseen words.
+ const picked=shuffled(pool).slice(0,Math.min(10,pool.length));
+ const quiz=[];for(const [i,p] of picked.entries())for(let k=0;k<(pool.length<10?2:1);k++){
+  const n=quiz.length,kind=n%3===0?'english-meaning':n%3===1?'english-spelling':p.sentence.includes('____')?'english-sentence':'english-reverse';
+  const reverse=kind!=='english-meaning',answer=reverse?p.en:p.zh;
+  const choices=shuffled([...new Set([answer,...shuffled(pool.filter(x=>x.en!==p.en)).slice(0,3).map(x=>reverse?x.en:x.zh)])]);
+  const stem=kind==='english-meaning'?'「'+p.en+'」的中文意思是什麼？':kind==='english-spelling'?'依中文「'+p.zh+'」選出正確拼字（開頭 '+p.en[0]+'）':kind==='english-sentence'?'選出填入空格的英文：'+p.sentence+'（'+p.zh+'）':'哪個英文最符合「'+p.zh+'」？';
+  quiz.push({kind,stem,choices,answerIndex:choices.indexOf(answer)});
+ }
+ return shuffled(quiz).slice(0,10);
+}
+async function familyFor(world, token) {
+  const hash = await sha(token);
+  const table = world === "chengyu" ? "chengyu_family_spaces" : "vocab_family_spaces";
+  let fs = await db(table, "secret_hash=eq." + hash + "&select=id&limit=1");
+  let sourceFamilyId = fs[0]?.id;
+  if (!sourceFamilyId) {
+    // A family member may enter any island using the single hub link.
+    const other = world === "chengyu" ? "vocab" : "chengyu";
+    const siblings = await db(other + "_family_spaces", "secret_hash=eq." + hash + "&select=id&limit=1");
+    if (!siblings.length) return null;
+    const mapped = await db("learning_adventure_family_bindings", "world=eq." + other + "&source_family_id=eq." + siblings[0].id + "&select=adventure_family_id&limit=1");
+    if (!mapped.length) return null;
+    const target = await db("learning_adventure_family_bindings", "world=eq." + world + "&adventure_family_id=eq." + mapped[0].adventure_family_id + "&select=source_family_id&limit=1");
+    sourceFamilyId = target[0]?.source_family_id;
+    if (!sourceFamilyId) return null;
+  }
+  const bindings = await db("learning_adventure_family_bindings", "world=eq." + world + "&source_family_id=eq." + sourceFamilyId + "&select=adventure_family_id&limit=1");
+  if (!bindings.length) return null;
+  return {
+    world,
+    sourceFamilyId,
+    adventureFamilyId: bindings[0].adventure_family_id
+  };
+}
+async function heroFor(family, learnerId) {
+  const table = family.world === "chengyu" ? "chengyu_family_learners" : "vocab_family_learners";
+  const learners = await db(table, "family_id=eq." + family.sourceFamilyId + "&id=eq." + learnerId + "&select=id,name&limit=1");
+  if (!learners.length) return null;
+  const links = await db("learning_adventure_hero_links", "world=eq." + family.world + "&source_learner_id=eq." + learnerId + "&select=hero_id&limit=1");
+  if (!links.length) return null;
+  const heroes = await db("learning_adventure_heroes", "id=eq." + links[0].hero_id + "&adventure_family_id=eq." + family.adventureFamilyId + "&select=id,adventure_family_id,display_name,profession,avatar_style,total_xp,verified_level&limit=1");
+  return heroes[0] || null;
+}
+async function activeExam(heroId, level) {
+  const a = await db("learning_adventure_promotion_exams", "hero_id=eq." + heroId + "&level_before=eq." + level + "&completed_at=is.null&select=*&limit=1");
+  return a[0] || null;
+}
+async function buildQuestions(family, hero, villageWorld = null) {
+  const ledger = await db("learning_adventure_xp_ledger", "hero_id=eq." + hero.id + "&select=world,amount&limit=3000");
+  const counts = {
+    chengyu: 0,
+    vocab: 0
+  };
+  for (const x of ledger)counts[x.world] = (counts[x.world] || 0) + Math.max(0, Number(x.amount) || 0);
+  const needBoth = counts.chengyu > 0 && counts.vocab > 0;
+  let nChengyu = needBoth ? 5 : counts.chengyu > 0 ? 10 : 0;
+  let nVocab = 10 - nChengyu;
+  if (counts.vocab === 0 && counts.chengyu > 0) nVocab = 0;
+  if (!villageWorld && !nChengyu && !nVocab) throw new Error("請先完成學習島的題目再挑戰晉級");
+  if(villageWorld){nChengyu=villageWorld==='chengyu'?10:0;nVocab=villageWorld==='vocab'?10:0;}
+  const quiz = [];
+  if (nChengyu) {
+    const linked = await db("learning_adventure_hero_links", "hero_id=eq." + hero.id + "&world=eq.chengyu&select=source_learner_id&limit=1");
+    let maxZone = 1;
+    if (linked.length) {
+      const recent = await db("chengyu_family_attempts", "learner_id=eq." + linked[0].source_learner_id + "&select=zone,correct_count,question_count,result_status&limit=100");
+      for(let z = 1; z <= 6; z++){
+        if (recent.some((a)=>Number(a.zone) === z && a.result_status === "completed" && a.question_count >= 5 && a.correct_count / a.question_count >= 0.8)) maxZone = Math.max(maxZone, z + 1);
+      }
+    }
+    const bank = await db("learning_adventure_exam_bank", "zone=lte." + (villageWorld?7:Math.min(6,maxZone)) + "&select=word,meaning,example,zone&limit=200");
+    const wrongAttempts = linked.length ? await db("chengyu_family_attempts", "learner_id=eq." + linked[0].source_learner_id + "&select=answers&order=created_at.desc&limit=100") : [];
+    const collectedC = await db("learning_adventure_collections", "hero_id=eq." + hero.id + "&world=eq.chengyu&select=item_key&order=created_at.desc&limit=200");
+    quiz.push(...idiomQuiz(bank, nChengyu, mergePriority(wrongPriority(wrongAttempts, (w)=>w), shuffled(collectedC.map((x)=>x.item_key)))));
+  }
+  if (nVocab) {
+    const b = await db("learning_adventure_family_bindings", "world=eq.vocab&adventure_family_id=eq." + family.adventureFamilyId + "&select=source_family_id&limit=1");
+    if (!b.length) throw new Error("尚未開通英文學習島");
+    const [units, playerLinks] = await Promise.all([
+      db("vocab_family_units", "family_id=eq." + b[0].source_family_id + "&select=id,words&limit=150"),
+      db("learning_adventure_hero_links", "hero_id=eq." + hero.id + "&world=eq.vocab&select=source_learner_id&limit=1")
+    ]);
+    const studied = playerLinks.length ? await db("vocab_family_attempts", "learner_id=eq." + playerLinks[0].source_learner_id + "&select=unit_id&limit=300") : [];
+    const seenUnitIds = new Set(studied.map((a)=>a.unit_id).filter(Boolean));
+    const didGeneralReview = studied.some((a)=>a.unit_id == null);
+    const studiedUnits = didGeneralReview || !seenUnitIds.size ? units : units.filter((u)=>seenUnitIds.has(u.id));
+    const seen = new Set(), words = [];
+    for (const unit of studiedUnits)for (const item of Array.isArray(unit.words) ? unit.words : []){
+      const en = safe(item.en, 50), zh = safe(item.zh, 150);
+      if (!en || !zh || seen.has(en.toLowerCase())) continue;
+      seen.add(en.toLowerCase());
+      words.push({
+        en,
+        zh
+      });
+    }
+    const vocabAttempts = playerLinks.length ? await db("vocab_family_attempts", "learner_id=eq." + playerLinks[0].source_learner_id + "&select=answers&order=created_at.desc&limit=100") : [];
+    const collectedV = await db("learning_adventure_collections", "hero_id=eq." + hero.id + "&world=eq.vocab&select=item_key&order=created_at.desc&limit=200");
+    quiz.push(...englishQuiz(words, nVocab, mergePriority(wrongPriority(vocabAttempts, (w)=>w.toLowerCase()), shuffled(collectedV.map((x)=>x.item_key)))));
+  }
+  if (quiz.length !== 10) throw new Error("升級試煉題數不完整");
+  return shuffled(quiz);
+}
+// Daily review uses a saved run and server question banks, never a client completion flag.
+async function dailyReviewStart(family, hero, reviewWorld) {
+  const world = reviewWorld || family.world;
+  if (![
+    'chengyu',
+    'vocab'
+  ].includes(world)) throw Error('學習島不正確');
+  const day = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Taipei'
+  }).format(new Date());
+  let sessions = await db('learning_adventure_daily_reviews', 'adventure_family_id=eq.' + family.adventureFamilyId + '&hero_id=eq.' + hero.id + '&world=eq.' + world + '&day=eq.' + day + '&select=*');
+  if (sessions.length) return dailyVisible(sessions[0]);
+  const links = await db('learning_adventure_hero_links', 'hero_id=eq.' + hero.id + '&world=eq.' + world + '&select=source_learner_id&limit=1');
+  if (!links.length) throw Error('請先到這座島完成一回合練習');
+  const binding = await db('learning_adventure_family_bindings', 'adventure_family_id=eq.' + family.adventureFamilyId + '&world=eq.' + world + '&select=source_family_id&limit=1');
+  if (!binding.length) throw Error('尚未連接這座學習島');
+  const release = await db('learning_adventure_learning_release', 'singleton=eq.true&select=starts_at');
+  const since = new Date(day + 'T00:00:00+08:00').toISOString();
+  const lower = new Date(release[0].starts_at) > new Date(since) ? release[0].starts_at : since;
+  const runs = await db(world + '_family_attempts', 'family_id=eq.' + binding[0].source_family_id + '&learner_id=eq.' + links[0].source_learner_id + '&created_at=gte.' + encodeURIComponent(lower) + '&result_status=in.(completed,game_over)&select=id,answers,result_status,created_at&order=created_at.desc&limit=1');
+  if (!runs.length || !runs[0].answers?.length) throw Error('先完成今日一回合，再回來訂正或複習');
+  const source = runs[0], wrong = [
+    ...new Set(source.answers.filter((a)=>a.correct === false).map((a)=>a.word))
+  ];
+  let words = wrong, reviewType = 'correction';
+  if (!words.length) {
+    reviewType = 'review';
+    const previous = await db(world + '_family_attempts', 'family_id=eq.' + binding[0].source_family_id + '&learner_id=eq.' + links[0].source_learner_id + '&id=neq.' + source.id + '&select=answers&order=created_at.desc&limit=30');
+    words = [
+      ...new Set(previous.flatMap((x)=>(x.answers || []).map((a)=>a.word)))
+    ];
+    if (!words.length) {
+      words = [
+        ...new Set(source.answers.map((a)=>a.word))
+      ];
+      reviewType = 'first_review';
+    }
+    words = shuffled(words).slice(0, 3);
+  }
+  let questions = [];
+  if (world === 'chengyu') {
+    const bank = await db('learning_adventure_exam_bank', 'select=word,meaning,example,zone&limit=500');
+    questions = words.map((word)=>{
+      const item = bank.find((x)=>x.word === word), choices = choiceSet(item.meaning, bank.filter((x)=>x.word !== word).map((x)=>x.meaning));
+      return {
+        kind: 'idiom-review',
+        stem: '「' + word + '」的意思是什麼？',
+        ...choices
+      };
+    });
+  } else {
+    const units = await db('vocab_family_units', 'family_id=eq.' + binding[0].source_family_id + '&select=words&limit=150');
+    const bank = units.flatMap((u)=>Array.isArray(u.words) ? u.words : []);
+    questions = words.map((word)=>{
+      const item = bank.find((x)=>String(x.en).toLowerCase() === String(word).toLowerCase());
+      if (!item?.zh) throw Error('題庫尚未找到這個單字，暫不發獎');
+      if (reviewType === 'correction' && source.answers.some((a)=>a.word === word && a.correct === false && a.stage === 1)) return {
+        kind: 'vocab-spelling',
+        stem: '請拼出「' + item.zh + '」的英文單字',
+        answerText: String(item.en).trim().toLowerCase().replace(/\s+/g, ' '),
+        acceptedTexts: [
+          item.en,
+          ...Array.isArray(item.aliases) ? item.aliases : []
+        ].map((x)=>String(x).trim().toLowerCase().replace(/\s+/g, ' '))
+      };
+      return {
+        kind: 'vocab-review',
+        stem: '哪個英文單字是「' + item.zh + '」？',
+        ...(()=>{
+          const candidates = [
+            ...new Set(bank.map((x)=>x.en).filter((x)=>x && x !== item.en))
+          ];
+          const choices = shuffled([
+            item.en,
+            ...shuffled(candidates).slice(0, 3),
+            ...candidates.length ? [] : [
+              '以上皆非'
+            ]
+          ]);
+          return {
+            choices,
+            answerIndex: choices.indexOf(item.en)
+          };
+        })()
+      };
+    });
+  }
+  if (!questions.length) throw Error('沒有可驗證的複習題目');
+  const row = {
+    adventure_family_id: family.adventureFamilyId,
+    hero_id: hero.id,
+    world,
+    day,
+    source_attempt_id: source.id,
+    questions: questions.map((q)=>({
+        ...q,
+        reviewType
+      }))
+  };
+  try {
+    sessions = await db('learning_adventure_daily_reviews', '', 'POST', row);
+  } catch  {
+    sessions = await db('learning_adventure_daily_reviews', 'hero_id=eq.' + hero.id + '&world=eq.' + world + '&day=eq.' + day + '&select=*');
+    if (!sessions.length) throw Error('暫時無法建立複習');
+  }
+  return dailyVisible(sessions[0]);
+}
+function dailyVisible(r) {
+  return {
+    id: r.id,
+    world: r.world,
+    day: r.day,
+    completed: !!r.completed_at,
+    reviewType: r.questions[0]?.reviewType || 'review',
+    questions: r.questions.map((q, index)=>({
+        index,
+        kind: q.kind,
+        stem: q.stem,
+        choices: q.choices
+      }))
+  };
+}
+
+function dailyCompanion(name,day){let h=5381;const s='vocab-companion|'+name+'|'+day;for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))>>>0;return ['meaning','spelling','sentence'][h%3];}
+Deno.serve(async (req)=>{
+  if (req.method === "OPTIONS") return new Response(null, {
+    status: 204,
+    headers: cors(req)
+  });
+  if (req.method !== "POST") return fail(req, "僅支援 POST", 405);
+  const origin = req.headers.get("Origin");
+  if (origin && !ORIGINS.includes(origin)) return fail(req, "不允許的網站來源", 403);
+  if (!BASE || !KEY) return fail(req, "服務尚未設定", 503);
+  let input;
+  try {
+    input = await req.json();
+  } catch  {
+    return fail(req, "請提供正確的資料");
+  }
+  if (input?.action === "setupParent") {
+    if (typeof input.setupToken !== "string" || !/^[0-9a-f]{64}$/.test(input.setupToken) || typeof input.pin !== "string" || !/^[0-9]{6,12}$/.test(input.pin)) return fail(req, "請確認設定連結與 6 至 12 位數字 PIN", 403);
+    try {
+      const result = await db("rpc/learning_adventure_complete_parent_setup", "", "POST", {
+        p_setup_token: input.setupToken,
+        p_pin: input.pin
+      });
+      return respond(req, result, result.ok ? 200 : 403);
+    } catch (e) {
+      return fail(req, "設定暫時無法完成，請稍後再試", 503);
+    }
+  }
+  const token = safe(input?.token, 150), world = input?.world, learnerId = input?.learnerId, action = input?.action;
+  if (!/^[A-Za-z0-9_-]{40,128}$/.test(token) || ![
+    "chengyu",
+    "vocab"
+  ].includes(world)) return fail(req, "請使用正確的家庭連結及玩家", 403);
+  if (![
+    "listPlayers",
+    "leaderboard",
+    "addPlayer"
+  ].includes(action) && !uuid(learnerId)) return fail(req, "請選擇玩家", 403);
+  try {
+    const family = await familyFor(world, token);
+    if (!family) return fail(req, "找不到家庭冒險檔案", 403);
+    if (action === "leaderboard") {
+      // Ignore all caller-supplied family/hero IDs. familyFor resolved the capability.
+      const players = await db("rpc/learning_adventure_leaderboard", "", "POST", {p_family: family.adventureFamilyId});
+      return respond(req, {ok:true, players});
+    }
+    if (action === "listPlayers") {
+      const t = world === "chengyu" ? "chengyu_family_learners" : "vocab_family_learners";
+      const players = await db(t, "family_id=eq." + family.sourceFamilyId + "&select=id,name,created_at&order=created_at.asc&limit=100");
+      return respond(req, {
+        ok: true,
+        players
+      });
+    }
+    if (action === "addPlayer") {
+      const name = safe(input?.name, 24);
+      if (!name || name.length > 24 || /[<>\r\n]/.test(name)) return fail(req, "請輸入 1 至 24 個字的玩家名字");
+      const t = world === "chengyu" ? "chengyu_family_learners" : "vocab_family_learners";
+      let rows = await db(t, "family_id=eq." + family.sourceFamilyId + "&name=eq." + encodeURIComponent(name) + "&select=id,name&limit=1");
+      if (!rows.length) {
+        const existing = await db(t, "family_id=eq." + family.sourceFamilyId + "&select=id&limit=101");
+        if (existing.length >= 100) return fail(req, "家庭玩家已達人數上限");
+        rows = await db(t, "", "POST", {
+          family_id: family.sourceFamilyId,
+          name
+        });
+      }
+      return respond(req, {
+        ok: true,
+        player: {
+          id: rows[0].id,
+          name: rows[0].name
+        }
+      });
+    }
+    const hero = await heroFor(family, learnerId);
+    if (!hero) return fail(req, "找不到對應的冒險者", 403);
+    if (action === "listParentPlayers" || action === "deletePlayer") {
+      const parentSession = safe(input.parentSession,65);
+      if (!/^[0-9a-f]{64}$/.test(parentSession)) return fail(req,"請先完成家長驗證",403);
+      if(action === "listParentPlayers") {
+        const result = await db("rpc/learning_adventure_parent_players","","POST",{p_family:family.adventureFamilyId,p_parent_session:parentSession});
+        return respond(req,{...result,activeHeroId:hero.id});
+      }
+      if(!uuid(input.heroId) || typeof input.confirmName!=="string" || input.confirmName.length>100 || !/^[0-9a-f]{32}$/.test(input.snapshot||"")) return fail(req,"請重新選擇並確認要刪除的玩家");
+      const result=await db("rpc/learning_adventure_delete_player","","POST",{p_family:family.adventureFamilyId,p_parent_session:parentSession,p_active_hero:hero.id,p_hero:input.heroId,p_name:input.confirmName,p_snapshot:input.snapshot});
+      return respond(req,result);
+    }
+    if (action === "getDailyTasks" || action === "completePreview") {
+      const plan = await db("rpc/learning_adventure_daily_plan", "", "POST", {p_family:family.adventureFamilyId,p_hero:hero.id});
+      if(action === "completePreview") {
+        if(world!=="vocab" || input.previewComplete!==true) return fail(req,"請完成單字卡預習");
+        await db("learning_adventure_daily_plans","hero_id=eq."+hero.id+"&world=eq.vocab&day=eq."+plan.day+"&preview_completed_at=is.null","PATCH",{preview_completed_at:new Date().toISOString()});
+        const item=plan.tasks.find(x=>x.world==='vocab');if(item)item.previewDone=true;
+      }
+      for(const item of plan.tasks) {
+        const links=await db('learning_adventure_hero_links','hero_id=eq.'+hero.id+'&world=eq.'+item.world+'&select=source_learner_id&limit=1');
+        item.challengeDone=false;item.mode=item.world==='vocab'?({match:'meaning',spell:'spelling',fill:'sentence',preview:dailyCompanion(hero.display_name,plan.day)})[item.task]:item.task;
+        if(links.length) {
+          let taskName=hero.display_name;if(item.world==='vocab'&&item.task==='preview'){const names=await db('vocab_family_learners','id=eq.'+links[0].source_learner_id+'&select=name&limit=1');if(names[0])taskName=names[0].name;}
+          const rows=await db(item.world+'_family_attempts','learner_id=eq.'+links[0].source_learner_id+'&result_status=eq.completed&created_at=gte.'+encodeURIComponent(plan.day+'T00:00:00+08:00')+'&created_at=lt.'+encodeURIComponent(new Date(Date.parse(plan.day+'T00:00:00+08:00')+86400000).toISOString())+'&select=mode&limit=1500');
+          const mode=item.world==='vocab'?({match:'meaning',spell:'spelling',fill:'sentence',preview:dailyCompanion(taskName,plan.day)})[item.task]:item.task;
+          item.mode=mode;item.challengeDone=rows.some(x=>x.mode===mode||(item.world==='vocab'&&x.mode==='all'));
+        }
+      }
+      return respond(req,{ok:true,...plan});
+    }
+    if(action==='startStageExam'||action==='submitStageExam'){
+      const stage=Number(input.stage);if(!Number.isInteger(stage)||stage<1||stage>7)return fail(req,'關卡不正確');
+      const stars=await db('rpc/learning_adventure_stage_stars','','POST',{p_family:family.adventureFamilyId,p_hero:hero.id,p_world:world});
+      if(!stars.stages.find(z=>z.zone===stage)?.first_star)return fail(req,'請先完成本關混合練習',403);
+      if(stage>1){const prev=await db('learning_adventure_stage_exams','hero_id=eq.'+hero.id+'&world=eq.'+world+'&stage=eq.'+(stage-1)+'&passed=eq.true&select=id&limit=1');if(!prev.length)return fail(req,'請先通過前一關總結測驗',403);}
+      if(action==='startStageExam'){
+        let rows=await db('learning_adventure_stage_exams','hero_id=eq.'+hero.id+'&world=eq.'+world+'&stage=eq.'+stage+'&completed_at=is.null&select=*&limit=1');
+        if(!rows.length){const unitId=uuid(input.unitId)?input.unitId:null,questions=await stageQuestions(family,hero,world,stage,unitId);try{rows=await db('learning_adventure_stage_exams','','POST',{hero_id:hero.id,world,stage,unit_id:unitId,questions});}catch(e){rows=await db('learning_adventure_stage_exams','hero_id=eq.'+hero.id+'&world=eq.'+world+'&stage=eq.'+stage+'&completed_at=is.null&select=*&limit=1');if(!rows.length)throw e;}}
+        return respond(req,{ok:true,exam:visibleExam(rows[0]),requiredScore:90,stage});
+      }
+      const rows=uuid(input.examId)?await db('learning_adventure_stage_exams','id=eq.'+input.examId+'&hero_id=eq.'+hero.id+'&world=eq.'+world+'&stage=eq.'+stage+'&select=*&limit=1'):[],exam=rows[0];
+      if(!exam||exam.completed_at)return fail(req,'測驗不存在或已交卷',409);
+      const answers=input.answers;if(!Array.isArray(answers)||answers.length!==exam.questions.length||!answers.every((n,i)=>Number.isInteger(n)&&n>=0&&n<exam.questions[i].choices.length))return fail(req,'請完成每一道題');
+      const correct=exam.questions.filter((q,i)=>q.answerIndex===answers[i]).length,passed=correct*100>=exam.questions.length*90;
+      const done=await db('learning_adventure_stage_exams','id=eq.'+exam.id+'&completed_at=is.null','PATCH',{answers,correct_count:correct,passed,completed_at:new Date().toISOString()});
+      if(!done.length)return fail(req,'這次已交卷',409);
+      return respond(req,{ok:true,correct,total:exam.questions.length,score:Math.round(correct/exam.questions.length*100),passed,review:exam.questions.map((q,i)=>({stem:q.stem,chosen:q.choices[answers[i]],expected:q.choices[q.answerIndex]}))});
+    }
+    if(action==='getStageStars'||action==='startVillageExam'||action==='submitVillageExam'){
+      const stars=await db('rpc/learning_adventure_stage_stars','','POST',{p_family:family.adventureFamilyId,p_hero:hero.id,p_world:world});
+      if(action==='getStageStars'){
+        const passed=await db('learning_adventure_village_exams','hero_id=eq.'+hero.id+'&world=eq.'+world+'&passed=eq.true&select=id&limit=1');
+        const stageExams=await db('learning_adventure_stage_exams','hero_id=eq.'+hero.id+'&world=eq.'+world+'&passed=eq.true&select=stage');
+        return respond(req,{...stars,villagePassed:passed.length>0,stagePassed:[...new Set(stageExams.map(x=>x.stage))]});
+      }
+      if(!stars.villageExamUnlocked)return fail(req,'集滿這座島21星後才能挑戰出村考驗',403);
+      if(action==='startVillageExam'){
+        let exams=await db('learning_adventure_village_exams','hero_id=eq.'+hero.id+'&world=eq.'+world+'&completed_at=is.null&select=*&limit=1');
+        if(!exams.length){const questions=world==='vocab'?await stageQuestions(family,hero,world,7,null):await buildQuestions(family,hero,world);try{exams=await db('learning_adventure_village_exams','','POST',{hero_id:hero.id,world,questions});}catch(e){exams=await db('learning_adventure_village_exams','hero_id=eq.'+hero.id+'&world=eq.'+world+'&completed_at=is.null&select=*&limit=1');if(!exams.length)throw e;}}
+        return respond(req,{ok:true,exam:visibleExam(exams[0]),requiredScore:90});
+      }
+      if(!uuid(input.examId)||!Array.isArray(input.answers))return fail(req,'請完成出村考驗');
+      const exams=await db('learning_adventure_village_exams','id=eq.'+input.examId+'&hero_id=eq.'+hero.id+'&world=eq.'+world+'&select=*&limit=1'),exam=exams[0];
+      if(!exam||exam.completed_at)return fail(req,'考驗不存在或已交卷',409);
+      if(input.answers.length!==exam.questions.length||!input.answers.every((n,i)=>Number.isInteger(n)&&n>=0&&n<exam.questions[i].choices.length))return fail(req,'請完成每一道題');
+      const correct=exam.questions.filter((q,i)=>q.answerIndex===input.answers[i]).length,passed=correct*100>=exam.questions.length*90;
+      const done=await db('learning_adventure_village_exams','id=eq.'+exam.id+'&completed_at=is.null','PATCH',{answers:input.answers,correct_count:correct,passed,completed_at:new Date().toISOString()});
+      if(!done.length)return fail(req,'已交卷，請勿重送',409);
+      return respond(req,{ok:true,correct,total:exam.questions.length,score:Math.round(correct/exam.questions.length*100),passed,review:exam.questions.map((q,i)=>({stem:q.stem,chosen:q.choices[input.answers[i]],expected:q.choices[q.answerIndex],correct:q.answerIndex===input.answers[i]}))});
+    }
+    if(action === "getRoundReward") {
+      if(!uuid(input.attemptId))return fail(req,'回合識別碼不正確');
+      const link=await db('learning_adventure_hero_links','hero_id=eq.'+hero.id+'&world=eq.'+world+'&select=source_learner_id&limit=1');
+      const runs=link.length?await db(world+'_family_attempts','id=eq.'+input.attemptId+'&learner_id=eq.'+link[0].source_learner_id+'&family_id=eq.'+family.sourceFamilyId+'&select=id,result_status,created_at,question_count,correct_count&limit=1'):[];
+      if(!runs.length)return fail(req,'找不到自己的回合',403);
+      const rows=await db('learning_adventure_coin_ledger','hero_id=eq.'+hero.id+'&world=eq.'+world+'&source_attempt_id=eq.'+input.attemptId+'&kind=eq.qualified_round&select=amount');
+      const wallet=await db('rpc/learning_adventure_wallet','','POST',{p_family:family.adventureFamilyId,p_hero:hero.id,p_claim_login:false});
+      const day=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei'}).format(new Date(runs[0].created_at));
+      const used=await db('learning_adventure_coin_ledger','hero_id=eq.'+hero.id+'&world=eq.'+world+'&day=eq.'+day+'&kind=eq.qualified_round&select=id');
+      const release=await db('learning_adventure_scoring_release','singleton=eq.true&select=starts_at');
+      const run=runs[0];const belowAccuracy=!!release.length&&new Date(run.created_at)>=new Date(release[0].starts_at)&&(!(run.question_count>0)||run.correct_count*100<run.question_count*80);
+      return respond(req,{ok:true,amount:rows.reduce((n,x)=>n+Number(x.amount),0),completed:run.result_status==='completed',belowAccuracy,requiredAccuracy:80,limitReached:used.length>=3,wallet});
+    }
+    if (action === "startDailyReview") {
+      try {
+        return respond(req, {
+          ok: true,
+          review: await dailyReviewStart(family, hero, input.reviewWorld)
+        });
+      } catch (e) {
+        return fail(req, e.message || "暫時無法開始每日複習");
+      }
+    }
+    if (action === "submitDailyReview") {
+      if (!uuid(input.reviewId) || !Array.isArray(input.answers) || input.answers.length > 1500 || input.answers.some((x)=>typeof x === 'string' ? x.length > 120 : !Number.isInteger(x) || x < 0 || x > 3)) return fail(req, "請完成全部複習題目");
+      const result = await db("rpc/learning_adventure_complete_daily_review", "", "POST", {
+        p_family: family.adventureFamilyId,
+        p_hero: hero.id,
+        p_review: input.reviewId,
+        p_answers: input.answers
+      });
+      const wallet = await db("rpc/learning_adventure_wallet", "", "POST", {
+        p_family: family.adventureFamilyId,
+        p_hero: hero.id,
+        p_claim_login: false
+      });
+      return respond(req, {
+        ...result,
+        wallet
+      }, result.ok ? 200 : 400);
+    }
+    if (action === "parentLogin") {
+      if (typeof input.pin !== "string" || !/^[0-9]{6,12}$/.test(input.pin)) return fail(req, "請輸入家長 PIN", 403);
+      const result = await db("rpc/learning_adventure_parent_login", "", "POST", {
+        p_family: family.adventureFamilyId,
+        p_pin: input.pin
+      });
+      return respond(req, result, result.ok ? 200 : 403);
+    }
+    if (action === "setReward" || action === "listParentRewards") {
+      if (typeof input.parentSession !== "string" || !/^[0-9a-f]{64}$/.test(input.parentSession)) return fail(req, "請先完成家長驗證", 403);
+      const allowed = await db("rpc/learning_adventure_parent_valid", "", "POST", {
+        p_family: family.adventureFamilyId,
+        p_token: input.parentSession
+      });
+      if (!allowed) return fail(req, "家長驗證已失效，請重新驗證", 403);
+      if (action === "listParentRewards") {
+        const rewards = await db("learning_adventure_rewards", "adventure_family_id=eq." + family.adventureFamilyId + "&proposed=eq.false&select=id,title,price,available&order=created_at.asc");
+        return respond(req, {
+          ok: true,
+          rewards
+        });
+      }
+      if (input.rewardId != null && !uuid(input.rewardId)) return fail(req, "獎品識別不正確");
+      if (typeof input.title !== "string" || input.title.trim().length < 1 || input.title.length > 80 || !Number.isInteger(input.price) || input.price < 1 || input.price > 100000 || typeof input.available !== "boolean") return fail(req, "請確認獎品名稱與金幣價格");
+      const result = await db("rpc/learning_adventure_parent_set_reward", "", "POST", {
+        p_family: family.adventureFamilyId,
+        p_parent_session: input.parentSession,
+        p_reward: input.rewardId || null,
+        p_title: input.title,
+        p_price: input.price,
+        p_available: input.available
+      });
+      return respond(req, result, result.ok ? 200 : 400);
+    }
+    if (action === "redeem") {
+      if (!uuid(input.rewardId) || !uuid(input.clientRequestId) || !Number.isInteger(input.expectedPrice) || input.expectedPrice < 1) return fail(req, "請重新確認獎勵及價格");
+      const result = await db("rpc/learning_adventure_redeem", "", "POST", {
+        p_family: family.adventureFamilyId,
+        p_hero: hero.id,
+        p_reward: input.rewardId,
+        p_expected_price: input.expectedPrice,
+        p_request: input.clientRequestId
+      });
+      if (!result.ok) return fail(req, result.error || "兌換未完成");
+      const wallet = await db("rpc/learning_adventure_wallet", "", "POST", {
+        p_family: family.adventureFamilyId,
+        p_hero: hero.id,
+        p_claim_login: false
+      });
+      return respond(req, {
+        ...result,
+        wallet
+      });
+    }
+    if (action === "listRedemptions" || action === "confirmRedemption") {
+      const parentSession = safe(input.parentSession, 65);
+      if (!/^[0-9a-f]{64}$/.test(parentSession)) return fail(req, "請先完成家長驗證", 403);
+      const allowed = await db("rpc/learning_adventure_parent_valid", "", "POST", {
+        p_family: family.adventureFamilyId,
+        p_token: parentSession
+      });
+      if (!allowed) return fail(req, "家長驗證已失效，請重新驗證", 403);
+      if (action === "listRedemptions") {
+        const [rows, heroes] = await Promise.all([
+          db("learning_adventure_redemptions", "adventure_family_id=eq." + family.adventureFamilyId + "&status=eq.pending&select=id,hero_id,title,price,status,created_at&order=created_at.asc&limit=100"),
+          db("learning_adventure_heroes", "adventure_family_id=eq." + family.adventureFamilyId + "&select=id,display_name")
+        ]);
+        return respond(req, {
+          ok: true,
+          redemptions: rows.map((r)=>({
+              ...r,
+              learnerName: heroes.find((h)=>h.id === r.hero_id)?.display_name || "冒險者"
+            }))
+        });
+      }
+      if (!uuid(input.redemptionId) || ![
+        "fulfilled",
+        "rejected"
+      ].includes(input.decision)) return fail(req, "兌換結果不正確");
+      const result = await db("rpc/learning_adventure_decide_redemption", "", "POST", {
+        p_family: family.adventureFamilyId,
+        p_parent_session: parentSession,
+        p_redemption: input.redemptionId,
+        p_decision: input.decision
+      });
+      if (!result.ok) return fail(req, result.error || "兌換紀錄未更新");
+      return respond(req, result);
+    }
+    if (action === "parentGrant" || action === "listParentGrants") {
+      const parentSession = safe(input.parentSession, 65);
+      if (!/^[0-9a-f]{64}$/.test(parentSession)) return fail(req, "請先完成家長驗證", 403);
+      const allowed = await db("rpc/learning_adventure_parent_valid", "", "POST", {
+        p_family: family.adventureFamilyId,
+        p_token: parentSession
+      });
+      if (!allowed) return fail(req, "家長驗證已失效，請重新驗證", 403);
+      if (action === "listParentGrants") {
+        const listed = await db("rpc/learning_adventure_list_parent_grants", "", "POST", {
+          p_family: family.adventureFamilyId,
+          p_parent_session: parentSession
+        });
+        const kids = await db("learning_adventure_heroes", "adventure_family_id=eq." + family.adventureFamilyId + "&select=id,display_name&order=created_at.asc&limit=20");
+        return respond(req, {
+          ...listed,
+          heroes: kids
+        });
+      }
+      if (!uuid(input.heroId) || !uuid(input.clientRequestId) || !Number.isInteger(input.amount) || input.amount < 1 || input.amount > 100000 || typeof input.reason !== "string" || input.reason.trim().length < 1 || input.reason.length > 200) return fail(req, "請選擇孩子、輸入金幣數量並寫下原因");
+      const granted = await db("rpc/learning_adventure_parent_grant", "", "POST", {
+        p_family: family.adventureFamilyId,
+        p_parent_session: parentSession,
+        p_hero: input.heroId,
+        p_amount: input.amount,
+        p_reason: input.reason,
+        p_request: input.clientRequestId
+      });
+      if (!granted.ok) return fail(req, granted.error || "金幣未送出");
+      return respond(req, granted);
+    }
+    if (action === "collectItem" || action === "uncollectItem" || action === "listCollections") {
+      const cw = family.world;
+      if (action === "listCollections") {
+        const rows = await db("learning_adventure_collections", "hero_id=eq." + hero.id + "&world=eq." + cw + "&select=item_key,label,created_at&order=created_at.desc&limit=200");
+        return respond(req, {
+          ok: true,
+          world: cw,
+          items: rows
+        });
+      }
+      const raw = safe(input.item, 60);
+      if (!raw) return fail(req, "請選擇要收藏的項目");
+      const key = cw === "vocab" ? raw.toLowerCase() : raw;
+      if (action === "uncollectItem") {
+        await db("learning_adventure_collections", "hero_id=eq." + hero.id + "&world=eq." + cw + "&item_key=eq." + encodeURIComponent(key), "DELETE");
+        return respond(req, { ok: true, removed: key });
+      }
+      let label = "";
+      if (cw === "chengyu") {
+        // 收藏是孩子的書籤，限正式 DATA 字卡；大考驗只從題庫比對出題，未入庫的字只是不抽題。
+        if (CHENGYU_WORDS.has(raw)) label = raw;
+      } else {
+        const b = await db("learning_adventure_family_bindings", "world=eq.vocab&adventure_family_id=eq." + family.adventureFamilyId + "&select=source_family_id&limit=1");
+        if (b.length) {
+          const units = await db("vocab_family_units", "family_id=eq." + b[0].source_family_id + "&select=words&limit=150");
+          for (const u of units) for (const w of Array.isArray(u.words) ? u.words : []) if (!label && String(w.en || "").trim().toLowerCase() === key) label = safe(w.en, 50);
+        }
+      }
+      if (!label) return fail(req, "這個項目不在題庫裡，無法收藏");
+      const res = await db("rpc/learning_adventure_collect", "", "POST", {
+        p_family: family.adventureFamilyId,
+        p_hero: hero.id,
+        p_world: cw,
+        p_key: key,
+        p_label: label
+      });
+      if (!res.ok) return fail(req, res.error || "收藏未完成");
+      return respond(req, res);
+    }
+    if (action === "listOwnRedemptions") {
+      const redemptions = await db("learning_adventure_redemptions", "adventure_family_id=eq." + family.adventureFamilyId + "&hero_id=eq." + hero.id + "&select=id,title,price,status,created_at,decided_at&order=created_at.desc&limit=100");
+      return respond(req, {
+        ok: true,
+        redemptions
+      });
+    }
+    if (action === "listRewards") {
+      const rewards = await db("learning_adventure_rewards", "adventure_family_id=eq." + family.adventureFamilyId + "&available=eq.true&proposed=eq.false&select=id,title,price,available&order=price.asc");
+      const parents = await db("learning_adventure_parent_credentials", "adventure_family_id=eq." + family.adventureFamilyId + "&select=adventure_family_id&limit=1");
+      return respond(req, {
+        ok: true,
+        rewards,
+        redemptionEnabled: parents.length > 0,
+        setupRequired: parents.length === 0
+      });
+    }
+    if (action === "getWallet" || action === "claimLogin") {
+      // IDs are resolved from the verified family capability and learner mapping, never input.heroId.
+      const result = await db("rpc/learning_adventure_wallet", "", "POST", {
+        p_family: family.adventureFamilyId,
+        p_hero: hero.id,
+        p_claim_login: action === "claimLogin"
+      });
+      return respond(req, {
+        ok: true,
+        wallet: result
+      });
+    }
+    if (action === "load") {
+      const [ledger, exams] = await Promise.all([
+        db("learning_adventure_xp_ledger", "hero_id=eq." + hero.id + "&select=world,amount&limit=3000"),
+        db("learning_adventure_promotion_exams", "hero_id=eq." + hero.id + "&select=id,level_before,correct_count,passed,completed_at,started_at&order=started_at.desc&limit=20")
+      ]);
+      const islandXP = {
+        chengyu: 0,
+        vocab: 0
+      };
+      for (const x of ledger)islandXP[x.world] = (islandXP[x.world] || 0) + Number(x.amount || 0);
+      const pending = await activeExam(hero.id, hero.verified_level);
+      return respond(req, {
+        ok: true,
+        hero: publicHero(hero),
+        islandXP,
+        exams,
+        pendingExam: visibleExam(pending)
+      });
+    }
+    if (action === "setAvatarStyle") {
+      const style = input?.avatarStyle;
+      if (![
+        "boy",
+        "girl"
+      ].includes(style)) return fail(req, "請選擇男生或女生角色造型");
+      const rows = await db("learning_adventure_heroes", "id=eq." + hero.id + "&adventure_family_id=eq." + family.adventureFamilyId, "PATCH", {
+        avatar_style: style
+      });
+      if (!rows.length) return fail(req, "無法更新角色造型", 409);
+      return respond(req, {
+        ok: true,
+        hero: publicHero(rows[0])
+      });
+    }
+    if (action === "chooseProfession") {
+      const role = input?.profession;
+      if (![
+        "warrior",
+        "mage",
+        "ranger",
+        "guardian"
+      ].includes(role)) return fail(req, "請選擇職業");
+      if (!hero.avatar_style) return fail(req, "請先選擇角色造型");
+      const rows = await db("learning_adventure_heroes", "id=eq." + hero.id + "&adventure_family_id=eq." + family.adventureFamilyId + "&profession=is.null", "PATCH", {
+        profession: role
+      });
+      if (!rows.length) {
+        const fresh = await heroFor(family, learnerId);
+        return fail(req, fresh?.profession ? "職業已選定；未經確認不能重選" : "無法設定職業", 409);
+      }
+      return respond(req, {
+        ok: true,
+        hero: publicHero(rows[0])
+      });
+    }
+    if (action === "startExam") {
+      if (!hero.profession) return fail(req, "請先選擇冒險職業");
+      if (hero.verified_level >= 100) return fail(req, "已達最高等級");
+      if (hero.total_xp < threshold(hero.verified_level)) return fail(req, "XP 尚未達到升級門檻");
+      let exam = await activeExam(hero.id, hero.verified_level);
+      if (!exam) {
+        const questions = await buildQuestions(family, hero);
+        const newExam = await db("learning_adventure_promotion_exams", "", "POST", {
+          hero_id: hero.id,
+          level_before: hero.verified_level,
+          questions
+        });
+        exam = newExam[0];
+      }
+      return respond(req, {
+        ok: true,
+        exam: visibleExam(exam),
+        hero: publicHero(hero)
+      });
+    }
+    if (action === "submitExam") {
+      const examId = input?.examId, answers = input?.answers;
+      if (!uuid(examId) || !Array.isArray(answers) || answers.length !== 10 || !answers.every((n)=>Number.isInteger(n) && n >= 0 && n <= 3)) return fail(req, "試煉必須完成十道選擇題");
+      const exams = await db("learning_adventure_promotion_exams", "id=eq." + examId + "&hero_id=eq." + hero.id + "&select=*&limit=1");
+      const exam = exams[0];
+      if (!exam) return fail(req, "找不到試煉", 404);
+      if (exam.completed_at) return fail(req, "這次試煉已經交卷，請重新挑戰", 409);
+      if (exam.level_before !== hero.verified_level) return fail(req, "冒險者等級已更新，請重新開啟", 409);
+      if (hero.total_xp < threshold(hero.verified_level)) return fail(req, "XP 不足");
+      const correct = exam.questions.reduce((acc, q, i)=>acc + (q.answerIndex === answers[i] ? 1 : 0), 0);
+      const passed = correct >= 8;
+      const completed = await db("learning_adventure_promotion_exams", "id=eq." + examId + "&hero_id=eq." + hero.id + "&completed_at=is.null", "PATCH", {
+        answers,
+        correct_count: correct,
+        passed,
+        completed_at: new Date().toISOString()
+      });
+      if (!completed.length) return fail(req, "試煉已交卷，請重新開啟", 409);
+      if (passed) {
+        await db("learning_adventure_heroes", "id=eq." + hero.id + "&verified_level=eq." + hero.verified_level + "&total_xp=gte." + threshold(hero.verified_level), "PATCH", {
+          verified_level: hero.verified_level + 1
+        });
+      }
+      const fresh = await heroFor(family, learnerId);
+      return respond(req, {
+        ok: true,
+        correct,
+        total: 10,
+        passed,
+        hero: publicHero(fresh),
+        review: exam.questions.map((q, i)=>({
+            stem: q.stem,
+            chosen: q.choices[answers[i]],
+            expected: q.choices[q.answerIndex],
+            correct: q.answerIndex === answers[i]
+          }))
+      });
+    }
+    return fail(req, "不支援的操作");
+  } catch (error) {
+    console.error("adventure operation error", String(error));
+    return fail(req, "處理冒險資料時發生問題，請稍後再試", 503);
+  }
+});
