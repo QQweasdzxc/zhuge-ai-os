@@ -110,6 +110,7 @@ jobs:
           path: ${{ runner.temp }}/pages-site
           retention-days: 1
   deploy:
+    if: ${{ false }} # Canonical P0 is the sole Pages publisher.
     needs: prepare
     runs-on: ubuntu-latest
     environment:
