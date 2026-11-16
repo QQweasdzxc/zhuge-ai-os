@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#f4f6ff"><title>英文單字闖關王｜V2.9.13</title><script src="./wordbank.js"></script><link rel="preconnect" href="https://ssl.gstatic.com" crossorigin><link rel="preconnect" href="https://api.dictionaryapi.dev" crossorigin>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#f4f6ff"><title>英文單字闖關王｜V2.9.14</title><script src="./wordbank.js"></script><link rel="preconnect" href="https://ssl.gstatic.com" crossorigin><link rel="preconnect" href="https://api.dictionaryapi.dev" crossorigin>
 <style>
 :root{--bg:#f4f6ff;--ink:#263554;--muted:#697a94;--line:#e0e6f4;--blue:#5165d8;--blue2:#7a57d7;--white:#fff;--green:#1d8a68;--red:#ca4e66;--gold:#d4a032}
 *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--ink);background:radial-gradient(ellipse at top left,#e2edff,transparent 44%),radial-gradient(ellipse at top right,#fff0e1,transparent 40%),var(--bg);font-family:system-ui,-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;line-height:1.5}button,input{font:inherit}button{cursor:pointer;-webkit-tap-highlight-color:transparent}button:disabled{opacity:.5;cursor:default}.shell{margin:auto;max-width:760px;padding:21px 18px 65px;min-height:100dvh}.top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:20px}.brand{display:flex;align-items:center;gap:9px;font-weight:900;font-size:18px}.mark{background:#e7eafe;border-radius:13px;padding:9px}.headbtn{border:1px solid var(--line);background:white;border-radius:12px;padding:9px 13px;font-weight:700;color:var(--ink)}.hero{background:linear-gradient(120deg,#506de0,#8661d0);color:white;padding:28px 24px;border-radius:24px;box-shadow:0 14px 30px #526de133}.hero h1{font-size:clamp(28px,7vw,39px);margin:0 0 8px;line-height:1.2}.hero p{margin:0;color:#eff1ff;font-size:14px}.tag{display:inline-block;background:#ffffff2b;border-radius:99px;padding:5px 11px;font-size:12px;margin-bottom:12px}.stats,.triple{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:16px 0}.stat,.mini{background:white;border:1px solid var(--line);padding:13px 7px;border-radius:16px;text-align:center}.stat b{display:block;font-size:23px}.stat small,.mini small{display:block;font-size:11px;color:var(--muted)}.panel{background:white;border-radius:23px;border:1px solid var(--line);padding:21px;margin-top:16px;box-shadow:0 9px 24px #3049680e}.panel h2{font-size:19px;margin:0 0 10px}.panel p{color:var(--muted);font-size:13px;margin:3px 0 13px}.btn{border:0;border-radius:14px;padding:13px 15px;font-weight:800;min-height:49px;display:inline-flex;align-items:center;justify-content:center;gap:7px}.wide{width:100%}.primary{color:#fff;background:var(--blue)}.secondary{background:#e9edff;color:#3a4aa2}.outline{background:white;border:1px solid var(--line);color:var(--ink)}.actions{display:grid;gap:10px;margin-top:14px}.notice{font-size:12px;color:#7b6570;background:#fff5f1;border:1px solid #f9dfd3;border-radius:12px;padding:11px 13px;margin-top:16px}.muted{color:var(--muted);font-size:13px}.row{display:flex;align-items:center;justify-content:space-between;gap:12px}.title{font-size:24px;line-height:1.3;margin:0}.progress{background:#e7ebf6;height:9px;border-radius:9px;margin:16px 0;overflow:hidden}.bar{background:linear-gradient(90deg,#6d8cec,#8365d3);height:100%;border-radius:9px;transition:width .2s}.question{background:linear-gradient(135deg,#f0f5ff,#fff);border:1px solid #e0e8ff;border-radius:21px;text-align:center;padding:26px 17px;min-height:190px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}.question h2{font-size:clamp(27px,6vw,38px);margin:0;overflow-wrap:anywhere}.question h2.sentence{font-size:clamp(19px,4.4vw,27px)}.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:16px 0}.option{min-height:75px;border:1.5px solid #dee5f3;border-radius:15px;background:white;padding:12px 8px;font-size:15px;font-weight:700;color:var(--ink);overflow-wrap:anywhere}.option:hover{border-color:#98ace7;background:#f7f9ff}.option.good{background:#e7f8ee;border-color:#4fb68d}.option.bad{background:#fff0f1;border-color:#e69bab}.pill{border:1px solid #dce4f9;background:white;color:var(--blue);border-radius:99px;padding:8px 15px;font-size:13px;font-weight:800}.input{width:100%;border:2px solid #dfe5f5;border-radius:14px;padding:14px;font-size:22px;color:var(--ink);text-align:center;margin:15px 0 10px}.help{background:#fff6e6;border-radius:12px;padding:11px;font-size:13px;margin:8px 0;color:#86631f}.feedback{background:#eaf9f2;border:1px solid #c3e7d4;border-radius:15px;padding:14px;margin-top:15px}.feedback.wrong{background:#fff2f3;border-color:#f1d4da}.feedback strong{display:block;font-size:17px}.feedback p{margin:8px 0 0;font-size:13px;color:#4c6077}.card{width:100%;background:linear-gradient(145deg,#eef3ff,#fff);border:1px solid #dfe7fb;border-radius:24px;min-height:270px;padding:30px 15px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:var(--ink)}.card b{font-size:clamp(30px,8vw,45px)}.card .trans{font-size:23px;font-weight:800}.flex{display:flex;gap:9px;justify-content:space-between;align-items:center;margin-top:14px}.flex>.btn{flex:1}.table-row{border-bottom:1px solid #edf0f7;padding:10px 0;display:flex;justify-content:space-between;align-items:center;gap:10px}.table-row:last-child{border:0}.small{font-size:12px;color:var(--muted)}.success{color:var(--green)}.danger{color:var(--red)}.trophy{font-size:56px;text-align:center}.star{color:var(--gold);font-size:24px}.center{text-align:center}button:focus-visible,input:focus-visible{outline:3px solid #89a0f2;outline-offset:2px}
@@ -53,13 +53,13 @@ html.quiz-locked,html.quiz-locked body{overflow:hidden}
 @media(max-width:750px){.quiz-stage.spell .question{min-height:88px;padding:10px 14px;gap:8px}.quiz-stage.spell .progress{margin:8px 0}.quiz-stage.spell .lives{margin:6px 0}.quiz-stage.spell .spelling-listen{margin-top:8px;padding:8px 10px}.quiz-stage.spell .spelling-listen .listen-buttons{margin:6px 0}.quiz-stage.spell .spelling-listen .listen-status{margin-top:4px}.quiz-stage.spell .input{margin:6px 0 4px;padding:10px;font-size:20px}.quiz-stage.spell .quiz-mid .flex{margin-top:8px}}
 @media(max-width:750px){.question{min-height:120px;padding:16px 12px}.option{min-height:58px}.fx-dock{height:200px}}
 @media(max-width:750px) and (max-height:560px){.question{min-height:64px;padding:8px 10px;gap:6px}.question h2{font-size:22px}.spelling-listen{margin-top:6px;padding:8px}.spelling-listen .listen-buttons{margin:6px 0}.input{padding:8px;font-size:18px;margin:8px 0 6px}.fx-dock{height:150px}.answer-fx{padding:8px 10px}.progress{margin:8px 0}.lives{margin:4px 0}}
-</style><script>var __h=new URLSearchParams(location.hash.slice(1));if(__h.get("p"))document.documentElement.classList.add("app-resuming");window.__sArrive=__h.get("s")==="settings";</script><style>html.app-resuming #playerGate,html.app-resuming #vocabPlayerGate{display:none!important}</style></head><body><main class="shell"><header class="top"><button class="brand brand-action" id="homebtn" aria-label="返回首頁"><span class="mark">🎮</span><span>單字闖關王</span></button><label class="top-picker-wrap"><span class="top-picker-label">測驗項目</span><select id="scope-picker" aria-label="選擇測驗項目"></select></label></header><div id="app" aria-live="polite"></div></main><footer class="release-footer" id="release-footer" aria-label="網站版本資訊"><span class="release-version" id="release-version">V2.9.13</span><span class="release-cloud" id="release-cloud" role="status">☁️ 檢查字庫中</span><span id="release-date">程式更新 2026/11/15 21:22</span><button id="release-check" type="button">檢查新版</button><span class="release-notice" id="release-notice" role="status" aria-live="polite"></span></footer>
+</style><script>var __h=new URLSearchParams(location.hash.slice(1));if(__h.get("p"))document.documentElement.classList.add("app-resuming");window.__sArrive=__h.get("s")==="settings";</script><style>html.app-resuming #playerGate,html.app-resuming #vocabPlayerGate{display:none!important}</style></head><body><main class="shell"><header class="top"><button class="brand brand-action" id="homebtn" aria-label="返回首頁"><span class="mark">🎮</span><span>單字闖關王</span></button><label class="top-picker-wrap"><span class="top-picker-label">測驗項目</span><select id="scope-picker" aria-label="選擇測驗項目"></select></label></header><div id="app" aria-live="polite"></div></main><footer class="release-footer" id="release-footer" aria-label="網站版本資訊"><span class="release-version" id="release-version">V2.9.14</span><span class="release-cloud" id="release-cloud" role="status">☁️ 檢查字庫中</span><span id="release-date">程式更新 2026/11/16 13:43</span><button id="release-check" type="button">檢查新版</button><span class="release-notice" id="release-notice" role="status" aria-live="polite"></span></footer>
 <script>
 (function(){
 "use strict";
 /* Every published release updates this identity together with release.json.
    All data remains in Supabase; this is only the frontend version stamp. */
-var PAGE_RELEASE={version:"2.9.13",build:"20261115-audio-1",updatedLabel:"2026/11/15 21:22"};
+var PAGE_RELEASE={version:"2.9.14",build:"20261116-sentence-audio-1",updatedLabel:"2026/11/16 13:43"};
 var latestRelease=null;
 function updateReleaseNotice(message,hasUpdate){
  var node=document.getElementById("release-notice");
@@ -215,7 +215,6 @@ var phraseAudio=null, phraseVoice=null, phraseEpoch=0, phraseTimer=null;
 function stopPhraseAudio(){
  phraseEpoch++;
  wordPlayEpoch++;
- if(typeof sentenceActive!=="undefined"&&sentenceActive){try{sentenceActive.pause()}catch(ignore){}sentenceActive=null}
  Object.keys(audioMap).forEach(function(k){audioMap[k].playing=false});
  if(audioActive){try{audioActive.pause()}catch(ignore){}audioActive=null}
  try{speechSynthesis.cancel()}catch(ignore){}
@@ -223,15 +222,16 @@ function stopPhraseAudio(){
  if(phraseAudio){try{phraseAudio.pause()}catch(ignore){}phraseAudio=null}
  if(phraseVoice){try{speechSynthesis.cancel()}catch(ignore){}phraseVoice=null}
 }
-function playPhrase(text,slow){
+var sentenceAudioFiles={"My friends want to play cricket after school.":"./1-sentence-international-a-01.mp3?v=20261116-1","She wants to do archery at the sports center.":"./2-sentence-international-a-02.mp3?v=20261116-1","He began to do taekwondo when he was seven.":"./3-sentence-international-a-03.mp3?v=20261116-1","The game will be in progress when we arrive.":"./4-sentence-international-a-04.mp3?v=20261116-1","I volunteered to show someone around the new school.":"./5-sentence-international-a-05.mp3?v=20261116-1","We practiced for months before the tournament.":"./6-sentence-international-a-06.mp3?v=20261116-1","Don't be afraid to give it a try.":"./7-sentence-international-a-07.mp3?v=20261116-1","Athletes exercise regularly to be in great shape.":"./8-sentence-international-a-08.mp3?v=20261116-1","We need some equipment for the archery class.":"./9-sentence-international-a-09.mp3?v=20261116-1","They plan to kayak on the lake tomorrow.":"./10-sentence-international-a-10.mp3?v=20261116-1","She feels more confident than ever.":"./11-sentence-international-b-01.mp3?v=20261116-1","I hope to defeat someone stronger than me one day.":"./12-sentence-international-b-02.mp3?v=20261116-1","The principal is ready to announce something important.":"./13-sentence-international-b-03.mp3?v=20261116-1","We walked a distance of two kilometers.":"./14-sentence-international-b-04.mp3?v=20261116-1","The robot is programmed to perform several tasks.":"./15-sentence-international-b-05.mp3?v=20261116-1","The school festival was a success.":"./16-sentence-international-b-06.mp3?v=20261116-1","We need to measure the length of the table.":"./17-sentence-international-b-07.mp3?v=20261116-1","It takes some determination to train every day.":"./18-sentence-international-b-08.mp3?v=20261116-1","The pipe carried some sewage away from the town.":"./19-sentence-international-b-09.mp3?v=20261116-1","This game was easier than the previous one.":"./20-sentence-international-b-10.mp3?v=20261116-1"};
+function playPhrase(text,slow,isSentence){
  stopPhraseAudio();
- var epoch=phraseEpoch, audio=null, fallbackStarted=false;
+ var epoch=phraseEpoch, audio=null, fallbackStarted=false, finished=false;
+ var audioLabel=isSentence?"整句英文":"英文語音";
  if(audioActive){try{audioActive.pause()}catch(ignore){}}
- if(typeof sentenceActive!=="undefined"&&sentenceActive){try{sentenceActive.pause()}catch(ignore){}}
  try{speechSynthesis.cancel()}catch(ignore){}
- function current(){return epoch===phraseEpoch}
+ function current(){return epoch===phraseEpoch&&!finished}
  function clearTimer(){if(phraseTimer){clearTimeout(phraseTimer);phraseTimer=null}}
- function fail(){if(!current())return;clearTimer();audioStatus("英文語音發音未能播放，請按發音按鈕重試。",true)}
+ function fail(){if(!current())return;clearTimer();finished=true;audioStatus(audioLabel+"未能播放，請按發音按鈕重試。",true)}
  function fallback(){
   if(!current()||fallbackStarted)return;
   fallbackStarted=true;clearTimer();
@@ -241,20 +241,20 @@ function playPhrase(text,slow){
   try{
    var u=new SpeechSynthesisUtterance(text);phraseVoice=u;u.lang="en-US";u.rate=slow?.62:.84;u.volume=1;
    u.onstart=function(){if(current()){clearTimer();audioStatus(slow?"裝置已啟動慢速朗讀":"裝置已啟動朗讀");phraseTimer=setTimeout(fail,35000)}};
-   u.onend=function(){if(current()){clearTimer();phraseVoice=null;audioStatus("英文語音發音播放完成")}};
+   u.onend=function(){if(current()){clearTimer();finished=true;phraseVoice=null;audioStatus(audioLabel+"播放完成")}};
    u.onerror=fail;
    phraseTimer=setTimeout(function(){if(current()){try{speechSynthesis.cancel()}catch(ignore){}fail()}},5000);
    speechSynthesis.speak(u);
   }catch(e){fail()}
  }
- audioStatus("正在準備英文語音發音…");
+ audioStatus("正在準備"+audioLabel+"…");
  try{
-  var source=phraseAudioFiles[String(text).toLowerCase().trim()];
+  var source=isSentence?sentenceAudioFiles[text]:phraseAudioFiles[String(text).toLowerCase().trim()];
   if(!source){fallback();return}
   audio=new Audio(source);
   phraseAudio=audio;audio.preload="none";audio.playbackRate=slow?.75:1;
-  audio.onplaying=function(){if(current()&&!fallbackStarted){clearTimer();audioStatus(slow?"正在慢速播放英文語音":"正在播放英文語音");phraseTimer=setTimeout(fallback,35000)}};
-  audio.onended=function(){if(current()&&!fallbackStarted){clearTimer();audioStatus("英文語音發音播放完成")}};
+  audio.onplaying=function(){if(current()&&!fallbackStarted){clearTimer();audioStatus((slow?"正在慢速播放":"正在播放")+audioLabel);phraseTimer=setTimeout(fallback,35000)}};
+  audio.onended=function(){if(current()&&!fallbackStarted){clearTimer();finished=true;audioStatus(audioLabel+"播放完成")}};
   audio.onerror=fallback;
   phraseTimer=setTimeout(fallback,8000);
   var p=audio.play();if(p&&typeof p.catch==="function")p.catch(fallback);
@@ -267,35 +267,9 @@ function say(text,slow){
  playAudio(text,slow)
 }
 function fullSentence(w){return w[2].replace("____",w[0]);}
-var sentenceAudio=Object.create(null),sentenceActive=null;
-function sentenceVoiceFallback(phrase,slow){
- var epoch=phraseEpoch;
- if(!("speechSynthesis" in window)){audioStatus("整句語音無法播放，請用 Safari 開啟",true);return}
- try{var u=new SpeechSynthesisUtterance(phrase);u.lang="en-US";u.rate=slow?0.72:0.88;u.volume=1;
- u.onstart=function(){if(epoch===phraseEpoch)audioStatus("🔊 正在朗讀整句英文")};
- u.onerror=function(){if(epoch===phraseEpoch)audioStatus("無法播放整句英文，請重試",true)};
- speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){audioStatus("整句語音無法播放",true)}
-}
-function sentenceSound(w,slow){
- stopPhraseAudio();var epoch=phraseEpoch;
- var text=fullSentence(w),key=w[0],audio=sentenceAudio[key];
- if(sentenceActive){try{sentenceActive.pause()}catch(ignore){}}
- try{speechSynthesis.cancel()}catch(ignore){}
- if(!audio){audio=new Audio("https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=en&q="+encodeURIComponent(text));audio.preload="auto";sentenceAudio[key]=audio}
- sentenceActive=audio;
- try{audio.currentTime=0}catch(ignore){}
- audio.playbackRate=slow?.72:1;
- audioStatus("🔊 正在準備完整句子發音…");
- audio.onplaying=function(){if(epoch!==phraseEpoch)return;audioStatus("🔊 正在播放完整英文句子")};
- audio.onerror=function(){if(epoch===phraseEpoch)sentenceVoiceFallback(text,slow)};
- try{var p=audio.play();if(p&&p.catch)p.catch(function(){if(epoch===phraseEpoch)sentenceVoiceFallback(text,slow)})}
- catch(e){if(epoch===phraseEpoch)sentenceVoiceFallback(text,slow)}
-}
-function warmSentences(){words.slice(0,12).forEach(function(w,i){setTimeout(function(){
- if(sentenceAudio[w[0]])return;
- var a=new Audio("https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=en&q="+encodeURIComponent(fullSentence(w)));
- a.preload="auto";sentenceAudio[w[0]]=a;try{a.load()}catch(ignore){}
-},1100+i*120)})}
+/* Match recordings by complete sentence, never only by the answer word.
+   New/edited sentences use device voice; no unofficial third-party TTS requests. */
+function sentenceSound(w,slow){playPhrase(fullSentence(w),slow,true)}
 function testTone(){try{var C=window.AudioContext||window.webkitAudioContext;if(!C){audioStatus("不支援音效測試",true);return;}var ctx=new C();ctx.resume();var o=ctx.createOscillator(),g=ctx.createGain();o.type="sine";o.frequency.setValueAtTime(523.25,ctx.currentTime);o.frequency.setValueAtTime(659.25,ctx.currentTime+0.2);g.gain.setValueAtTime(0.001,ctx.currentTime);g.gain.linearRampToValueAtTime(0.22,ctx.currentTime+0.02);g.gain.setValueAtTime(0.22,ctx.currentTime+0.30);g.gain.linearRampToValueAtTime(0.001,ctx.currentTime+0.44);o.connect(g);g.connect(ctx.destination);o.start();o.stop(ctx.currentTime+0.45);setTimeout(function(){ctx.close()},900);audioStatus("已送出提示音。如仍無聲，請提高媒體音量並檢查靜音模式。")}catch(e){audioStatus("測試音效無法啟動，請使用 Safari",true)}}
 
 function btn(label,act,cls,attr){return '<button class="btn '+(cls||"outline")+'" data-action="'+act+'" '+(attr||"")+'>'+label+'</button>'}
@@ -793,7 +767,7 @@ document.getElementById("scope-picker").addEventListener("change",function(e){
  s.view="home";render()
 });
 window.learningDailyHost={isHome:()=>s.view==='home',previewComplete:()=>['study','studyCN'].includes(s.view)&&s.card===s.cardOrder.length-1,scopeText:()=>scopeName()+' · '+currentPool().length+' 個單字',saveError:t=>{familyCloud.saving=t}};
-render();initFamilyCloud();warmAudio();warmSentences();
+render();initFamilyCloud();warmAudio();
 })();
 </script><script src="./player-picker.js?v=2.7.1"></script><script src="./progress.js?v=2.6.1"></script><script src="./role-portraits.js?v=1.0.1"></script><script src="./role-portraits-v2.js?v=1.2.0"></script><script src="./archipelago.js?v=1.2.3"></script><script src="./pixel-rpg.js?v=1.0.0"></script><style id="island-entry-20261110">/* Entry design is scoped away from questions, results, exams and player gates. */
 html:not(.entry-playing) body{background:#101d36!important}
