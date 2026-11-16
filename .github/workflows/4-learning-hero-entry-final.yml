@@ -1,0 +1,131 @@
+name: Learning hero entry final release
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: learning-islands-pages-release
+  cancel-in-progress: false
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 3367e554b9213801618933ea8938713368a6ebbe
+          path: main-source
+      - uses: actions/checkout@v4
+        with:
+          ref: 980e505dfdaad7334dc8df43f397ecb1f176ac0b
+          path: hub-source
+      - uses: actions/checkout@v4
+        with:
+          ref: 47061d8b1a63629335e4c722baa1a9b4d0eda150
+          path: chengyu-source
+      - uses: actions/checkout@v4
+        with:
+          ref: dc1248d90cafa7fa1bf6c5590ee64cced5e7bc99
+          path: vocab-source
+      - uses: actions/checkout@v4
+        with:
+          repository: marmottajr/habblaud
+          ref: faa1a012b5fbf632c66dc6801c5383e53a542406
+          path: pixel-source
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Preserve current curated Pages content and Pixel Office
+        run: |
+          node main-source/tools/build-pages-site.js "$RUNNER_TEMP/pages-site"
+          npm ci --prefix pixel-source --ignore-scripts --no-audit --no-fund
+          node main-source/integrations/habblaud/build.mjs "$GITHUB_WORKSPACE/pixel-source" "$RUNNER_TEMP/pages-site"
+      - name: Add exact current illustrated islands and newest phrase audio
+        run: |
+          mkdir -p "$RUNNER_TEMP/pages-site/learning/chengyu" "$RUNNER_TEMP/pages-site/learning/vocab"
+          cp -a hub-source/apps/learning-archipelago/site/. "$RUNNER_TEMP/pages-site/learning/"
+          cp -a chengyu-source/apps/chengyu-quest/site/. "$RUNNER_TEMP/pages-site/learning/chengyu/"
+          cp -a vocab-source/apps/vocab-quest/site/. "$RUNNER_TEMP/pages-site/learning/vocab/"
+          python3 - <<'PY'
+          import pathlib,os,json
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'pages-site'/'learning'
+          replacements={'https://learning-archipelago-family.onrender.com/':'https://qqweasdzxc.github.io/zhuge-ai-os/learning/','https://chengyu-quest-family.onrender.com/':'https://qqweasdzxc.github.io/zhuge-ai-os/learning/chengyu/','https://vocab-quest-family.onrender.com/':'https://qqweasdzxc.github.io/zhuge-ai-os/learning/vocab/'}
+          for p in root.rglob('*'):
+            if p.suffix not in ['.html','.js','.json','.css']:continue
+            s=p.read_text()
+            for a,b in replacements.items():s=s.replace(a,b)
+            guard="!['learning-archipelago-family.onrender.com','chengyu-quest-family.onrender.com','vocab-quest-family.onrender.com'].includes(parsed.hostname)"
+            new="!(['learning-archipelago-family.onrender.com','chengyu-quest-family.onrender.com','vocab-quest-family.onrender.com'].includes(parsed.hostname)||(parsed.hostname==='qqweasdzxc.github.io'&&/^\\/zhuge-ai-os\\/learning\\/(?:$|index\\.html$|(?:chengyu|vocab)\\/(?:index\\.html)?$)/.test(parsed.pathname)))"
+            p.write_text(s.replace(guard,new))
+          # Approved 2026-11-16 island-name update only; game names, rules and IDs stay unchanged.
+          for p in root.rglob('*'):
+            if p.suffix not in ['.html','.js','.json','.css']:continue
+            s=p.read_text().replace('成語島','字裡乾坤')
+            s=s.replace('5-archipelago-four-20261116-q85.webp','1-zili-landscape.webp').replace('2-archipelago-four-portrait-20261116.webp','2-zili-portrait.webp')
+            s=s.replace('主島直達 · 成語 / 英文 / 金銀 / Office','主島直達 · 字裡乾坤 / 英文 / 金銀 / Office')
+            s=s.replace('island-world.js?v=20261116-four','island-world.js?v=20261116-zili')
+            if p==root/'chengyu/index.html':
+              s=s.replace('成語闖關王','字裡乾坤').replace("idiom?'成語練習'","idiom?'字裡乾坤'")
+              s=s.replace('<title>字裡乾坤｜隨機測驗・語音解析</title>','<title>字裡乾坤｜成語闖關・字音字形・組詞</title>')
+            p.write_text(s)
+          for name in ['5-archipelago-four-20261116-q85.webp','2-archipelago-four-portrait-20261116.webp']:
+            (root/name).unlink()
+          assert (root/'1-zili-landscape.webp').stat().st_size==293236
+          assert (root/'2-zili-portrait.webp').stat().st_size==316816
+          # Prevent retired cards from painting while the actual scene script loads.
+          p=root/'index.html'
+          shell='<style id="archipelago-first-paint">\n/* The real map is built progressively. Never paint the retired six-card scaffold. */\n.world:not(.expedition-world){visibility:hidden;min-height:100dvh}\nbody:has(.world:not(.expedition-world))::before{content:"";position:fixed;inset:0;background:#183d51 url(\'./1-zili-landscape.webp\') center/contain no-repeat;z-index:29;pointer-events:none}\n@media(max-width:690px){body:has(.world:not(.expedition-world))::before{background-image:url(\'./2-zili-portrait.webp\');background-size:cover}}\n</style>\n'
+          p.write_text(p.read_text().replace('</head>',shell+'</head>'))
+          # Remove the redundant visible direct-destination strip; island hit targets remain.
+          world=root/'island-world.js'
+          world.write_text(world.read_text()+"\n;(()=>{const s=document.createElement('style');s.id='direct-route-strip-removed';s.textContent='.four-journeys{display:none!important}';document.head.appendChild(s)})();\n")
+          vocab=root/'vocab'
+          import re
+          html=(vocab/'index.html').read_text()
+          maps=re.findall(r'var (?:phrase|sentence)AudioFiles=(\{.*?\});',html)
+          assert len(maps)==2
+          keep={url.split('?')[0].removeprefix('./') for mapping in maps for url in json.loads(mapping).values()}
+          assert len(keep)==142
+          for asset in vocab.glob('*.mp3'):
+            if asset.name not in keep:asset.unlink()
+          assert {p.name for p in vocab.glob('*.mp3')}==keep
+          assert json.loads((root/'vocab/release.json').read_text())['version']=='2.9.15'
+          assert (root/'index.html').exists() and (root/'chengyu/index.html').exists()
+          PY
+      - uses: actions/checkout@v4
+        with:
+          ref: 4360e3a83bc462c02cc2164b6356f2815d0ad520
+          path: identity-source
+      - name: Apply scoped original-hero device entry frontend
+        run: |
+          python3 - <<'PYENTRY'
+          import pathlib,os,json,gzip,base64,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'pages-site'/'learning'
+          import re
+          source=pathlib.Path('identity-source/.github/workflows/3-learning-hero-entry.yml').read_text()
+          payload=re.search(r"base64.b64decode\('([^']+)'\)",source).group(1)
+          files=json.loads(gzip.decompress(base64.b64decode(payload)))
+          files['island-world.js']+="\n;(()=>{const s=document.createElement('style');s.id='unneeded-navigation-hint-removed';s.textContent='.stage-chip-hint{display:none!important}';document.head.appendChild(s)})();\n"
+          for name,text in files.items():
+            dest=root/name
+            assert dest.resolve().is_relative_to(root.resolve())
+            dest.write_text(text)
+          print('Applied scoped identity transport files:',len(files))
+          PYENTRY
+      - name: Validate existing Pages paths are preserved
+        run: node main-source/tests/pages-publish-artifact.test.js "$RUNNER_TEMP/pages-site"
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ runner.temp }}/pages-site
+          retention-days: 1
+  deploy:
+    needs: prepare
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - uses: actions/deploy-pages@v5
+        id: deployment
