@@ -104,7 +104,7 @@ jobs:
           source=pathlib.Path('identity-source/.github/workflows/3-learning-hero-entry.yml').read_text()
           payload=re.search(r"base64.b64decode\('([^']+)'\)",source).group(1)
           files=json.loads(gzip.decompress(base64.b64decode(payload)))
-          files['island-world.js']+="\n;(()=>{const s=document.createElement('style');s.id='unneeded-navigation-hint-removed';s.textContent='.stage-chip-hint{display:none!important}';document.head.appendChild(s)})();\n"
+          files['index.html']=files['index.html'].replace('</head>', '<style id="unneeded-navigation-hint-removed">.stage-chip-hint{display:none!important}</style></head>')
           for name,text in files.items():
             dest=root/name
             assert dest.resolve().is_relative_to(root.resolve())
