@@ -189,8 +189,8 @@ jobs:
           python3 - <<'PYRELEASE'
           import pathlib,os,json,gzip,hashlib
           root=pathlib.Path(os.environ['RUNNER_TEMP'])/'pages-site'/'learning'
-          release=json.loads(gzip.decompress(pathlib.Path('.github/2-learning-release-20261117-mobile-final.json.gz').read_bytes()))
-          assert release['release']=='learning-20261117-mobile-ux'
+          release=json.loads(gzip.decompress(pathlib.Path('.github/1-learning-release-20261117-nav.json.gz').read_bytes()))
+          assert release['release']=='learning-20261117-return-islands'
           for name,text in release['files'].items():
             dest=root/name
             assert dest.resolve().is_relative_to(root.resolve())
@@ -202,6 +202,8 @@ jobs:
             text=(root/page).read_text()
             assert 'maximum-scale=1, user-scalable=no' in text
             assert 'learning-mobile-gestures' in text and 'manifest.json?v=20261117-mobile' in text
+          for page in ['chengyu/index.html','vocab/index.html']:
+            assert "nav.textContent='‹ 返回群島'" in (root/page).read_text()
           assert '>關閉解析</button>' in (root/'chengyu/index.html').read_text()
           manifest=json.loads((root/'manifest.json').read_text())
           assert manifest['scope']==manifest['start_url']=='/zhuge-ai-os/learning/'
