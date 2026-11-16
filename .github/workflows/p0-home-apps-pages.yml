@@ -189,7 +189,7 @@ jobs:
           python3 - <<'PYRELEASE'
           import pathlib,os,json,gzip,hashlib
           root=pathlib.Path(os.environ['RUNNER_TEMP'])/'pages-site'/'learning'
-          release=json.loads(gzip.decompress(pathlib.Path('.github/1-learning-release-20261117-mobile.json.gz').read_bytes()))
+          release=json.loads(gzip.decompress(pathlib.Path('.github/2-learning-release-20261117-mobile-final.json.gz').read_bytes()))
           assert release['release']=='learning-20261117-mobile-ux'
           for name,text in release['files'].items():
             dest=root/name
