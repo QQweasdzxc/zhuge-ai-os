@@ -16,7 +16,7 @@ jobs:
           path: main-source
       - uses: actions/checkout@v4
         with:
-          ref: 7fd958bb50a3ef18b155951bd5293c8bef65c3a9
+          ref: edfc19ea1d82eeb5009eaef02a82897ee301a4a3
           path: hub-source
       - uses: actions/checkout@v4
         with:
