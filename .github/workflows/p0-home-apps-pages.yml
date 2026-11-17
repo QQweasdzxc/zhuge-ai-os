@@ -87,6 +87,13 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Export CI Chromium path
         run: echo "BROWSER_EXECUTABLE=$(node -e 'process.stdout.write(require("playwright").chromium.executablePath())')" >> "$GITHUB_ENV"
+      - name: Verify read-only daily source and private overview boundaries
+        run: |
+          cd tests/investment/daily-close-v4
+          node build-bundles.cjs
+          node --test daily-close.test.cjs integration.test.cjs consumers-venue.test.cjs readonly-adapter.test.cjs source-policy.test.cjs daily-transport.test.cjs daily-consumer.test.cjs r3-*.test.js
+          cmp investment-daily-close-service.js ../../../modules/investment/services/investment-daily-close-service.js
+          cmp investment-daily-close-read.ts ../../../supabase/functions/investment-daily-close-read/index.ts
       - name: Run browser regression
         run: npm run test:browser
       - name: Upload browser evidence
