@@ -41,17 +41,17 @@ test('pre-migration schema refuses department before creating a session',async()
 test('unique legacy import fills only descriptive blanks with source snapshot through column Z',async()=>{
  const row=['REAL','','','','現場','10F','公用','現場專案','使用中'];
  const f=fixture(true,{'資產':[row]}); await f.store.init();
- f.store._legacyRows=[{code:'REAL',recordKey:'R1',name:'螢幕',model:'VS2209',serial:'',zone:'PT',place:'1',project:'歷史專案',owner:'歷史人',provenance:'10F 第6列'}];
+ f.store._legacyRows=[{code:'REAL',recordKey:'R1',name:'螢幕',model:'VS2209',serial:'',zone:'PT',place:'1',project:'歷史專案',owner:'歷史人',provenance:'10F 第6列',header:['名稱','型號規格','S-N','區域','地點位置','專案','保管人'],raw:['螢幕','VS2209','','PT','1','歷史專案','歷史人'],__row:6}];
  const result=f.store.importLegacyMetadata('REAL'); await result.asset.__write;
  assert.equal(result.asset.name,'螢幕'); assert.equal(result.asset.serial,''); assert.equal(result.asset.project,'現場專案'); assert.equal(result.asset.owner,'公用'); assert.equal(result.asset.zone,'10F');
- const write=f.calls.find(x=>x.t==='資產'&&x.action==='update'); assert.equal(write.row.length,26); assert.equal(write.row[22],'R1'); assert.ok(write.row[25]); assert.equal(JSON.parse(write.row[24]).zone,'PT');
+ const write=f.calls.find(x=>x.t==='資產'&&x.action==='update'); assert.equal(write.row.length,26); assert.equal(write.row[22],'R1'); assert.ok(write.row[25]); assert.equal(JSON.parse(write.row[24]).sources['整合-主檔']['區域'],'PT');
  assert.equal(write.row[19],''); // no historical author fabrication
  result.asset.name='現場不同'; const again=f.store.legacyMetadata('REAL'); assert.match(again.issue,/保留新帳/); assert.equal(again.patch.name,undefined);
  f.store._legacyRows.push({...f.store._legacyRows[0],recordKey:'R2'}); assert.match(f.store.legacyMetadata('REAL').issue,/同編號多筆/);
 });
 test('new scans inherit legacy metadata without importing historical project/owner/position',async()=>{
  const f=fixture(); await f.store.init();
- f.store._legacyRows=[{code:'NEW-QR',recordKey:'R10',name:'螢幕',model:'VS2209',serial:'',zone:'PT',place:'1',project:'歷史專案',owner:'舊保管',provenance:'10F 第6列'}];
+ f.store._legacyRows=[{code:'NEW-QR',recordKey:'R10',name:'螢幕',model:'VS2209',serial:'',zone:'PT',place:'1',project:'歷史專案',owner:'舊保管',provenance:'10F 第6列',header:['名稱','型號規格','S-N','區域','地點位置','專案','保管人'],raw:['螢幕','VS2209','','PT','1','歷史專案','舊保管'],__row:6}];
  const s=f.store.startSession('現場',null,null,null,'本次專案','','管理部'); await s.__write;
  const o=f.store.observeAsset(s,'NEW-QR','10F'); await o.asset.__write;
  assert.equal(o.asset.model,'VS2209'); assert.equal(o.asset.owner,''); assert.equal(o.asset.department,'管理部'); assert.equal(o.asset.project,'本次專案'); assert.equal(o.asset.zone,'10F'); assert.equal(o.asset.legacyKey,'R10');

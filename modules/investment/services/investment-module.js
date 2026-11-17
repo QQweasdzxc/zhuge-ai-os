@@ -365,6 +365,22 @@
       userId: () => context.identity.getUserId?.() || "",
       userLabel: () => identity?.name || identity?.email || ""
     });
+    let sessionGeneration = 0;
+    let sessionInvalidated = false;
+    function dailySession() {
+      const current = context.session.getSnapshot();
+      return { authenticated: current.isAuthenticated === true, ownerId: current.identity?.userId || "", generation: `${sessionGeneration}:${current.expiresAt || "no-expiry"}`, aal: current.aal };
+    }
+    const dailyConsumer = global.InvestmentDailyCloseService.createDailyConsumer({
+      getSession: dailySession,
+      invokeFunction: context.data.invokeFunction,
+      normalizeQuote: (quote, now) => global.InvestmentIntelligenceLayer.normalizeQuote(quote, now)
+    });
+    context.session.subscribe?.(() => {
+      sessionGeneration += 1;
+      sessionInvalidated = true;
+      global.ZhugeComponents.Summary.mount(root, '<section role="alert" class="investment-empty-state"><h1>工作階段已更新</h1><p>為避免顯示前一工作階段的私人資料，請重新載入投資頁。</p><button type="button" data-investment-session-reload>重新載入</button></section>');
+    });
     const repository = global.InvestmentRepositoryContract.assertRepository(
       global.SupabaseInvestmentRepository.create({
         userId: context.identity.getUserId(),
@@ -372,26 +388,53 @@
         gateway: global.ZhugeSupabaseGateway?.createDataGateway?.(),
         sessionSnapshot: context.session.getSnapshot(),
         getSessionSnapshot: () => context.session.getSnapshot(),
-        allowAal1Read: access.bypassedMfa === true
+        allowAal1Read: access.bypassedMfa === true,
+        enrichRawPositions: dailyConsumer.enrichRawPositions
       })
     );
     const initialHash = String(global.location.hash || "").replace(/^#/, "");
-    const requestedFocus = ["today-focus", "research", "advisor", "realtime"].includes(new URLSearchParams(global.location.search || "").get("focus"))
+    const requestedFocus = ["today-focus", "research", "advisor", "realtime", "watchlist"].includes(new URLSearchParams(global.location.search || "").get("focus"))
       ? new URLSearchParams(global.location.search || "").get("focus")
       : "";
     const canonicalPage = page => page === "watchlist" ? "portfolio" : page;
     const requestedPage = canonicalPage(initialHash);
     const activePage = global.InvestmentConfig.pages.includes(requestedPage) ? requestedPage : "overview";
-    let activeFocus = activePage === "overview" ? (requestedFocus || "today-focus") : "";
-    if (activePage === "portfolio") {
-      global.location.replace("../../app/Board/investment/");
-      return;
-    }
+    let activeFocus = activePage === "overview" ? (requestedFocus || "today-focus") : (activePage === "portfolio" ? (initialHash === "watchlist" ? "watchlist" : requestedFocus) : "");
     if (initialHash === "watchlist" && global.history?.replaceState) {
       global.history.replaceState(null, "", `${global.location.pathname}${global.location.search}#portfolio`);
     }
     const store = global.InvestmentStore.create({ pages: global.InvestmentConfig.pages, activePage });
     const dependencies = dependencyBundle();
+    let receivablesController = null;
+    function paintReceivables() {
+      const host = root.querySelector("[data-investment-receivables-root]");
+      if (!host || !receivablesController || !global.InvestmentReceivablesPanel) return;
+      const rs = receivablesController.getState();
+      host.innerHTML = global.InvestmentReceivablesPanel.render(rs.items, dependencies);
+      if (rs.status !== "ready" && !rs.items.length) {
+        const empty = host.querySelector(".investment-panel-empty");
+        if (empty) empty.textContent = "應收清單尚未確認，請先完成讀取。";
+      }
+      const form = host.querySelector("[data-receivable-form]");
+      for (const [name,value] of Object.entries(rs.form)) if (form?.elements.namedItem(name)) form.elements.namedItem(name).value = value;
+      host.querySelector("details").open = rs.formOpen;
+      host.querySelectorAll("button,input,select").forEach(el => { el.disabled = rs.busy || rs.status !== "ready"; });
+      const message = document.createElement("p");
+      message.className = "investment-receivable-feedback";
+      message.setAttribute("role", rs.error ? "alert" : "status");
+      message.textContent = [rs.error, rs.notice].filter(Boolean).join("；") || (rs.status === "idle" ? "應收款尚未讀取" : "");
+      host.prepend(message);
+      if (rs.status === "error") {
+        const retry = document.createElement("button"); retry.type="button"; retry.textContent="重新讀取應收款";
+        retry.dataset.receivableRetry="true"; host.prepend(retry);
+      }
+    }
+    function captureReceivableDraft() {
+      const form = root.querySelector("[data-receivable-form]");
+      if (form && receivablesController && !receivablesController.getState().busy) receivablesController.capture(Object.fromEntries(new FormData(form)), form.closest("details").open);
+    }
+    if (global.InvestmentReceivablesController) receivablesController = global.InvestmentReceivablesController.create({repository,onChange:paintReceivables});
+
     const intelligenceProviders = dependencies.providers?.create?.({
       intelligence: dependencies.intelligence,
       analysis: dependencies.analysis,
@@ -474,6 +517,8 @@
     }
 
     function renderPage() {
+      if (sessionInvalidated) return;
+      captureReceivableDraft();
       captureSnapshotWriteForm();
       const state = store.getState();
       const page = pageRegistry[state.activePage] || pageRegistry.overview;
@@ -498,10 +543,11 @@
       };
       const markup = state.status === "loading"
         ? '<div class="investment-loading"><span></span><p>正在讀取投資資料…</p></div>'
-        : page.render(state, pageDependencies);
+        : page.render({ ...state, activeFocus }, pageDependencies);
       if (markup !== lastRenderedPageMarkup || !pageRoot?.firstElementChild) {
         global.ZhugeComponents.Summary.update(pageRoot, markup);
         lastRenderedPageMarkup = markup;
+        paintReceivables();
       }
       if (state.activePage === "portfolio") {
         const surface = pageRoot?.querySelector?.("[data-golden-master-surface]");
@@ -876,6 +922,9 @@
       if (!key) return;
       const target = root.querySelector(`[data-investment-section="${key}"]`);
       if (!target) return;
+      for (let ancestor = target.parentElement; ancestor && ancestor !== root; ancestor = ancestor.parentElement) {
+        if (ancestor.tagName === "DETAILS") ancestor.open = true;
+      }
       const layer = target.closest?.("details[data-investment-layer]");
       if (layer) {
         layer.open = true;
@@ -894,7 +943,7 @@
       if (!global.InvestmentConfig.pages.includes(canonical)) return;
       const previousPage = store.getState().activePage;
       if (focus) activeFocus = focus;
-      else if (canonical !== previousPage) activeFocus = canonical === "overview" ? "today-focus" : "";
+      else if (updateHash || canonical !== previousPage) activeFocus = canonical === "overview" ? "today-focus" : "";
       if (updateHash && global.location.hash !== `#${canonical}`) global.location.hash = canonical;
       if (!updateHash && page === "watchlist" && global.history?.replaceState) {
         global.history.replaceState(null, "", `${global.location.pathname}${global.location.search}#portfolio`);
@@ -942,33 +991,7 @@
     }
 
     async function loadIntelligence(portfolio, positions, watchlist, strategies) {
-      if (!intelligenceProviders) return null;
-      const requests = [
-        ...(Array.isArray(positions) ? positions.filter(position => Number(position.quantity || 0) > 0).map(position => ({
-          symbol: position.symbol,
-          name: position.name,
-          market: position.market
-        })) : []),
-        ...(Array.isArray(watchlist) ? watchlist.map(item => ({
-          symbol: item.symbol,
-          name: item.name,
-          market: item.market
-        })) : []),
-        { symbol: "2330", name: "台積電", market: "TW" },
-        { symbol: "0050", name: "元大台灣50", market: "TW" },
-        { symbol: "AAPL", name: "Apple", market: "US" }
-      ];
-      return intelligenceProviders.load({
-        symbols: requests,
-        newsLimit: 3,
-        portfolioContext: {
-          portfolioId: portfolio?.id || "",
-          currentPositionCount: Array.isArray(positions) ? positions.length : 0
-        },
-        // The analysis consumer compares the existing 15-item Strategy Library.
-        // Persisted strategies remain user decision records and are not mutated.
-        strategyIds: strategyIdsFor(strategies)
-      });
+      return dailyConsumer.load(positions);
     }
 
     function enrichIntelligenceWithPortfolio(intelligence, portfolioPositions) {
@@ -1061,6 +1084,7 @@
     }
 
     async function load() {
+      dailyConsumer.assertBoundSession();
       store.update({
         status: "loading",
         identity,
@@ -1080,6 +1104,7 @@
         repository.loadStrategies(),
         repository.loadSettings()
       ]);
+      dailyConsumer.assertBoundSession();
       store.update({
         status: "ready",
         identity,
@@ -1114,6 +1139,7 @@
       });
       try {
         const intelligence = await loadIntelligence(portfolio, positions, watchlist, strategies);
+        dailyConsumer.assertBoundSession();
         if (intelligence) {
           const livePositions = dependencies.calculation.applyQuotes(positions, intelligence.quotes);
           const runtimeIntelligence = enrichIntelligenceWithPortfolio(intelligence, livePositions);
@@ -1177,22 +1203,11 @@
         });
       }
 
-      let projection = null;
-      let projectionError = null;
-      if (typeof repository.repairIvtkIdentity === "function") {
-        try {
-          await repository.repairIvtkIdentity();
-        } catch (error) {
-          projectionError = error;
-        }
-      }
-      if (!projectionError && typeof repository.syncIvtkProjection === "function") {
-        try {
-          projection = await repository.syncIvtkProjection();
-        } catch (error) {
-          projectionError = error;
-        }
-      }
+      // Opening or refreshing the private investment overview is read-only.
+      // repairIvtkIdentity and syncIvtkProjection mutate existing board tasks;
+      // only the separate explicit board workflow may activate those contracts.
+      const projection = null;
+      const projectionError = null;
 
       let board = null;
       let boardError = null;
@@ -1208,7 +1223,7 @@
           status: board ? "ready" : "error",
           board,
           projection,
-          projectionStatus: projectionError ? "blocked" : "ready",
+          projectionStatus: "read_only",
           error: boardError || projectionError
         })
       });
@@ -1216,6 +1231,16 @@
     }
 
     root.addEventListener("click", event => {
+      if (event.target.closest("[data-investment-session-reload]")) { global.location.reload(); return; }
+      if (sessionInvalidated) return;
+      const receivableAction = event.target.closest("[data-receivable-action]");
+      if (receivableAction && receivablesController) {
+        captureReceivableDraft();
+        receivablesController.setStatus(receivableAction.dataset.receivableId, receivableAction.dataset.receivableNext);
+        return;
+      }
+      if (event.target.closest("[data-receivable-retry]") && receivablesController) { receivablesController.load(); return; }
+
       const researchTarget = event.target.closest("[data-investment-research-symbol]");
       if (researchTarget) {
         openResearchForSymbol(researchTarget.dataset.investmentResearchSymbol, researchTarget.dataset.investmentResearchMarket);
@@ -1225,14 +1250,10 @@
       if (route) {
         const page = route.dataset.investmentRoute;
         const focus = route.dataset.investmentFocus || "";
-        if (page === "portfolio") {
-          global.location.href = `../../app/Board/investment/${focus === "watchlist" ? "#watchlist" : ""}`;
-          return;
-        }
         navigate(page, true, focus);
         return;
       }
-      if (event.target.closest("[data-investment-refresh]")) load().catch(handleError);
+      if (event.target.closest("[data-investment-refresh]")) { load().catch(handleError); if (receivablesController) receivablesController.load(); }
       if (event.target.closest("[data-investment-sensitive-write-enroll]")) {
         enrollSensitiveWriteTotp().catch(handleError);
         return;
@@ -1300,6 +1321,13 @@
       openResearchForSymbol(researchTarget.dataset.investmentResearchSymbol, researchTarget.dataset.investmentResearchMarket);
     });
     root.addEventListener("submit", event => {
+      const receivableForm = event.target.closest("[data-receivable-form]");
+      if (receivableForm && receivablesController) {
+        event.preventDefault();
+        receivablesController.createRecord(Object.fromEntries(new FormData(receivableForm)));
+        return;
+      }
+
       const researchForm = event.target.closest("[data-investment-research-form]");
       if (researchForm) {
         event.preventDefault();
@@ -1406,6 +1434,7 @@
 
     try {
       await load();
+      if (receivablesController) await receivablesController.load();
       if (requestedFocus) {
         const schedule = typeof global.requestAnimationFrame === "function"
           ? global.requestAnimationFrame.bind(global)

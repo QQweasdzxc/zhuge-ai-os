@@ -99,7 +99,7 @@ test("terminally dead refresh clears the session and reports signed-out, never a
   });
   const result = await sandbox.__TfSource.pollTfOnce(fetchStub, "", Date.now(), pollOpts(store));
   assert.equal(result.state, "auth-required");
-  assert.equal(result.note, "需要登入 Zhuge AI OS");
+  assert.equal(result.note, "需要登入 TRQN");
   assert.equal(store.has(GOOGLE_KEY), false, "terminal refresh failure clears the stored session");
 });
 
@@ -133,7 +133,7 @@ test("anonymous visit never touches the refresh path and stays signed-out (simul
   });
   const result = await sandbox.__TfSource.pollTfOnce(fetchStub, "", Date.now(), pollOpts(store));
   assert.equal(result.state, "auth-required");
-  assert.equal(result.note, "需要登入 Zhuge AI OS");
+  assert.equal(result.note, "需要登入 TRQN");
   assert.equal(calls.refresh, 0);
   assert.equal(calls.exchangeToken, null);
 });

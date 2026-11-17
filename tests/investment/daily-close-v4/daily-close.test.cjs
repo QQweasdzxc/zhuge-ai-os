@@ -1,0 +1,13 @@
+'use strict';
+const {test}=require('node:test'),assert=require('node:assert/strict');
+const {dailyClose,validDate}=require('./daily-close.cjs');
+const opts={venue:'TWSE',symbol:'0050',receivedAt:'2026-11-17T14:32:53Z'};
+const row=(Date,ClosingPrice)=>({Date,Code:'0050',ClosingPrice});
+test('ROC date and invalid calendar date',()=>{assert.equal(validDate('1151117'),'2026-11-17');assert.equal(validDate('1150230'),null);});
+test('latest per explicit venue/symbol independent of source order',()=>{const q=dailyClose([row('1151116','80'),row('1151117','81')],opts);assert.equal(q.price,81);assert.equal(q.asOf,'2026-11-17');assert.equal(q.realtime,false);assert.equal(q.quoteType,'daily_close');});
+test('missing latest price never uses prior date',()=>{const q=dailyClose([row('1151117','--'),row('1151116','80')],opts);assert.equal(q.available,false);assert.equal(q.price,null);});
+test('conflicting latest duplicate closes fail closed',()=>{assert.equal(dailyClose([row('1151117','80'),row('1151117','81')],opts).error,'CONFLICTING_LATEST_CLOSE');});
+test('missing, blank, null, zero, malformed and negative close unavailable',()=>{for(const p of ['',null,'0','-1','NaN','--'])assert.equal(dailyClose([row('1151117',p)],opts).available,false);});
+test('absent code is unavailable, not zero',()=>{assert.equal(dailyClose([],opts).price,null);});
+test('TPEX ETF code retains leading zeros and venue',()=>{const q=dailyClose([{Date:'1151117',SecuritiesCompanyCode:'006201',Close:'32.23'}],{...opts,venue:'TPEX',symbol:'006201'});assert.equal(q.price,32.23);assert.equal(q.venue,'TPEX');});
+test('explicit source, code, read timestamp required',()=>{assert.throws(()=>dailyClose([],{}));assert.throws(()=>dailyClose([],{...opts,receivedAt:''}));});

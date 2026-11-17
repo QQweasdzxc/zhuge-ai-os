@@ -29,7 +29,8 @@
           ? `<small>約 ${format.currency(Number(group[field] || 0) * Number(fx.rate), "TWD")}</small>`
           : `<small>約 NT$：匯率暫不可用</small>`
         : "";
-      return `<span><b>${value}</b>${includePercent ? `<small>${format.percent(group.roi)}</small>` : `<small>${currency}</small>`}${approximate}</span>`;
+      const roiText = group.roi === null || group.roi === undefined ? "報酬率待報價" : format.percent(group.roi);
+      return `<span><b>${value}</b>${includePercent ? `<small>${roiText}</small>` : `<small>${currency}</small>`}${approximate}</span>`;
     }).join("")}</div>`;
   }
 
@@ -441,7 +442,54 @@
     return `<div class="investment-watchlist-preview-grid">${cards}</div><p class="investment-readonly-note">只顯示已讀回的行情與觀察資料；沒有 Evidence 時保留「待讀回」，不補猜。</p>`;
   }
 
-  function render(state, dependencies = {}) {
+  function unpricedNote(summary, baseNote) {
+    const unpriced = Number(summary?.tw?.unpricedCount || 0) + Number(summary?.us?.unpricedCount || 0);
+    return unpriced > 0 ? `${baseNote}另有 ${unpriced} 檔暫無報價：市值與損益只計有價檔，報酬率以有價檔成本計。` : baseNote;
+  }
+
+  function investedCostNote(summary, baseNote, format) {
+    const unpriced = Number(summary?.tw?.unpricedCount || 0) + Number(summary?.us?.unpricedCount || 0);
+    if (!unpriced) return baseNote;
+    const pricedCost = Number(summary?.tw?.pricedCost || 0) + Number(summary?.us?.pricedCost || 0);
+    const pricedText = typeof format?.currency === "function" ? format.currency(pricedCost, "TWD") : String(pricedCost);
+    return `${baseNote}市值與損益口徑為已估值部位成本 ${pricedText}，與此全部成本不同口徑。`;
+  }
+
+  function taipeiDate(value) {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? String(value) : new Intl.DateTimeFormat("zh-TW", { timeZone: "Asia/Taipei", year: "numeric", month: "2-digit", day: "2-digit" }).format(parsed);
+  }
+
+  function taipeiDateTime(value) {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? String(value) : new Intl.DateTimeFormat("zh-TW", { timeZone: "Asia/Taipei", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).format(parsed);
+  }
+
+  // Three different clocks must never blur: the quote's own as-of (price time),
+  // a broker snapshot's date, and intelligence.loadedAt (when data was read back).
+  function renderQuoteDataLine(state, escape) {
+    if (state.intelligence?.status !== "ready") return "";
+    const positions = Array.isArray(state.positions) ? state.positions.filter(position => position.positionStatus !== "history" && Number(position.quantity || 0) > 0) : [];
+    const quotes = Array.isArray(state.intelligence?.quotes) ? state.intelligence.quotes.filter(quote => quote?.available && quote.asOf && positions.some(p => p.symbol === quote.symbol && p.market === quote.market && (!quote.currency || p.currency === quote.currency) && (quote.quoteType !== "daily_close" || (p.venue === quote.venue && p.currency === quote.currency)))) : [];
+    const parts = [];
+    if (quotes.length) {
+      const groups = new Map();
+      for (const q of quotes) { const key = `${q.currency || (q.market === "US" ? "USD" : "TWD")}:${q.quoteType === "daily_close" ? "daily_close" : "quote"}`; if (!groups.has(key)) groups.set(key, []); groups.get(key).push(q); }
+      for (const [key, group] of groups) { const [currency, type] = key.split(":"); const dates = group.map(q => String(q.asOf)).sort(); const first = taipeiDate(dates[0]), last = taipeiDate(dates[dates.length-1]); const prefix = groups.size > 1 ? `${currency} ` : ""; parts.push(`${prefix}${type === "daily_close" ? "盤後收盤資料" : "報價資料"} ${first === last ? first : `${first} 至 ${last}`}（${group.length} 檔）`); }
+    }
+    const snapshots = positions.filter(position => position.liveQuoteAvailable === false && position.marketValue !== null && position.marketValue !== undefined);
+    if (snapshots.length) {
+      const dates = Array.from(new Set(snapshots.map(position => taipeiDate(position.snapshotAt || position.effectiveAt || "未知日期"))));
+      parts.push(`券商快照 ${dates.join("、")}（${snapshots.length} 檔）`);
+    }
+    const unpriced = positions.filter(position => position.marketValue === null || position.marketValue === undefined);
+    if (unpriced.length) parts.push(`${unpriced.length} 檔暫無報價未計入`);
+    if (state.intelligence?.loadedAt) parts.push(`資料讀回 ${taipeiDateTime(state.intelligence.loadedAt)}`);
+    if (!parts.length) return "";
+    return `<p class="investment-quote-asof">${parts.map(part => escape(part)).join(" · ")}（台灣時間）</p>`;
+  }
+
+  function renderDetailed(state, dependencies = {}) {
     const { format, calculation, escape } = dependencies;
     const positions = Array.isArray(state.positions) ? state.positions : [];
     const summary = calculation.summarize(positions);
@@ -458,16 +506,16 @@
       <div class="investment-command-grid investment-command-grid-top investment-first-glance">
         <article id="investment-section-today-focus" class="investment-command-panel investment-focus-panel" data-investment-section="today-focus"><header class="investment-panel-heading"><div><p class="investment-eyebrow">01 · 需要注意的事</p><h2>今天需要注意什麼？</h2></div><span class="investment-panel-status ${hasTodayFocus ? "is-ready" : "is-pending"}">${hasTodayFocus ? "有可驗證資料" : "尚未有資料"}</span></header>${renderTodayFocus(state, escape)}</article>
         <section class="investment-command-panel investment-glance-summary" data-investment-section="glance-summary"><header class="investment-panel-heading"><div><p class="investment-eyebrow">02 · 今日總覽</p><h2>持股今天怎麼樣？</h2><p>${positionCount}；TWD／USD 分開呈現。</p></div><span class="investment-panel-status ${hasPositions ? "is-ready" : "is-pending"}">${hasPositions ? "可計算" : "尚無資料"}</span></header><div class="investment-glance-metrics">
-          ${renderMetric("market-value", "目前市值", currencyValues(summary, "value", format, false, state.intelligence?.fx), "由最新可用行情更新既有持倉計算結果。", hasPositions ? "available" : "unavailable", "primary")}
-          ${renderMetric("unrealized-pnl", "總損益／報酬率", currencyValues(summary, "pnl", format, true, state.intelligence?.fx), "依唯一 Investment Current Position calculation result。", hasPositions ? "available" : "unavailable", "primary")}
+          ${renderMetric("market-value", "目前市值", currencyValues(summary, "value", format, false, state.intelligence?.fx), unpricedNote(summary, "由最新可用行情更新既有持倉計算結果。"), hasPositions ? "available" : "unavailable", "primary")}
+          ${renderMetric("unrealized-pnl", "總損益／報酬率", currencyValues(summary, "pnl", format, true, state.intelligence?.fx), unpricedNote(summary, "依唯一 Investment Current Position calculation result。"), hasPositions ? "available" : "unavailable", "primary")}
           ${renderMetric("today-pnl", "今日變化", renderTodayPnl(state, escape, format), "沒有 canonical 結果時保持資料不足。", hasTodayPnl ? "available" : "unavailable", "primary")}
-        </div></section>
+        </div>${renderQuoteDataLine(state, escape)}</section>
       </div>
 
       <article class="investment-command-panel investment-holdings-panel" data-investment-section="important-holdings"><header class="investment-panel-heading"><div><p class="investment-eyebrow">03 · 我的持股</p><h2>我現在持有哪些？</h2><p>先看各持股賺賠；點擊個股再看完整研究。</p></div><button type="button" data-investment-route="portfolio">查看全部 →</button></header>${renderImportantHoldings(state, dependencies)}</article>
 
       <details class="investment-secondary-layer" data-investment-layer="accounting"><summary><span><strong>更多帳務資訊</strong><small>投入成本、已實現損益、總報酬</small></span><b aria-hidden="true">⌄</b></summary><div class="investment-secondary-layer-content"><section class="investment-kpi-section" data-investment-section="core-kpi"><header class="investment-panel-heading"><div><p class="investment-eyebrow">帳務明細</p><h2>完整投資數字</h2><p>保留原始幣別與既有 canonical calculation result。</p></div><span class="investment-panel-status ${hasPositions ? "is-ready" : "is-pending"}">${hasPositions ? "可計算" : "資料不足"}</span></header><div class="investment-kpi-grid">
-        ${renderMetric("invested-cost", "總投入成本", currencyValues(summary, "cost", format, false, state.intelligence?.fx), "依目前已讀回的持倉成本計算；USD 同時顯示約 NT$。", hasPositions ? "available" : "unavailable")}
+        ${renderMetric("invested-cost", "總投入成本", currencyValues(summary, "cost", format, false, state.intelligence?.fx), investedCostNote(summary, "依目前已讀回的持倉成本計算；USD 同時顯示約 NT$。", format), hasPositions ? "available" : "unavailable")}
         ${renderMetric("realized-pnl", "已實現損益", currencyValues(summary, "realizedPnl", format, false, state.intelligence?.fx), "依交易紀錄與移動加權平均成本法計算；不倒推 Opening Baseline 以前的歷史交易。", positions.length ? "available" : "unavailable")}
         ${renderMetric("total-return", "總報酬", renderTotalReturn(state, escape), "目前不具備完整已實現損益與股利 Contract。", hasTotalReturn ? "available" : "unavailable")}
       </div><p class="investment-boundary-note" data-investment-state="blocked"><strong>富邦 Read-only 尚未接通</strong><span>目前持股、交易與損益仍使用既有 canonical Investment source；不把未接通的券商資料當成持倉結果。</span></p></section></div></details>
@@ -481,5 +529,10 @@
     </section>`;
   }
 
-  return Object.freeze({ render });
+  function render(state, dependencies = {}) {
+    if (!globalThis.InvestmentHoldingsSimpleList) return renderDetailed(state, dependencies);
+    const detail = renderDetailed(state, dependencies).replace(' data-investment-first-screen="true"', "");
+    return `<section class="investment-command-center" data-investment-first-screen="true"><div class="investment-page-heading"><div><h1>投資總覽</h1><p>持股與應收款分開列示；原幣呈現，不推算缺失行情。</p></div><button type="button" class="investment-refresh" data-investment-refresh>重新整理</button></div>${globalThis.InvestmentHoldingsSimpleList.render(state, dependencies)}<div data-investment-receivables-root></div><details class="investment-secondary-layer"><summary>研究與更多投資資訊</summary>${detail}</details></section>`;
+  }
+  return Object.freeze({ render, renderDetailed });
 });

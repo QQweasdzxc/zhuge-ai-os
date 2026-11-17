@@ -98,7 +98,7 @@ test("Investment homepage consumes symbol-specific Analysis without writing Stra
   assert.match(markup, /對我有什麼影響？/);
   assert.match(markup, /接下來觀察什麼？/);
   assert.match(markup, /為什麼？/);
-  assert.match(markup, /目前資料還不夠，諸葛暫時不判斷/);
+  assert.match(markup, /目前資料還不夠，TRQN 暫時不判斷/);
   assert.match(markup, /買點／賣點／策略區間/);
   assert.match(markup, /我的持有曝險/);
   assert.match(markup, /Evidence 信心/);
@@ -179,7 +179,7 @@ test("Investment homepage keeps loading, error, and broker-boundary states expli
   const loading = renderState([], [], [], null, [], { status: "loading" });
   assert.match(loading, /今日重點整理中/);
   assert.match(loading, /行情與市場情報讀取中/);
-  assert.match(loading, /諸葛正在整理 Evidence/);
+  assert.match(loading, /TRQN 正在整理 Evidence/);
   assert.match(loading, /富邦 Read-only 尚未接通/);
   assert.doesNotMatch(loading, /TWD 0|USD 0/);
 

@@ -1,0 +1,10 @@
+'use strict';
+const fs=require('fs'),{fixture}=require('./fixture.cjs'),Overview=require('./model/overview.js'),Card=require('./model/card.js'),Calc=require('./model/calculation.js'),format=require('./model/formatters.js');
+const escape=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const f=fixture(),state={...f.state,watchlist:[],todayFocus:[],marketEvents:[],performance:{}};
+const detailed=Overview.renderDetailed(state,{escape,format,calculation:Calc,positionCard:{render:p=>Card.render(p,{escape,format,classify:Calc.classify})}});
+const line=detailed.match(/<p class="investment-quote-asof">.*?<\/p>/s)?.[0];if(!line)throw Error('Overview source data line missing');
+const wrap=body=>'<!doctype html><html lang="zh-TW"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>盤後契約隔離驗證</title><link rel="stylesheet" href="model/investment.css"><body style="margin:0;background:#0b1220;color:#eef2ff;font-family:Arial,sans-serif"><main style="max-width:1100px;margin:auto;padding:12px"><h1 style="font-size:20px">隔離測試：盤後日期與缺價</h1><p>合成持股，非本人資料；無網路、無寫入。</p>'+body+'</main></body></html>';
+fs.writeFileSync(__dirname+'/fixture.html',wrap(f.html));
+fs.writeFileSync(__dirname+'/consumer-fixture.html',wrap('<h2>Overview 資料行</h2>'+line+'<h2>Position card</h2>'+f.positions.map(p=>Card.render(p,{escape,format,classify:Calc.classify})).join('')));
+fs.writeFileSync(__dirname+'/evidence/overview-full.html',wrap(detailed));

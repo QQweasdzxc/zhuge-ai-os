@@ -10,6 +10,13 @@
     return Number.isFinite(parsed) ? parsed : fallback;
   }
 
+  function finiteOrNull(value) {
+    if (typeof value !== "number" && typeof value !== "string") return null;
+    if (typeof value === "string" && value.trim() === "") return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
   function valueOr(primary, fallback) {
     return primary === null || primary === undefined || primary === "" ? fallback : primary;
   }
@@ -17,10 +24,14 @@
   function normalize(value = {}) {
     const quantity = numeric(value.quantity);
     const averageCost = numeric(value.averageCost ?? value.avg_cost);
-    const lastPrice = numeric(value.lastPrice ?? value.last_price);
+    // Missing quotes stay null instead of collapsing to 0: a 0 price fabricated
+    // marketValue 0 and a fake -100% unrealized loss on position cards.
+    const lastPrice = finiteOrNull(value.lastPrice ?? value.last_price);
     const investedCost = numeric(valueOr(value.investedCost ?? value.invested_cost, quantity * averageCost));
-    const marketValue = numeric(valueOr(value.marketValue ?? value.market_value, quantity * lastPrice));
-    const unrealizedPnl = numeric(valueOr(value.unrealizedPnl ?? value.unrealized_pnl, marketValue - investedCost));
+    const suppliedMarketValue = finiteOrNull(value.marketValue ?? value.market_value);
+    const marketValue = suppliedMarketValue !== null ? suppliedMarketValue : (lastPrice !== null ? quantity * lastPrice : null);
+    const suppliedPnl = finiteOrNull(value.unrealizedPnl ?? value.unrealized_pnl);
+    const unrealizedPnl = suppliedPnl !== null ? suppliedPnl : (marketValue !== null ? marketValue - investedCost : null);
     const suppliedPercent = valueOr(value.unrealizedPercent ?? value.unrealized_pct ?? value.returnRate ?? value.return_rate, null);
     const rawBrokerValues = value.rawBrokerValues ?? value.raw_broker_values;
     return Object.freeze({
@@ -35,6 +46,9 @@
       name: String(value.name || ""),
       market: String(value.market || "TW").toUpperCase(),
       currency: String(value.currency || "TWD").toUpperCase(),
+      venue: String(value.venue || "").toUpperCase(),
+      historicalValuation: value.historicalValuation && typeof value.historicalValuation === "object" ? Object.freeze({ ...value.historicalValuation }) : null,
+      venueResolution: value.venueResolution && typeof value.venueResolution === "object" ? Object.freeze({ ...value.venueResolution }) : null,
       assetType: String(value.assetType || value.asset_type || "position"),
       account: String(value.account || ""),
       source: String(value.source || ""),
@@ -44,7 +58,8 @@
       investedCost,
       marketValue,
       unrealizedPnl,
-      unrealizedPercent: suppliedPercent === null ? (investedCost ? unrealizedPnl / investedCost * 100 : 0) : numeric(suppliedPercent),
+      unrealizedPercent: suppliedPercent === null ? (unrealizedPnl !== null && investedCost ? unrealizedPnl / investedCost * 100 : null) : numeric(suppliedPercent),
+      priceAvailable: lastPrice !== null,
       realizedPnl: numeric(value.realizedPnl ?? value.realized_pnl),
       everHeld: value.everHeld === true || value.ever_held === true || quantity > 0,
       positionStatus: String(value.positionStatus || value.position_status || (quantity > 0 ? "current" : "unknown")),
