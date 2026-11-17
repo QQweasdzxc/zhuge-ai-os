@@ -264,7 +264,7 @@ jobs:
           python3 - <<'PYSCHOOL'
           import pathlib,os,json,gzip,hashlib
           root=pathlib.Path(os.environ['RUNNER_TEMP'])/'pages-site'/'learning'
-          data=json.loads(gzip.decompress(pathlib.Path('.github/1-1-school-private-entries-20261117.json.gz').read_bytes()))
+          data=json.loads(gzip.decompress(pathlib.Path('.github/2-1-school-private-entries-20261117.json.gz').read_bytes()))
           assert data['release']=='school-private-entries-20261117'
           assert set(data['files'])=={'index.html','island-world.js'}
           for name,text in data['files'].items():
