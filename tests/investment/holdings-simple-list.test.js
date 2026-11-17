@@ -93,3 +93,6 @@ test("mixed currencies have independent original-currency totals and unpriced bo
  assert.match(tw,/NT\$ 1,000/);assert.match(tw,/NT\$ 1,100/);assert.doesNotMatch(tw,/US\$|未計入/);
  assert.match(us,/US\$ 80\.00/);assert.match(us,/1 檔暫無報價未計入/);assert.doesNotMatch(us,/NT\$/);
 });
+
+ test("AAL1 read requires verification without claiming stale sources",()=>{const input=state([]);input.intelligence.quality={dailyClose:{error:'DAILY_SOURCE_AAL2_REQUIRED'}};const html=Simple.render(input,deps);assert.match(html,/data-investment-read-step-up/);assert.match(html,/本次安全驗證/);assert.doesNotMatch(html,/尚未通過來源與日期驗證/);});
+ test("source validation failures remain separate from authentication",()=>{const input=state([]);input.intelligence.quality={dailyClose:{error:'OFFICIAL_DAILY_SOURCE_NOT_CURRENT'}};const html=Simple.render(input,deps);assert.match(html,/尚未通過來源與日期驗證/);assert.doesNotMatch(html,/data-investment-read-step-up/);});
