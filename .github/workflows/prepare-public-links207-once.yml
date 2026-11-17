@@ -1,0 +1,39 @@
+name: Prepare scoped public link repair207
+on:
+  push:
+    branches: [fix/public-link-targets-20261117]
+    paths: [.github/workflows/prepare-public-links207-once.yml]
+permissions:
+  contents: write
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply exactly reviewed chat and docs files then remove preparation inputs
+        run: |
+          python3 - <<'PYFILES'
+          import pathlib,hashlib,gzip,json,base64
+          root=pathlib.Path('.')
+          inputs=list(root.glob('*public-links207-exact-files.json.gz'))
+          assert len(inputs)==1
+          blob=inputs[0].read_bytes()
+          assert hashlib.sha256(blob).hexdigest()=='9c746da7dbebf792fbd400a0ae25f56c88d3f7c7ed4a15e3f50405d5de3bd4a1'
+          files=json.loads(gzip.decompress(blob))
+          assert len(files)==28
+          assert set(files)==set(json.loads('["app/Board/ai/index.html", "app/Board/investment/index.html", "app/Board/procurement/index.html", "app/Board/template-preview/index.html", "app/Board/worktodo/index.html", "app/dashboard/index.html", "app/dashboard/zhuge-dashboard.js", "docs/index.html", "docs/status-classic.html", "index.html", "labs/investment/app.js", "labs/investment/index.html", "labs/investment/src/portfolio/view.mjs", "labs/investment/version.json", "labs/taskflow/index.html", "modules/investment/index.html", "modules/investment/version.json", "modules/skyeye/index.html", "modules/worklog/chat/index.html", "modules/worklog/index.html", "modules/worklog/version.json", "modules/worklog/worklog-app.js", "shared/app-config.js", "shared/config/template-release.js", "shared/config/version.js", "status-classic.html", "tests/public-link-targets.test.js", "version.json"]'))
+          for name,data in files.items():
+            dest=root/name
+            assert dest.resolve().is_relative_to(root.resolve())
+            assert not name.startswith('labs/pixel-office-3d/')
+            dest.parent.mkdir(parents=True,exist_ok=True)
+            dest.write_bytes(base64.b64decode(data,validate=True))
+          inputs[0].unlink()
+          (root/'.github/workflows/prepare-public-links207-once.yml').unlink()
+          PYFILES
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git diff --cached --check
+          git commit -m 'Apply reviewed chat and docs link repair .207'
+          git push
