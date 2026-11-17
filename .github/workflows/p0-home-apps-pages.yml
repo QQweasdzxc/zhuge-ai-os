@@ -269,6 +269,10 @@ jobs:
           assert set(data['files'])=={'index.html','island-world.js'}
           for name,text in data['files'].items():
             assert hashlib.sha256(text.encode()).hexdigest()==data['sha256'][name]
+            if name=='index.html':
+              assert text.count('watch-tower.js?v=20261117-final')==1
+              text=text.replace('watch-tower.js?v=20261117-final','watch-tower.js?v=20261117-source206')
+              data['sha256'][name]=hashlib.sha256(text.encode()).hexdigest()
             (root/name).write_text(text)
           (root/'school-entry-manifest.json').write_text(json.dumps({'release':data['release'],'sha256':data['sha256']},indent=2))
           PYSCHOOL
