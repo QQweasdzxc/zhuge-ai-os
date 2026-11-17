@@ -189,12 +189,13 @@ jobs:
           python3 - <<'PYRELEASE'
           import pathlib,os,json,gzip,hashlib
           root=pathlib.Path(os.environ['RUNNER_TEMP'])/'pages-site'/'learning'
-          release=json.loads(gzip.decompress(pathlib.Path('.github/1-1-learning-release-20261117-challenge.json.gz').read_bytes()))
-          assert release['release']=='learning-20261117-challenge-repair'
+          release=json.loads(gzip.decompress(pathlib.Path('.github/1-1-learning-release-20261117-watch-tower.json.gz').read_bytes()))
+          assert release['release']=='learning-20261117-watch-tower'
           for name,text in release['files'].items():
             dest=root/name
             assert dest.resolve().is_relative_to(root.resolve())
             assert hashlib.sha256(text.encode()).hexdigest()==release['sha256'][name]
+            dest.parent.mkdir(parents=True,exist_ok=True)
             dest.write_text(text)
           for name,digest in release['sha256'].items():
             assert hashlib.sha256((root/name).read_bytes()).hexdigest()==digest,name
