@@ -219,6 +219,26 @@ jobs:
           (root/'release-manifest.json').write_text(json.dumps({'release':release['release'],'sha256':release['sha256']},indent=2))
           print('Canonical learning source and SHA256 gate passed:',len(release['files']))
           PYRELEASE
+      - name: Restore flat Office private-account view
+        run: |
+          python3 - <<'PYOFFICE'
+          import pathlib,os,json,gzip,hashlib,base64
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'pages-site'/'learning'
+          data=json.loads(gzip.decompress(pathlib.Path('.github/1-office-flat-20261117.json.gz').read_bytes()))
+          assert data['release']=='office-flat-20261117'
+          for name in data['sha256']:
+            dest=root/name
+            assert name.startswith('office/') and dest.resolve().is_relative_to(root.resolve())
+            payload=data['files'][name].encode() if name in data['files'] else base64.b64decode(data['binary'][name],validate=True)
+            assert hashlib.sha256(payload).hexdigest()==data['sha256'][name]
+            dest.parent.mkdir(parents=True,exist_ok=True)
+            dest.write_bytes(payload)
+          # Retired mobile fallback is fully superseded by the current portrait.
+          world=(root/'island-world.js').read_text()
+          assert '1-archipelago-portrait.jpg' not in world and '2-zili-portrait.webp' in world
+          (root/'1-archipelago-portrait.jpg').unlink()
+          (root/'office/release-manifest.json').write_text(json.dumps({'release':data['release'],'sha256':data['sha256']},indent=2))
+          PYOFFICE
       - name: Validate P0 routes and excluded source payload
         run: node tests/pages-publish-artifact.test.js "$RUNNER_TEMP/pages-site"
       - name: Upload candidate artifact without deploying
