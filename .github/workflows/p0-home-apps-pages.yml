@@ -248,7 +248,7 @@ jobs:
           python3 - <<'PYMAP'
           import pathlib,os,json,gzip,hashlib,base64
           root=pathlib.Path(os.environ['RUNNER_TEMP'])/'pages-site'/'learning'
-          data=json.loads(gzip.decompress(pathlib.Path('.github/1-map-faithful-detail-20261117.json.gz').read_bytes()))
+          data=json.loads(gzip.decompress(pathlib.Path('.github/1-1-map-faithful-detail-20261117.json.gz').read_bytes()))
           assert data['release']=='map-faithful-detail-20261117'
           assert set(data['sha256'])=={'index.html','island-world.js','1-zili-landscape.webp'}
           for name,digest in data['sha256'].items():
