@@ -1,0 +1,41 @@
+name: Prepare reviewed investment208 source only
+on:
+  push:
+    branches: [review/investment-receivables-20261118]
+    paths: [.github/workflows/prepare-investment208-once.yml]
+permissions:
+  contents: write
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply exact reviewed source and remove preparation inputs
+        run: |
+          test "$(git merge-base HEAD origin/main)" = "c6dc6d21754a4f23d606571d1ec9b7e3d36d7205"
+          python3 - <<'PYFILES'
+          import pathlib,hashlib,gzip,json,base64
+          root=pathlib.Path('.')
+          inputs=list(root.glob('*investment208-exact-files.json.gz'))
+          assert len(inputs)==1
+          blob=inputs[0].read_bytes()
+          assert hashlib.sha256(blob).hexdigest()=='aa89a815f450d3eb52dc2c9d61330d62147eb51045fceafd542861684f0a5fde'
+          files=json.loads(gzip.decompress(blob))
+          assert set(files)==set(json.loads('[".github/workflows/p0-home-apps-pages.yml", "app/Board/ai/index.html", "app/Board/investment/index.html", "app/Board/procurement/index.html", "app/Board/template-preview/index.html", "app/Board/worktodo/index.html", "app/dashboard/index.html", "app/dashboard/zhuge-dashboard.js", "docs/index.html", "docs/status-classic.html", "index.html", "labs/investment/app.js", "labs/investment/index.html", "labs/investment/src/portfolio/view.mjs", "labs/investment/version.json", "labs/taskflow/index.html", "modules/investment/assets/investment.css", "modules/investment/components/holdings-simple-list.js", "modules/investment/components/position-card.js", "modules/investment/components/receivables-panel.js", "modules/investment/index.html", "modules/investment/models/position.js", "modules/investment/pages/overview-page.js", "modules/investment/pages/portfolio-page.js", "modules/investment/services/investment-daily-close-service.js", "modules/investment/services/investment-intelligence-layer.js", "modules/investment/services/investment-module.js", "modules/investment/services/portfolio-calculation-service.js", "modules/investment/services/receivables-controller.js", "modules/investment/services/supabase-investment-repository.js", "modules/investment/version.json", "modules/skyeye/index.html", "modules/worklog/chat/index.html", "modules/worklog/index.html", "modules/worklog/version.json", "shared/app-config.js", "shared/config/template-release.js", "shared/config/version.js", "status-classic.html", "supabase/functions/investment-daily-close-read/index.ts", "supabase/migrations/20261117213000_investment_receivables.sql", "tests/investment-intelligence-providers.test.js", "tests/investment/analysis-ui-consumer.test.js", "tests/investment/daily-close-v4/README-V4.md", "tests/investment/daily-close-v4/build-bundles.cjs", "tests/investment/daily-close-v4/build-calendar-manifest.py", "tests/investment/daily-close-v4/calendar-manifest-2026.json", "tests/investment/daily-close-v4/consumers-venue.test.cjs", "tests/investment/daily-close-v4/daily-close.cjs", "tests/investment/daily-close-v4/daily-close.test.cjs", "tests/investment/daily-close-v4/daily-consumer.cjs", "tests/investment/daily-close-v4/daily-consumer.test.cjs", "tests/investment/daily-close-v4/daily-edge-handler.cjs", "tests/investment/daily-close-v4/daily-snapshot-transport.cjs", "tests/investment/daily-close-v4/daily-transport.test.cjs", "tests/investment/daily-close-v4/evidence/calendar/tpex-calendar-2026-live.json", "tests/investment/daily-close-v4/evidence/calendar/tpex-stock-calendar-normalized.json", "tests/investment/daily-close-v4/evidence/calendar/twse-calendar-2026-live.json", "tests/investment/daily-close-v4/evidence/overview-full.html", "tests/investment/daily-close-v4/evidence/r3-original-tests/holdings-simple-list.test.js", "tests/investment/daily-close-v4/evidence/r3-original-tests/position-quote-guard.test.js", "tests/investment/daily-close-v4/evidence/tpex-daily-live.json", "tests/investment/daily-close-v4/evidence/twse-daily-live.json", "tests/investment/daily-close-v4/fixture.cjs", "tests/investment/daily-close-v4/generate-fixtures.cjs", "tests/investment/daily-close-v4/integration.test.cjs", "tests/investment/daily-close-v4/model/calculation.js", "tests/investment/daily-close-v4/model/card.js", "tests/investment/daily-close-v4/model/formatters.js", "tests/investment/daily-close-v4/model/holdings.js", "tests/investment/daily-close-v4/model/intelligence.js", "tests/investment/daily-close-v4/model/investment.css", "tests/investment/daily-close-v4/model/overview.js", "tests/investment/daily-close-v4/model/position.js", "tests/investment/daily-close-v4/r3-holdings-simple-list.test.js", "tests/investment/daily-close-v4/r3-position-quote-guard.test.js", "tests/investment/daily-close-v4/readonly-adapter.cjs", "tests/investment/daily-close-v4/readonly-adapter.test.cjs", "tests/investment/daily-close-v4/repository/models/portfolio.js", "tests/investment/daily-close-v4/repository/models/position.js", "tests/investment/daily-close-v4/repository/models/settings.js", "tests/investment/daily-close-v4/repository/models/strategy.js", "tests/investment/daily-close-v4/repository/models/transaction.js", "tests/investment/daily-close-v4/repository/models/watchlist-item.js", "tests/investment/daily-close-v4/repository/services/supabase-investment-repository.js", "tests/investment/daily-close-v4/source-policy.cjs", "tests/investment/daily-close-v4/source-policy.test.cjs", "tests/investment/daily-close-v4/venue-readonly-join.cjs", "tests/investment/daily-close-v4/verify-runtime-navigation.cjs", "tests/investment/daily-close-v4/verify-visual.cjs", "tests/investment/daily-readonly-runtime-fixture.html", "tests/investment/holdings-simple-list.test.js", "tests/investment/overview-readonly-load.test.js", "tests/investment/position-quote-guard.test.js", "tests/investment/receivables-controller.test.js", "tests/investment/receivables-panel.test.js", "tests/investment/receivables-repository.test.js", "tests/pixel-office-3d-token-refresh.test.js", "tests/zg-erp-department.test.js", "tests/zg-erp-legacy-workflow.test.js", "tests/zg-erp-token-refresh.test.js", "version.json"]'))
+          for name,data in files.items():
+            dest=root/name
+            assert dest.resolve().is_relative_to(root.resolve())
+            assert not name.startswith('ZG-ERP/')
+            dest.parent.mkdir(parents=True,exist_ok=True)
+            dest.write_bytes(base64.b64decode(data,validate=True))
+          inputs[0].unlink()
+          (root/'.github/workflows/prepare-investment208-once.yml').unlink()
+          PYFILES
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git diff --cached --check
+          git commit -m 'Apply reviewed investment208 source without deployment'
+          git push origin HEAD:review/investment-receivables-20261118
