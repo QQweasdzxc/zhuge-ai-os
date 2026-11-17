@@ -1,0 +1,11 @@
+{
+  "service_id": "srv-dbtt3h67bikc73flk8hg",
+  "source": "/*",
+  "destination": "https://qqweasdzxc.github.io/zhuge-ai-os/learning/watch-tower/",
+  "action": "Redirect",
+  "status": 301,
+  "applied_via": "Render Dashboard Redirects/Rewrites",
+  "auto_deploy": "off",
+  "publish_directory": "bridge-site",
+  "build_command": "echo Redirect-only"
+}
