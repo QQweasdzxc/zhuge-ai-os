@@ -9,3 +9,5 @@ Chromium and WebKit 320/390/1280 full flows passed: 3 independent entries, 10-qu
 Live backend minimal hintCount compatibility deployed after exact code comparison. Isolated QA family roundtrip9 checks passed including run idempotency and saved hintCount; no fabricated wrong answers. Original completed and no-hint gameover paths passed. QA family/learner/3attempts cleaned, SQL remaining0/0 and API403 verified. No real child progress, schema or permissions changed.
 
 FullSource remains separate, not claimed here.
+
+Artifact size guard: initial full dictionary embedding exceeded25MB. Dictionary now losslessly gzip-packed inline with a 5.1KB MIT fflate decoder; all2114 complete original records and usage text roundtrip exactly. No lexical fields or scope removed. Chromium/WebKit complete3width flows rerunPASS after packing. Existing25MB guard unchanged.
