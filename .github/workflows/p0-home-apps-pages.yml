@@ -259,6 +259,19 @@ jobs:
           assert 'island-world.js?v=20261117-mapdetail' in (root/'index.html').read_text()
           (root/'map-detail-manifest.json').write_text(json.dumps({'release':data['release'],'sha256':data['sha256']},indent=2))
           PYMAP
+      - name: Wire private school preview entry points without question payload
+        run: |
+          python3 - <<'PYSCHOOL'
+          import pathlib,os,json,gzip,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'pages-site'/'learning'
+          data=json.loads(gzip.decompress(pathlib.Path('.github/2-1-school-private-entries-20261117.json.gz').read_bytes()))
+          assert data['release']=='school-private-entries-20261117'
+          assert set(data['files'])=={'index.html','island-world.js'}
+          for name,text in data['files'].items():
+            assert hashlib.sha256(text.encode()).hexdigest()==data['sha256'][name]
+            (root/name).write_text(text)
+          (root/'school-entry-manifest.json').write_text(json.dumps({'release':data['release'],'sha256':data['sha256']},indent=2))
+          PYSCHOOL
       - name: Validate P0 routes and excluded source payload
         run: node tests/pages-publish-artifact.test.js "$RUNNER_TEMP/pages-site"
       - name: Upload candidate artifact without deploying
