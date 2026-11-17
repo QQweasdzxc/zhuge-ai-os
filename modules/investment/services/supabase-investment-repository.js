@@ -153,8 +153,9 @@
       return legacyUserPromise;
     }
 
-    async function ownerSelect(table, select = "*", suffix = "") {
+    async function ownerSelect(table, select = "*", suffix = "", beforeSelect = null) {
       const owner = await legacyUser();
+      if (beforeSelect) beforeSelect();
       try {
         const rows = await data.select(table, `select=${select}&user_id=eq.${encodeURIComponent(owner.id)}${suffix}`);
         return recordEmpty(table, rows);
@@ -180,6 +181,13 @@
         });
       }
       return portfolioPromise;
+    }
+
+    async function enrichRawPositions(rows) {
+      if (typeof options.enrichRawPositions !== "function") return rows;
+      const enriched = await options.enrichRawPositions(rows);
+      if (!Array.isArray(enriched) || enriched.length !== rows.length) throw investmentError("INVESTMENT_RAW_OVERLAY_INVALID", "Read-only overlay row count mismatch");
+      return enriched;
     }
 
     async function loadLatestBrokerSnapshot(portfolioId = "") {
@@ -209,7 +217,7 @@
       }
       return Object.freeze({
         header: Object.freeze(header),
-        items: Object.freeze(items.map(row => Models.Position.normalize({
+        items: Object.freeze((await enrichRawPositions(items)).map(row => Models.Position.normalize({
           ...row,
           id: row.item_id,
           userId: authUserId,
@@ -276,7 +284,7 @@
         throw recordError(classifyDataError(error, { assuranceLevel: currentAssuranceLevel(), resource: "Investment Calculated Positions" }));
       }
       if (Array.isArray(rows) && rows.length) {
-        return rows.map(row => Models.Position.normalize({
+        return (await enrichRawPositions(rows)).map(row => Models.Position.normalize({
           ...row,
           userId: authUserId,
           portfolioId: row.portfolio_id
@@ -375,6 +383,45 @@
       const row = first(result) || (result && !Array.isArray(result) ? result : null);
       if (!row?.action_id) throw recordError(investmentError("INVESTMENT_PENDING_DISMISS_INVALID", "待確認交易狀態回傳格式無法驗證。"));
       return Object.freeze({ ...row });
+    }
+
+    function assertReceivableSession() {
+      // Use this operation's snapshot only. A missing/throwing live snapshot
+      // must never inherit the initial authenticated/AAL2 state.
+      let current;
+      try { current = readSessionSnapshot(); } catch { current = null; }
+      if (current?.isAuthenticated !== true) {
+        throw recordError(investmentError(current?.isExpired ? "INVESTMENT_SESSION_EXPIRED" : "INVESTMENT_SESSION_REQUIRED", "請重新登入後再讀寫應收款。"));
+      }
+      if (normalizeAal(current.aal) !== "aal2") throw recordError(investmentError("INVESTMENT_ASSURANCE_REQUIRED", "請完成安全驗證後再讀寫應收款。"));
+    }
+
+    async function loadReceivables() {
+      assertReceivableSession();
+      return ownerSelect("investment_receivables", "id,amount,currency,counterparty,reason,occurred_on,status,task_ref,visibility,note,created_at,updated_at", "&order=created_at.desc,id.desc", assertReceivableSession);
+    }
+
+    async function receivableRpc(name, payload) {
+      assertReceivableSession();
+      if (!gateway || typeof gateway.rpc !== "function") throw investmentError("RECEIVABLE_GATEWAY_UNAVAILABLE", "目前資料閘道不支援應收款登記。");
+      const result = await gateway.rpc(name, payload);
+      const row = first(result) || (result && !Array.isArray(result) ? result : null);
+      if (!row?.receivable_id) throw investmentError("RECEIVABLE_RESPONSE_INVALID", "應收款回傳格式無法驗證，請先讀回清單確認。");
+      return Object.freeze({ ...row });
+    }
+
+    async function createReceivable(input = {}) {
+      return receivableRpc("create_investment_receivable", {
+        p_amount: Number(input.amount), p_currency: input.currency || "TWD",
+        p_counterparty: input.counterparty, p_reason: input.reason,
+        p_occurred_on: input.occurred_on, p_task_ref: input.task_ref || "",
+        p_visibility: input.visibility || "private", p_note: input.note || "",
+        p_idempotency_key: input.idempotencyKey
+      });
+    }
+
+    async function updateReceivableStatus(id, status) {
+      return receivableRpc("update_investment_receivable_status", { p_receivable_id: id, p_status: status });
     }
 
     async function loadWatchlist() {
@@ -560,6 +607,9 @@
       loadPendingActions,
       confirmPendingAction,
       dismissPendingAction,
+      loadReceivables,
+      createReceivable,
+      updateReceivableStatus,
       loadWatchlist,
       loadStrategies,
       loadSettings,

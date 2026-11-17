@@ -191,7 +191,8 @@ test('mock fallback scan function: assigned and blocked paths render; live atomi
   const scanSource=app.slice(app.indexOf('  async function scan(code,retained'), app.indexOf('  function detectGps()'));
   const store=makeStore([assetRow('A','台北','10F','','使用中'), assetRow('B','台北','10F','','待修')]);
   await store.init();
-  let appends=0, updates=0, renders=0;
+  let appends=0, updates=0, renders=0, enrichments=0;
+  store.enrichLegacySnapshotFromSource=async()=>{enrichments++;return {done:false};};
   store._append=async()=>{appends++; return 2;};
   store._update=async()=>{updates++;};
   const S={sess:{id:'S1',site:'台北',project:'專案新'},site:'台北',zone:'10F'};
@@ -202,14 +203,15 @@ test('mock fallback scan function: assigned and blocked paths render; live atomi
   const assigned=store.sessionRecords(S.sess).find(r=>r.code==='A');
   assert.equal(assigned.projectAssigned,'專案新');
   assert.equal(assigned.projMismatch,false);
-  assert.equal(renders,1);
+  assert.equal(renders,2,'initial render plus completed enrichment render');
+  assert.equal(enrichments,1);
   await Promise.all([assigned.__write, store.db.assets.find(a=>a.code==='A').__write]);
   assert.equal(appends,1);assert.equal(updates,1);
   await ctx.run('B');
   const blocked=store.sessionRecords(S.sess).find(r=>r.code==='B');
   assert.match(blocked.stateException,/待修/);
   await blocked.__write;
-  assert.equal(renders,2);assert.equal(appends,2);assert.equal(updates,1);
+  assert.equal(renders,3);assert.equal(enrichments,1,'blocked asset must not enrich');assert.equal(appends,2);assert.equal(updates,1);
   assert.equal(store.db.assets.find(a=>a.code==='B').project,'');
   assert.equal(store.db.records.length,2);
 });

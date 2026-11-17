@@ -576,7 +576,7 @@ test("official/public evidence adapters feed OHLC, fundamental, market phase, ET
   assert.match(etfEvidence.find(item => item.type === "industry_exposure").facts.join("|"), /industry=半導體/);
   assert.match(etfEvidence.find(item => item.type === "related_symbol").facts.join("|"), /related_symbol=2330/);
   const secCall = calls.find(item => item.url.startsWith("https://www.sec.gov/files/company_tickers.json"));
-  assert.match(secCall.options.headers["User-Agent"], /Zhuge AI OS Investment Intelligence/);
+  assert.match(secCall.options.headers["User-Agent"], /TRQN Investment Intelligence/);
 });
 
 test("ETF relationship evidence remains insufficient when the official PCF source is unavailable", async () => {

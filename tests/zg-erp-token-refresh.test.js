@@ -82,20 +82,25 @@ test("500 與網路錯誤一律不觸發換發、不重試", async () => {
 test("寫入路徑：401 可換發重試一次；重試仍 401 則表面化，不多送", async () => {
   const { SheetsStore, HEADERS } = loadSheets();
   let fetchCount = 0;
+  const writeCalls = [];
   const fetchImpl = async (url, init) => {
     fetchCount += 1;
     const u = new URL(url, "https://x.test");
+    if (u.searchParams.get("action") !== "read") writeCalls.push({url,body:init.body,auth:init.headers.Authorization});
     if (u.searchParams.get("action") === "read") return { ok: true, status: 200, json: async () => ({ header: HEADERS.assets, rows: [["CSPH107030182", "Yealink 話機", "T46U", "YK-1", "台北", "3F", "保管人", "專案", "使用中", "", "", "", "", "", "", "", "", "補登", "", "建檔人", ""]] }) };
     return { ok: false, status: 401, json: async () => ({}) };
   };
   let refreshCalls = 0;
-  const store = new SheetsStore({ bridgeUrl: "https://b.test/fn", fetchImpl, tokenProvider: () => "tok", tokenRefresher: async () => { refreshCalls += 1; return "tok2"; } });
+  const store = new SheetsStore({ bridgeUrl: "https://b.test/fn", fetchImpl, tokenProvider: () => refreshCalls ? "tok2" : "tok", tokenRefresher: async () => { refreshCalls += 1; return "tok2"; } });
   await store.init();
   const saved = store.saveAsset("CSPH107030182", { name: "話機（改）" });
   await saved.__write; // 鏡像寫入失敗以 __unsynced 呈現（契約：不假裝成功）
   assert.equal(saved.__unsynced, true, "重試仍 401 → 標未同步，不假裝成功");
-  const updates = fetchCount - 10; // init 讀 10 路：新帳 7 分頁＋舊帳整合-主檔／流轉對應／待確認（各自失敗隔離）
-  assert.equal(updates, 2, "寫入 401：換發後僅原樣重試一次");
+  assert.equal(writeCalls.length, 2, "write 401 must retry exactly once, independent of init reads");
+  assert.equal(writeCalls[0].url,writeCalls[1].url);
+  assert.equal(writeCalls[0].body,writeCalls[1].body);
+  assert.equal(writeCalls[0].auth,'Bearer tok');
+  assert.equal(writeCalls[1].auth,'Bearer tok2');
   assert.equal(refreshCalls, 1);
 });
 

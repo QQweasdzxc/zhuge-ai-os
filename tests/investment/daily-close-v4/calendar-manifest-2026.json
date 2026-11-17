@@ -1,0 +1,79 @@
+{
+  "year": 2026,
+  "scope": "TWSE and TPEx stock market only; not bond calendars",
+  "policy": "Exact official annual calendar content digest required; changed content and uncovered years fail closed. Weekend closure is used only inside this verified annual coverage. 18:00 Taipei is an application publication cutoff, not an exchange guarantee.",
+  "TWSE": {
+    "sourceUrl": "https://www.twse.com.tw/rwd/zh/holidaySchedule/holidaySchedule?response=json&date=20260101",
+    "digest": "48fcae212c1a741387131f124b4a520b8165b6fbd730d94f0899454161e8b9a5",
+    "digestField": "data",
+    "closed": [
+      "2026-01-01",
+      "2026-02-12",
+      "2026-02-13",
+      "2026-02-15",
+      "2026-02-16",
+      "2026-02-17",
+      "2026-02-18",
+      "2026-02-19",
+      "2026-02-20",
+      "2026-02-27",
+      "2026-02-28",
+      "2026-04-03",
+      "2026-04-04",
+      "2026-04-05",
+      "2026-04-06",
+      "2026-05-01",
+      "2026-06-19",
+      "2026-09-25",
+      "2026-09-28",
+      "2026-10-09",
+      "2026-10-10",
+      "2026-10-25",
+      "2026-10-26",
+      "2026-12-25"
+    ],
+    "opened": [
+      "2026-01-02",
+      "2026-02-11",
+      "2026-02-23"
+    ]
+  },
+  "TPEX": {
+    "sourceUrl": "https://www.tpex.org.tw/www/zh-tw/bulletin/tradingDate",
+    "method": "POST",
+    "form": "date=2026&response=json",
+    "digest": "b7c0ae6990f4e14aff19decf1932243a0d867f1abbad51d5ebc28eb7c05d7432",
+    "digestField": "data.html",
+    "closed": [
+      "2026-01-01",
+      "2026-02-12",
+      "2026-02-13",
+      "2026-02-15",
+      "2026-02-16",
+      "2026-02-17",
+      "2026-02-18",
+      "2026-02-19",
+      "2026-02-20",
+      "2026-02-27",
+      "2026-02-28",
+      "2026-04-03",
+      "2026-04-04",
+      "2026-04-05",
+      "2026-04-06",
+      "2026-05-01",
+      "2026-06-19",
+      "2026-09-25",
+      "2026-09-28",
+      "2026-10-09",
+      "2026-10-10",
+      "2026-10-25",
+      "2026-10-26",
+      "2026-12-25"
+    ],
+    "opened": [
+      "2026-01-02",
+      "2026-02-11",
+      "2026-02-23"
+    ]
+  }
+}

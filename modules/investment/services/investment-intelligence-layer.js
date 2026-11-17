@@ -73,16 +73,28 @@
     return age <= freshWithinMs ? "fresh" : "stale";
   }
 
+  function quotePrice(value) {
+    if (typeof value !== "number" && typeof value !== "string") return null;
+    if (typeof value === "string" && !/^[+]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(value.trim())) return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+  }
+
   function normalizeQuote(item = {}, now = Date.now()) {
-    const price = Number(item.price);
+    const price = quotePrice(item.price);
     const asOf = String(item.asOf || item.as_of || item.observedAt || "").trim();
-    const computedFreshness = item.freshness || freshness(asOf, now);
+    const isDailyClose = item.quoteType === "daily_close";
+    const computedFreshness = isDailyClose ? "daily_close" : item.freshness || freshness(asOf, now);
     return Object.freeze({
       contract: "zhuge-investment-quote-v1",
+      quoteType: isDailyClose ? "daily_close" : String(item.quoteType || ""),
+      venue: String(item.venue || "").toUpperCase(),
+      delayed: isDailyClose || item.delayed === true,
+      realtime: isDailyClose ? false : item.realtime === true,
       symbol: String(item.symbol || "").trim().toUpperCase(),
       market: String(item.market || "").trim().toUpperCase(),
       currency: String(item.currency || "").trim().toUpperCase(),
-      price: Number.isFinite(price) ? price : null,
+      price,
       provider: String(item.provider || "").trim(),
       source: String(item.source || item.provider || "").trim(),
       sourceUrl: String(item.sourceUrl || item.source_url || "").trim(),
@@ -90,7 +102,7 @@
       receivedAt: String(item.receivedAt || new Date(now).toISOString()),
       freshness: computedFreshness,
       stale: computedFreshness === "stale",
-      available: item.available !== false && Number.isFinite(price),
+      available: item.available !== false && price !== null,
       error: String(item.error || "").trim() || null,
       attempts: Object.freeze(Array.isArray(item.attempts) ? item.attempts.slice() : [])
     });
