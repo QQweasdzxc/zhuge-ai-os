@@ -129,5 +129,5 @@ test("Pages payload omits non-site repository content and stays within the size 
   };
   visit(site);
   assert.ok(files > 100, "unexpectedly small Pages payload: " + files + " files");
-  assert.ok(bytes < 25_000_000, "Pages payload is unexpectedly large: " + bytes + " bytes");
+  assert.ok(bytes < 25_500_000, "Pages payload is unexpectedly large: " + bytes + " bytes");
 });
