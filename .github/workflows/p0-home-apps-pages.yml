@@ -239,6 +239,10 @@ jobs:
           (root/'1-archipelago-portrait.jpg').unlink()
           (root/'office/release-manifest.json').write_text(json.dumps({'release':data['release'],'sha256':data['sha256']},indent=2))
           PYOFFICE
+      - name: Add private-source family question preview loader
+        run: |
+          mkdir -p "$RUNNER_TEMP/pages-site/learning/question-preview"
+          cp apps/family-question-preview/index.html apps/family-question-preview/preview.js "$RUNNER_TEMP/pages-site/learning/question-preview/"
       - name: Validate P0 routes and excluded source payload
         run: node tests/pages-publish-artifact.test.js "$RUNNER_TEMP/pages-site"
       - name: Upload candidate artifact without deploying
