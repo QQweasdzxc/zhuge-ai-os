@@ -195,6 +195,7 @@ jobs:
             dest=root/name
             assert dest.resolve().is_relative_to(root.resolve())
             assert hashlib.sha256(text.encode()).hexdigest()==release['sha256'][name]
+            dest.parent.mkdir(parents=True,exist_ok=True)
             dest.write_text(text)
           for name,digest in release['sha256'].items():
             assert hashlib.sha256((root/name).read_bytes()).hexdigest()==digest,name
