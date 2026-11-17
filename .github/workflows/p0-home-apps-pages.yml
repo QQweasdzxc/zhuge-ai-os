@@ -243,6 +243,22 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/pages-site/learning/question-preview"
           cp apps/family-question-preview/index.html apps/family-question-preview/preview.js "$RUNNER_TEMP/pages-site/learning/question-preview/"
+      - name: Restore faithful-detail Map without changing portrait or game data
+        run: |
+          python3 - <<'PYMAP'
+          import pathlib,os,json,gzip,hashlib,base64
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'pages-site'/'learning'
+          data=json.loads(gzip.decompress(pathlib.Path('.github/1-map-faithful-detail-20261117.json.gz').read_bytes()))
+          assert data['release']=='map-faithful-detail-20261117'
+          assert set(data['sha256'])=={'index.html','island-world.js','1-zili-landscape.webp'}
+          for name,digest in data['sha256'].items():
+            payload=data['files'][name].encode() if name in data['files'] else base64.b64decode(data['binary'][name],validate=True)
+            assert hashlib.sha256(payload).hexdigest()==digest
+            (root/name).write_bytes(payload)
+          assert (root/'2-zili-portrait.webp').stat().st_size==316816
+          assert 'island-world.js?v=20261117-mapdetail' in (root/'index.html').read_text()
+          (root/'map-detail-manifest.json').write_text(json.dumps({'release':data['release'],'sha256':data['sha256']},indent=2))
+          PYMAP
       - name: Validate P0 routes and excluded source payload
         run: node tests/pages-publish-artifact.test.js "$RUNNER_TEMP/pages-site"
       - name: Upload candidate artifact without deploying
