@@ -1,6 +1,6 @@
 # Chengyu three entrances and meaning hints
 
-Version 0.9.0-alpha.9.198 / Build 20261117-1251
+Version 0.9.0-alpha.9.199 / Build 20261117-1332
 
 Only learning chengyu index/challenge/cloud payload changed. Tower, Office, vocab, TF functions unchanged. Frontend preserves current Tower script.
 
@@ -11,3 +11,5 @@ Live backend minimal hintCount compatibility deployed after exact code compariso
 FullSource remains separate, not claimed here.
 
 Artifact size guard: initial full dictionary embedding exceeded25MB. Dictionary now losslessly gzip-packed inline with a 5.1KB MIT fflate decoder; all2114 complete original records and usage text roundtrip exactly. No lexical fields or scope removed. Chromium/WebKit complete3width flows rerunPASS after packing. Existing25MB guard unchanged.
+
+Visual follow-up: daily card star is now inline SVG, hint button is56x64 with bulb and only 提示; cost explanation remains above. Stress-test rare characters cleared before presentation screenshots; test assertions preserved. No scoring/API changes.
