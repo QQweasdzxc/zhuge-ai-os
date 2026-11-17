@@ -15,3 +15,11 @@ The hub, idiom island and English island each load one shared animation/navigati
 ## Release state
 
 Candidate source only. No main promotion, Pages deployment, Render changes, database writes, or TF feature changes performed by this QA preparation. All root build/cache string changes are generated identity projections from the existing sync-build tool; Published C identity is preserved.
+
+## Beam bounds correction, Build 20261117-1221
+
+- User-reported clipping reproduced: 360-unit canvas clipped the projected cones during side sweeps.
+- Canvas expanded to 720 logical units without resizing the tower, logo or layout. Light reaches transparent before its outer boundary and viewport edges.
+- Full 0-16 second sweep sampled at 1-second intervals at 320/390/1280, visually inspected. Entry/loading/return/hash regression passes at all widths.
+- Existing P0 run 44015601330 passes all five checks for the executable bundle; identity projections require a fresh run.
+- Only watch-tower.js changes inside the bundle; all other 12 payload files remain byte-identical. No Office route or real learner data changes. FullSource remains separate and no full-root PASS is claimed.
