@@ -107,7 +107,7 @@
       ? positions.map(position => renderRow(position, dependencies)).join("")
       : `<div class="investment-panel-empty"><strong>目前尚無持股資料</strong><small>待 Investment Cloud 讀回後自動顯示。</small></div>`;
     return `<section class="investment-simple-overview" data-investment-simple-overview data-investment-readonly="true">
-      ${state.intelligence?.quality?.dailyClose?.error ? '<p class="investment-quote-asof investment-source-unavailable" role="status">盤後行情尚未通過來源與日期驗證，暫不列入估值；持股與投入成本仍保留。</p>' : ''}
+      ${state.intelligence?.quality?.dailyClose?.error === 'DAILY_SOURCE_AAL2_REQUIRED' ? '<p class="investment-quote-asof investment-auth-required" role="status">讀取盤後行情需要本次安全驗證；持股與投入成本仍保留。這不是來源或日期錯誤。</p><button type="button" class="investment-refresh" data-investment-read-step-up>驗證並讀取行情與應收款</button>' : state.intelligence?.quality?.dailyClose?.error ? '<p class="investment-quote-asof investment-source-unavailable" role="status">盤後行情尚未通過來源與日期驗證，暫不列入估值；持股與投入成本仍保留。</p>' : ''}
       ${renderGlance(summary, state, positions, dependencies)}
       <section class="investment-simple-holdings" data-investment-section="simple-holdings"><header class="investment-panel-heading"><div><h2>我的持股</h2><p>一檔一列；點開看股數、價格與資料時間。</p></div></header>${rows}</section>
     </section>`;

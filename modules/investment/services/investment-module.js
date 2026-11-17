@@ -247,24 +247,27 @@
   function unlockScreen(state = {}) {
     const escape = global.InvestmentSafeHtml.escape;
     const busy = state.status === "loading" || state.status === "verifying";
+    const readStepUp = state.readStepUp === true;
     const error = state.error ? `<div class="investment-unlock-error" role="alert">${escape(state.error)}</div>` : "";
     let content = `<div class="investment-loading zhuge-mfa-progress"><span></span><p>正在檢查安全驗證…</p></div>`;
-    if (state.mode === "enrollment_required") {
+    if (readStepUp && state.mode === "enrollment_required") {
+      content = '<p role="alert">目前沒有可用的驗證器。請先到原安全設定完成設定；此讀取入口不會新增或更換驗證因素。</p>';
+    } else if (state.mode === "enrollment_required") {
       content = `<div class="zhuge-mfa-info"><strong>投資資料需要額外保護</strong><span>第一次使用請先設定驗證器。完成後，之後只要輸入驗證碼即可進入。</span></div><div class="investment-unlock-actions"><button class="investment-unlock-button" type="button" data-investment-enroll ${busy ? "disabled" : ""}>開始設定驗證器</button></div>`;
     } else if (state.mode === "enroll") {
       content = `<div class="zhuge-mfa-grid"><div class="zhuge-mfa-qr"><img class="investment-unlock-qr" src="${escape(state.qrCode || "")}" alt="Google Authenticator 設定 QR Code"><p>用 Google Authenticator 掃描此 QR Code</p><details class="investment-unlock-secret zhuge-mfa-secret"><summary>無法掃描？查看設定金鑰</summary><code>${escape(state.secret || "")}</code></details></div><div class="zhuge-mfa-step"><div class="zhuge-mfa-info"><strong>完成安全驗證</strong><span>掃描後，輸入 App 顯示的 6 位數驗證碼。QR Code 只用於設定驗證器，不會取代 Google 登入。</span></div>${unlockCodeForm(state, busy)}</div></div>`;
     } else if (state.mode === "challenge") {
-      content = `<div class="zhuge-mfa-info"><strong>請輸入驗證碼</strong><span>開啟 Google Authenticator，輸入目前顯示的 6 位數驗證碼。驗證成功後，投資模組會解鎖 10 分鐘。</span></div>${unlockCodeForm(state, busy)}`;
+      content = `<div class="zhuge-mfa-info"><strong>請輸入驗證碼</strong><span>開啟 Google Authenticator，輸入目前顯示的 6 位數驗證碼。驗證成功後，${readStepUp ? "會重新讀取行情與應收款，不變更你的安全偏好。" : "投資模組會解鎖 10 分鐘。"}</span></div>${unlockCodeForm(state, busy)}`;
     }
-    return accessShell(`<div class="investment-access-panel investment-unlock-panel zhuge-mfa-panel"><img src="../../shared/assets/logo/tron-icon.svg" alt="TRQN"><p class="investment-eyebrow zhuge-mfa-kicker">安全驗證</p><h1>解鎖投資</h1><p class="zhuge-mfa-intro">這是受保護的投資工作區。完成安全驗證後即可進入。</p>${error}${content}<a class="investment-secondary-link" href="../../app/dashboard/">返回 AI OS 首頁</a><small>只會解鎖投資模組；AI OS 首頁與工時模組不受影響。</small></div>`, { title: "Investment 安全驗證", description: "投資模組｜完成安全驗證後即可進入" });
+    return accessShell(`<div class="investment-access-panel investment-unlock-panel zhuge-mfa-panel"><img src="../../shared/assets/logo/tron-icon.svg" alt="TRQN"><p class="investment-eyebrow zhuge-mfa-kicker">安全驗證</p><h1>${readStepUp ? "驗證並讀取" : "解鎖投資"}</h1><p class="zhuge-mfa-intro">${readStepUp ? "行情與應收款需要本次二次驗證。只更新目前登入工作階段，不改安全設定或投資資料。" : "這是受保護的投資工作區。完成安全驗證後即可進入。"}</p>${error}${content}<a class="investment-secondary-link" href="../../app/dashboard/">返回 AI OS 首頁</a><small>只會解鎖投資模組；AI OS 首頁與工時模組不受影響。</small></div>`, { title: "Investment 安全驗證", description: "投資模組｜完成安全驗證後即可進入" });
   }
 
   function unlockCodeForm(state = {}, busy = false) {
-    return `<form class="investment-unlock-form zhuge-mfa-form" data-investment-unlock-form><label for="investmentTotpCode">驗證碼</label><input class="zhuge-mfa-code" id="investmentTotpCode" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="輸入 6 位數驗證碼" required><button class="investment-unlock-button" type="submit" ${busy ? "disabled" : ""}>${busy ? "驗證中…" : "驗證並進入"}</button><input type="hidden" name="factorId" value="${global.InvestmentSafeHtml.escape(state.factorId || "")}"></form>`;
+    return `<form class="investment-unlock-form zhuge-mfa-form" data-investment-unlock-form><label for="investmentTotpCode">驗證碼</label><input class="zhuge-mfa-code" id="investmentTotpCode" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="輸入 6 位數驗證碼" required><button class="investment-unlock-button" type="submit" ${busy ? "disabled" : ""}>${busy ? "驗證中…" : state.readStepUp ? "驗證並讀取" : "驗證並進入"}</button><input type="hidden" name="factorId" value="${global.InvestmentSafeHtml.escape(state.factorId || "")}"></form>`;
   }
 
-  async function mountUnlock(root, context) {
-    let state = { status: "loading", mode: "preparing", error: "" };
+  async function mountUnlock(root, context, { readStepUp = false } = {}) {
+    let state = { status: "loading", mode: "preparing", error: "", readStepUp };
     const paint = () => {
       global.ZhugeComponents.Summary.mount(root, unlockScreen(state));
       mountAccessShell(root, { title: "Investment 解鎖", description: "投資模組｜完成安全驗證後即可進入" });
@@ -291,6 +294,7 @@
         paint();
         try {
           await context.security.verifyUnlock({ factorId, code });
+          if (readStepUp) { global.location.reload(); return; }
           global.InvestmentRuntime = await createRuntime(root);
           return;
         } catch (error) {
@@ -303,9 +307,9 @@
     };
     paint();
     try {
-      state = { status: "ready", error: "", ...(await context.security.prepareUnlock()) };
+      state = { status: "ready", error: "", readStepUp, ...(await context.security.prepareUnlock()) };
     } catch (error) {
-      state = { status: "ready", mode: "enrollment_required", error: error?.message || "無法讀取驗證狀態。" };
+      state = { status: "ready", mode: "enrollment_required", readStepUp, error: error?.message || "無法讀取驗證狀態。" };
     }
     paint();
     bind();
@@ -411,6 +415,10 @@
       if (!host || !receivablesController || !global.InvestmentReceivablesPanel) return;
       const rs = receivablesController.getState();
       host.innerHTML = global.InvestmentReceivablesPanel.render(rs.items, dependencies);
+      if (rs.status !== "ready") {
+        const total = host.querySelector(".investment-panel-heading p");
+        if (total) total.textContent = "清單尚未確認，未收合計暫不顯示";
+      }
       if (rs.status !== "ready" && !rs.items.length) {
         const empty = host.querySelector(".investment-panel-empty");
         if (empty) empty.textContent = "應收清單尚未確認，請先完成讀取。";
@@ -424,6 +432,11 @@
       message.setAttribute("role", rs.error ? "alert" : "status");
       message.textContent = [rs.error, rs.notice].filter(Boolean).join("；") || (rs.status === "idle" ? "應收款尚未讀取" : "");
       host.prepend(message);
+      if (rs.status === "auth_required") {
+        message.textContent = "讀取應收款需要本次安全驗證，尚未查詢清單；不是沒有應收款。";
+        const verify = document.createElement("button"); verify.type="button"; verify.textContent="驗證並讀取行情與應收款";
+        verify.dataset.investmentReadStepUp="true"; host.prepend(verify);
+      }
       if (rs.status === "error") {
         const retry = document.createElement("button"); retry.type="button"; retry.textContent="重新讀取應收款";
         retry.dataset.receivableRetry="true"; host.prepend(retry);
@@ -433,7 +446,7 @@
       const form = root.querySelector("[data-receivable-form]");
       if (form && receivablesController && !receivablesController.getState().busy) receivablesController.capture(Object.fromEntries(new FormData(form)), form.closest("details").open);
     }
-    if (global.InvestmentReceivablesController) receivablesController = global.InvestmentReceivablesController.create({repository,onChange:paintReceivables});
+    if (global.InvestmentReceivablesController) receivablesController = global.InvestmentReceivablesController.create({repository,onChange:paintReceivables,getAssurance:()=>context.session.getSnapshot().aal});
 
     const intelligenceProviders = dependencies.providers?.create?.({
       intelligence: dependencies.intelligence,
@@ -1233,6 +1246,10 @@
     root.addEventListener("click", event => {
       if (event.target.closest("[data-investment-session-reload]")) { global.location.reload(); return; }
       if (sessionInvalidated) return;
+      if (event.target.closest("[data-investment-read-step-up]")) {
+        mountUnlock(root, context, { readStepUp: true }).catch(handleError);
+        return;
+      }
       const receivableAction = event.target.closest("[data-receivable-action]");
       if (receivableAction && receivablesController) {
         captureReceivableDraft();
