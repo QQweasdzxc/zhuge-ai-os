@@ -7,7 +7,7 @@ bundle+=`__modules['./calendar-manifest-2026.json']=function(module){module.expo
 bundle+='function __require(name){if(__cache[name])return __cache[name].exports;if(!__modules[name])throw Error("MODULE_NOT_BUNDLED");const module={exports:{}};__cache[name]=module;__modules[name](module,module.exports,__require);return module.exports;}\n';
 fs.writeFileSync(path.join(root,'investment-daily-close-service.js'),'/* Build from reviewed close-only sources; no automatic effects at load. */\n(function(root){\n'+bundle+"root.InvestmentDailyCloseService=Object.freeze({...__require('./daily-consumer.cjs'),...__require('./readonly-adapter.cjs')});\n})(globalThis);\n");
 const auth=`
-const loadSnapshot=__require('./daily-snapshot-transport.cjs').createDailySnapshotLoader();
+const loadSnapshot=__require('./daily-snapshot-transport.cjs').createDailySnapshotLoader({onDiagnostic:event=>console.warn(JSON.stringify(event))});
 async function verifySession(request){
  const authorization=request.headers.get('authorization')||'';
  if(authorization.length>4096||!/^Bearer\\s+\\S+$/i.test(authorization))throw Error('AUTH_REQUIRED');
