@@ -70,7 +70,7 @@
 
   function transactionWriteFormValues(formOrValues) {
     const keys = ["tradeType", "tradeDate", "market", "currency", "symbol", "name", "quantity", "price", "fee", "tax", "note", "idempotencyKey"];
-    if (formOrValues && typeof formOrValues === "object" && keys.some(key => key in formOrValues)) {
+    if (formOrValues && String(formOrValues.tagName).toUpperCase() !== "FORM" && typeof formOrValues === "object" && keys.some(key => key in formOrValues)) {
       return Object.freeze(Object.fromEntries(keys.map(key => [key, String(formOrValues[key] ?? "").trim()])));
     }
     const formData = new FormData(formOrValues);
@@ -400,7 +400,7 @@
       if (disposed) return;
       sessionGeneration += 1;
       sessionInvalidated = true;
-      global.ZhugeComponents.Summary.mount(root, '<section role="alert" class="investment-empty-state"><h1>工作階段已更新</h1><p>為避免顯示前一工作階段的私人資料，請重新載入投資頁。</p><button type="button" data-investment-session-reload>重新載入</button></section>');
+      global.ZhugeComponents.Summary.mount(root, '<section role="alert" class="investment-empty-state"><h1>工作階段已更新</h1><p>為避免顯示前一工作階段的私人資料，請重新載入投資頁。若剛提交交易或完成驗證，請先查交易紀錄確認原筆，勿直接重填重送。</p><button type="button" data-investment-session-reload>重新載入</button></section>');
     });
     if (typeof unsubscribeSession === "function") cleanup.push(unsubscribeSession);
     const repository = global.InvestmentRepositoryContract.assertRepository(
@@ -415,13 +415,16 @@
         enrichRawPositions: dailyConsumer.enrichRawPositions
       })
     );
-    const initialHash = String(global.location.hash || "").replace(/^#/, "");
+    const legacyReceivables = new URLSearchParams(global.location.search || "").get("existingReceivables") === "1";
+    const confirmedStyle = document.querySelector('link[href*="confirmed-ui.css"]');
+    if (confirmedStyle) confirmedStyle.disabled = legacyReceivables;
+    const initialHash = legacyReceivables ? "receivables" : String(global.location.hash || "").replace(/^#/, "");
     const requestedFocus = ["today-focus", "research", "advisor", "realtime", "watchlist"].includes(new URLSearchParams(global.location.search || "").get("focus"))
       ? new URLSearchParams(global.location.search || "").get("focus")
       : "";
     const canonicalPage = page => page === "watchlist" ? "portfolio" : page;
     const requestedPage = canonicalPage(initialHash);
-    const activePage = global.InvestmentConfig.pages.includes(requestedPage) ? requestedPage : "overview";
+    const activePage = global.InvestmentConfig.pages.includes(requestedPage) ? requestedPage : "dashboard";
     let activeFocus = activePage === "overview" ? (requestedFocus || "stocks") : (activePage === "portfolio" ? (initialHash === "watchlist" ? "watchlist" : requestedFocus) : "");
     if (initialHash === "watchlist" && global.history?.replaceState) {
       global.history.replaceState(null, "", `${global.location.pathname}${global.location.search}#portfolio`);
@@ -444,6 +447,8 @@
       return false;
     }
     function paintReceivables() {
+      const overviewHost = root.querySelector("[data-j-receivable-summary]");
+      if(overviewHost && receivablesController) overviewHost.innerHTML = global.InvestmentConfirmedUI.receiptSummary(receivablesController.getState());
       const host = root.querySelector("[data-investment-receivables-root]");
       if (!host || !receivablesController || !global.InvestmentReceivablesPanel) return;
       const rs = receivablesController.getState();
@@ -458,7 +463,7 @@
       }
       const form = host.querySelector("[data-receivable-form]");
       for (const [name,value] of Object.entries(rs.form)) if (form?.elements.namedItem(name)) form.elements.namedItem(name).value = value;
-      host.querySelector("details").open = rs.formOpen;
+      if(host.querySelector("details")) host.querySelector("details").open = rs.formOpen;
       host.querySelectorAll("button,input,select").forEach(el => { el.disabled = rs.busy || rs.status !== "ready"; });
       const message = document.createElement("p");
       message.className = "investment-receivable-feedback";
@@ -495,7 +500,7 @@
       invokeFunction: context.data.invokeFunction
     }) || null;
 
-    global.ZhugeComponents.Summary.mount(root, global.InvestmentModuleShell.render({ activePage, activeFocus, identity }, dependencies));
+    global.ZhugeComponents.Summary.mount(root, legacyReceivables ? global.InvestmentModuleShell.render({ activePage, activeFocus, identity }, dependencies) : global.InvestmentConfirmedUI.shell());
     function renderSharedHeader(pageId) {
       const sharedHeaderTarget = root.querySelector("#zhugeSharedHeader");
       if (!sharedHeaderTarget || !global.ZhugeSharedShell) return;
@@ -528,6 +533,17 @@
     });
     let snapshotWrite = Object.freeze({ status: "idle", form: Object.freeze({}), result: null, error: "", stepUp: null });
     let transactionWrite = Object.freeze({ status: "idle", form: Object.freeze({idempotencyKey:global.crypto?.randomUUID?.() || `investment-${Date.now()}-${Math.random().toString(36).slice(2)}`}), result: null, error: "", stepUp: null });
+    let recoveryJournal, recoveryBlocked = false;
+    try {
+      recoveryJournal = global.InvestmentTransactionRecoveryJournal.create(global.sessionStorage, context.identity.getUserId());
+      const pending = recoveryJournal.read();
+      if(pending) transactionWrite=Object.freeze({status:"unknown",recoveryOnly:true,form:{idempotencyKey:pending.key},result:null,error:"此分頁有一筆先前送出但結果待確認的交易。只查詢原筆，不重送。"});
+    } catch(error) {
+      recoveryBlocked=true;
+      transactionWrite=Object.freeze({status:"unknown",recoveryOnly:true,recoveryUnavailable:true,form:{},result:null,error:error.message});
+    }
+    const pendingRecovery = () => recoveryBlocked || ["unknown","checking","submitting"].includes(transactionWrite.status);
+    const sameRecoverySession = () => !sessionInvalidated && !disposed && dailySession().authenticated && dailySession().ownerId === context.identity.getUserId();
     let pendingActionWrite = Object.freeze({ status: "idle", activeId: "", result: null, error: "", stepUp: null });
     let lastRenderedPageMarkup = "";
 
@@ -568,7 +584,10 @@
       if (sessionInvalidated) return;
       captureReceivableDraft();
       captureSnapshotWriteForm();
+      const txDraft=pageRoot?.querySelector("[data-investment-transaction-form]");
+      if(txDraft && ["idle","error"].includes(transactionWrite.status))transactionWrite=Object.freeze({...transactionWrite,form:transactionWriteFormValues(txDraft)});
       const state = store.getState();
+      pageRoot.classList.toggle("j-route-sheet",["transactions","filter"].includes(state.activePage));
       const page = pageRegistry[state.activePage] || pageRegistry.overview;
       const importSnapshot = importSession.getSnapshot();
       const recognizedRows = importSnapshot.recognition?.status === "recognized"
@@ -588,11 +607,11 @@
         transactionWrite,
         onTransactionWrite: writeTransaction,
         pendingActionWrite,
-        holdingsView, transactionFilter, transactionLoadingMore
+        holdingsView, transactionFilter, transactionLoadingMore, receivablesState: receivablesController?.getState(), confirmedUI: global.InvestmentConfirmedUI
       };
       const markup = state.status === "loading"
         ? '<div class="investment-loading"><span></span><p>正在讀取投資資料…</p></div>'
-        : page.render({ ...state, activeFocus }, pageDependencies);
+        : ((!legacyReceivables ? global.InvestmentConfirmedUI.render({...state,activeFocus},pageDependencies) : null) ?? page.render({ ...state, activeFocus }, pageDependencies));
       if (markup !== lastRenderedPageMarkup || !pageRoot?.firstElementChild) {
         global.ZhugeComponents.Summary.update(pageRoot, markup);
         lastRenderedPageMarkup = markup;
@@ -690,6 +709,7 @@
       renderPage();
       try {
         await context.security.verifyUnlock({ moduleId: "investment-sensitive-write", factorId: formData.get("factorId"), code: formData.get("code") });
+        if (sessionInvalidated || disposed) return;
         if (!currentSessionHasAal2()) throw snapshotWriteError("INVESTMENT_ASSURANCE_REQUIRED", "安全驗證尚未完成，請再試一次。");
         await writeTransaction(formValues, { skipStepUp: true });
       } catch (error) {
@@ -705,7 +725,38 @@
       }
     }
 
+    function reviewTransaction(form){
+      if(pendingRecovery()) return;
+      const values=transactionWriteFormValues(form),quantity=Number(values.quantity),price=Number(values.price),fee=Number(values.fee),tax=Number(values.tax);
+      let error="";
+      const position=store.getState().positions.find(p=>p.symbol===values.symbol&&p.currency===values.currency&&p.market===values.market);
+      if(!values.symbol || !values.tradeDate || !["BUY","SELL"].includes(values.tradeType) || !["TW","US"].includes(values.market) || !["TWD","USD"].includes(values.currency) || !Number.isFinite(quantity)||quantity<=0||!Number.isFinite(price)||price<0||!Number.isFinite(fee)||fee<0||!Number.isFinite(tax)||tax<0) error="請核對日期、代號、股數、成交價與非負費稅。";
+      if(values.tradeType==="SELL" && quantity>Number(position?.quantity||0))error="賣出股數不能超過目前持股；仍須通過雲端歷史時序驗證。";
+      transactionWrite=Object.freeze({status:error?"error":"review",form:values,result:null,error,stepUp:null});renderPage();global.scrollTo(0,0);
+    }
+    function verifyTransactionReadBack(row, values){
+      if(!row)throw Error("尚未讀回這筆交易。");
+      const same=String(row.symbol).toUpperCase()===String(values.symbol).toUpperCase()&&row.market===values.market&&row.currency===values.currency&&row.tradeType===values.tradeType&&row.tradeDate===values.tradeDate&&Number(row.quantity)===Number(values.quantity)&&Number(row.price)===Number(values.price)&&Number(row.fee)===Number(values.fee||0)&&Number(row.tax)===Number(values.tax||0)&&row.idempotencyKey===values.idempotencyKey;
+      if(!same)throw Error("交易讀回欄位與核對摘要不一致，請保留登記代碼，暫勿重送。 ");
+      return row;
+    }
+    async function checkTransactionResult(){
+      if(transactionWrite.status!=="unknown" || recoveryBlocked || !sameRecoverySession())return;
+      const saved=transactionWrite;
+      transactionWrite=Object.freeze({...saved,status:"checking"});renderPage();
+      try {
+        const row=saved.result?.transaction_id?await repository.loadTransactionById(saved.result.transaction_id):await repository.loadTransactionByKey(saved.form.idempotencyKey);
+        if(!row)throw Error("尚未查到相同登記代碼的交易。請保留本頁資料，稍後再查詢，不要另開新的一筆。 ");
+        if(!sameRecoverySession())return;
+        if(saved.recoveryOnly){
+          if(row.idempotencyKey!==saved.form.idempotencyKey)throw Error("讀回識別不符，暫勿新增交易。");
+        }else verifyTransactionReadBack(row,saved.form);
+        transactionWrite=Object.freeze({...saved,status:"success",form:saved.recoveryOnly?row:saved.form,error:"",result:{...saved.result,readBack:row}});await load();
+        if(sameRecoverySession())recoveryJournal.clear(saved.form.idempotencyKey);
+      }catch(e){if(!sameRecoverySession())return;transactionWrite=Object.freeze({...saved,status:"unknown",error:e.message});renderPage();}
+    }
     async function writeTransaction(formOrValues, { skipStepUp = false } = {}) {
+      if(!sameRecoverySession() || pendingRecovery() || transactionWrite.status === "success") return;
       const formValues = transactionWriteFormValues(formOrValues);
       const quantity = Number(formValues.quantity);
       const price = Number(formValues.price);
@@ -720,18 +771,25 @@
         await beginTransactionWriteStepUp(formValues);
         return;
       }
+      try { recoveryJournal.begin(formValues.idempotencyKey); }
+      catch(error){recoveryBlocked=true;transactionWrite=Object.freeze({status:"unknown",recoveryOnly:true,recoveryUnavailable:true,form:{},error:error.message});renderPage();return;}
       transactionWrite = Object.freeze({ status: "submitting", form: formValues, result: null, error: "", stepUp: null });
       renderPage();
+      let submittedResult = null;
       try {
         const result = await repository.recordTransaction({ ...formValues, quantity, price, fee, tax });
+        submittedResult = result;
         const readBack = typeof repository.loadTransactionById === "function"
           ? await repository.loadTransactionById(result.transaction_id)
           : (await repository.loadTransactions()).find(row => row.id === result.transaction_id || row.idempotencyKey === formValues.idempotencyKey);
-        if (!readBack) throw snapshotWriteError("INVESTMENT_TRANSACTION_READBACK_FAILED", "交易紀錄寫入後無法由 Cloud Read-back 驗證。");
+        if(!sameRecoverySession())return;
+        verifyTransactionReadBack(readBack,formValues);
         transactionWrite = Object.freeze({ status: "success", form: formValues, result: Object.freeze({ ...result, readBack }), error: "", stepUp: null });
         await load();
+        if(sameRecoverySession())recoveryJournal.clear(formValues.idempotencyKey);
       } catch (error) {
-        transactionWrite = Object.freeze({ status: "error", form: formValues, result: null, error: String(error?.message || "").includes("INVESTMENT_TRANSACTION_TIMELINE_INVALID") ? "這筆日期會使過往某一天的持股不足，已拒絕登記，未新增交易。請核對交易日期與股數。" : error?.message || "受控交易紀錄寫入失敗。", stepUp: null });
+        if(!sameRecoverySession())return;
+        transactionWrite = Object.freeze({ status: "unknown", form: formValues, result: submittedResult, error: String(error?.message || "").includes("INVESTMENT_TRANSACTION_TIMELINE_INVALID") ? "這筆日期會使過往某一天的持股不足，已拒絕登記，未新增交易。請核對交易日期與股數。" : error?.message || "受控交易紀錄寫入失敗。", stepUp: null });
         renderPage();
       }
     }
@@ -989,6 +1047,7 @@
     }
 
     function navigate(page, updateHash = true, focus = "") {
+      if (legacyReceivables && page !== "receivables") { global.location.assign(`./${focus ? "?focus="+encodeURIComponent(focus) : ""}#${encodeURIComponent(page)}`); return; }
       const canonical = canonicalPage(page);
       if (!global.InvestmentConfig.pages.includes(canonical)) return;
       root.querySelectorAll(".investment-tool-nav[open]").forEach(menu => menu.removeAttribute("open"));
@@ -1296,6 +1355,16 @@
     }
 
     onRoot("click", event => {
+      const jui = global.InvestmentConfirmedUI.ui;
+      if(event.target.closest("[data-j-privacy]")){jui.hidden=!jui.hidden;renderPage();return;}
+      const jc=event.target.closest("[data-j-currency]");if(jc){jui.currency=jc.dataset.jCurrency;renderPage();return;}
+      if(event.target.closest("[data-j-sort]")){jui.sort=jui.sort==="name"?"value":"name";renderPage();return;}
+      if(event.target.closest("[data-j-reset]")){Object.assign(jui,{q:"",market:"all",min:0});navigate("overview");return;}
+      const jp=event.target.closest("[data-j-position]");if(jp){jui.positionKey=jp.dataset.jPosition;navigate("detail");global.scrollTo(0,0);return;}
+      if(event.target.closest("[data-j-recovery-history]")){const ledger=root.querySelector(".investment-ledger-details");if(ledger){ledger.open=true;ledger.scrollIntoView({block:"start"});}return;}
+      if(event.target.closest("[data-j-transaction-confirm]")){writeTransaction(transactionWrite.form).catch(handleError);return;}
+      if(event.target.closest("[data-j-transaction-edit]")){if(pendingRecovery())return;transactionWrite=Object.freeze({...transactionWrite,status:"idle"});renderPage();return;}
+      if(event.target.closest("[data-j-transaction-check]")){checkTransactionResult().catch(handleError);return;}
       if (event.target.closest("[data-investment-session-reload]")) { global.location.reload(); return; }
       if (sessionInvalidated) return;
       if (event.target.closest("[data-investment-read-step-up]")) {
@@ -1318,18 +1387,21 @@
       const holdingsToggle = event.target.closest("[data-investment-holdings-view]");
       if (holdingsToggle) { holdingsView = holdingsToggle.dataset.investmentHoldingsView === "history" ? "history" : "current"; renderPage(); return; }
       if (event.target.closest("[data-investment-new-buy]")) {
+        if(pendingRecovery()){navigate("transactions");return;}
         transactionFilter = null;
         transactionWrite = Object.freeze({status:"idle",error:"",stepUp:null,form:{tradeType:"BUY",idempotencyKey:global.crypto?.randomUUID?.() || `investment-${Date.now()}-${Math.random().toString(36).slice(2)}`}});
         navigate("transactions"); return;
       }
       const stockAction = event.target.closest("[data-investment-stock-action]");
       if (stockAction) {
+        if(pendingRecovery()){navigate("transactions");return;}
         const position = store.getState().positions.find(p => String(p.sourceId || p.id || `${p.market}:${p.symbol}:${p.currency}`) === stockAction.dataset.investmentPositionKey);
         if (!position) return;
+        global.InvestmentConfirmedUI.ui.positionKey=global.InvestmentConfirmedUI.key(position);
         transactionFilter = {symbol:position.symbol,market:position.market,currency:position.currency};
         if (stockAction.dataset.investmentStockAction !== "history") {
-          const tradeType = stockAction.dataset.investmentStockAction === "sell" ? "SELL" : "BUY";
-          transactionWrite = Object.freeze({status:"idle", error:"", stepUp:null, form:{symbol:position.symbol,name:position.name,market:position.market,currency:position.currency,tradeType,quantity:"",price:"",fee:"0",tax:"0",tradeDate:new Intl.DateTimeFormat("en-CA", {timeZone:"Asia/Taipei",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date()),idempotencyKey:global.crypto?.randomUUID?.() || `investment-${Date.now()}-${Math.random().toString(36).slice(2)}`}});
+          const tradeType = ["sell","all"].includes(stockAction.dataset.investmentStockAction) ? "SELL" : "BUY";
+          transactionWrite = Object.freeze({status:"idle", error:"", stepUp:null, form:{symbol:position.symbol,name:position.name,market:position.market,currency:position.currency,tradeType,quantity:stockAction.dataset.investmentStockAction === "all" ? String(position.quantity) : "",price:"",fee:"0",tax:"0",tradeDate:new Intl.DateTimeFormat("en-CA", {timeZone:"Asia/Taipei",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date()),idempotencyKey:global.crypto?.randomUUID?.() || `investment-${Date.now()}-${Math.random().toString(36).slice(2)}`}});
         }
         navigate("transactions"); return;
       }
@@ -1410,6 +1482,8 @@
       openResearchForSymbol(researchTarget.dataset.investmentResearchSymbol, researchTarget.dataset.investmentResearchMarket);
     });
     onRoot("submit", event => {
+      if(event.target.matches("[data-j-search]")){event.preventDefault();global.InvestmentConfirmedUI.ui.q=new FormData(event.target).get("q")||"";renderPage();return;}
+      if(event.target.matches("[data-j-filter]")){event.preventDefault();const f=new FormData(event.target);Object.assign(global.InvestmentConfirmedUI.ui,{market:f.get("market"),min:Math.max(0,Number(f.get("min"))||0)});navigate("overview");return;}
       const receivableForm = event.target.closest("[data-receivable-form]");
       if (receivableForm && receivablesController) {
         event.preventDefault();
@@ -1456,7 +1530,7 @@
       const transactionForm = event.target.closest("[data-investment-transaction-form]");
       if (transactionForm) {
         event.preventDefault();
-        writeTransaction(transactionForm).catch(handleError);
+        reviewTransaction(transactionForm);
         return;
       }
       const form = event.target.closest("[data-investment-import-edit]");
@@ -1501,6 +1575,13 @@
       renderPage();
     });
     onRoot("keydown", event => {
+      if(pageRoot.classList.contains("j-route-sheet")&&global.matchMedia("(max-width:899px)").matches){
+        if(event.key==="Escape"){event.preventDefault();navigate(transactionFilter?"detail":"overview");return;}
+        if(event.key==="Tab"){
+          const list=Array.from(pageRoot.querySelectorAll("button,input,select,a,summary")).filter(e=>!e.disabled&&e.getClientRects().length);
+          const first=list[0],last=list[list.length-1];if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}
+        }
+      }
       const researchTarget = event.target.closest("[data-investment-research-symbol]");
       if (researchTarget && ["Enter", " "].includes(event.key)) {
         event.preventDefault();
@@ -1524,6 +1605,7 @@
 
     try {
       await load();
+      if(pendingRecovery())navigate("transactions");
       if (receivablesController) await receivablesController.load();
       if (requestedFocus) {
         const schedule = typeof global.requestAnimationFrame === "function"
