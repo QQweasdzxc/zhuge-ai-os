@@ -507,7 +507,7 @@
         <article id="investment-section-today-focus" class="investment-command-panel investment-focus-panel" data-investment-section="today-focus"><header class="investment-panel-heading"><div><p class="investment-eyebrow">01 · 需要注意的事</p><h2>今天需要注意什麼？</h2></div><span class="investment-panel-status ${hasTodayFocus ? "is-ready" : "is-pending"}">${hasTodayFocus ? "有可驗證資料" : "尚未有資料"}</span></header>${renderTodayFocus(state, escape)}</article>
         <section class="investment-command-panel investment-glance-summary" data-investment-section="glance-summary"><header class="investment-panel-heading"><div><p class="investment-eyebrow">02 · 今日總覽</p><h2>持股今天怎麼樣？</h2><p>${positionCount}；TWD／USD 分開呈現。</p></div><span class="investment-panel-status ${hasPositions ? "is-ready" : "is-pending"}">${hasPositions ? "可計算" : "尚無資料"}</span></header><div class="investment-glance-metrics">
           ${renderMetric("market-value", "目前市值", currencyValues(summary, "value", format, false, state.intelligence?.fx), unpricedNote(summary, "由最新可用行情更新既有持倉計算結果。"), hasPositions ? "available" : "unavailable", "primary")}
-          ${renderMetric("unrealized-pnl", "總損益／報酬率", currencyValues(summary, "pnl", format, true, state.intelligence?.fx), unpricedNote(summary, "依唯一 Investment Current Position calculation result。"), hasPositions ? "available" : "unavailable", "primary")}
+          ${renderMetric("unrealized-pnl", "未實現損益／報酬率", currencyValues(summary, "pnl", format, true, state.intelligence?.fx), unpricedNote(summary, "依唯一 Investment Current Position calculation result。"), hasPositions ? "available" : "unavailable", "primary")}
           ${renderMetric("today-pnl", "今日變化", renderTodayPnl(state, escape, format), "沒有 canonical 結果時保持資料不足。", hasTodayPnl ? "available" : "unavailable", "primary")}
         </div>${renderQuoteDataLine(state, escape)}</section>
       </div>
@@ -531,8 +531,8 @@
 
   function render(state, dependencies = {}) {
     if (!globalThis.InvestmentHoldingsSimpleList) return renderDetailed(state, dependencies);
-    const detail = renderDetailed(state, dependencies).replace(' data-investment-first-screen="true"', "");
-    return `<section class="investment-command-center" data-investment-first-screen="true"><div class="investment-page-heading"><div><h1>投資總覽</h1><p>持股與應收款分開列示；原幣呈現，不推算缺失行情。</p></div><button type="button" class="investment-refresh" data-investment-refresh>重新整理</button></div>${globalThis.InvestmentHoldingsSimpleList.render(state, dependencies)}<div data-investment-receivables-root></div><details class="investment-secondary-layer"><summary>研究與更多投資資訊</summary>${detail}</details></section>`;
+    if (state.activeFocus && state.activeFocus !== "stocks") return renderDetailed(state, dependencies);
+    return `<section class="investment-command-center" data-investment-first-screen="true"><div class="investment-page-heading"><div><h1>股票總覽</h1><p>持股依原幣呈現；已實現與未實現分開，不推算缺失行情。</p></div><button type="button" class="investment-refresh" data-investment-refresh>重新整理</button></div>${globalThis.InvestmentHoldingsSimpleList.render(state, dependencies)}</section>`;
   }
   return Object.freeze({ render, renderDetailed });
 });

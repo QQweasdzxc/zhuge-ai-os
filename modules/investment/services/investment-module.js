@@ -8,6 +8,7 @@
   let pendingReceivableDraft = null; // Memory-only, owner-bound; never auto-submitted.
   const pageRegistry = Object.freeze({
     overview: global.InvestmentOverviewPage,
+    receivables: { render: () => '<section class="investment-command-center"><div class="investment-page-heading"><div><h1>應收款</h1><p>代墊後待收回的款項，與股票持股分開。所有專案的「採購代墊」自動彙整尚未接上，目前請手動登記並保留原卡參照。</p></div></div><div data-investment-receivables-root></div></section>' },
     portfolio: global.InvestmentPortfolioPage,
     transactions: global.InvestmentTransactionsPage,
     strategy: global.InvestmentStrategyPage,
@@ -421,13 +422,16 @@
     const canonicalPage = page => page === "watchlist" ? "portfolio" : page;
     const requestedPage = canonicalPage(initialHash);
     const activePage = global.InvestmentConfig.pages.includes(requestedPage) ? requestedPage : "overview";
-    let activeFocus = activePage === "overview" ? (requestedFocus || "today-focus") : (activePage === "portfolio" ? (initialHash === "watchlist" ? "watchlist" : requestedFocus) : "");
+    let activeFocus = activePage === "overview" ? (requestedFocus || "stocks") : (activePage === "portfolio" ? (initialHash === "watchlist" ? "watchlist" : requestedFocus) : "");
     if (initialHash === "watchlist" && global.history?.replaceState) {
       global.history.replaceState(null, "", `${global.location.pathname}${global.location.search}#portfolio`);
     }
     const store = global.InvestmentStore.create({ pages: global.InvestmentConfig.pages, activePage });
     const dependencies = dependencyBundle();
     let receivablesController = null;
+    let holdingsView = "current";
+    let transactionFilter = null;
+    let transactionLoadingMore = false;
     const restoredReceivableDraft = pendingReceivableDraft?.ownerId === context.identity.getUserId() ? pendingReceivableDraft : null;
     pendingReceivableDraft = null;
     async function authorizeReceivableWrite() {
@@ -498,8 +502,9 @@
       const pageKey = pageId || activePage;
       const [pageTitle, pageIcon] = global.InvestmentModuleShell.labels[pageKey] || ["投資", "📈"];
       const descriptions = {
-        overview: "投資模組｜查看今日軍師、持股總覽與近期變化",
+        overview: "股票總覽｜在手與已平倉、成本與損益",
         portfolio: "我的持股｜查看目前持倉、成本與損益",
+        receivables: "應收款｜代墊後待收回的款項",
         strategy: "投資策略｜整理策略、判斷與風險提醒",
         settings: "偏好設定｜管理投資模組的顯示與計算偏好",
         transactions: "交易紀錄｜以受控交易 Contract 計算持股與成本",
@@ -522,7 +527,7 @@
       revokePreviewUrl: url => typeof global.URL?.revokeObjectURL === "function" ? global.URL.revokeObjectURL(url) : undefined
     });
     let snapshotWrite = Object.freeze({ status: "idle", form: Object.freeze({}), result: null, error: "", stepUp: null });
-    let transactionWrite = Object.freeze({ status: "idle", form: Object.freeze({}), result: null, error: "", stepUp: null });
+    let transactionWrite = Object.freeze({ status: "idle", form: Object.freeze({idempotencyKey:global.crypto?.randomUUID?.() || `investment-${Date.now()}-${Math.random().toString(36).slice(2)}`}), result: null, error: "", stepUp: null });
     let pendingActionWrite = Object.freeze({ status: "idle", activeId: "", result: null, error: "", stepUp: null });
     let lastRenderedPageMarkup = "";
 
@@ -582,7 +587,8 @@
         onSnapshotWrite: writeBrokerSnapshot,
         transactionWrite,
         onTransactionWrite: writeTransaction,
-        pendingActionWrite
+        pendingActionWrite,
+        holdingsView, transactionFilter, transactionLoadingMore
       };
       const markup = state.status === "loading"
         ? '<div class="investment-loading"><span></span><p>正在讀取投資資料…</p></div>'
@@ -718,13 +724,14 @@
       renderPage();
       try {
         const result = await repository.recordTransaction({ ...formValues, quantity, price, fee, tax });
-        const rows = await repository.loadTransactions();
-        const readBack = rows.find(row => row.id === result.transaction_id || row.idempotencyKey === formValues.idempotencyKey);
+        const readBack = typeof repository.loadTransactionById === "function"
+          ? await repository.loadTransactionById(result.transaction_id)
+          : (await repository.loadTransactions()).find(row => row.id === result.transaction_id || row.idempotencyKey === formValues.idempotencyKey);
         if (!readBack) throw snapshotWriteError("INVESTMENT_TRANSACTION_READBACK_FAILED", "交易紀錄寫入後無法由 Cloud Read-back 驗證。");
         transactionWrite = Object.freeze({ status: "success", form: formValues, result: Object.freeze({ ...result, readBack }), error: "", stepUp: null });
         await load();
       } catch (error) {
-        transactionWrite = Object.freeze({ status: "error", form: formValues, result: null, error: error?.message || "受控交易紀錄寫入失敗。", stepUp: null });
+        transactionWrite = Object.freeze({ status: "error", form: formValues, result: null, error: String(error?.message || "").includes("INVESTMENT_TRANSACTION_TIMELINE_INVALID") ? "這筆日期會使過往某一天的持股不足，已拒絕登記，未新增交易。請核對交易日期與股數。" : error?.message || "受控交易紀錄寫入失敗。", stepUp: null });
         renderPage();
       }
     }
@@ -984,9 +991,10 @@
     function navigate(page, updateHash = true, focus = "") {
       const canonical = canonicalPage(page);
       if (!global.InvestmentConfig.pages.includes(canonical)) return;
+      root.querySelectorAll(".investment-tool-nav[open]").forEach(menu => menu.removeAttribute("open"));
       const previousPage = store.getState().activePage;
       if (focus) activeFocus = focus;
-      else if (updateHash || canonical !== previousPage) activeFocus = canonical === "overview" ? "today-focus" : "";
+      else if (updateHash || canonical !== previousPage) activeFocus = canonical === "overview" ? "stocks" : "";
       if (updateHash && global.location.hash !== `#${canonical}`) global.location.hash = canonical;
       if (!updateHash && page === "watchlist" && global.history?.replaceState) {
         global.history.replaceState(null, "", `${global.location.pathname}${global.location.search}#portfolio`);
@@ -1126,6 +1134,19 @@
       renderPage();
     }
 
+    async function loadMoreTransactions() {
+      if (transactionLoadingMore || !store.getState().transactionsHasMore) return;
+      transactionLoadingMore = true; renderPage();
+      try {
+        const before = store.getState().transactions;
+        const more = await repository.loadTransactions({before: before[before.length - 1]});
+        dailyConsumer.assertBoundSession();
+        const seen = new Set(before.map(row => row.id));
+        store.update({transactions:[...before,...more.slice(0,200).filter(row => !seen.has(row.id))],transactionsHasMore:more.length > 200});
+      } catch (error) { transactionWrite = Object.freeze({...transactionWrite,error:error?.message || "無法讀取更早交易，請重試。"}); }
+      finally { transactionLoadingMore = false; renderPage(); }
+    }
+
     async function load() {
       dailyConsumer.assertBoundSession();
       store.update({
@@ -1153,7 +1174,8 @@
         identity,
         portfolio,
         positions,
-        transactions,
+        transactions: transactions.slice(0, 200),
+        transactionsHasMore: transactions.length > 200,
         pendingActions,
         watchlist,
         strategies,
@@ -1293,6 +1315,26 @@
         openResearchForSymbol(researchTarget.dataset.investmentResearchSymbol, researchTarget.dataset.investmentResearchMarket);
         return;
       }
+      const holdingsToggle = event.target.closest("[data-investment-holdings-view]");
+      if (holdingsToggle) { holdingsView = holdingsToggle.dataset.investmentHoldingsView === "history" ? "history" : "current"; renderPage(); return; }
+      if (event.target.closest("[data-investment-new-buy]")) {
+        transactionFilter = null;
+        transactionWrite = Object.freeze({status:"idle",error:"",stepUp:null,form:{tradeType:"BUY",idempotencyKey:global.crypto?.randomUUID?.() || `investment-${Date.now()}-${Math.random().toString(36).slice(2)}`}});
+        navigate("transactions"); return;
+      }
+      const stockAction = event.target.closest("[data-investment-stock-action]");
+      if (stockAction) {
+        const position = store.getState().positions.find(p => String(p.sourceId || p.id || `${p.market}:${p.symbol}:${p.currency}`) === stockAction.dataset.investmentPositionKey);
+        if (!position) return;
+        transactionFilter = {symbol:position.symbol,market:position.market,currency:position.currency};
+        if (stockAction.dataset.investmentStockAction !== "history") {
+          const tradeType = stockAction.dataset.investmentStockAction === "sell" ? "SELL" : "BUY";
+          transactionWrite = Object.freeze({status:"idle", error:"", stepUp:null, form:{symbol:position.symbol,name:position.name,market:position.market,currency:position.currency,tradeType,quantity:"",price:"",fee:"0",tax:"0",tradeDate:new Intl.DateTimeFormat("en-CA", {timeZone:"Asia/Taipei",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date()),idempotencyKey:global.crypto?.randomUUID?.() || `investment-${Date.now()}-${Math.random().toString(36).slice(2)}`}});
+        }
+        navigate("transactions"); return;
+      }
+      if (event.target.closest("[data-investment-transactions-all]")) { transactionFilter = null; renderPage(); return; }
+      if (event.target.closest("[data-investment-transactions-more]")) { loadMoreTransactions().catch(handleError); return; }
       const route = event.target.closest("[data-investment-route]");
       if (route) {
         const page = route.dataset.investmentRoute;

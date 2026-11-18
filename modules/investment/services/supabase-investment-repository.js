@@ -68,8 +68,8 @@
     const initialAssuranceLevel = normalizeAal(options.assuranceLevel || sessionSnapshot.aal);
     // The Creator-controlled MFA preference can permit AAL1 for Investment
     // read-only access during development. It must never relax the controlled
-    // Snapshot write path below, which always calls assertSession({ write: true })
-    // and remains AAL2-gated by the Cloud RPC.
+    // sensitive-write path below: its separate saved switch is checked by
+    // assertSession({ write: true }) and independently enforced by the RPC.
     const allowAal1Read = options.allowAal1Read === true;
     const authenticated = options.isAuthenticated === undefined
       ? sessionSnapshot.isAuthenticated !== false
@@ -119,7 +119,13 @@
           code === "INVESTMENT_SESSION_EXPIRED" ? "登入工作階段已過期，請重新登入後再讀取投資資料。" : "請先登入後再讀取投資資料。"
         ));
       }
-      if (assuranceLevel === "aal1" && (write || !allowAal1Read)) {
+      // Writes follow the saved sensitive-write switch (same policy as the
+      // receivable split): aal2, or aal1 with the server-saved boolean
+      // preference investment_sensitive_write_mfa_required === false.
+      // Unknown assurance is fail-closed; the entry switch never implies a
+      // write bypass. Reads keep the existing entry behavior.
+      const writeAllowed = assuranceLevel === "aal2" || (assuranceLevel === "aal1" && policyMfaBypassed(true));
+      if ((write && !writeAllowed) || (!write && assuranceLevel === "aal1" && !allowAal1Read)) {
         throw recordError(investmentError(
           "INVESTMENT_ASSURANCE_REQUIRED",
           "投資資料受到額外安全保護，請完成安全驗證後繼續。",
@@ -301,14 +307,28 @@
       return loadPositions();
     }
 
-    async function loadTransactions() {
-      const rows = await ownerSelect("transactions", "id,portfolio_id,trade_date,trade_type,symbol,name,market,quantity,price,gross_amount,fee,tax,net_amount,currency,account,source,note,idempotency_key,created_at,updated_at", "&order=trade_date.desc,created_at.desc,id.desc&limit=200");
+    async function loadTransactions({before = null} = {}) {
+      let cursor = "";
+      if (before) {
+        const date = String(before.tradeDate || "");
+        const created = String(before.createdAt || "");
+        const id = String(before.id || "");
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{4}-\d{2}-\d{2}T[\d:.+Z-]+$/.test(created) || !/^[a-zA-Z0-9-]+$/.test(id)) throw investmentError("INVESTMENT_TRANSACTION_CURSOR_INVALID", "交易分頁資訊無效，請重新整理。");
+        cursor = `&or=${encodeURIComponent(`(trade_date.lt.${date},and(trade_date.eq.${date},created_at.lt.${created}),and(trade_date.eq.${date},created_at.eq.${created},id.lt.${id}))`)}`;
+      }
+      const rows = await ownerSelect("transactions", "id,portfolio_id,trade_date,trade_type,symbol,name,market,quantity,price,gross_amount,fee,tax,net_amount,currency,account,source,note,idempotency_key,created_at,updated_at", `&order=trade_date.desc,created_at.desc,id.desc&limit=201${cursor}`);
       return (rows || []).map(row => Models.Transaction.normalize({
         ...row,
         userId: authUserId,
         portfolioId: row.portfolio_id,
         idempotencyKey: row.idempotency_key
       }));
+    }
+
+    async function loadTransactionById(id) {
+      if (!/^[a-zA-Z0-9-]+$/.test(String(id || ""))) throw investmentError("INVESTMENT_TRANSACTION_ID_INVALID", "交易識別無效。");
+      const rows = await ownerSelect("transactions", "*", `&id=eq.${encodeURIComponent(id)}&limit=1`);
+      return rows?.length ? Models.Transaction.normalize(rows[0]) : null;
     }
 
     async function recordTransaction(input = {}) {
@@ -385,7 +405,7 @@
       return Object.freeze({ ...row });
     }
 
-    function receivableMfaBypassed(write) {
+    function policyMfaBypassed(write) {
       let policy;try { policy=options.getMfaPolicy?.(); } catch { return false; }
       const key=write?'investment_sensitive_write_mfa_required':'investment_entry_mfa_required';
       return policy?.status==='resolved'&&policy.is_creator===true&&policy.userId===authUserId&&policy[key]===false;
@@ -397,7 +417,7 @@
         throw recordError(investmentError(current?.isExpired ? "INVESTMENT_SESSION_EXPIRED" : "INVESTMENT_SESSION_REQUIRED", "請重新登入後再讀寫應收款。"));
       }
       const aal=normalizeAal(current.aal);
-      if (!(aal==='aal2'||(aal==='aal1'&&receivableMfaBypassed(write)))) throw recordError(investmentError("INVESTMENT_ASSURANCE_REQUIRED", "請依投資安全設定完成驗證後再繼續。"));
+      if (!(aal==='aal2'||(aal==='aal1'&&policyMfaBypassed(write)))) throw recordError(investmentError("INVESTMENT_ASSURANCE_REQUIRED", "請依投資安全設定完成驗證後再繼續。"));
     }
 
     async function loadReceivables() {
@@ -607,6 +627,7 @@
       loadPositions,
       loadCurrentPositions,
       loadTransactions,
+      loadTransactionById,
       recordTransaction,
       loadPendingActions,
       confirmPendingAction,

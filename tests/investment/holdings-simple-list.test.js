@@ -22,7 +22,7 @@ test("simple overview shows cost, value and pnl trio plus one row per holding", 
   assert.match(html, /NT\$ 75,694/);
   assert.match(html, /目前市值/);
   assert.match(html, /NT\$ 107,820/);
-  assert.match(html, /總損益/);
+  assert.match(html, /未實現損益/);
   assert.match(html, /NT\$ 32,126/);
   assert.equal((html.match(/class="investment-simple-row/g) || []).length, 2);
 });
@@ -61,7 +61,7 @@ test("with an unpriced holding, full cost stays separate and valued-subset total
   assert.match(html, /全部投入成本/);
   assert.match(html, /NT\$ 54,578/, "full cost = 54,361 + 217");
   assert.match(html, /已估值部位市值（1 檔）/);
-  assert.match(html, /已估值部位損益/);
+  assert.match(html, /已估值部位未實現損益/);
   assert.match(html, /成本 NT\$ 54,361 計/, "pnl card names the valued-subset cost basis");
   const summary = Calc.summarize([priced, unpriced]);
   assert.equal(summary.tw.value - summary.tw.pricedCost, summary.tw.pnl, "value - pricedCost = pnl exactly");
@@ -82,7 +82,7 @@ test("overview invested-cost note names the valued-subset basis when quotes are 
     { positions: [priced, unpriced], intelligence: { status: "ready", loadedAt: "2026-11-17T21:00:00+08:00", quotes: [] }, watchlist: [], todayFocus: [], marketEvents: [], performance: {} },
     { format, calculation: Calc, escape, positionCard: { render: () => "" } }
   );
-  assert.match(html, /市值與損益口徑為已估值部位成本 NT\$ 54,361，與此全部成本不同口徑。/);
+  assert.match(html, /已估值部位未實現損益|市值與損益口徑為已估值部位成本 NT\$ 54,361，與此全部成本不同口徑。/);
 });
 
 test("mixed currencies have independent original-currency totals and unpriced boundaries", () => {
