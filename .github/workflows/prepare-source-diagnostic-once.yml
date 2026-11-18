@@ -35,6 +35,9 @@ jobs:
           for name,data in files.items():
             dest=root/name
             assert dest.resolve().is_relative_to(root.resolve())
+            if name.startswith('.github/'):
+              assert dest.read_bytes()==base64.b64decode(data,validate=True)
+              continue
             dest.parent.mkdir(parents=True,exist_ok=True)
             dest.write_bytes(base64.b64decode(data,validate=True))
           inputs[0].unlink()
