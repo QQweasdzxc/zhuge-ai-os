@@ -756,3 +756,33 @@ button { color: inherit; }
 
 /* Read-only portfolio navigation keeps holdings and watchlists separate. */
 .investment-watchlist-readonly{list-style:none;margin:0;padding:0}.investment-watchlist-readonly li{padding:16px;border-bottom:1px solid var(--border-color,rgba(255,255,255,.12))}.investment-watchlist-readonly li strong,.investment-watchlist-readonly li span{display:block;overflow-wrap:anywhere}.investment-watchlist-readonly li p{margin-bottom:0;overflow-wrap:anywhere}
+
+
+/* Approved two-destination navigation. Keep canonical tabs unchanged; the
+   independent tools disclosure lives outside their scrolling/clipped region. */
+.investment-navigation-row { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:8px; overflow:visible; }
+.investment-tool-nav-summary { min-height:44px; display:flex; align-items:center; gap:8px; }
+.investment-tool-nav[open] .investment-tool-menu { grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; width:310px; max-width:calc(100vw - 24px); }
+.investment-tool-menu-item { min-height:44px; }
+.investment-holdings-switch { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0 16px; }
+.investment-holdings-switch button, .investment-simple-more button, .investment-history-pagination button,
+[data-investment-transactions-all] { border:1px solid #244251; border-radius:8px; color:#c6e9f3; background:#0d1a24; padding:10px 12px; min-height:44px; font:inherit; cursor:pointer; }
+.investment-holdings-switch button[aria-pressed="true"] { border-color:#2fd7f5; color:#2fd7f5; background:#102c39; }
+.investment-simple-more { display:flex; flex-wrap:wrap; gap:8px; }
+.investment-simple-more button { padding:10px 12px; font-size:.85rem; }
+.investment-realized-summary { padding:12px; border:1px solid #173242; border-radius:10px; background:#0d1a24; }
+.investment-realized-summary small { display:block; color:#9fb8c4; line-height:1.6; margin-top:6px; }
+.investment-history-pagination { padding:12px; color:#9fb8c4; }
+@media(max-width:600px) {
+ .investment-tool-nav-summary { font-size:.85rem; padding:8px; }
+ .investment-realized-summary { font-size:.9rem; }
+}
+
+@media(max-width:640px) {
+ .investment-simple-kpis { grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+ .investment-simple-kpis .investment-command-kpi { display:block; padding:8px; }
+ .investment-simple-kpis .investment-command-kpi header { min-height:2.8em; }
+ .investment-simple-kpis .investment-kpi-amounts { margin-top:6px; text-align:left; }
+ .investment-simple-kpis .investment-kpi-amounts b { font-size:clamp(.78rem,3.1vw,1.1rem); }
+ .investment-simple-kpis .investment-kpi-amounts small { font-size:.65rem; }
+}

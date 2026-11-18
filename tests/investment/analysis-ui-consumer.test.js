@@ -202,7 +202,7 @@ test("Investment UX re-layout keeps the canonical data surfaces and exposes the 
   assert.match(shellMarkup, /investment-primary-nav investment-content-tabs/);
   assert.match(shellMarkup, /role="tablist" aria-label="投資主要入口"/);
   const primaryMarkup = shellMarkup.split('class="investment-tool-nav"')[0];
-  assert.equal((primaryMarkup.match(/role="tab"/g) || []).length, 6);
+  assert.equal((primaryMarkup.match(/role="tab"/g) || []).length, 2);
   assert.doesNotMatch(shellMarkup, /investment-primary-nav-item/);
   assert.match(shellMarkup, /investment-tool-nav/);
   assert.match(shellMarkup, /更多工具/);
@@ -222,34 +222,15 @@ test("Investment UX re-layout keeps the canonical data surfaces and exposes the 
   assert.match(markup, /目前沒有 canonical 今日損益結果/);
 });
 
-test("Investment primary tabs retain routes and expose exactly one correct active destination", () => {
-  const cases = [
-    [{ activePage: "overview", activeFocus: "today-focus" }, "today-focus", "今日軍師"],
-    [{ activePage: "portfolio", activeFocus: "portfolio" }, "portfolio", "我的持股"],
-    [{ activePage: "portfolio", activeFocus: "watchlist" }, "watchlist", "觀察股"],
-    [{ activePage: "overview", activeFocus: "research" }, "research", "個股研究"],
-    [{ activePage: "overview", activeFocus: "advisor" }, "advisor", "團軍師"],
-    [{ activePage: "overview", activeFocus: "realtime" }, "realtime", "市場情報"]
-  ];
-
-  for (const [state, expectedFocus, expectedLabel] of cases) {
-    const markup = shell.renderPrimaryNavigation(state);
-    const selected = shell.primaryNavigation.filter(item => shell.navigationIsCurrent(item, state));
-    assert.equal(selected.length, 1, `${expectedLabel} should be the only active primary tab`);
-    assert.equal(selected[0].focus || "portfolio", expectedFocus);
-    assert.equal(selected[0].label, expectedLabel);
-    assert.equal((markup.match(/aria-selected="true"/g) || []).length, 1);
-    assert.match(markup, /data-investment-route="(?:overview|portfolio)"/);
+test("Investment approved primary tabs and secondary tools retain every destination", () => {
+  for (const [state, label] of [[{activePage:"overview",activeFocus:"stocks"},"股票總覽"],[{activePage:"receivables"},"應收款"]]) {
+    const selected = shell.primaryNavigation.filter(item => shell.navigationIsCurrent(item,state));
+    assert.equal(selected.length,1); assert.equal(selected[0].label,label);
+    assert.equal((shell.renderPrimaryNavigation(state).match(/aria-selected="true"/g)||[]).length,1);
   }
-
-  const boardLinks = shell.renderPrimaryNavigation({ activePage: "portfolio", activeFocus: "watchlist" }, {
-    asLinks: true,
-    panelId: "investmentBoardView",
-    hrefFor: item => item.focus === "watchlist" ? "./#watchlist" : item.route === "portfolio" ? "./" : `?focus=${item.focus}`
-  });
-  assert.match(boardLinks, /role="navigation"/);
-  assert.doesNotMatch(boardLinks, /role="tab"|aria-selected|aria-controls/);
-  assert.equal((boardLinks.match(/aria-current="page"/g) || []).length, 1);
-  assert.match(boardLinks, /data-investment-focus="watchlist"[^>]*aria-current="page"[^>]*href="\.\/#watchlist"/);
-  assert.match(boardLinks, /data-investment-focus="today-focus"[^>]*href="\?focus=today-focus"/);
+  const tools = shell.renderToolNavigation({activePage:"overview",activeFocus:"research"});
+  for (const label of ["我的持股","今日軍師","觀察股","個股研究","團軍師","市場情報","交易紀錄","投資策略","截圖匯入","偏好設定"]) assert.ok(tools.includes(label));
+  const boardLinks = shell.renderPrimaryNavigation({activePage:"overview",activeFocus:"stocks"},{asLinks:true,hrefFor:item=>`#${item.route}`});
+  assert.match(boardLinks,/role="navigation"/); assert.doesNotMatch(boardLinks,/role="tab"|aria-selected|aria-controls/);
+  assert.equal((boardLinks.match(/aria-current="page"/g)||[]).length,1);
 });
