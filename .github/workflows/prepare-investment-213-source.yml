@@ -27,5 +27,14 @@ jobs:
           git fetch "./$BUNDLE" refs/heads/review/investment-closeout-213-20261118
           test "$(git rev-parse FETCH_HEAD)" = "8d4ff66000ca36d2129c355759747a5277c4dd04"
           test "$(git merge-base FETCH_HEAD origin/main)" = "1ab7935ae1f32469f3331e9b2492f9d9d202acf0"
-          git push origin FETCH_HEAD:refs/heads/review/investment-closeout-213-20261118
+          git fetch origin review/investment-closeout-213-final-20261118
+          STAGE="$(git rev-parse FETCH_HEAD)"
+          git checkout -B review/investment-closeout-213-final-20261118 "$STAGE"
+          git read-tree --reset -u 8d4ff66000ca36d2129c355759747a5277c4dd04
+          test -z "$(git diff --cached --name-only -- .github/workflows)"
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git commit -m 'Apply exact independently reviewed Investment 213 source tree'
+          test "$(git rev-parse HEAD^{tree})" = "$(git rev-parse 8d4ff66000ca36d2129c355759747a5277c4dd04^{tree})"
+          git push origin HEAD:refs/heads/review/investment-closeout-213-final-20261118
           echo 'Exact reviewed source transferred to review only. No main push or deployment.'
