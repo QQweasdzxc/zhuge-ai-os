@@ -1,0 +1,31 @@
+name: Prepare exact reviewed Investment 213 source
+on:
+  push:
+    branches: [review/investment-213-transport-20261118]
+    paths: [.github/workflows/prepare-investment-213-source.yml]
+permissions:
+  contents: write
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify exact immutable source bundle and transfer review ref only
+        run: |
+          test "$(git rev-parse origin/main)" = "1ab7935ae1f32469f3331e9b2492f9d9d202acf0"
+          python3 - <<'PYBUNDLE'
+          import pathlib,hashlib
+          p=list(pathlib.Path('.').glob('*investment213-exact1244.bundle'))
+          assert len(p)==1
+          assert hashlib.sha256(p[0].read_bytes()).hexdigest()=='64d1922ee23cdb00ba7dbff6b120a3d71b10946428f62d2e304df0ea0b1f4772'
+          pathlib.Path('/tmp/source-bundle-path').write_text(str(p[0]))
+          PYBUNDLE
+          BUNDLE="$(cat /tmp/source-bundle-path)"
+          git bundle verify "$BUNDLE"
+          git fetch "./$BUNDLE" refs/heads/review/investment-closeout-213-20261118
+          test "$(git rev-parse FETCH_HEAD)" = "8d4ff66000ca36d2129c355759747a5277c4dd04"
+          test "$(git merge-base FETCH_HEAD origin/main)" = "1ab7935ae1f32469f3331e9b2492f9d9d202acf0"
+          git push origin FETCH_HEAD:refs/heads/review/investment-closeout-213-20261118
+          echo 'Exact reviewed source transferred to review only. No main push or deployment.'
