@@ -770,8 +770,9 @@ button { color: inherit; }
 .investment-holdings-switch button[aria-pressed="true"] { border-color:#2fd7f5; color:#2fd7f5; background:#102c39; }
 .investment-simple-more { display:flex; flex-wrap:wrap; gap:8px; }
 .investment-simple-more button { padding:10px 12px; font-size:.85rem; }
-.investment-realized-summary { padding:12px; border:1px solid #173242; border-radius:10px; background:#0d1a24; }
-.investment-realized-summary small { display:block; color:#9fb8c4; line-height:1.6; margin-top:6px; }
+.investment-realized-summary { padding:12px; border:1px solid var(--investment-line); border-radius:10px; background:var(--investment-panel); color:var(--investment-text); }
+.investment-realized-summary strong { color:inherit; }
+.investment-realized-summary small { display:block; color:var(--investment-muted); line-height:1.6; margin-top:6px; }
 .investment-history-pagination { padding:12px; color:#9fb8c4; }
 @media(max-width:600px) {
  .investment-tool-nav-summary { font-size:.85rem; padding:8px; }
