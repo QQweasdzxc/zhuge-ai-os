@@ -1,0 +1,47 @@
+name: Prepare reviewed source diagnostic only
+on:
+  push:
+    branches: [review/investment-source-diagnostic-20261118]
+    paths: [.github/workflows/prepare-source-diagnostic-once.yml]
+permissions:
+  contents: write
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply exactly reviewed diagnostic files, no deployment
+        run: |
+          test "$(git merge-base HEAD origin/main)" = "bea49ada5e3ad6b3a196faffcd3ff6d493b52b11"
+          python3 - <<'PYFILES'
+          import pathlib,hashlib,gzip,json,base64
+          root=pathlib.Path('.')
+          inputs=list(root.glob('*investment-diag-exact-files.json.gz'))
+          assert len(inputs)==1
+          blob=inputs[0].read_bytes()
+          assert hashlib.sha256(blob).hexdigest()=='36f69cb9e3877d02b105c0cbb30be782ca4f7913d6c8269a499d82424090a7f3'
+          files=json.loads(gzip.decompress(blob))
+          expected={
+            '.github/workflows/p0-home-apps-pages.yml',
+            'modules/investment/services/investment-daily-close-service.js',
+            'supabase/functions/investment-daily-close-read/index.ts',
+            'tests/investment/daily-close-v4/build-bundles.cjs',
+            'tests/investment/daily-close-v4/daily-diagnostics.test.cjs',
+            'tests/investment/daily-close-v4/daily-snapshot-transport.cjs',
+          }
+          assert set(files)==expected
+          for name,data in files.items():
+            dest=root/name
+            assert dest.resolve().is_relative_to(root.resolve())
+            dest.parent.mkdir(parents=True,exist_ok=True)
+            dest.write_bytes(base64.b64decode(data,validate=True))
+          inputs[0].unlink()
+          PYFILES
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git diff --cached --check
+          git commit -m 'Apply independently reviewed official source diagnostic only'
+          git push origin HEAD:review/investment-source-diagnostic-20261118
