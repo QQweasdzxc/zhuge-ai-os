@@ -90,7 +90,7 @@ test("Investment is registered as a Level 3 Shared Platform module", () => {
 
 test("Supabase Repository maps Shared UUID to the legacy owner and reads only owner-scoped cloud rows", async () => {
   const data = investmentDataGateway();
-  const repository = RepositoryContract.assertRepository(SupabaseRepository.create({ userId: USER_ID, data }));
+  const repository = RepositoryContract.assertRepository(SupabaseRepository.create({ userId: USER_ID, data, sessionSnapshot: { isAuthenticated: true, aal: "aal2" } }));
   const values = await Promise.all([
     repository.loadPortfolio(),
     repository.loadPositions(),
@@ -119,7 +119,7 @@ test("Supabase Repository maps Shared UUID to the legacy owner and reads only ow
 });
 
 test("Portfolio calculation keeps TWD and USD totals independent", async () => {
-  const repository = SupabaseRepository.create({ userId: USER_ID, data: investmentDataGateway() });
+  const repository = SupabaseRepository.create({ userId: USER_ID, data: investmentDataGateway(), sessionSnapshot: { isAuthenticated: true, aal: "aal2" } });
   const positions = await repository.loadPositions();
   const summary = Calculation.summarize(positions);
 
@@ -135,7 +135,7 @@ test("Portfolio calculation keeps TWD and USD totals independent", async () => {
 });
 
 test("Investment exposes the required SIT pages and standard folders", () => {
-  assert.deepEqual(Config.pages, ["overview", "receivables", "portfolio", "transactions", "strategy", "settings", "import"]);
+  assert.deepEqual(Config.pages, ["dashboard", "overview", "detail", "filter", "tools", "receivables", "portfolio", "transactions", "strategy", "settings", "import"]);
   for (const folder of ["pages", "components", "services", "models", "store", "config", "assets", "utils"]) {
     assert.equal(fs.statSync(path.join(ROOT, "modules", "investment", folder)).isDirectory(), true);
   }
