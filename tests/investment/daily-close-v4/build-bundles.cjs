@@ -21,7 +21,14 @@ async function verifySession(request){
  const normalized=raw.replace(/-/g,'+').replace(/_/g,'/');
  const claims=JSON.parse(atob(normalized.padEnd(Math.ceil(normalized.length/4)*4,'=')));
  if(!user.id||claims.sub!==user.id||!Number.isFinite(claims.exp)||claims.exp*1000<=Date.now())throw Error('AUTH_REQUIRED');
- return {userId:user.id,aal:claims.aal};
+ let readMfaBypassed=false;
+ if(claims.aal==='aal1'){
+  try{
+   const policyResponse=await fetch(url+'/rest/v1/rpc/get_creator_mfa_preferences',{method:'POST',headers:{apikey,authorization,'content-type':'application/json'},body:'{}',signal:AbortSignal.timeout(10000)});
+   if(policyResponse.ok){const policy=await policyResponse.json();readMfaBypassed=policy?.user_id===user.id&&policy.is_creator===true&&policy.investment_entry_mfa_required===false;}
+  }catch{} // Missing or unverifiable server preference never bypasses MFA.
+ }
+ return {userId:user.id,aal:claims.aal,readMfaBypassed};
 }
 Deno.serve(__require('./daily-edge-handler.cjs').createDailyHandler({loadSnapshot,verifySession}));
 `;

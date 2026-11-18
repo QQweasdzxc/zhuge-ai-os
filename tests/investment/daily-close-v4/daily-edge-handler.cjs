@@ -11,7 +11,7 @@ function createDailyHandler({loadSnapshot,verifySession,allowedOrigins=['https:/
   if(request.method!=='POST')return response({code:'POST_REQUIRED'},405);
   let session;try{session=await verifySession(request);}catch{return response({code:'AUTH_REQUIRED'},401);}
   if(!session?.userId)return response({code:'AUTH_REQUIRED'},401);
-  if(session.aal!=='aal2')return response({code:'AAL2_REQUIRED'},403);
+  if(!(session.aal==='aal2'||(session.aal==='aal1'&&session.readMfaBypassed===true)))return response({code:'AAL2_REQUIRED'},403);
   const declared=Number(request.headers.get('content-length')||0);if(declared>1024)return response({code:'INVALID_REQUEST'},400);
   let input;try{const text=await request.text();if(text.length>1024)throw Error();input=JSON.parse(text);}catch{return response({code:'INVALID_REQUEST'},400);}
   if(!input||Array.isArray(input)||input.mode!=='official_daily_close'||Object.keys(input).length!==1)return response({code:'INVALID_REQUEST'},400);

@@ -5,7 +5,7 @@ const vm=require('node:vm');
 const path=require('node:path');
 const source=fs.readFileSync(path.join(__dirname,'../../modules/investment/services/investment-module.js'),'utf8');
 const start=source.indexOf('    async function load() {');
-const end=source.indexOf('\n    root.addEventListener("click",',start);
+const end=source.indexOf('\n    onRoot("click",',start);
 const loadSource=source.slice(start,end);
 test('private overview load and refresh never activate board repair or sync, including provider failure',async()=>{
  for(const providerState of ['success','missing','error']){
