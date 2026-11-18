@@ -15,9 +15,12 @@ jobs:
       - name: Verify immutable reviewed source and transfer review branch only
         run: |
           test "$(git rev-parse origin/main)" = "2146554e7558d9cd2b1c229abb7a08285402fade"
-          echo 'f537b9f66455471efb623db8da21045983c81ac783dfefcce8991735463eba43  investment214-exact1324.bundle' | sha256sum -c -
-          git bundle verify investment214-exact1324.bundle
-          git fetch ./investment214-exact1324.bundle HEAD
+          BUNDLE="$(find . -maxdepth 1 -type f -name '*investment214-exact1324.bundle' | head -1)"
+          test -n "$BUNDLE"
+          test "$(sha256sum "$BUNDLE" | cut -d' ' -f1)" = "f537b9f66455471efb623db8da21045983c81ac783dfefcce8991735463eba43"
+          git bundle verify "$BUNDLE"
+          git fetch "$BUNDLE" HEAD
           test "$(git rev-parse FETCH_HEAD)" = "5f0af456e5d087b37f4a3bd1f99d2d9aaab9e683"
           test -z "$(git diff --name-only origin/main FETCH_HEAD -- .github/workflows)"
           git push origin FETCH_HEAD:refs/heads/fix/investment213-realized-contrast-20261118
+# Source bundle confirmed present before this trigger.
