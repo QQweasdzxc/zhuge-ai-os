@@ -4,6 +4,8 @@
   const INVESTMENT_LOGIN_HREF = "../worklog/?app=1&workspace=dashboard&investmentReturn=1";
   const PIXEL_OFFICE_ACTION = '<a class="btn2 investment-office-return" href="../../" aria-label="返回 Pixel Office" title="返回 Pixel Office">⌂ Pixel Office</a>';
 
+  const runtimeCleanup = new WeakMap();
+  let pendingReceivableDraft = null; // Memory-only, owner-bound; never auto-submitted.
   const pageRegistry = Object.freeze({
     overview: global.InvestmentOverviewPage,
     portfolio: global.InvestmentPortfolioPage,
@@ -248,26 +250,27 @@
     const escape = global.InvestmentSafeHtml.escape;
     const busy = state.status === "loading" || state.status === "verifying";
     const readStepUp = state.readStepUp === true;
+    const writeStepUp = state.receivableWriteStepUp === true;
     const error = state.error ? `<div class="investment-unlock-error" role="alert">${escape(state.error)}</div>` : "";
     let content = `<div class="investment-loading zhuge-mfa-progress"><span></span><p>正在檢查安全驗證…</p></div>`;
-    if (readStepUp && state.mode === "enrollment_required") {
-      content = '<p role="alert">目前沒有可用的驗證器。請先到原安全設定完成設定；此讀取入口不會新增或更換驗證因素。</p>';
+    if ((readStepUp || writeStepUp) && state.mode === "enrollment_required") {
+      content = '<p role="alert">目前沒有可用的驗證器。請先到原安全設定完成設定；此入口不會新增或更換驗證因素。</p>';
     } else if (state.mode === "enrollment_required") {
       content = `<div class="zhuge-mfa-info"><strong>投資資料需要額外保護</strong><span>第一次使用請先設定驗證器。完成後，之後只要輸入驗證碼即可進入。</span></div><div class="investment-unlock-actions"><button class="investment-unlock-button" type="button" data-investment-enroll ${busy ? "disabled" : ""}>開始設定驗證器</button></div>`;
     } else if (state.mode === "enroll") {
       content = `<div class="zhuge-mfa-grid"><div class="zhuge-mfa-qr"><img class="investment-unlock-qr" src="${escape(state.qrCode || "")}" alt="Google Authenticator 設定 QR Code"><p>用 Google Authenticator 掃描此 QR Code</p><details class="investment-unlock-secret zhuge-mfa-secret"><summary>無法掃描？查看設定金鑰</summary><code>${escape(state.secret || "")}</code></details></div><div class="zhuge-mfa-step"><div class="zhuge-mfa-info"><strong>完成安全驗證</strong><span>掃描後，輸入 App 顯示的 6 位數驗證碼。QR Code 只用於設定驗證器，不會取代 Google 登入。</span></div>${unlockCodeForm(state, busy)}</div></div>`;
     } else if (state.mode === "challenge") {
-      content = `<div class="zhuge-mfa-info"><strong>請輸入驗證碼</strong><span>開啟 Google Authenticator，輸入目前顯示的 6 位數驗證碼。驗證成功後，${readStepUp ? "會重新讀取行情與應收款，不變更你的安全偏好。" : "投資模組會解鎖 10 分鐘。"}</span></div>${unlockCodeForm(state, busy)}`;
+      content = `<div class="zhuge-mfa-info"><strong>請輸入驗證碼</strong><span>開啟 Google Authenticator，輸入目前顯示的 6 位數驗證碼。驗證成功後，${writeStepUp ? "會返回應收表單，請確認後再送出；不會自動登記或更改款項。" : readStepUp ? "會重新讀取行情與應收款，不變更你的安全偏好。" : "投資模組會解鎖 10 分鐘。"}</span></div>${unlockCodeForm(state, busy)}`;
     }
-    return accessShell(`<div class="investment-access-panel investment-unlock-panel zhuge-mfa-panel"><img src="../../shared/assets/logo/tron-icon.svg" alt="TRQN"><p class="investment-eyebrow zhuge-mfa-kicker">安全驗證</p><h1>${readStepUp ? "驗證並讀取" : "解鎖投資"}</h1><p class="zhuge-mfa-intro">${readStepUp ? "行情與應收款需要本次二次驗證。只更新目前登入工作階段，不改安全設定或投資資料。" : "這是受保護的投資工作區。完成安全驗證後即可進入。"}</p>${error}${content}<a class="investment-secondary-link" href="../../app/dashboard/">返回 AI OS 首頁</a><small>只會解鎖投資模組；AI OS 首頁與工時模組不受影響。</small></div>`, { title: "Investment 安全驗證", description: "投資模組｜完成安全驗證後即可進入" });
+    return accessShell(`<div class="investment-access-panel investment-unlock-panel zhuge-mfa-panel"><img src="../../shared/assets/logo/tron-icon.svg" alt="TRQN"><p class="investment-eyebrow zhuge-mfa-kicker">安全驗證</p><h1>${writeStepUp ? "驗證以修改應收款" : readStepUp ? "驗證並讀取" : "解鎖投資"}</h1><p class="zhuge-mfa-intro">${writeStepUp ? "依照「修改重要投資資料時要求二次驗證」設定，請先完成驗證。輸入會保留，不會自動送出。" : readStepUp ? "依照「進入 Investment 時要求二次驗證」設定，請先完成驗證。不改安全設定或投資資料。" : "這是受保護的投資工作區。完成安全驗證後即可進入。"}</p>${error}${content}<a class="investment-secondary-link" href="../../app/dashboard/">返回 AI OS 首頁</a><small>只會解鎖投資模組；AI OS 首頁與工時模組不受影響。</small></div>`, { title: "Investment 安全驗證", description: "投資模組｜完成安全驗證後即可進入" });
   }
 
   function unlockCodeForm(state = {}, busy = false) {
-    return `<form class="investment-unlock-form zhuge-mfa-form" data-investment-unlock-form><label for="investmentTotpCode">驗證碼</label><input class="zhuge-mfa-code" id="investmentTotpCode" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="輸入 6 位數驗證碼" required><button class="investment-unlock-button" type="submit" ${busy ? "disabled" : ""}>${busy ? "驗證中…" : state.readStepUp ? "驗證並讀取" : "驗證並進入"}</button><input type="hidden" name="factorId" value="${global.InvestmentSafeHtml.escape(state.factorId || "")}"></form>`;
+    return `<form class="investment-unlock-form zhuge-mfa-form" data-investment-unlock-form><label for="investmentTotpCode">驗證碼</label><input class="zhuge-mfa-code" id="investmentTotpCode" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="輸入 6 位數驗證碼" required><button class="investment-unlock-button" type="submit" ${busy ? "disabled" : ""}>${busy ? "驗證中…" : state.receivableWriteStepUp ? "驗證並返回表單" : state.readStepUp ? "驗證並讀取" : "驗證並進入"}</button><input type="hidden" name="factorId" value="${global.InvestmentSafeHtml.escape(state.factorId || "")}"></form>`;
   }
 
-  async function mountUnlock(root, context, { readStepUp = false } = {}) {
-    let state = { status: "loading", mode: "preparing", error: "", readStepUp };
+  async function mountUnlock(root, context, { readStepUp = false, receivableWriteStepUp = false } = {}) {
+    let state = { status: "loading", mode: "preparing", error: "", readStepUp, receivableWriteStepUp };
     const paint = () => {
       global.ZhugeComponents.Summary.mount(root, unlockScreen(state));
       mountAccessShell(root, { title: "Investment 解鎖", description: "投資模組｜完成安全驗證後即可進入" });
@@ -293,7 +296,7 @@
         state = { ...state, status: "verifying", error: "" };
         paint();
         try {
-          await context.security.verifyUnlock({ factorId, code });
+          await context.security.verifyUnlock({ moduleId: receivableWriteStepUp ? "investment-sensitive-write" : "investment", factorId, code });
           if (readStepUp) { global.location.reload(); return; }
           global.InvestmentRuntime = await createRuntime(root);
           return;
@@ -307,9 +310,9 @@
     };
     paint();
     try {
-      state = { status: "ready", error: "", readStepUp, ...(await context.security.prepareUnlock()) };
+      state = { status: "ready", error: "", readStepUp, receivableWriteStepUp, ...(await context.security.prepareUnlock()) };
     } catch (error) {
-      state = { status: "ready", mode: "enrollment_required", readStepUp, error: error?.message || "無法讀取驗證狀態。" };
+      state = { status: "ready", mode: "enrollment_required", readStepUp, receivableWriteStepUp, error: error?.message || "無法讀取驗證狀態。" };
     }
     paint();
     bind();
@@ -349,6 +352,13 @@
   }
 
   async function createRuntime(root) {
+    runtimeCleanup.get(root)?.();
+    let disposed = false;
+    const cleanup = [];
+    const listen = (target, type, handler, options) => { target.addEventListener(type, handler, options); cleanup.push(() => target.removeEventListener(type, handler, options)); };
+    const onRoot = (type, handler, options) => listen(root, type, handler, options);
+    const onGlobal = (type, handler, options) => listen(global, type, handler, options);
+    runtimeCleanup.set(root, () => { disposed = true; cleanup.splice(0).forEach(fn => fn()); });
     const platform = global.ZhugeRuntimeSessionProvider.createPlatform();
     const context = platform.forModule("investment");
     if (!(await requireAppAccess(root, context))) return Object.freeze({ status: "blocked", context });
@@ -369,22 +379,29 @@
       userId: () => context.identity.getUserId?.() || "",
       userLabel: () => identity?.name || identity?.email || ""
     });
+    function policyBypassed(write=false) {
+      let policy;try{policy=context.security.getMfaPolicy?.();}catch{return false;}
+      return policy?.status==='resolved'&&policy.is_creator===true&&policy.userId===context.identity.getUserId()&&policy[write?'investment_sensitive_write_mfa_required':'investment_entry_mfa_required']===false;
+    }
     let sessionGeneration = 0;
     let sessionInvalidated = false;
     function dailySession() {
       const current = context.session.getSnapshot();
-      return { authenticated: current.isAuthenticated === true, ownerId: current.identity?.userId || "", generation: `${sessionGeneration}:${current.expiresAt || "no-expiry"}`, aal: current.aal };
+      if (disposed) return {authenticated:false};
+      return { authenticated: current.isAuthenticated === true, ownerId: current.identity?.userId || "", generation: `${sessionGeneration}:${current.expiresAt || "no-expiry"}`, aal: current.aal, readMfaBypassed: policyBypassed() };
     }
     const dailyConsumer = global.InvestmentDailyCloseService.createDailyConsumer({
       getSession: dailySession,
       invokeFunction: context.data.invokeFunction,
       normalizeQuote: (quote, now) => global.InvestmentIntelligenceLayer.normalizeQuote(quote, now)
     });
-    context.session.subscribe?.(() => {
+    const unsubscribeSession = context.session.subscribe?.(() => {
+      if (disposed) return;
       sessionGeneration += 1;
       sessionInvalidated = true;
       global.ZhugeComponents.Summary.mount(root, '<section role="alert" class="investment-empty-state"><h1>工作階段已更新</h1><p>為避免顯示前一工作階段的私人資料，請重新載入投資頁。</p><button type="button" data-investment-session-reload>重新載入</button></section>');
     });
+    if (typeof unsubscribeSession === "function") cleanup.push(unsubscribeSession);
     const repository = global.InvestmentRepositoryContract.assertRepository(
       global.SupabaseInvestmentRepository.create({
         userId: context.identity.getUserId(),
@@ -393,6 +410,7 @@
         sessionSnapshot: context.session.getSnapshot(),
         getSessionSnapshot: () => context.session.getSnapshot(),
         allowAal1Read: access.bypassedMfa === true,
+        getMfaPolicy: () => context.security.getMfaPolicy?.(),
         enrichRawPositions: dailyConsumer.enrichRawPositions
       })
     );
@@ -410,6 +428,17 @@
     const store = global.InvestmentStore.create({ pages: global.InvestmentConfig.pages, activePage });
     const dependencies = dependencyBundle();
     let receivablesController = null;
+    const restoredReceivableDraft = pendingReceivableDraft?.ownerId === context.identity.getUserId() ? pendingReceivableDraft : null;
+    pendingReceivableDraft = null;
+    async function authorizeReceivableWrite() {
+      await context.security.loadMfaPolicy?.({force:true});
+      if (currentSessionHasAal2() || policyBypassed(true)) return true;
+      captureReceivableDraft();
+      const draft=receivablesController.getState();
+      pendingReceivableDraft={ownerId:context.identity.getUserId(),form:{...draft.form},formOpen:draft.formOpen};
+      await mountUnlock(root,context,{receivableWriteStepUp:true});
+      return false;
+    }
     function paintReceivables() {
       const host = root.querySelector("[data-investment-receivables-root]");
       if (!host || !receivablesController || !global.InvestmentReceivablesPanel) return;
@@ -430,7 +459,7 @@
       const message = document.createElement("p");
       message.className = "investment-receivable-feedback";
       message.setAttribute("role", rs.error ? "alert" : "status");
-      message.textContent = [rs.error, rs.notice].filter(Boolean).join("；") || (rs.status === "idle" ? "應收款尚未讀取" : "");
+      message.textContent = [rs.error, rs.notice].filter(Boolean).join("；") || (rs.status === "idle" ? "應收款尚未讀取" : restoredReceivableDraft ? "驗證已完成，輸入已保留；請確認後再送出。" : "");
       host.prepend(message);
       if (rs.status === "auth_required") {
         message.textContent = "讀取應收款需要本次安全驗證，尚未查詢清單；不是沒有應收款。";
@@ -446,7 +475,8 @@
       const form = root.querySelector("[data-receivable-form]");
       if (form && receivablesController && !receivablesController.getState().busy) receivablesController.capture(Object.fromEntries(new FormData(form)), form.closest("details").open);
     }
-    if (global.InvestmentReceivablesController) receivablesController = global.InvestmentReceivablesController.create({repository,onChange:paintReceivables,getAssurance:()=>context.session.getSnapshot().aal});
+    if (global.InvestmentReceivablesController) receivablesController = global.InvestmentReceivablesController.create({repository,onChange:paintReceivables,getAssurance:()=>context.session.getSnapshot().aal,canRead:()=>currentSessionHasAal2()||policyBypassed(),authorizeWrite:authorizeReceivableWrite});
+    if (restoredReceivableDraft && receivablesController) receivablesController.capture(restoredReceivableDraft.form,restoredReceivableDraft.formOpen);
 
     const intelligenceProviders = dependencies.providers?.create?.({
       intelligence: dependencies.intelligence,
@@ -1243,7 +1273,7 @@
       renderPage();
     }
 
-    root.addEventListener("click", event => {
+    onRoot("click", event => {
       if (event.target.closest("[data-investment-session-reload]")) { global.location.reload(); return; }
       if (sessionInvalidated) return;
       if (event.target.closest("[data-investment-read-step-up]")) {
@@ -1330,14 +1360,14 @@
         renderPage();
       }
     });
-    root.addEventListener("keydown", event => {
+    onRoot("keydown", event => {
       if (event.key !== "Enter" && event.key !== " ") return;
       const researchTarget = event.target.closest?.("[data-investment-research-symbol]");
       if (!researchTarget) return;
       event.preventDefault();
       openResearchForSymbol(researchTarget.dataset.investmentResearchSymbol, researchTarget.dataset.investmentResearchMarket);
     });
-    root.addEventListener("submit", event => {
+    onRoot("submit", event => {
       const receivableForm = event.target.closest("[data-receivable-form]");
       if (receivableForm && receivablesController) {
         event.preventDefault();
@@ -1402,7 +1432,7 @@
       });
       renderPage();
     });
-    root.addEventListener("change", event => {
+    onRoot("change", event => {
       const input = event.target.closest("[data-investment-import-files]");
       if (!input) return;
       resetSnapshotWrite();
@@ -1410,17 +1440,17 @@
       input.value = "";
       renderPage();
     });
-    root.addEventListener("dragover", event => {
+    onRoot("dragover", event => {
       const dropzone = event.target.closest("[data-investment-import-dropzone]");
       if (!dropzone) return;
       event.preventDefault();
       dropzone.classList.add("is-dragging");
     });
-    root.addEventListener("dragleave", event => {
+    onRoot("dragleave", event => {
       const dropzone = event.target.closest("[data-investment-import-dropzone]");
       if (dropzone && !dropzone.contains(event.relatedTarget)) dropzone.classList.remove("is-dragging");
     });
-    root.addEventListener("drop", event => {
+    onRoot("drop", event => {
       const dropzone = event.target.closest("[data-investment-import-dropzone]");
       if (!dropzone) return;
       event.preventDefault();
@@ -1428,7 +1458,7 @@
       importSession.addFiles(event.dataTransfer?.files);
       renderPage();
     });
-    root.addEventListener("keydown", event => {
+    onRoot("keydown", event => {
       const researchTarget = event.target.closest("[data-investment-research-symbol]");
       if (researchTarget && ["Enter", " "].includes(event.key)) {
         event.preventDefault();
@@ -1440,8 +1470,9 @@
       event.preventDefault();
       root.querySelector("[data-investment-import-files]")?.click();
     });
-    global.addEventListener("pagehide", () => importSession.dispose(), { once: true });
-    global.addEventListener("hashchange", () => navigate(String(global.location.hash || "#overview").slice(1), false));
+    cleanup.push(() => importSession.dispose());
+    onGlobal("pagehide", () => importSession.dispose(), { once: true });
+    onGlobal("hashchange", () => navigate(String(global.location.hash || "#overview").slice(1), false));
 
     function handleError(error) {
       console.error("Investment SIT runtime error", { message: error?.message || String(error) });

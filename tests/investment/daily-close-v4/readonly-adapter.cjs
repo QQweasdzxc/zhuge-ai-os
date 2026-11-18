@@ -1,6 +1,6 @@
 'use strict';
 const {overlayVenues}=require('./venue-readonly-join.cjs');
-function safeSession(getSession){let s;try{s=getSession();}catch{throw Error('SESSION_UNVERIFIABLE');}if(!s||s.authenticated!==true||!s.ownerId||!s.generation||s.aal!=='aal2')throw Error('SESSION_REQUIRED');return {ownerId:s.ownerId,generation:s.generation};}
+function safeSession(getSession){let s;try{s=getSession();}catch{throw Error('SESSION_UNVERIFIABLE');}if(!s||s.authenticated!==true||!s.ownerId||!s.generation||!(s.aal==='aal2'||(s.aal==='aal1'&&s.readMfaBypassed===true)))throw Error('SESSION_REQUIRED');return {ownerId:s.ownerId,generation:s.generation};}
 function createReadOnlyOverlay({getSession,loadPublicSnapshot,validatePublicSnapshot,clock=Date.now}={}){
  if([getSession,loadPublicSnapshot,validatePublicSnapshot].some(f=>typeof f!=='function'))throw Error('READ_ONLY_DEPENDENCIES_REQUIRED');
  // No fallback permission or completeness policy. Snapshot validation must be

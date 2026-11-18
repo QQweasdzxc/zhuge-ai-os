@@ -168,7 +168,7 @@ module.exports={createDailySnapshotLoader,validatePublicSnapshot,CALENDAR_URLS};
 __modules["./readonly-adapter.cjs"]=function(module,exports,require){
 'use strict';
 const {overlayVenues}=require('./venue-readonly-join.cjs');
-function safeSession(getSession){let s;try{s=getSession();}catch{throw Error('SESSION_UNVERIFIABLE');}if(!s||s.authenticated!==true||!s.ownerId||!s.generation||s.aal!=='aal2')throw Error('SESSION_REQUIRED');return {ownerId:s.ownerId,generation:s.generation};}
+function safeSession(getSession){let s;try{s=getSession();}catch{throw Error('SESSION_UNVERIFIABLE');}if(!s||s.authenticated!==true||!s.ownerId||!s.generation||!(s.aal==='aal2'||(s.aal==='aal1'&&s.readMfaBypassed===true)))throw Error('SESSION_REQUIRED');return {ownerId:s.ownerId,generation:s.generation};}
 function createReadOnlyOverlay({getSession,loadPublicSnapshot,validatePublicSnapshot,clock=Date.now}={}){
  if([getSession,loadPublicSnapshot,validatePublicSnapshot].some(f=>typeof f!=='function'))throw Error('READ_ONLY_DEPENDENCIES_REQUIRED');
  // No fallback permission or completeness policy. Snapshot validation must be
@@ -225,13 +225,13 @@ function createDailyConsumer({getSession,invokeFunction,normalizeQuote=x=>x,cloc
  const overlay=createReadOnlyOverlay({getSession:assertBoundSession,loadPublicSnapshot,validatePublicSnapshot,clock});
  async function enrichRawPositions(rows){
   const s=assertBoundSession();
-  // Preserve the existing explicit Creator AAL1 read policy, but never invoke
-  // the AAL2-only daily endpoint or present snapshot values as current quotes.
-  if(s?.authenticated===true&&s.ownerId&&s.generation&&s.aal==='aal1')return Object.freeze(rows.map(row=>Object.freeze({...stripSnapshotValuation(row),venue:'',venueResolution:Object.freeze({resolved:false,venue:null,reason:'AAL2_REQUIRED_FOR_DAILY_SOURCE',evidence:[]})})));
+  // AAL1 requires the resolved Creator read policy. The Edge independently
+  // checks the saved server policy; client state never grants server access.
+  if(s?.authenticated===true&&s.ownerId&&s.generation&&s.aal==='aal1'&&s.readMfaBypassed!==true)return Object.freeze(rows.map(row=>Object.freeze({...stripSnapshotValuation(row),venue:'',venueResolution:Object.freeze({resolved:false,venue:null,reason:'AAL2_REQUIRED_FOR_DAILY_SOURCE',evidence:[]})})));
   return overlay(rows);
  }
  function load(positions=[]){
-  const s=assertBoundSession();if(!s||s.authenticated!==true||s.aal!=='aal2')return pack([],positions,'DAILY_SOURCE_AAL2_REQUIRED');
+  const s=assertBoundSession();if(!s||s.authenticated!==true||!(s.aal==='aal2'||(s.aal==='aal1'&&s.readMfaBypassed===true)))return pack([],positions,'DAILY_SOURCE_AAL2_REQUIRED');
   if(!validatePublicSnapshot(snapshot,{now:clock()}))return pack([],positions,'OFFICIAL_DAILY_SOURCE_NOT_CURRENT');
   const {accepted}=buildDailyRequests(positions);
   const quotes=accepted.map(p=>normalizeQuote(dailyClose(snapshot[p.venue],{venue:p.venue,symbol:p.symbol,receivedAt:snapshot.receivedAt}),clock()));
@@ -257,7 +257,7 @@ function createDailyHandler({loadSnapshot,verifySession,allowedOrigins=['https:/
   if(request.method!=='POST')return response({code:'POST_REQUIRED'},405);
   let session;try{session=await verifySession(request);}catch{return response({code:'AUTH_REQUIRED'},401);}
   if(!session?.userId)return response({code:'AUTH_REQUIRED'},401);
-  if(session.aal!=='aal2')return response({code:'AAL2_REQUIRED'},403);
+  if(!(session.aal==='aal2'||(session.aal==='aal1'&&session.readMfaBypassed===true)))return response({code:'AAL2_REQUIRED'},403);
   const declared=Number(request.headers.get('content-length')||0);if(declared>1024)return response({code:'INVALID_REQUEST'},400);
   let input;try{const text=await request.text();if(text.length>1024)throw Error();input=JSON.parse(text);}catch{return response({code:'INVALID_REQUEST'},400);}
   if(!input||Array.isArray(input)||input.mode!=='official_daily_close'||Object.keys(input).length!==1)return response({code:'INVALID_REQUEST'},400);
@@ -363,6 +363,13 @@ async function verifySession(request){
  const normalized=raw.replace(/-/g,'+').replace(/_/g,'/');
  const claims=JSON.parse(atob(normalized.padEnd(Math.ceil(normalized.length/4)*4,'=')));
  if(!user.id||claims.sub!==user.id||!Number.isFinite(claims.exp)||claims.exp*1000<=Date.now())throw Error('AUTH_REQUIRED');
- return {userId:user.id,aal:claims.aal};
+ let readMfaBypassed=false;
+ if(claims.aal==='aal1'){
+  try{
+   const policyResponse=await fetch(url+'/rest/v1/rpc/get_creator_mfa_preferences',{method:'POST',headers:{apikey,authorization,'content-type':'application/json'},body:'{}',signal:AbortSignal.timeout(10000)});
+   if(policyResponse.ok){const policy=await policyResponse.json();readMfaBypassed=policy?.user_id===user.id&&policy.is_creator===true&&policy.investment_entry_mfa_required===false;}
+  }catch{} // Missing or unverifiable server preference never bypasses MFA.
+ }
+ return {userId:user.id,aal:claims.aal,readMfaBypassed};
 }
 Deno.serve(__require('./daily-edge-handler.cjs').createDailyHandler({loadSnapshot,verifySession}));

@@ -385,15 +385,19 @@
       return Object.freeze({ ...row });
     }
 
-    function assertReceivableSession() {
-      // Use this operation's snapshot only. A missing/throwing live snapshot
-      // must never inherit the initial authenticated/AAL2 state.
+    function receivableMfaBypassed(write) {
+      let policy;try { policy=options.getMfaPolicy?.(); } catch { return false; }
+      const key=write?'investment_sensitive_write_mfa_required':'investment_entry_mfa_required';
+      return policy?.status==='resolved'&&policy.is_creator===true&&policy.userId===authUserId&&policy[key]===false;
+    }
+    function assertReceivableSession({write=false}={}) {
       let current;
       try { current = readSessionSnapshot(); } catch { current = null; }
-      if (current?.isAuthenticated !== true) {
+      if (current?.isAuthenticated !== true || (current.identity?.userId && current.identity.userId!==authUserId)) {
         throw recordError(investmentError(current?.isExpired ? "INVESTMENT_SESSION_EXPIRED" : "INVESTMENT_SESSION_REQUIRED", "請重新登入後再讀寫應收款。"));
       }
-      if (normalizeAal(current.aal) !== "aal2") throw recordError(investmentError("INVESTMENT_ASSURANCE_REQUIRED", "請完成安全驗證後再讀寫應收款。"));
+      const aal=normalizeAal(current.aal);
+      if (!(aal==='aal2'||(aal==='aal1'&&receivableMfaBypassed(write)))) throw recordError(investmentError("INVESTMENT_ASSURANCE_REQUIRED", "請依投資安全設定完成驗證後再繼續。"));
     }
 
     async function loadReceivables() {
@@ -402,7 +406,7 @@
     }
 
     async function receivableRpc(name, payload) {
-      assertReceivableSession();
+      assertReceivableSession({write:true});
       if (!gateway || typeof gateway.rpc !== "function") throw investmentError("RECEIVABLE_GATEWAY_UNAVAILABLE", "目前資料閘道不支援應收款登記。");
       const result = await gateway.rpc(name, payload);
       const row = first(result) || (result && !Array.isArray(result) ? result : null);

@@ -91,9 +91,13 @@ jobs:
         run: |
           cd tests/investment/daily-close-v4
           node build-bundles.cjs
-          node --test daily-close.test.cjs integration.test.cjs consumers-venue.test.cjs readonly-adapter.test.cjs source-policy.test.cjs daily-transport.test.cjs daily-consumer.test.cjs daily-diagnostics.test.cjs r3-*.test.js
+          node --test daily-close.test.cjs integration.test.cjs consumers-venue.test.cjs readonly-adapter.test.cjs source-policy.test.cjs daily-transport.test.cjs daily-consumer.test.cjs daily-diagnostics.test.cjs server-mfa-policy.test.cjs r3-*.test.js
           cmp investment-daily-close-service.js ../../../modules/investment/services/investment-daily-close-service.js
           cmp investment-daily-close-read.ts ../../../supabase/functions/investment-daily-close-read/index.ts
+      - name: Verify independent Investment MFA policy and private receivables boundaries
+        run: |
+          node --test tests/investment/receivables-mfa-policy-sql.test.cjs tests/investment/receivables-controller.test.js tests/investment/receivables-repository.test.js
+          node tests/investment/mfa-policy.browser.cjs
       - name: Run browser regression
         run: npm run test:browser
       - name: Upload browser evidence
@@ -283,6 +287,10 @@ jobs:
             (root/name).write_text(text)
           (root/'school-entry-manifest.json').write_text(json.dumps({'release':data['release'],'sha256':data['sha256']},indent=2))
           PYSCHOOL
+      - name: Wire private Investment island into the current preserved map
+        run: |
+          python3 tools/build-investment-island-entry.py "$RUNNER_TEMP/pages-site/learning"
+          node --test tests/investment/island-entry.test.cjs
       - name: Validate P0 routes and excluded source payload
         run: node tests/pages-publish-artifact.test.js "$RUNNER_TEMP/pages-site"
       - name: Upload candidate artifact without deploying
