@@ -1,0 +1,96 @@
+name: Prepare reviewed private Investment policy and entry
+on:
+  push:
+    branches: [review/investment-policy-island-210-20261118]
+    paths: [.github/workflows/prepare-investment-policy-island-once.yml]
+permissions:
+  contents: write
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply exactly reviewed Investment files, no deployment
+        run: |
+          test "$(git merge-base HEAD origin/main)" = "f3803158cbd833fefd76ca3215437316b2a1d828"
+          python3 - <<'PYFILES'
+          import pathlib,hashlib,gzip,json,base64
+          root=pathlib.Path('.')
+          inputs=list(root.glob('*investment-policy-island-exact-files.json.gz'))
+          assert len(inputs)==1
+          blob=inputs[0].read_bytes()
+          assert hashlib.sha256(blob).hexdigest()=='ffd411b10f0d6889a7f6babfb9eb0a2fa945c93b4c92261c4c2a632ee3373bcf'
+          files=json.loads(gzip.decompress(blob))
+          expected={
+            '.github/workflows/p0-home-apps-pages.yml',
+            'app/Board/ai/index.html',
+            'app/Board/investment/index.html',
+            'app/Board/procurement/index.html',
+            'app/Board/template-preview/index.html',
+            'app/Board/worktodo/index.html',
+            'app/dashboard/index.html',
+            'app/dashboard/zhuge-dashboard.js',
+            'apps/learning-archipelago-entry/index.html',
+            'apps/learning-archipelago-entry/island-world.js',
+            'docs/index.html',
+            'docs/status-classic.html',
+            'index.html',
+            'labs/investment/app.js',
+            'labs/investment/index.html',
+            'labs/investment/src/portfolio/view.mjs',
+            'labs/investment/version.json',
+            'labs/taskflow/index.html',
+            'modules/investment/index.html',
+            'modules/investment/services/investment-daily-close-service.js',
+            'modules/investment/services/investment-module.js',
+            'modules/investment/services/receivables-controller.js',
+            'modules/investment/services/supabase-investment-repository.js',
+            'modules/investment/version.json',
+            'modules/skyeye/index.html',
+            'modules/worklog/chat/index.html',
+            'modules/worklog/index.html',
+            'modules/worklog/version.json',
+            'shared/app-config.js',
+            'shared/config/template-release.js',
+            'shared/config/version.js',
+            'status-classic.html',
+            'supabase/functions/investment-daily-close-read/index.ts',
+            'supabase/migrations/20261118085000_investment_receivables_mfa_policy.sql',
+            'tests/investment/daily-close-v4/build-bundles.cjs',
+            'tests/investment/daily-close-v4/daily-consumer.cjs',
+            'tests/investment/daily-close-v4/daily-consumer.test.cjs',
+            'tests/investment/daily-close-v4/daily-edge-handler.cjs',
+            'tests/investment/daily-close-v4/daily-transport.test.cjs',
+            'tests/investment/daily-close-v4/readonly-adapter.cjs',
+            'tests/investment/daily-close-v4/server-mfa-policy.test.cjs',
+            'tests/investment/daily-readonly-runtime-fixture.html',
+            'tests/investment/investment-module.test.js',
+            'tests/investment/island-entry.test.cjs',
+            'tests/investment/mfa-policy.browser.cjs',
+            'tests/investment/overview-readonly-load.test.js',
+            'tests/investment/read-step-up.browser.cjs',
+            'tests/investment/receivables-controller.test.js',
+            'tests/investment/receivables-mfa-policy-sql.test.cjs',
+            'tests/investment/receivables-repository.test.js',
+            'tools/build-investment-island-entry.py',
+            'version.json',
+          }
+          assert set(files)==expected
+          for name,data in files.items():
+            dest=root/name
+            assert dest.resolve().is_relative_to(root.resolve())
+            if name.startswith('.github/'):
+              assert dest.read_bytes()==base64.b64decode(data,validate=True)
+              continue
+            dest.parent.mkdir(parents=True,exist_ok=True)
+            dest.write_bytes(base64.b64decode(data,validate=True))
+          inputs[0].unlink()
+          PYFILES
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git diff --cached --check
+          git commit -m 'Apply reviewed Investment switch policy and island entry 210'
+          git push origin HEAD:review/investment-policy-island-210-20261118
