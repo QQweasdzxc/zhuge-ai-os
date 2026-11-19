@@ -452,7 +452,13 @@
       const host = root.querySelector("[data-investment-receivables-root]");
       if (!host || !receivablesController || !global.InvestmentReceivablesPanel) return;
       const rs = receivablesController.getState();
-      host.innerHTML = global.InvestmentReceivablesPanel.render(rs.items, dependencies);
+      const hideReceivableAmounts = !legacyReceivables && global.InvestmentConfirmedUI.ui.hidden;
+      const panelDependencies = hideReceivableAmounts ? {...dependencies,format:{...dependencies.format,currency:()=>"••••"}} : dependencies;
+      host.innerHTML = global.InvestmentReceivablesPanel.render(rs.items, panelDependencies);
+      if (hideReceivableAmounts && rs.status === "ready") {
+        const total = host.querySelector(".investment-panel-heading p");
+        if (total) total.textContent = `未收合計 ••••（${global.InvestmentReceivablesPanel.summarize(rs.items).openCount} 筆）`;
+      }
       if (rs.status !== "ready") {
         const total = host.querySelector(".investment-panel-heading p");
         if (total) total.textContent = "清單尚未確認，未收合計暫不顯示";
@@ -789,7 +795,12 @@
         if(sameRecoverySession())recoveryJournal.clear(formValues.idempotencyKey);
       } catch (error) {
         if(!sameRecoverySession())return;
-        transactionWrite = Object.freeze({ status: "unknown", form: formValues, result: submittedResult, error: String(error?.message || "").includes("INVESTMENT_TRANSACTION_TIMELINE_INVALID") ? "這筆日期會使過往某一天的持股不足，已拒絕登記，未新增交易。請核對交易日期與股數。" : error?.message || "受控交易紀錄寫入失敗。", stepUp: null });
+        // Only this exact RPC rejection proves rollback. A transport/readback
+        // error, even with similar text, must retain the pending journal.
+        const rejected = !submittedResult && error?.code === "22023" && error?.status === 400 && error?.endpoint === "rpc/investment_record_transaction" && error?.message === "INVESTMENT_TRANSACTION_TIMELINE_INVALID";
+        let rejectionCleared = false;
+        if (rejected) { try { recoveryJournal.clear(formValues.idempotencyKey); rejectionCleared = true; } catch (_) {} }
+        transactionWrite = Object.freeze({ status: rejectionCleared ? "error" : "unknown", form: formValues, result: submittedResult, error: rejected ? "這筆日期會使過往某一天的持股不足，已拒絕登記，未新增交易。請核對交易日期與股數。" : error?.message || "受控交易紀錄寫入失敗。", stepUp: null });
         renderPage();
       }
     }
