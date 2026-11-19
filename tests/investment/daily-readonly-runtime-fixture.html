@@ -14,7 +14,7 @@
 <link rel="stylesheet" href="../../shared/theme/global-floating-hub.css?v=20261117-2055" >
 <link rel="stylesheet" href="../../shared/theme/desktop-modernization.css?v=20261117-2055" >
 <link rel="stylesheet" href="../../shared/theme/responsive-modernization.css?v=20261117-2055" >
-<link rel="stylesheet" href="../../shared/theme/zhuge-functional-tabs.css?v=20261117-2055" ></head><body><div id="investmentApp"></div><script src="../../shared/components/index.js"></script><script src="../../shared/components/zhuge-shell.js"></script><script src="../../modules/investment/config/module-config.js"></script>
+<link rel="stylesheet" href="../../shared/theme/zhuge-functional-tabs.css?v=20261117-2055" ><link rel="stylesheet" href="../../modules/investment/assets/confirmed-ui.css"></head><body><div id="investmentApp"></div><script src="../../shared/components/index.js"></script><script src="../../shared/components/zhuge-shell.js"></script><script src="../../modules/investment/config/module-config.js"></script>
 <script src="../../modules/investment/utils/safe-html.js"></script>
 <script src="../../modules/investment/utils/formatters.js"></script>
 <script src="../../modules/investment/models/portfolio.js"></script>
@@ -55,4 +55,4 @@ const gateway={select:async()=>[],rpc:async(name,payload)=>{f.writes.push({name,
 window.ZhugeSupabaseGateway={createDataGateway:()=>gateway};
 window.ZhugeRuntimeSessionProvider={createPlatform:()=>({forModule:()=>({data,identity:{getUserId:()=>user,getCurrent:()=>({name:'隔離測試',email:'synthetic@example.test'})},session:{subscribe:cb=>{f.sessionListener=cb;return()=>{};},getSnapshot:()=>({aal:f.aal,isAuthenticated:!f.loggedOut,identity:{userId:f.otherOwner?'other-owner':user},expiresAt:4102444800000})},security:{getMfaPolicy:()=>({status:'resolved',is_creator:true,userId:user,investment_entry_mfa_required:f.entryRequired,investment_sensitive_write_mfa_required:f.writeRequired}),loadMfaPolicy:async()=>{},evaluate:()=>f.entryRequired&&f.aal==='aal1'?({allowed:false,code:'STEP_UP_REQUIRED'}):({allowed:true,bypassedMfa:!f.entryRequired}),prepareUnlock:async()=>({mode:new URLSearchParams(location.search).has('no-factor')?'enrollment_required':'challenge',factorId:'synthetic-factor'}),verifyUnlock:async({factorId,code})=>{if(factorId!=='synthetic-factor'||code!=='123456')throw Error('合成測試：驗證碼不正確');f.aal='aal2';sessionStorage.setItem('synthetic-step-up','done');f.sessionListener?.();}}})})};
 window.ZhugeAppAccess={getCurrent:async()=>({status:'APPROVED'})};window.ZhugeAppAccessGate={mount:()=>{},bind:()=>{},isApproved:()=>true};
-</script><script src="../../modules/investment/services/investment-module.js"></script></body></html>
+</script><script src="../../modules/investment/components/confirmed-ui.js"></script><script src="../../modules/investment/services/transaction-recovery-journal.js"></script><script src="../../modules/investment/services/investment-module.js"></script></body></html>
