@@ -620,7 +620,7 @@
     setTimeout(refreshSyncBadge, 0); /* 整頁重繪會重建徽章（預設隱藏），重繪後立刻補上內容 */
     return '<div id="erp-sync-badge" class="syncbadge" style="display:none"></div><div id="erp-version-badge" class="versionbadge" style="display:none"></div>';
   }
-  const LOADED_BUILD = { id: "2026-11-19.speedscan2" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
+  const LOADED_BUILD = { id: "2026-11-19.speedscan3" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
   async function checkAppVersion() {
     if (D.isMock) return;
     try {
@@ -821,7 +821,7 @@
       heldReloaded().map(r=>'<div class="warn">上次中斷的掃描 '+esc(r.payload.values.code)+'：'+(r.payload.values.uncertain?'結果待查':'未保存')+'，不會自動重送。請先核對該編號的紀錄，再到「管理功能 › 本機草稿」移除。</div>').join('') +
       Object.values(S.scanHeld||{}).map(x=>'<div class="warn">'+(x.uncertain?'結果待查掃描 ':'未保存掃描 ')+esc(x.code)+' · '+esc(x.zone)+'：'+(x.uncertain?'不能確認已保存':esc(x.error))+(x.uncertain?'（結果待查，不可重送）':'<button class="pill" data-a="scan-intent-retry" data-v="'+esc(x.code)+'">重試這筆</button>')+'</div>').join('') +
       (S.scanAudioNote?'<div class="small" role="status">'+esc(S.scanAudioNote)+'</div>':'')+
-      '<div class="card"><label class="lbl" for="usb-scan-code">USB 掃描槍</label><div class="small">選好本次據點與座位後，點下方輸入框再掃 QR。掃描槍若自帶 Enter，會直接依手機同一流程登記；沒有 Enter 時按「送出掃描」。請使用英文輸入模式。</div><div class="frow"><input id="usb-scan-code" class="inp" data-f="usbScanCode" autocomplete="off" spellcheck="false" placeholder="點這裡後，用 USB 掃描槍掃 QR" value="'+esc(S.usbScanCode||'')+'"><button class="btn mini" data-a="usb-scan">送出掃描</button></div><div class="small">掃描後自動保存，不用再按保存。網頁完成聲只在核對寫入成功後響；掃描槍自己的嗶聲只代表讀到。請同時核對保存狀態。<button class="pill" data-a="scan-audio">啟用完成音效</button></div></div>' +
+      '<div class="card"><label class="lbl" for="usb-scan-code">USB 掃描槍</label><button type="button" class="pill" data-a="usb-ready">掃描槍就緒（點此接收）</button><div class="small">選好本次據點與座位後，點下方輸入框再掃 QR。掃描槍若自帶 Enter 或 Tab，會直接依手機同一流程登記；沒有 Enter 時按「送出掃描」。請使用英文輸入模式。</div><div class="frow"><input id="usb-scan-code" class="inp" data-f="usbScanCode" autocomplete="off" spellcheck="false" placeholder="點這裡後，用 USB 掃描槍掃 QR" value="'+esc(S.usbScanCode||'')+'"><button class="btn mini" data-a="usb-scan">送出掃描</button></div><div class="small">掃描後自動保存，不用再按保存。網頁完成聲只在核對寫入成功後響；掃描槍自己的嗶聲只代表讀到。請同時核對保存狀態。<button class="pill" data-a="scan-audio">啟用完成音效</button></div><div class="small" id="usb-focus-status" role="status">'+esc(S.usbControlBlocked?'收到快捷鍵，這筆未送出。請先核對掃描器輸出，再點「掃描槍就緒」重設接收。':'掃描前請點「掃描槍就緒」或輸入框，確認游標在框內。')+'</div></div>' +
       '<div class="frow"><input class="inp" data-f="manualCode" placeholder="輸入登記編號（如 CSPH107030182）" value="' + esc(S.manualCode) + '"><button class="btn mini" data-a="manual">手動登記</button></div>' +
       (D.isMock
         ? '<div class="lbl sim">測試用：模擬掃到（虛構設備）</div><div class="chips">' +
@@ -1448,7 +1448,8 @@
     else if (a === "scan") { scan(v); return; }
     else if (a === "camstart") { camStart(); return; }
     else if (a === "camstop") { camStop(); return; }
-    else if (a === "usb-scan") { submitUsbScan(); return; }
+    else if (a === 'usb-ready'){if(S.usbControlBlocked)S.usbScanCode='';S.usbControlBlocked=false;render();document.querySelector('[data-f="usbScanCode"]')?.focus({preventScroll:true});return;}
+    else if (a === 'usb-scan') { submitUsbScan(); return; }
     else if (a === "manual") { scan(S.manualCode); return; }
     else if(a==='scan-intent-retry'){const held=S.scanHeld?.[v]||S.scanIntent;if(held&&!held.uncertain)scan(held.code,held);return;}
     else if (a === "open") { S.open = S.open === v ? "" : v; }
@@ -1756,13 +1757,24 @@
   });
   let usbLast='',usbAt=0;
   async function submitUsbScan(){
-    const code=String(S.usbScanCode||'').trim();if(!code||!S.sess||S.screen!=="scan")return;
+    if(S.usbControlBlocked)return;
+    const code=String(document.querySelector('[data-f="usbScanCode"]')?.value||S.usbScanCode||'').trim();if(!code||!S.sess||S.screen!=="scan")return;
     const now=Date.now();if(code===usbLast&&now-usbAt<1500)return;usbLast=code;usbAt=now;
     S.usbScanCode='';await scan(code);
     const input=document.querySelector('[data-f="usbScanCode"]');if(input&&S.screen==='scan'&&!S.scanSetupErr)input.focus({preventScroll:true});
   }
+  function usbFocusStatus(){const h=document.getElementById('usb-focus-status');if(h&&!S.usbControlBlocked)h.textContent=document.hasFocus()&&document.activeElement?.dataset?.f==='usbScanCode'?'已取得輸入焦點，可接收掃描槍。':'輸入框目前沒有焦點，掃描前請點「掃描槍就緒」。';}
+  document.addEventListener('focusin',usbFocusStatus);document.addEventListener('focusout',()=>setTimeout(usbFocusStatus,0));window.addEventListener('blur',usbFocusStatus);window.addEventListener('focus',usbFocusStatus);
+  window.addEventListener('keydown',e=>{
+    if(e.target.dataset?.f!=='usbScanCode')return;
+    if(e.ctrlKey||e.metaKey||e.altKey||e.key==='F6'){
+      if(e.cancelable)e.preventDefault();e.stopImmediatePropagation();S.usbControlBlocked=true;
+      const h=document.getElementById('usb-focus-status');if(h)h.textContent='收到快捷鍵，這筆未送出。請先核對掃描器輸出，再點「掃描槍就緒」重設接收。';return;
+    }
+    if(e.key==='Enter'||(e.key==='Tab'&&String(e.target.value||'').trim())){e.preventDefault();e.stopImmediatePropagation();if(!e.isComposing)submitUsbScan();}
+  },true);
   document.addEventListener("keydown", (e) => {
-    if(e.key==="Enter"&&e.target.dataset?.f==="usbScanCode"){e.preventDefault();if(!e.isComposing)submitUsbScan();return;}
+
 
     if(e.key==="Enter"&&e.target.dataset?.f==="goalSearch"){S.goalSearchDone=String(S.goalSearch||" ").trim();render();return;}
     if (e.key === "Enter" && e.target.getAttribute && e.target.getAttribute("data-f") === "manualCode") { scan(S.manualCode); }
