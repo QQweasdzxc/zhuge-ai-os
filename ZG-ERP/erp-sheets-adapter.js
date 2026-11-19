@@ -242,8 +242,13 @@
     /* 開機載入鏡像（唯一 async 入口） */
     async init() {
       if (this.db) return this.db;
-      const [assetRows, sessionRows, recordRows, movementRows, batchRows, siteRows, annotationRows] = await Promise.all(
-        ["assets", "sessions", "records", "movements", "batches", "sites", "annotations"].map(async (t) => { const body = await this._readFull(t); this._headers = this._headers || {}; this._headers[t] = body.header; return body.rows; }));
+      // One bounded read wave, not five serial legacy/seat round trips. No data cache.
+      const tabs=["assets","sessions","records","movements","batches","sites","annotations","整合-主檔","整合-流轉對應","整合-待確認","現場註記","座位圖"];
+      const reads={};let cursor=0;
+      await Promise.all(Array.from({length:6},async()=>{while(cursor<tabs.length){const t=tabs[cursor++];try{reads[t]={body:await this._readFull(t)}}catch(error){reads[t]={error}}}}));
+      const required=tabs.slice(0,7).map(t=>{if(reads[t].error)throw reads[t].error;const body=reads[t].body;this._headers=this._headers||{};this._headers[t]=body.header;return body.rows});
+      const [assetRows, sessionRows, recordRows, movementRows, batchRows, siteRows, annotationRows]=required;
+      const auxiliary=async t=>{if(reads[t].error)throw reads[t].error;return reads[t].body};
       this._originalRows=Object.fromEntries(['assets','sessions','records','movements','batches','sites','annotations'].map((k,i)=>[k,JSON.parse(JSON.stringify([assetRows,sessionRows,recordRows,movementRows,batchRows,siteRows,annotationRows][i]))]));
       this.departmentReady = ["assets", "sessions", "records"].every((t) => HEADERS[t].every((h, i) => this._headers[t][i] === h));
       const assets = assetRows.map(rowToAsset).filter((a) => a.code);
@@ -289,31 +294,33 @@
       this._legacyNotes = [];
       this._legacyNotesError = "";
       try {
-        const lm = await this._readFull("\u6574\u5408-\u4e3b\u6a94");
+        const lm = await auxiliary("整合-主檔");
         this._legacyRows = lm.rows.map((row, i) => rowToLegacy(lm.header, row, i)).filter((r) => r.recordKey);
       } catch (e) {
         this._legacyError = String((e && e.message) || e); // 舊帳讀取失敗不拖垮新帳；UI 據實顯示
       }
       /* 舊帳關係與待確認事項：各自失敗隔離，缺了只少線索區塊 */
       try {
-        const lf = await this._readFull("\u6574\u5408-\u6d41\u8f49\u5c0d\u61c9");
+        const lf = await auxiliary("整合-流轉對應");
         this._legacyFlows = lf.rows.map((row, i) => rowToFlow(lf.header, row, i)).filter((f) => f.relationKey || f.code || f.rkeyA || f.rkeyB);
       } catch (e) {
         this._legacyAuxError = String((e && e.message) || e);
       }
       try {
-        const lq = await this._readFull("\u6574\u5408-\u5f85\u78ba\u8a8d");
+        const lq = await auxiliary("整合-待確認");
         this._legacyQuestions = lq.rows.map((row, i) => rowToQuestion(lq.header, row, i)).filter((q) => q.itemKey || q.summary);
       } catch (e) {
         this._legacyAuxError = this._legacyAuxError || String((e && e.message) || e);
       }
       /* \u73fe\u5834\u8a3b\u8a18\uff1a\u820a\u5e33 append-only \u5206\u9801\uff1b\u5c1a\u672a\u5efa\u7acb\u6216\u8b80\u53d6\u5931\u6557\u6642\u9694\u96e2\u6210\u7a7a\u6e05\u55ae\uff0c\u4e0d\u62d6\u57ae\u5176\u4ed6\u5340\u584a */
       try {
-        await this._reloadLegacyNotes();
+        const ln=await auxiliary("現場註記");this._legacyNotes=ln.rows.map(rowToNote).filter(n=>n.recordKey);
       } catch (e) {
         this._legacyNotes = [];
         this._legacyNotesError = String((e && e.message) || e);
       }
+      this._initialSeatRead=reads["座位圖"];
+      await this.loadSeatMap();
       let maxSeq = 0;
       this.db.assets.forEach((a) => {
         const m = /^CSNW10704(\d{4,})$/.exec(a.code);
@@ -339,7 +346,7 @@
       if(!safe())throw new Error("請先完成或取消編輯，並處理未同步資料，再更新共同盤點結果");
       const generation=this._writeGeneration||0;
       const fresh=new SheetsStore({fetchImpl:this.fetch,bridgeUrl:this.bridgeUrl,actor:this.actor,tokenProvider:this._token,tokenRefresher:this._refresher});
-      await fresh.init();await fresh.loadSeatMap();if(!fresh.seatReady)throw Error('共同座位資料未能讀取，保留目前畫面');
+      await fresh.init();if(!fresh.seatReady)throw Error('共同座位資料未能讀取，保留目前畫面');
       if(!safe()||generation!==(this._writeGeneration||0))throw new Error("更新期間有本機操作，保留目前輸入；請稍後再更新");
       this.db=fresh.db;this.seatRows=fresh.seatRows;this.seatReady=fresh.seatReady;this.seatError=fresh.seatError;
       for(const k of ['_originalRows','_headers','departmentReady','_siteQrRows','_legacyRows','_legacyError','_legacyFlows','_legacyQuestions','_legacyAuxError','_legacyNotes','_legacyNotesError'])this[k]=fresh[k];
@@ -843,7 +850,7 @@
       return (this._legacyNotes || []).find((n) => n.key === operationId) || null;
     }
     async loadSeatMap() {
-      try { const b = await this._readFull("座位圖");
+      try { const initial=this._initialSeatRead;delete this._initialSeatRead;if(initial?.error)throw initial.error;const b = initial?initial.body:await this._readFull("座位圖");
         const headers = ["事件鍵","類型","圖版本","據點","區域","座位編號","資產編號","內容JSON","時間","經手人"];
         if (!headers.every((v,i) => b.header[i] === v)) throw new Error("座位圖欄位不符");
         this.seatRows = b.rows; this.seatReady = true; this.seatError = "";
