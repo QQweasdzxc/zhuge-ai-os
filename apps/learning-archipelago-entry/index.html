@@ -1,6 +1,27 @@
 <!doctype html>
 <html lang="zh-Hant-TW">
-<head><script>window.archipelagoRedemptionTime=function(value){if(!value)return '時間未記錄';const d=new Date(value);if(!Number.isFinite(d.getTime()))return '時間未記錄';return new Intl.DateTimeFormat('zh-TW',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(d)+'（台北時間）';};</script><script src="./entry-identity.js?v=2"></script>
+<head><script>window.archipelagoRedemptionTime=function(value){if(!value)return '時間未記錄';const d=new Date(value);if(!Number.isFinite(d.getTime()))return '時間未記錄';return new Intl.DateTimeFormat('zh-TW',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(d)+'（台北時間）';};</script><script src="./entry-identity.js?v=2"></script><script>
+/* Isolated recovery candidate. Not deployed. */
+(function(){
+'use strict';
+const KEY='archipelago-legacy-recovery-attempt-v1';
+const OLD='https://learning-archipelago-family.onrender.com/identity-resume.html';
+const p=new URLSearchParams(location.search);
+let returned=p.has('legacy_resume');
+if(returned){
+ p.delete('legacy_resume');
+ history.replaceState(null,'',location.pathname+(p.toString()?'?'+p:'')+location.hash);
+ try{sessionStorage.setItem(KEY,'returned')}catch(_){}
+}
+function take(){
+ if(returned)return false;
+ try{if(sessionStorage.getItem(KEY))return false;sessionStorage.setItem(KEY,'started')}catch(_){return false}
+ location.replace(OLD);
+ return true;
+}
+window.ArchipelagoLegacyRecovery={take};
+})();
+</script>
 <meta name="referrer" content="no-referrer">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
@@ -777,6 +798,7 @@ async function resumeEntry(){
   try{pending=JSON.parse(sessionStorage.getItem(key)||'null')}catch(_){}
   pending=window.__archipelagoPendingEntry||pending;
   if(grant && pending?.grant!==grant)pending={grant,deviceToken:'dv1_'+[...crypto.getRandomValues(new Uint8Array(32))].map(x=>x.toString(16).padStart(2,'0')).join('')};
+  if(!pending&&!token&&!window.ArchipelagoIdentity.current()&&window.ArchipelagoLegacyRecovery.take())return;
   if(!pending){const remembered=window.ArchipelagoIdentity.current();if(remembered){token=remembered;savedPlayer=deviceFamily()?.player||savedPlayer;}return loadPlayers();}
   if(!/^[0-9a-f]{64}$/.test(pending.grant||''))return await discardInvalidEntry();
   window.__archipelagoPendingEntry=pending;try{sessionStorage.setItem(key,JSON.stringify(pending))}catch(_){}

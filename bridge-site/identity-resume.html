@@ -1,0 +1,14 @@
+<!doctype html><html lang="zh-Hant-TW"><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><meta name="viewport" content="width=device-width,initial-scale=1"><title>接回原來的勇者</title><style>body{margin:0;min-height:100dvh;display:grid;place-items:center;background:#152347;color:#243453;font:18px/1.7 system-ui}main{box-sizing:border-box;width:min(90%,480px);padding:28px;border:3px solid #2b3c63;border-radius:12px;background:#fff7e7}h1{font-size:25px;margin:0 0 12px}a,button{display:inline-block;padding:10px 16px;background:#ffcc66;color:#243453;border:2px solid #2b3c63;border-radius:7px;font:inherit;text-decoration:none}</style></head><body><main><h1>正在找原來的勇者</h1><p id="status" role="status">只讀取這個瀏覽器以前記住的入口，不會重建或改動成績。</p><a id="back" hidden href="https://qqweasdzxc.github.io/zhuge-ai-os/learning/?legacy_resume=unavailable">回學習島</a></main><script>
+(async function(){
+'use strict';
+const HOME='https://qqweasdzxc.github.io/zhuge-ai-os/learning/';
+const API='https://lenpbbhwxyyfwgvjcozf.supabase.co/functions/v1/learning-adventure-cloud';
+const KEY='archipelago-verified-family-v1',COOKIE='archipelago_family_v1=';
+function read(){try{const x=JSON.parse(localStorage.getItem(KEY)||'null');if(x?.token)return x.token}catch(_){}try{const x=document.cookie.split('; ').find(x=>x.startsWith(COOKIE));return x?JSON.parse(decodeURIComponent(x.slice(COOKIE.length))).token:''}catch(_){return ''}}
+function finish(token){const u=new URL(HOME);u.searchParams.set('legacy_resume',token?'found':'unavailable');if(token)u.hash=new URLSearchParams({f:token}).toString();location.replace(u.href)}
+const token=read();
+if(!/^[A-Za-z0-9_-]{40,128}$/.test(token||''))return finish('');
+const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000);
+try{const response=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',credentials:'omit',signal:controller.signal,body:JSON.stringify({action:'listPlayers',world:'chengyu',token})});const data=await response.json();if(!response.ok||!data.ok||!Array.isArray(data.players))return finish('');finish(token)}catch(_){document.getElementById('status').textContent='現在無法核對舊入口。沒有重建或改動勇者，請回學習島再試。';document.getElementById('back').hidden=false}finally{clearTimeout(timer)}
+})();
+</script></body></html>
