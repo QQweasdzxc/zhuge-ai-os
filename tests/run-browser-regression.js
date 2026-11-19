@@ -40,6 +40,7 @@ const browserTests = [
 ];
 const standaloneScripts = [
   "tests/learning/entrance-consistency.browser.cjs",
+  "tests/investment/loading-uiux.browser.cjs",
   "tests/task-088-responsive-browser.js",
   "tests/task-088-desktop-preview.js",
   "tests/investment/screenshot-import-browser-regression.js",
