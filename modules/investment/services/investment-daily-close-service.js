@@ -302,7 +302,7 @@ __modules["./daily-consumer.cjs"]=function(module,exports,require){
 const {createReadOnlyOverlay,buildDailyRequests,stripSnapshotValuation}=require('./readonly-adapter.cjs');
 const {validatePublicSnapshot}=require('./daily-snapshot-transport.cjs');
 const {dailyClose}=require('./daily-close.cjs');
-function createDailyConsumer({getSession,invokeFunction,normalizeQuote=x=>x,clock=Date.now}={}){
+function createDailyConsumer({getSession,invokeFunction,normalizeQuote=x=>x,clock=Date.now,timeoutMs=12000}={}){
  if(typeof getSession!=='function'||typeof invokeFunction!=='function')throw Error('DAILY_CONSUMER_DEPENDENCIES_REQUIRED');
  const initial=getSession();
  if(!initial?.ownerId||!initial.generation)throw Error('SESSION_REQUIRED');
@@ -311,7 +311,11 @@ function createDailyConsumer({getSession,invokeFunction,normalizeQuote=x=>x,cloc
  async function loadPublicSnapshot(){
   if(snapshot&&Number.isFinite(Date.parse(snapshot.receivedAt))&&clock()-Date.parse(snapshot.receivedAt)<300000)return snapshot;
   if(inFlight)return inFlight;
-  inFlight=Promise.resolve(invokeFunction('investment-daily-close-read',{mode:'official_daily_close'})).then(value=>{snapshot=value;return value;}).catch(error=>{snapshot=null;throw error;}).finally(()=>{inFlight=null;});
+  const controller=new AbortController();
+  let timer;
+  const timedOut=new Promise((_,reject)=>{timer=setTimeout(()=>{const error=new Error('DAILY_SOURCE_TIMEOUT');reject(error);controller.abort(error);},Math.max(1,Number(timeoutMs)||12000));});
+  const request=Promise.resolve().then(()=>invokeFunction('investment-daily-close-read',{mode:'official_daily_close'},{signal:controller.signal}));
+  inFlight=Promise.race([request,timedOut]).then(value=>{assertBoundSession();snapshot=value;return value;}).catch(error=>{snapshot=null;throw error;}).finally(()=>{clearTimeout(timer);inFlight=null;});
   return inFlight;
  }
  const overlay=createReadOnlyOverlay({getSession:assertBoundSession,loadPublicSnapshot,validatePublicSnapshot,clock});
