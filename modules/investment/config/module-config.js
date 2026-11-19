@@ -16,6 +16,6 @@
     // Watchlist remains a Cloud data source, but its product view is the
     // "觀察名單" workspace inside the canonical Investment C Board.  The old
     // hash is handled as a compatibility redirect by the module runtime.
-    pages: Object.freeze(["overview", "receivables", "portfolio", "transactions", "strategy", "settings", "import"])
+    pages: Object.freeze(["dashboard", "overview", "detail", "filter", "tools", "receivables", "portfolio", "transactions", "strategy", "settings", "import"])
   });
 });

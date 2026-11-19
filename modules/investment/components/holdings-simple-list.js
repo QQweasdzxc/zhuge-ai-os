@@ -118,5 +118,5 @@
     </section>`;
   }
 
-  return Object.freeze({ render, renderGlance, renderRow });
+  return Object.freeze({ render, renderGlance, renderRow, renderDataLine });
 });

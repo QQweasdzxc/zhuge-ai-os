@@ -34,5 +34,5 @@ test('individual transaction filtering requires market and currency as well as s
 });
 test('a saved form cannot reuse an old idempotency key to silently ignore an edited next transaction',()=>{
  const html=Transactions.render({}, {escape,format,transactionWrite:{status:'success',form:{idempotencyKey:'synthetic-key'}}});
- assert.match(html,/data-investment-new-buy/);assert.match(html,/name="quantity"[^>]*disabled/);assert.match(html,/name="idempotencyKey"[^>]*disabled/);
+ assert.match(html,/data-investment-new-buy/);assert.doesNotMatch(html,/data-investment-transaction-form/);assert.doesNotMatch(html,/data-j-transaction-confirm/);assert.match(html,/登記結果/);
 });

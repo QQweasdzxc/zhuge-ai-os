@@ -83,20 +83,20 @@
 
     function currentSessionSnapshot() {
       try {
-        return readSessionSnapshot() || sessionSnapshot;
+        return readSessionSnapshot() || {};
       } catch {
-        return sessionSnapshot;
+        return {};
       }
     }
 
     function currentAssuranceLevel() {
-      return normalizeAal(currentSessionSnapshot().aal || initialAssuranceLevel);
+      return normalizeAal(currentSessionSnapshot().aal || (typeof options.getSessionSnapshot === "function" ? "unknown" : initialAssuranceLevel));
     }
 
     function currentIsAuthenticated() {
-      return options.isAuthenticated === undefined
-        ? currentSessionSnapshot().isAuthenticated !== false
-        : authenticated;
+      const current = currentSessionSnapshot();
+      if (typeof options.getSessionSnapshot === "function") return current.isAuthenticated === true && (!current.identity?.userId || current.identity.userId === authUserId);
+      return options.isAuthenticated === undefined ? current.isAuthenticated !== false : authenticated;
     }
 
     function recordEmpty(resource, rows) {
@@ -125,7 +125,7 @@
       // Unknown assurance is fail-closed; the entry switch never implies a
       // write bypass. Reads keep the existing entry behavior.
       const writeAllowed = assuranceLevel === "aal2" || (assuranceLevel === "aal1" && policyMfaBypassed(true));
-      if ((write && !writeAllowed) || (!write && assuranceLevel === "aal1" && !allowAal1Read)) {
+      if (!["aal1", "aal2"].includes(assuranceLevel) || (write && !writeAllowed) || (!write && assuranceLevel === "aal1" && !allowAal1Read)) {
         throw recordError(investmentError(
           "INVESTMENT_ASSURANCE_REQUIRED",
           "投資資料受到額外安全保護，請完成安全驗證後繼續。",
@@ -161,9 +161,11 @@
 
     async function ownerSelect(table, select = "*", suffix = "", beforeSelect = null) {
       const owner = await legacyUser();
+      assertSession();
       if (beforeSelect) beforeSelect();
       try {
         const rows = await data.select(table, `select=${select}&user_id=eq.${encodeURIComponent(owner.id)}${suffix}`);
+        assertSession();
         return recordEmpty(table, rows);
       } catch (error) {
         throw recordError(classifyDataError(error, { assuranceLevel: currentAssuranceLevel(), resource: table }));
@@ -331,12 +333,18 @@
       return rows?.length ? Models.Transaction.normalize(rows[0]) : null;
     }
 
+    async function loadTransactionByKey(key) {
+      if(!/^[a-zA-Z0-9-]{8,160}$/.test(String(key||"")))throw investmentError("INVESTMENT_TRANSACTION_KEY_INVALID","交易核對代碼無效。");
+      const rows=await ownerSelect("transactions","*",`&idempotency_key=eq.${encodeURIComponent(key)}&limit=1`);
+      return rows?.length?Models.Transaction.normalize(rows[0]):null;
+    }
     async function recordTransaction(input = {}) {
       assertSession({ write: true });
       if (!gateway || typeof gateway.rpc !== "function") {
         throw recordError(investmentError("INVESTMENT_TRANSACTION_WRITE_UNAVAILABLE", "目前資料閘道不支援受控交易紀錄寫入。"));
       }
       const portfolio = await loadPortfolio();
+      assertSession({ write: true });
       const result = await gateway.rpc("investment_record_transaction", {
         p_portfolio_id: input.portfolioId || portfolio.id,
         p_trade_date: input.tradeDate,
@@ -628,6 +636,7 @@
       loadCurrentPositions,
       loadTransactions,
       loadTransactionById,
+      loadTransactionByKey,
       recordTransaction,
       loadPendingActions,
       confirmPendingAction,
