@@ -59,7 +59,7 @@ function allowedOrigin(request: Request) {
 async function callerClient(request: Request, supabaseUrl: string, anonKey: string) {
   const authorization = asText(request.headers.get("authorization"));
   if (!/^Bearer\s+\S+$/i.test(authorization)) {
-    throw new HttpError("Authenticated TRQN OS session is required.", 401, "AUTH_REQUIRED");
+    throw new HttpError("Authenticated Tron OS session is required.", 401, "AUTH_REQUIRED");
   }
   return createClient(supabaseUrl, anonKey, {
     global: { headers: { Authorization: authorization } },
@@ -69,7 +69,7 @@ async function callerClient(request: Request, supabaseUrl: string, anonKey: stri
 
 async function requireUser(caller: Awaited<ReturnType<typeof callerClient>>) {
   const { data: { user }, error } = await caller.auth.getUser();
-  if (error || !user) throw new HttpError("Authenticated TRQN OS session is required.", 401, "AUTH_REQUIRED");
+  if (error || !user) throw new HttpError("Authenticated Tron OS session is required.", 401, "AUTH_REQUIRED");
   return user;
 }
 
@@ -183,7 +183,7 @@ async function sheetsPatchCells(token:string, spreadsheetId:string, tab:string, 
 function canonicalSeatEvents(rows: unknown[][]) {
   const prefix:unknown[][]=[];const occupants=new Map<string,string>(),bindings=new Map<string,{version:string;seat:string}>(),maps=new Map<string,string>(),accepted=new Set<string>();
   for(const r of rows){prefix.push(r);try{const id=asText(r[0]),kind=r[1],version=asText(r[2]),place=JSON.stringify([r[3],r[4]]),seat=String(r[5]),data=JSON.parse(String(r[7]));if(accepted.has(id))continue;
-    if(kind==='map'){const state=seatMaps.snapshot(prefix),current=state.maps.find(m=>m.site===r[3]&&m.zone===r[4]);if(!state.accepted.has(id)||!current||current.id!==version)continue;maps.set(place,current.id);}
+    if(kind==='map'||kind==='area'){const state=seatMaps.snapshot(prefix),current=state.maps.find(m=>m.site===r[3]&&m.zone===r[4]);if(!state.accepted.has(id)||!current||current.id!==version)continue;maps.set(place,current.id);if(kind==='area')occupants.set(version+':'+seat,id);}
     if(['occupant','binding','placement','check'].includes(String(kind))&&maps.get(place)!==version)continue;
     if(kind==='occupant'){const key=version+':'+seat;if((data.previous||'')!==(occupants.get(key)||''))continue;occupants.set(key,id);}
     if(kind==='binding'||kind==='placement'){const key=asText(r[6]),prior=bindings.get(key);if(prior&&(prior.version!==version||prior.seat!==seat))continue;bindings.set(key,{version,seat});}
@@ -325,7 +325,7 @@ Deno.serve(async (request) => {
       const schema = await sheetsRead(token,target.spreadsheetId,tab);
       const headers=["事件鍵","類型","圖版本","據點","區域","座位編號","資產編號","內容JSON","時間","經手人"];
       if (!headers.every((h,i)=>schema.header[i]===h)) throw new HttpError("Seat schema is not ready.",503,"SCHEMA_NOT_READY");
-      if (!["part","map","occupant","binding","placement","check"].includes(row[1]) || !asText(row[0]) || !asText(row[2]) || !asText(row[3]) || !asText(row[4]) || String(row[7]).length>24000) throw new HttpError("Seat event invalid.",400,"BAD_REQUEST");
+      if (!["part","map","area","occupant","binding","placement","check"].includes(row[1]) || !asText(row[0]) || !asText(row[2]) || !asText(row[3]) || !asText(row[4]) || String(row[7]).length>24000) throw new HttpError("Seat event invalid.",400,"BAD_REQUEST");
       let data;try{data=JSON.parse(row[7]);}catch{throw new HttpError("Seat payload invalid.",400,"BAD_REQUEST");}
       if(!data||typeof data!=="object"||Array.isArray(data))throw new HttpError("Seat payload must be an object.",400,"BAD_REQUEST");
       const previous=schema.rows.find(r=>r[0]===row[0]);
@@ -355,6 +355,7 @@ Deno.serve(async (request) => {
         const prior=[...schema.rows].reverse().find(r=>(r[1]==="binding"||r[1]==="placement")&&r[6]===row[6]);
         if(prior && (prior[2]!==row[2]||String(prior[5])!==String(row[5])))throw new HttpError("Equipment already has another seat; preserved original binding.",409,"SEAT_CONFLICT");
       }
+      if(row[1]==='area'&&!seatMaps.snapshot([...schema.rows,row]).accepted.has(asText(row[0])))throw new HttpError('編號已使用、範圍重疊或位置超出圖面，請重新讀取後框選。',409,'AREA_CONFLICT');
       if(row[1]==="map") {
         if(schema.rows.some(r=>r[1]==="map"&&r[3]===row[3]&&r[4]===row[4]&&r[2]!==row[2]))throw new HttpError("Existing map preserved; replacement requires a migration.",409,"SEAT_CONFLICT");
         if(!Array.isArray(data.parts)||!data.parts.length||data.parts.length>60||new Set(data.parts).size!==data.parts.length)throw new HttpError("Map manifest invalid.",400,"BAD_REQUEST");
