@@ -155,7 +155,8 @@
   }
   if(typeof repairUI!=='undefined'&&repairUI&&repairUI.setDrafts&&DRAFTS)repairUI.setDrafts({get:k=>{const r=DRAFTS.get(draftAcct(),'repair',k);return r&&r.payload;},put:(k,v)=>DRAFTS.put(draftAcct(),'repair',k,v),discard:k=>DRAFTS.discard(draftAcct(),'repair',k)});
   function draftLine(){return '<div id="erp-draft-line" aria-live="polite">'+draftInner()+'</div>';}
-  const S = {
+  function preferredScanInput(){try{const v=localStorage.getItem('zg_erp_scan_input');if(v==='camera'||v==='usb')return v;}catch(_){}return (window.matchMedia?.('(pointer: coarse)').matches||(window.innerWidth||0)<700)?'camera':'usb';}
+  const S = {scanInput:preferredScanInput(),
     booting: !D.isMock, mode: new URLSearchParams(location.search).get("mode") === "phone" ? "phone" : "pc", workspaceMore: false,
     dtab: "dash", dash: false, screen: "start",
     place: "", gps: null, gpsErr: "", site: "", zone: "", zoneOpen: false,
@@ -444,7 +445,7 @@
     if (!S.site && siteNames().length === 1) S.site = siteNames()[0];
     if (!S.site) { S.scanSetupErr = siteNames().length ? "請先選盤點據點：展開「修改本次設定／取得定位」，點一個據點再開始。" : "尚未建立據點。請先在電腦「公司據點」新增據點。"; render(); return; }
     S.scanStarting = true;
-    camPreWarm();
+    if(S.scanInput!=="usb")camPreWarm();
     if (S.scanProjectInput.trim()) S.scanProject = S.scanProjectInput.trim();
     S.scanDepartment = S.scanDepartment.trim();
     S.scanSetupErr = "";
@@ -797,9 +798,11 @@
       '<div class="smeta">應盤 ' + scope.length + " · 已掃 " + scopeGot.length + " · " + (scopeMiss.length ? "<b class=\"pbad\">還差 " + scopeMiss.length + "</b>" : "全部掃完") +
       (outScope ? " · 範圍外 " + outScope + " 筆（都有記錄）" : "") + "</div>" +
       (scopeMiss.length ? '<div class="smeta">未掃：' + scopeMiss.slice(0, 8).map((a) => esc(a.name) + " " + esc(a.code)).join("、") + (scopeMiss.length > 8 ? " …等 " + scopeMiss.length + " 台" : "") + "</div>" : "") + "</div>";
-    return '<div class="screen">' +
-      '<div class="scanbar"><button class="pill em" data-a="workspace-seats">座位圖</button><button class="zonebtn" data-a="zoneopen"><span class="lbl">' + esc(S.site) + " · 目前區域</span><b>" + esc(S.zone) + " ▾</b></button>" +
+    return '<div class="screen scan-workspace scan-input-'+S.scanInput+'">' +
+      '<div class="scanbar"><button class="pill em" data-a="scan-map-return">返回原圖／換位置</button><button class="zonebtn" data-a="zoneopen"><span class="lbl">' + esc(S.site) + " · 目前區域</span><b>" + esc(S.zone) + " ▾</b></button>" +
       '<button class="btn mini" data-a="toresult">結束 (' + recs.length + ")</button></div>" +
+      '<div class="scan-input-switch"><span class="lbl">輸入方式</span><button class="pill'+(S.scanInput==='camera'?' on':'')+'" data-a="scan-input" data-v="camera">相機掃描</button><button class="pill'+(S.scanInput==='usb'?' on':'')+'" data-a="scan-input" data-v="usb">外接掃描槍</button><span class="small">只切操作畫面，位置與場次沿用。</span></div>'+
+      '<div class="scan-current-position" role="status"><b>目前位置：'+esc(S.site)+' '+esc(S.zone)+' · '+(seatUI?.state.scanSelected?seatUI.state.selected+'號':'尚未選位置')+'</b><span class="small">這個位置可連掃多台；不會自動跳下一號。</span></div>'+
       '<div class="smeta scan-prog">應盤 ' + scope.length + ' · 已掃 ' + scopeGot.length + (scopeMiss.length ? ' · <b class="pbad">還差 ' + scopeMiss.length + '</b>' : ' · 全部掃完') + '</div>' +
       (S.scanSetupErr ? '<div class="warn">'+(S.scanUncertain?'本筆掃描 '+esc(S.scanIntent?.code||'')+'：保存結果待查，請勿重送。':esc(S.scanSetupErr))+(S.scanIntent&&!S.scanUncertain?'<button class="pill" data-a="scan-intent-retry">重試這筆未保存掃描</button>':'')+'</div>' : "") +
       recs.filter(r=>r.__seatError).map(r=>'<div class="warn">座位登記未同步：'+esc(r.code)+' · '+esc(r.__seatError)+'<button class="pill" data-seat-retry="'+esc(r.code)+'">重試座位登記（不重掃設備）</button></div>').join("") +
@@ -821,7 +824,7 @@
       heldReloaded().map(r=>'<div class="warn">上次中斷的掃描 '+esc(r.payload.values.code)+'：'+(r.payload.values.uncertain?'結果待查':'未保存')+'，不會自動重送。請先核對該編號的紀錄，再到「管理功能 › 本機草稿」移除。</div>').join('') +
       Object.values(S.scanHeld||{}).map(x=>'<div class="warn">'+(x.uncertain?'結果待查掃描 ':'未保存掃描 ')+esc(x.code)+' · '+esc(x.zone)+'：'+(x.uncertain?'不能確認已保存':esc(x.error))+(x.uncertain?'（結果待查，不可重送）':'<button class="pill" data-a="scan-intent-retry" data-v="'+esc(x.code)+'">重試這筆</button>')+'</div>').join('') +
       (S.scanAudioNote?'<div class="small" role="status">'+esc(S.scanAudioNote)+'</div>':'')+
-      '<div class="card"><label class="lbl" for="usb-scan-code">USB 掃描槍</label><button type="button" class="pill" data-a="usb-ready">掃描槍就緒（點此接收）</button><div class="small">選好本次據點與座位後，點下方輸入框再掃 QR。掃描槍送出 Enter 或 Tab 會直接登記；沒有結束鍵時，完整舊帳／已登記編號停留片刻也會自動送出。新編號或有快捷鍵警告時，核對完整文字後按「送出掃描」。請使用英文輸入模式。</div><div class="frow"><input id="usb-scan-code" class="inp" data-f="usbScanCode" autocomplete="off" spellcheck="false" placeholder="點這裡後，用 USB 掃描槍掃 QR" value="'+esc(S.usbScanCode||'')+'"><button class="btn mini" data-a="usb-scan">送出掃描</button></div><div class="small">掃描後自動保存，不用再按保存。網頁完成聲只在核對寫入成功後響；掃描槍自己的嗶聲只代表讀到。請同時核對保存狀態。<button class="pill" data-a="scan-audio">啟用完成音效</button></div><div class="small" id="usb-focus-status" role="status">'+esc(S.usbControlBlocked?'已攔住導頁快捷鍵，尚未送出。請核對框內完整編號，再按「送出掃描」；或點「掃描槍就緒」清空重掃。':'掃描前請點「掃描槍就緒」或輸入框，確認游標在框內。')+'</div></div>' +
+      '<div class="card usb-scan-card"><label class="lbl" for="usb-scan-code">USB 掃描槍</label><button type="button" class="pill" data-a="usb-ready">掃描槍就緒（點此接收）</button><div class="small">選好本次據點與座位後，點下方輸入框再掃 QR。掃描槍送出 Enter 或 Tab 會直接登記；沒有結束鍵時，完整舊帳／已登記編號停留片刻也會自動送出。新編號或有快捷鍵警告時，核對完整文字後按「送出掃描」。請使用英文輸入模式。</div><div class="frow"><input id="usb-scan-code" class="inp" data-f="usbScanCode" autocomplete="off" spellcheck="false" placeholder="點這裡後，用 USB 掃描槍掃 QR" value="'+esc(S.usbScanCode||'')+'"><button class="btn mini" data-a="usb-scan">送出掃描</button></div><div class="small">掃描後自動保存，不用再按保存。網頁完成聲只在核對寫入成功後響；掃描槍自己的嗶聲只代表讀到。請同時核對保存狀態。<button class="pill" data-a="scan-audio">啟用完成音效</button></div><div class="small" id="usb-focus-status" role="status">'+esc(S.usbControlBlocked?'已攔住導頁快捷鍵，尚未送出。請核對框內完整編號，再按「送出掃描」；或點「掃描槍就緒」清空重掃。':'掃描前請點「掃描槍就緒」或輸入框，確認游標在框內。')+'</div></div>' +
       '<div class="frow"><input class="inp" data-f="manualCode" placeholder="輸入登記編號（如 CSPH107030182）" value="' + esc(S.manualCode) + '"><button class="btn mini" data-a="manual">手動登記</button></div>' +
       (D.isMock
         ? '<div class="lbl sim">測試用：模擬掃到（虛構設備）</div><div class="chips">' +
@@ -1400,11 +1403,28 @@
     if(usbFocused)document.querySelector('[data-f="usbScanCode"]')?.focus({preventScroll:true});
   }
 
+  // Candidate only: preserve the map workspace, not a guessed next seat.
+  function scanNavigationPending(){return S.scanBusy||S.scanQueue?.length||Object.keys(S.scanHeld||{}).length;}
+  function rememberScanMap(){const box=document.querySelector('.seat-layout-scroll');return {mode:S.mode,dtab:S.dtab,screen:S.screen,mapSite:S.mapSite,mapZone:S.mapZone,mapCity:S.mapCity,site:S.site,zone:S.zone,scanCity:S.scanCity,x:window.scrollX,y:window.scrollY,left:box?.scrollLeft||0,top:box?.scrollTop||0,map:seatUI.state.mapId,seat:seatUI.state.selected};}
+  function scanChosenLocation(n,m){
+    if(scanNavigationPending())throw Error('還有未保存或結果待查的掃描，先核對本筆，再換位置。');
+    if(S.sess&&!S.sess.closed&&S.sess.site!==m.site)throw Error('目前場次在「'+S.sess.site+'」，所選位置在「'+m.site+'」。請先返回目前場次核對並結束，再為此據點開始新場次。');
+    const origin=rememberScanMap();origin.map=m.id;origin.seat=n;S.scanMapOrigin=origin;
+    S.site=m.site;S.zone=m.zone;S.scanCity=locationMeta(m.site).city;S.mode='phone';S.screen=S.sess&&!S.sess.closed?'scan':'start';S.dash=false;S.workspaceMore=false;S.scanSetupErr='';seatUI.state.popup=null;seatUI.state.mapId=m.id;render();window.scrollTo(0,0);if(S.scanInput==='usb')document.querySelector('[data-f=usbScanCode]')?.focus({preventScroll:true});
+  }
+  function returnToScanMap(){
+    if(scanNavigationPending()){S.scanSetupErr='還有未保存或結果待查的掃描，先核對本筆，再換位置。';render();return;}
+    const o=S.scanMapOrigin;if(o){o.seat=seatUI.state.selected;}if(!o){S.screen='seats';S.mode='phone';render();return;}
+    Object.assign(S,{mode:o.mode,dtab:o.dtab,screen:o.screen,mapSite:o.mapSite,mapZone:o.mapZone,mapCity:o.mapCity,site:o.site,zone:o.zone,scanCity:o.scanCity,dash:false});seatUI.state.mapId=o.map;seatUI.state.selected=o.seat;seatUI.state.scanSelected=true;seatUI.state.popup=null;render();
+    const restore=()=>{const box=document.querySelector('.seat-layout-scroll');if(box){box.scrollLeft=o.left;box.scrollTop=o.top;}window.scrollTo(o.x,o.y);};restore();requestAnimationFrame(restore);
+  }
+
   /* ---- 事件 ---- */
   document.addEventListener("click", (e) => {
     const t = e.target.closest("[data-a]");
     if (!t) return;
     const a = t.getAttribute("data-a"), v = t.getAttribute("data-v") || "";
+    if(['location-city','location-site','location-zone','zone','site','workspace-seats','goal-seat'].includes(a)&&scanNavigationPending()){S.scanSetupErr='尚有未保存或結果待查的掃描，先核對本筆，再換位置。';render();return;}
     if(S.editCode&&['goal-seat','goal-find','goal-resume','view-asset','view-edit','workspace-overview','workspace-scan','workspace-seats','workspace-manage','mode','tab','dtab','back','godiff','sitelist','gositepc','asite','gosite'].includes(a)){
       if(S.editTouched){S.editError='還有未保存的輸入，請先保存或明確取消編輯後再離開。';render();return;}
       if(S.editBusy)return;
@@ -1417,6 +1437,8 @@
     if(a==='view-asset'){if(S.mode!=='phone'){const x=getA(v);if(!x)return;openControlledEditor(v);return;}S.viewScroll=window.scrollY;S.viewCode=v;render();window.scrollTo(0,0);return;}
     if(a==='view-close'){S.viewCode='';render();window.scrollTo(0,S.viewScroll||0);return;}
     if(a==='view-edit'){S.viewCode='';const x=getA(v);if(!x)return;S.retTab=S.dtab;S.mode='pc';S.dtab='assets';S.asite=x.site;openControlledEditor(v);return;}
+    if(a==='scan-input'){if(v!=='usb'&&v!=='camera')return;S.scanInput=v;try{localStorage.setItem('zg_erp_scan_input',v)}catch(_){}if(v==='usb'&&(S.camOn||cam.starting))camStop(true);render();if(v==='usb')document.querySelector('[data-f=usbScanCode]')?.focus({preventScroll:true});return;}
+    if(a==='scan-map-return'){returnToScanMap();return;}
     if(a==='goal-search'){S.goalSearchDone=String(S.goalSearch||'').trim();render();return;}
     if(a==='goal-find'){S.mode='pc';S.dtab='dash';render();document.querySelector('#goal-search')?.focus();return;}
     if(a==='goal-seat'){if(S.mode==='phone'){S.screen='seats';}else{S.dtab='map';S.mapSite=S.site||S.mapSite||siteNames()[0]||'';}S.dash=false;S.workspaceMore=false;render();window.scrollTo(0,0);return;}
@@ -1814,10 +1836,12 @@
   document.addEventListener("click", e => {
     const t=e.target.closest && e.target.closest("[data-seat-action]"); if(!t||!seatUI)return;
     e.preventDefault();
-    seatUI.act(t.dataset.seatAction,{number:t.dataset.seatNumber,code:t.dataset.seatCode,site:S.mode==="phone"?S.site:S.mapSite,zone:S.mode==="phone"?S.zone:"",sess:S.sess,onScan:(n,m)=>{S.site=m.site;S.zone=m.zone;S.mode="phone";S.screen="start";S.dash=false;render();window.scrollTo(0,0);},onView:code=>{S.viewCode=code;render();window.scrollTo(0,0);}});
+    if(['select','scan','next','previous'].includes(t.dataset.seatAction)&&scanNavigationPending()){S.scanSetupErr='還有未保存或結果待查的掃描，先核對本筆，再換位置。';render();return;}
+    seatUI.act(t.dataset.seatAction,{number:t.dataset.seatNumber,code:t.dataset.seatCode,site:S.mode==="phone"?S.site:S.mapSite,zone:S.mode==="phone"?S.zone:S.mapZone,sess:S.sess,onScan:scanChosenLocation,onView:code=>{S.viewCode=code;render();window.scrollTo(0,0);}});
   });
   document.addEventListener("change",e=>{
     const f=e.target.dataset && e.target.dataset.seatField;if(!f||!seatUI)return;
+    if(["number","number-typed"].includes(f)&&scanNavigationPending()){S.scanSetupErr="尚有未保存或結果待查的掃描，先核對本筆，再換位置。";render();return;}
     if(f==="file"){const file=e.target.files&&e.target.files[0];if(file)seatUI.file(file,S.mapSite,"");}
     else if(f==="plan-file"){const file=e.target.files&&e.target.files[0];if(file)seatUI.planFile(file);}
     else {seatUI.field(f,f==='imp-names'?e.target.checked:e.target.value);if(f==="name")seatUI.autosaveName({site:S.mode==="phone"?S.site:S.mapSite,zone:S.mode==="phone"?S.zone:""});}
