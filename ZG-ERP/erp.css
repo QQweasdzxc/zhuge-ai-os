@@ -406,3 +406,11 @@ button.geo-kpi:hover{border-color:var(--ds-teal,#0a7)}
 :root:not([data-theme="dark"]) .btn:disabled { background:var(--ds-raised); color:var(--ds-ink-4); border-color:var(--ds-hairline); }
 :root:not([data-theme="dark"]) :is(.inp,select,textarea):focus { outline:2px solid #c2410c; outline-offset:-1px; }
 :root:not([data-theme="dark"]) h2, :root:not([data-theme="dark"]) .ptitle { letter-spacing:1px; }
+
+/* Display-only location navigation and narrow map cells. */
+.location-picker {margin:12px 0;padding:12px;border:1px solid var(--ds-hairline);border-radius:12px;}
+.location-row + .location-row {margin-top:10px;}
+.location-row .lbl {display:block;margin-bottom:5px;}
+.seat-num {white-space:nowrap;flex-shrink:0;}
+.seat-anchor.has-name.seat-tall {flex-direction:column;gap:8px;}
+.seat-anchor.has-name.seat-tall small {white-space:normal;max-width:100%;font-size:11px;line-height:1.35;overflow:visible;}
