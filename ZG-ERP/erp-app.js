@@ -372,7 +372,7 @@
       if(S.scanBusy){S.scanQueue=S.scanQueue||[];S.scanQueue.push(retained||{sessionId:S.sess.id,code,zone:S.zone,seatTarget,...occField,...(captured||{})});render();return;}
       S.scanUncertain=false;
       S.scanBusy=true;S.scanIntent=retained||{sessionId:S.sess.id,code,zone:S.zone,seatTarget,...occField,...(captured||{})};S.manualCode=code;render();
-      try{await S.sess.__write;if(S.sess.__unsynced)throw Error('盤點場次尚未保存，不能追加掃描');await store.scanIntentVerified(S.scanIntent);S.scanIntent=null;if(S.scanHeld)delete S.scanHeld[code];heldDrop(code,S.sess&&S.sess.id);S.manualCode='';S.open=code;}
+      try{await S.sess.__write;if(S.sess.__unsynced)throw Error('盤點場次尚未保存，不能追加掃描');await store.scanIntentVerified(S.scanIntent);try{window.ErpReadFeedback?.beep();}catch(_){}S.scanIntent=null;if(S.scanHeld)delete S.scanHeld[code];heldDrop(code,S.sess&&S.sess.id);S.manualCode='';S.open=code;}
       catch(e){S.scanSetupErr=e.message;S.scanUncertain=!e.safeToRetry;S.scanHeld=S.scanHeld||{};S.scanHeld[code]={...S.scanIntent,uncertain:S.scanUncertain,error:e.message};heldSync();}
       finally{S.scanBusy=false;render();const next=S.scanQueue?.shift();if(next)scan(next.code,next);}return;
     }
@@ -510,7 +510,7 @@
       svg.setAttribute("viewBox", "0 0 " + d.width + " " + d.height);
       poly.setAttribute("points", d.points.map((p) => p.x + "," + p.y).join(" "));
     } else poly.removeAttribute("points");
-    if (label) label.textContent = d && d.value ? (visible ? "已辨識 QR／條碼，框線是實際位置；儲存狀態見下方" : "已辨識，但瀏覽器未提供位置，無法畫框；儲存狀態見下方") : "對準標籤；嗶聲只表示已讀到，保存狀態見下方";
+    if (label) label.textContent = d && d.value ? (visible ? "已辨識 QR／條碼，框線是實際位置；儲存狀態見下方" : "已辨識，但瀏覽器未提供位置，無法畫框；儲存狀態見下方") : "對準標籤；辨識後自動保存，網頁完成聲須等寫入成功；保存狀態見下方";
   }
   function camOnDetection(detection) {
     cam.detection = detection;
@@ -520,7 +520,6 @@
   function camOnCode(val,format) {
     if (!cam.dedup) cam.dedup = ErpScanCore.makePresenceDeduper(1500);
     if (!cam.dedup.accept(val)) return;
-    window.ErpReadFeedback?.beep();
     const isQr = /^(qr_code|QRCode)$/i.test(format||'');
     if(isQr){S.vendorReview=null;scan(val);return;} // Preserve existing deliberate QR flow.
     const hits=assets().filter(a=>a.code===val||a.serial===val);
@@ -621,7 +620,7 @@
     setTimeout(refreshSyncBadge, 0); /* 整頁重繪會重建徽章（預設隱藏），重繪後立刻補上內容 */
     return '<div id="erp-sync-badge" class="syncbadge" style="display:none"></div><div id="erp-version-badge" class="versionbadge" style="display:none"></div>';
   }
-  const LOADED_BUILD = { id: "2026-11-07.34" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
+  const LOADED_BUILD = { id: "2026-11-19.speedscan2" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
   async function checkAppVersion() {
     if (D.isMock) return;
     try {
@@ -807,7 +806,7 @@
       (S.zoneOpen ? '<div class="zonepick">' + zonesOf(S.site).map((z) => '<button class="pill' + (S.zone === z ? " on" : "") + '" data-a="zone" data-v="' + esc(z) + '">' + esc(z) + "</button>").join("") + "</div>" : "") +
       '<div class="scan-camera">' + (seatUI ? seatUI.scanPanel(S.site,S.zone,S.sess,recs,"above") : "") +
       (S.camOn
-        ? '<div class="view live"><video id="camv" autoplay playsinline muted></video><svg id="qrframe" class="qrframe" preserveAspectRatio="xMidYMid meet" aria-hidden="true" hidden><polygon id="qrpolygon" vector-effect="non-scaling-stroke"></polygon></svg><span id="qrdetected" class="detectedhint" aria-live="polite">對準標籤；嗶聲只表示已讀到，保存狀態見下方</span><span class="hint">' + (cam.engine === "jsqr" ? "對準 QR 碼（此瀏覽器僅支援 QR），掃到會自動記一筆（同一張持續對準只記一次，移開約 1.5 秒後可再掃）" : "對準 QR／條碼，掃到會自動記一筆（同一張持續對準只記一次，移開約 1.5 秒後可再掃）") + '</span></div>'
+        ? '<div class="view live"><video id="camv" autoplay playsinline muted></video><svg id="qrframe" class="qrframe" preserveAspectRatio="xMidYMid meet" aria-hidden="true" hidden><polygon id="qrpolygon" vector-effect="non-scaling-stroke"></polygon></svg><span id="qrdetected" class="detectedhint" aria-live="polite">對準標籤；辨識後自動保存，網頁完成聲須等寫入成功；保存狀態見下方</span><span class="hint">' + (cam.engine === "jsqr" ? "對準 QR 碼（此瀏覽器僅支援 QR），掃到會自動記一筆（同一張持續對準只記一次，移開約 1.5 秒後可再掃）" : "對準 QR／條碼，掃到會自動記一筆（同一張持續對準只記一次，移開約 1.5 秒後可再掃）") + '</span></div>'
         : '<button type="button" class="view camera-activate" data-a="camstart" aria-label="點一下開啟相機掃描"'+(cam.starting?' disabled aria-busy="true"':'')+'><i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i><div class="qr"></div><span class="hint">'+(cam.starting?'正在開啟相機…<br>瀏覽器詢問時，請允許相機':'點一下開啟相機掃描<br>瀏覽器詢問時，請允許相機')+'</span></button>' + (S.camErr ? '<div class="warn">' + esc(S.camErr) + "</div>" : "")) +
       (seatUI ? seatUI.scanPanel(S.site,S.zone,S.sess,recs) : "") +
       (S.camOn?'<button class="pill sm camera-stop" data-a="camstop">關閉相機</button>':'') + '</div>' +
@@ -821,7 +820,8 @@
       (S.scanBusy?'<div class="warn">正在核對保存：'+esc(S.scanIntent?.code||'')+'，完成前不計入成功。</div>':'')+(S.scanQueue?.length?'<div class="warn">等候保存：'+S.scanQueue.map(x=>esc(x.code)).join('、')+'</div>':'')+
       heldReloaded().map(r=>'<div class="warn">上次中斷的掃描 '+esc(r.payload.values.code)+'：'+(r.payload.values.uncertain?'結果待查':'未保存')+'，不會自動重送。請先核對該編號的紀錄，再到「管理功能 › 本機草稿」移除。</div>').join('') +
       Object.values(S.scanHeld||{}).map(x=>'<div class="warn">'+(x.uncertain?'結果待查掃描 ':'未保存掃描 ')+esc(x.code)+' · '+esc(x.zone)+'：'+(x.uncertain?'不能確認已保存':esc(x.error))+(x.uncertain?'（結果待查，不可重送）':'<button class="pill" data-a="scan-intent-retry" data-v="'+esc(x.code)+'">重試這筆</button>')+'</div>').join('') +
-      '<div class="card"><label class="lbl" for="usb-scan-code">USB 掃描槍</label><div class="small">選好本次據點與座位後，點下方輸入框再掃 QR。掃描槍若自帶 Enter，會直接依手機同一流程登記；沒有 Enter 時按「送出掃描」。請使用英文輸入模式。</div><div class="frow"><input id="usb-scan-code" class="inp" data-f="usbScanCode" autocomplete="off" spellcheck="false" placeholder="點這裡後，用 USB 掃描槍掃 QR" value="'+esc(S.usbScanCode||'')+'"><button class="btn mini" data-a="usb-scan">送出掃描</button></div><div class="small">嗶聲只代表設備讀到，請核對下方保存狀態。</div></div>' +
+      (S.scanAudioNote?'<div class="small" role="status">'+esc(S.scanAudioNote)+'</div>':'')+
+      '<div class="card"><label class="lbl" for="usb-scan-code">USB 掃描槍</label><div class="small">選好本次據點與座位後，點下方輸入框再掃 QR。掃描槍若自帶 Enter，會直接依手機同一流程登記；沒有 Enter 時按「送出掃描」。請使用英文輸入模式。</div><div class="frow"><input id="usb-scan-code" class="inp" data-f="usbScanCode" autocomplete="off" spellcheck="false" placeholder="點這裡後，用 USB 掃描槍掃 QR" value="'+esc(S.usbScanCode||'')+'"><button class="btn mini" data-a="usb-scan">送出掃描</button></div><div class="small">掃描後自動保存，不用再按保存。網頁完成聲只在核對寫入成功後響；掃描槍自己的嗶聲只代表讀到。請同時核對保存狀態。<button class="pill" data-a="scan-audio">啟用完成音效</button></div></div>' +
       '<div class="frow"><input class="inp" data-f="manualCode" placeholder="輸入登記編號（如 CSPH107030182）" value="' + esc(S.manualCode) + '"><button class="btn mini" data-a="manual">手動登記</button></div>' +
       (D.isMock
         ? '<div class="lbl sim">測試用：模擬掃到（虛構設備）</div><div class="chips">' +
@@ -1441,7 +1441,8 @@
     else if (a === "location-zone") {if(seatUI)seatUI.resetSelection();if(t.dataset.kind==='map')S.mapZone=v;else S.zone=v;}
     else if (a === "site") { if(seatUI)seatUI.resetSelection();S.site = v; }
     else if (a === "gps") { detectGps(); return; }
-    else if (a === "start") { startSession(); return; }
+    else if (a === "start") { window.ErpReadFeedback?.unlock().then(ok=>{S.audioReady=ok;});startSession(); return; }
+    else if(a === "scan-audio"){window.ErpReadFeedback?.unlock().then(ok=>{S.audioReady=ok;S.scanAudioNote=ok?"完成音效已啟用；只有核對寫入成功才響。":"瀏覽器未允許音效，請以保存狀態為準。";render();});return;}
     else if (a === "zoneopen") { S.zoneOpen = !S.zoneOpen; }
     else if (a === "zone") { if(seatUI)seatUI.resetSelection(); S.zone = v; S.zoneOpen = false; }
     else if (a === "scan") { scan(v); return; }
