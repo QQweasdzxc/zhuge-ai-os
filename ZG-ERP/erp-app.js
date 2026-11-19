@@ -620,7 +620,7 @@
     setTimeout(refreshSyncBadge, 0); /* 整頁重繪會重建徽章（預設隱藏），重繪後立刻補上內容 */
     return '<div id="erp-sync-badge" class="syncbadge" style="display:none"></div><div id="erp-version-badge" class="versionbadge" style="display:none"></div>';
   }
-  const LOADED_BUILD = { id: "2026-11-19.speedscan3" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
+  const LOADED_BUILD = { id: "2026-11-19.speedscan4" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
   async function checkAppVersion() {
     if (D.isMock) return;
     try {
@@ -821,7 +821,7 @@
       heldReloaded().map(r=>'<div class="warn">上次中斷的掃描 '+esc(r.payload.values.code)+'：'+(r.payload.values.uncertain?'結果待查':'未保存')+'，不會自動重送。請先核對該編號的紀錄，再到「管理功能 › 本機草稿」移除。</div>').join('') +
       Object.values(S.scanHeld||{}).map(x=>'<div class="warn">'+(x.uncertain?'結果待查掃描 ':'未保存掃描 ')+esc(x.code)+' · '+esc(x.zone)+'：'+(x.uncertain?'不能確認已保存':esc(x.error))+(x.uncertain?'（結果待查，不可重送）':'<button class="pill" data-a="scan-intent-retry" data-v="'+esc(x.code)+'">重試這筆</button>')+'</div>').join('') +
       (S.scanAudioNote?'<div class="small" role="status">'+esc(S.scanAudioNote)+'</div>':'')+
-      '<div class="card"><label class="lbl" for="usb-scan-code">USB 掃描槍</label><button type="button" class="pill" data-a="usb-ready">掃描槍就緒（點此接收）</button><div class="small">選好本次據點與座位後，點下方輸入框再掃 QR。掃描槍若自帶 Enter 或 Tab，會直接依手機同一流程登記；沒有 Enter 時按「送出掃描」。請使用英文輸入模式。</div><div class="frow"><input id="usb-scan-code" class="inp" data-f="usbScanCode" autocomplete="off" spellcheck="false" placeholder="點這裡後，用 USB 掃描槍掃 QR" value="'+esc(S.usbScanCode||'')+'"><button class="btn mini" data-a="usb-scan">送出掃描</button></div><div class="small">掃描後自動保存，不用再按保存。網頁完成聲只在核對寫入成功後響；掃描槍自己的嗶聲只代表讀到。請同時核對保存狀態。<button class="pill" data-a="scan-audio">啟用完成音效</button></div><div class="small" id="usb-focus-status" role="status">'+esc(S.usbControlBlocked?'收到快捷鍵，這筆未送出。請先核對掃描器輸出，再點「掃描槍就緒」重設接收。':'掃描前請點「掃描槍就緒」或輸入框，確認游標在框內。')+'</div></div>' +
+      '<div class="card"><label class="lbl" for="usb-scan-code">USB 掃描槍</label><button type="button" class="pill" data-a="usb-ready">掃描槍就緒（點此接收）</button><div class="small">選好本次據點與座位後，點下方輸入框再掃 QR。掃描槍送出 Enter 或 Tab 會直接登記；沒有結束鍵時，完整舊帳／已登記編號停留片刻也會自動送出。新編號或有快捷鍵警告時，核對完整文字後按「送出掃描」。請使用英文輸入模式。</div><div class="frow"><input id="usb-scan-code" class="inp" data-f="usbScanCode" autocomplete="off" spellcheck="false" placeholder="點這裡後，用 USB 掃描槍掃 QR" value="'+esc(S.usbScanCode||'')+'"><button class="btn mini" data-a="usb-scan">送出掃描</button></div><div class="small">掃描後自動保存，不用再按保存。網頁完成聲只在核對寫入成功後響；掃描槍自己的嗶聲只代表讀到。請同時核對保存狀態。<button class="pill" data-a="scan-audio">啟用完成音效</button></div><div class="small" id="usb-focus-status" role="status">'+esc(S.usbControlBlocked?'已攔住導頁快捷鍵，尚未送出。請核對框內完整編號，再按「送出掃描」；或點「掃描槍就緒」清空重掃。':'掃描前請點「掃描槍就緒」或輸入框，確認游標在框內。')+'</div></div>' +
       '<div class="frow"><input class="inp" data-f="manualCode" placeholder="輸入登記編號（如 CSPH107030182）" value="' + esc(S.manualCode) + '"><button class="btn mini" data-a="manual">手動登記</button></div>' +
       (D.isMock
         ? '<div class="lbl sim">測試用：模擬掃到（虛構設備）</div><div class="chips">' +
@@ -1359,6 +1359,7 @@
 
   /* ---- 渲染 ---- */
   function render() {
+    clearTimeout(usbIdleTimer);
     const usbFocused=document.activeElement?.dataset?.f==="usbScanCode";
     if ((S.mode !== "phone" || S.screen !== "scan" || S.dash) && (S.camOn||cam.starting) && !S.scanStarting) camStop(true);
     const root = document.getElementById("erp-root");
@@ -1449,7 +1450,7 @@
     else if (a === "camstart") { camStart(); return; }
     else if (a === "camstop") { camStop(); return; }
     else if (a === 'usb-ready'){if(S.usbControlBlocked)S.usbScanCode='';S.usbControlBlocked=false;render();document.querySelector('[data-f="usbScanCode"]')?.focus({preventScroll:true});return;}
-    else if (a === 'usb-scan') { submitUsbScan(); return; }
+    else if (a === 'usb-scan') { submitUsbScan(true); return; }
     else if (a === "manual") { scan(S.manualCode); return; }
     else if(a==='scan-intent-retry'){const held=S.scanHeld?.[v]||S.scanIntent;if(held&&!held.uncertain)scan(held.code,held);return;}
     else if (a === "open") { S.open = S.open === v ? "" : v; }
@@ -1721,7 +1722,7 @@
     if (!f) return;
     if(f==="goalSearch"){S.goalSearch=e.target.value;return;}
     if (f === "scanDepartment") { S.scanDepartment = e.target.value; putSetup(); return; }
-    if (f === "usbScanCode") { S.usbScanCode=e.target.value; return; }
+    if (f === "usbScanCode") { S.usbScanCode=e.target.value; scheduleUsbScan(e); return; }
     if (f === "manualCode") { S.manualCode = e.target.value; return; }
     if (f === "scanProjectInput") { S.scanProjectInput = e.target.value; putSetup(); return; }
     if (f.indexOf("ann_") === 0) { S.annDraft = S.annDraft || {}; S.annDraft[f.slice(4)] = e.target.value; if (S.annOpen) bagPut('annotation', S.annOpen, S.annDraft); return; }
@@ -1756,8 +1757,22 @@
     if (f && S.editDraft && Object.prototype.hasOwnProperty.call(S.editDraft, f)) {S.editDraft[f] = e.target.value;noteControlledActivity();draftSaveEdit();render();} /* 所有欄位只存本機草稿，按「儲存」才寫正式資料；取消不寫。2026-11-06.23 起停用逐欄自動寫入 */
   });
   let usbLast='',usbAt=0;
-  async function submitUsbScan(){
-    if(S.usbControlBlocked)return;
+  var usbIdleTimer=0;
+  function scheduleUsbScan(e){
+    clearTimeout(usbIdleTimer);
+    if(e.isComposing||S.usbControlBlocked)return;
+    const code=String(e.target.value||'').trim();
+    const known=[...assets(),...(store.legacyRows?store.legacyRows():[])].map(x=>String(x.code||''));
+    // With no terminator, only a complete known code is safe to submit. Never guess a partial new code.
+    if(!code||!known.includes(code)||known.some(x=>x!==code&&x.startsWith(code)))return;
+    let target;try{target=JSON.stringify({session:S.sess?.id,site:S.site,zone:S.zone,seat:seatUI?.target(S.site,S.zone,code)});}catch(_){return;}
+    usbIdleTimer=setTimeout(()=>{const input=document.querySelector('[data-f="usbScanCode"]');let current;try{current=JSON.stringify({session:S.sess?.id,site:S.site,zone:S.zone,seat:seatUI?.target(S.site,S.zone,code)});}catch(_){return;}if(current===target&&input&&input.value.trim()===code&&document.activeElement===input)submitUsbScan();},350);
+  }
+  document.addEventListener('compositionend',e=>{if(e.target.dataset?.f==='usbScanCode')scheduleUsbScan(e);});
+  async function submitUsbScan(explicit=false){
+    clearTimeout(usbIdleTimer);
+    if(S.usbControlBlocked&&!explicit)return;
+    if(explicit)S.usbControlBlocked=false;
     const code=String(document.querySelector('[data-f="usbScanCode"]')?.value||S.usbScanCode||'').trim();if(!code||!S.sess||S.screen!=="scan")return;
     const now=Date.now();if(code===usbLast&&now-usbAt<1500)return;usbLast=code;usbAt=now;
     S.usbScanCode='';await scan(code);
@@ -1767,10 +1782,16 @@
   document.addEventListener('focusin',usbFocusStatus);document.addEventListener('focusout',()=>setTimeout(usbFocusStatus,0));window.addEventListener('blur',usbFocusStatus);window.addEventListener('focus',usbFocusStatus);
   window.addEventListener('keydown',e=>{
     if(e.target.dataset?.f!=='usbScanCode')return;
-    if(e.ctrlKey||e.metaKey||e.altKey||e.key==='F6'){
-      if(e.cancelable)e.preventDefault();e.stopImmediatePropagation();S.usbControlBlocked=true;
-      const h=document.getElementById('usb-focus-status');if(h)h.textContent='收到快捷鍵，這筆未送出。請先核對掃描器輸出，再點「掃描槍就緒」重設接收。';return;
+    // Modifier keydown is not a shortcut. HID scanners may frame text with Ctrl+B / Ctrl+C.
+    if(['Control','Alt','Meta','Shift'].includes(e.key))return;
+    const key=String(e.key||'').toLowerCase();
+    const navigate=e.key==='F6'||(e.ctrlKey&&['l','t','n','w','r','o'].includes(key))||(e.altKey&&['d','arrowleft','arrowright','f4'].includes(key))||(e.metaKey&&['l','t','n','w','r','o'].includes(key));
+    if(navigate){
+      if(e.cancelable)e.preventDefault();e.stopImmediatePropagation();S.usbControlBlocked=true;clearTimeout(usbIdleTimer);
+      const h=document.getElementById('usb-focus-status');if(h)h.textContent='已攔住導頁快捷鍵，尚未送出。請核對框內完整編號，再按「送出掃描」；或點「掃描槍就緒」清空重掃。';return;
     }
+    if(e.ctrlKey&&!e.altKey&&!e.metaKey&&['m','j','i'].includes(key)){e.preventDefault();e.stopImmediatePropagation();if(!e.isComposing)submitUsbScan();return;}
+    if(e.ctrlKey&&!e.altKey&&!e.metaKey&&['b','c'].includes(key)){e.preventDefault();e.stopImmediatePropagation();return;}
     if(e.key==='Enter'||(e.key==='Tab'&&String(e.target.value||'').trim())){e.preventDefault();e.stopImmediatePropagation();if(!e.isComposing)submitUsbScan();}
   },true);
   document.addEventListener("keydown", (e) => {
