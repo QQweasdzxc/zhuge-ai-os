@@ -1340,6 +1340,11 @@
         });
       }
 
+      // Core dashboard is usable without waiting for the separate board read.
+      // Do not repaint other forms while an optional board load completes.
+      const coreDashboardPainted = store.getState().activePage === "dashboard";
+      if (coreDashboardPainted) renderPage();
+
       // Opening or refreshing the private investment overview is read-only.
       // repairIvtkIdentity and syncIvtkProjection mutate existing board tasks;
       // only the separate explicit board workflow may activate those contracts.
@@ -1364,7 +1369,7 @@
           error: boardError || projectionError
         })
       });
-      renderPage();
+      if (!coreDashboardPainted || store.getState().activePage === "portfolio") renderPage();
     }
 
     onRoot("click", event => {
