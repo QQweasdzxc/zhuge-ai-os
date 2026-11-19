@@ -38,6 +38,7 @@ const browserTests = [
   "tests/skyeye-mobile-browser.test.js"
 ];
 const standaloneScripts = [
+  "tests/learning/entrance-consistency.browser.cjs",
   "tests/task-088-responsive-browser.js",
   "tests/task-088-desktop-preview.js",
   "tests/investment/screenshot-import-browser-regression.js",
