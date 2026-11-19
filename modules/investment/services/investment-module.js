@@ -593,6 +593,8 @@
       const txDraft=pageRoot?.querySelector("[data-investment-transaction-form]");
       if(txDraft && ["idle","error"].includes(transactionWrite.status))transactionWrite=Object.freeze({...transactionWrite,form:transactionWriteFormValues(txDraft)});
       const state = store.getState();
+      const routeTitles = { dashboard: '財務總覽', overview: '投資', receivables: '應收款', tools: '更多', detail: '持股明細', filter: '篩選持股', transactions: '交易紀錄', portfolio: '持股工作看板', import: '匯入資料', strategy: '投資策略', settings: '帳戶與設定' };
+      document.title = '金銀島｜' + (routeTitles[state.activePage] || '財務工作台') + ' · TRQN';
       pageRoot.classList.toggle("j-route-sheet",["transactions","filter"].includes(state.activePage));
       const page = pageRegistry[state.activePage] || pageRegistry.overview;
       const importSnapshot = importSession.getSnapshot();
@@ -1606,7 +1608,7 @@
     });
     cleanup.push(() => importSession.dispose());
     onGlobal("pagehide", () => importSession.dispose(), { once: true });
-    onGlobal("hashchange", () => navigate(String(global.location.hash || "#overview").slice(1), false));
+    onGlobal("hashchange", () => navigate(String(global.location.hash || "#dashboard").slice(1), false));
 
     function handleError(error) {
       console.error("Investment SIT runtime error", { message: error?.message || String(error) });

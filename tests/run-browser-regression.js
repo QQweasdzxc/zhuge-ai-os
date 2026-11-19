@@ -5,6 +5,7 @@ const path = require("node:path");
 const root = path.resolve(__dirname, "..");
 const browserTests = [
   "tests/learning/mobile-12-source.test.cjs",
+  "tests/investment/island-entry.test.cjs",
   "tests/watch-tower-release-browser.test.js",
   "tests/taskflow-access-management-browser.test.js",
   "tests/site-integration-browser.test.js",
@@ -38,6 +39,7 @@ const browserTests = [
   "tests/skyeye-mobile-browser.test.js"
 ];
 const standaloneScripts = [
+  "tests/learning/entrance-consistency.browser.cjs",
   "tests/task-088-responsive-browser.js",
   "tests/task-088-desktop-preview.js",
   "tests/investment/screenshot-import-browser-regression.js",
