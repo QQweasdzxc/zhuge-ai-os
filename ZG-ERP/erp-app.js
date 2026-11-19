@@ -1404,16 +1404,16 @@
   }
 
   // Candidate only: preserve the map workspace, not a guessed next seat.
-  function scanNavigationPending(){return S.scanBusy||S.scanQueue?.length||Object.keys(S.scanHeld||{}).length;}
+  function scanNavigationPending(){return S.scanBusy||S.scanQueue?.length||Object.keys(S.scanHeld||{}).length||String(S.usbScanCode||'').trim()||String(S.manualCode||'').trim();}
   function rememberScanMap(){const box=document.querySelector('.seat-layout-scroll');return {mode:S.mode,dtab:S.dtab,screen:S.screen,mapSite:S.mapSite,mapZone:S.mapZone,mapCity:S.mapCity,site:S.site,zone:S.zone,scanCity:S.scanCity,x:window.scrollX,y:window.scrollY,left:box?.scrollLeft||0,top:box?.scrollTop||0,map:seatUI.state.mapId,seat:seatUI.state.selected};}
   function scanChosenLocation(n,m){
-    if(scanNavigationPending())throw Error('還有未保存或結果待查的掃描，先核對本筆，再換位置。');
+    if(scanNavigationPending())throw Error('還有輸入未送出、未保存或結果待查的掃描，請完成本筆或清除未送出文字，再換位置。');
     if(S.sess&&!S.sess.closed&&S.sess.site!==m.site)throw Error('目前場次在「'+S.sess.site+'」，所選位置在「'+m.site+'」。請先返回目前場次核對並結束，再為此據點開始新場次。');
     const origin=rememberScanMap();origin.map=m.id;origin.seat=n;S.scanMapOrigin=origin;
     S.site=m.site;S.zone=m.zone;S.scanCity=locationMeta(m.site).city;S.mode='phone';S.screen=S.sess&&!S.sess.closed?'scan':'start';S.dash=false;S.workspaceMore=false;S.scanSetupErr='';seatUI.state.popup=null;seatUI.state.mapId=m.id;render();window.scrollTo(0,0);if(S.scanInput==='usb')document.querySelector('[data-f=usbScanCode]')?.focus({preventScroll:true});
   }
   function returnToScanMap(){
-    if(scanNavigationPending()){S.scanSetupErr='還有未保存或結果待查的掃描，先核對本筆，再換位置。';render();return;}
+    if(scanNavigationPending()){S.scanSetupErr='還有輸入未送出、未保存或結果待查的掃描，請完成本筆或清除未送出文字，再換位置。';render();return;}
     const o=S.scanMapOrigin;if(o){o.seat=seatUI.state.selected;}if(!o){S.screen='seats';S.mode='phone';render();return;}
     Object.assign(S,{mode:o.mode,dtab:o.dtab,screen:o.screen,mapSite:o.mapSite,mapZone:o.mapZone,mapCity:o.mapCity,site:o.site,zone:o.zone,scanCity:o.scanCity,dash:false});seatUI.state.mapId=o.map;seatUI.state.selected=o.seat;seatUI.state.scanSelected=true;seatUI.state.popup=null;render();
     const restore=()=>{const box=document.querySelector('.seat-layout-scroll');if(box){box.scrollLeft=o.left;box.scrollTop=o.top;}window.scrollTo(o.x,o.y);};restore();requestAnimationFrame(restore);
@@ -1424,7 +1424,7 @@
     const t = e.target.closest("[data-a]");
     if (!t) return;
     const a = t.getAttribute("data-a"), v = t.getAttribute("data-v") || "";
-    if(['location-city','location-site','location-zone','zone','site','workspace-seats','goal-seat'].includes(a)&&scanNavigationPending()){S.scanSetupErr='尚有未保存或結果待查的掃描，先核對本筆，再換位置。';render();return;}
+    if(['location-city','location-site','location-zone','zone','site','workspace-seats','goal-seat'].includes(a)&&scanNavigationPending()){S.scanSetupErr='還有輸入未送出、未保存或結果待查的掃描，請完成本筆或清除未送出文字，再換位置。';render();return;}
     if(S.editCode&&['goal-seat','goal-find','goal-resume','view-asset','view-edit','workspace-overview','workspace-scan','workspace-seats','workspace-manage','mode','tab','dtab','back','godiff','sitelist','gositepc','asite','gosite'].includes(a)){
       if(S.editTouched){S.editError='還有未保存的輸入，請先保存或明確取消編輯後再離開。';render();return;}
       if(S.editBusy)return;
@@ -1836,12 +1836,12 @@
   document.addEventListener("click", e => {
     const t=e.target.closest && e.target.closest("[data-seat-action]"); if(!t||!seatUI)return;
     e.preventDefault();
-    if(['select','scan','next','previous'].includes(t.dataset.seatAction)&&scanNavigationPending()){S.scanSetupErr='還有未保存或結果待查的掃描，先核對本筆，再換位置。';render();return;}
+    if(['select','scan','next','previous'].includes(t.dataset.seatAction)&&scanNavigationPending()){S.scanSetupErr='還有輸入未送出、未保存或結果待查的掃描，請完成本筆或清除未送出文字，再換位置。';render();return;}
     seatUI.act(t.dataset.seatAction,{number:t.dataset.seatNumber,code:t.dataset.seatCode,site:S.mode==="phone"?S.site:S.mapSite,zone:S.mode==="phone"?S.zone:S.mapZone,sess:S.sess,onScan:scanChosenLocation,onView:code=>{S.viewCode=code;render();window.scrollTo(0,0);}});
   });
   document.addEventListener("change",e=>{
     const f=e.target.dataset && e.target.dataset.seatField;if(!f||!seatUI)return;
-    if(["number","number-typed"].includes(f)&&scanNavigationPending()){S.scanSetupErr="尚有未保存或結果待查的掃描，先核對本筆，再換位置。";render();return;}
+    if(["number","number-typed"].includes(f)&&scanNavigationPending()){S.scanSetupErr="還有輸入未送出、未保存或結果待查的掃描，請完成本筆或清除未送出文字，再換位置。";render();return;}
     if(f==="file"){const file=e.target.files&&e.target.files[0];if(file)seatUI.file(file,S.mapSite,"");}
     else if(f==="plan-file"){const file=e.target.files&&e.target.files[0];if(file)seatUI.planFile(file);}
     else {seatUI.field(f,f==='imp-names'?e.target.checked:e.target.value);if(f==="name")seatUI.autosaveName({site:S.mode==="phone"?S.site:S.mapSite,zone:S.mode==="phone"?S.zone:""});}
