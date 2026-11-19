@@ -1,0 +1,4 @@
+<!doctype html><meta charset=utf-8><meta name=referrer content=no-referrer><title>TF private test handoff</title><p id=s>Only sends your existing session to the approved private test window.</p><button id=b>Continue private TF test</button><script>
+const dest='https://silver-space-fortnight-j4qrj4ggvp6c56jq-3000.app.github.dev';
+document.getElementById('b').onclick=()=>{if(!opener){s.textContent='Open this from the private test window.';return}let t='';for(const k of ['zhuge_ai_os_google_auth_session_v1','zhuge_ai_os_session_v1']){try{t=JSON.parse(localStorage.getItem(k)||'null')?.access_token||t}catch{}}if(!t){s.textContent='No existing session';return}opener.postMessage({type:'tf-isolated-session',token:t},dest);s.textContent='Sent only to the approved private test origin.'};
+</script>
