@@ -393,7 +393,21 @@
     }
     const dailyConsumer = global.InvestmentDailyCloseService.createDailyConsumer({
       getSession: dailySession,
-      invokeFunction: context.data.invokeFunction,
+      invokeFunction: (name, payload) => {
+        const controller = new AbortController();
+        let timer;
+        const timedOut = new Promise((_, reject) => {
+          timer = global.setTimeout(() => {
+            const error = new Error("DAILY_SOURCE_TIMEOUT");
+            reject(error);
+            controller.abort(error);
+          }, 12000);
+        });
+        const request = Promise.resolve().then(() => context.data.invokeFunction(name, payload, { signal: controller.signal }));
+        // The race settles before the consumer sees a value. A late response
+        // cannot enter its snapshot cache after timeout or replace old values.
+        return Promise.race([request, timedOut]).finally(() => global.clearTimeout(timer));
+      },
       normalizeQuote: (quote, now) => global.InvestmentIntelligenceLayer.normalizeQuote(quote, now)
     });
     const unsubscribeSession = context.session.subscribe?.(() => {
@@ -1340,6 +1354,11 @@
         });
       }
 
+      // Core dashboard is usable without waiting for the separate board read.
+      // Do not repaint other forms while an optional board load completes.
+      const coreDashboardPainted = store.getState().activePage === "dashboard";
+      if (coreDashboardPainted) renderPage();
+
       // Opening or refreshing the private investment overview is read-only.
       // repairIvtkIdentity and syncIvtkProjection mutate existing board tasks;
       // only the separate explicit board workflow may activate those contracts.
@@ -1364,7 +1383,7 @@
           error: boardError || projectionError
         })
       });
-      renderPage();
+      if (!coreDashboardPainted || store.getState().activePage === "portfolio") renderPage();
     }
 
     onRoot("click", event => {
