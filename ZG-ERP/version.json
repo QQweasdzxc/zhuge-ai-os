@@ -2,6 +2,6 @@
   "name": "ZG-ERP 庫存 · 設備管理",
   "version": "0.5.3",
   "dataBackend": "google-sheets",
-  "note": "讀取改有上限併行並同批載入座位圖；USB鍵盤式掃描輸入接同一盤點流程。",
-  "build": "2026-11-19.speedscan1"
+  "note": "讀取改有上限併行並同批載入座位圖；USB鍵盤式掃描輸入接同一盤點流程，自動保存核實成功後才播放網頁完成音。",
+  "build": "2026-11-19.speedscan2"
 }
