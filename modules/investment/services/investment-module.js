@@ -393,7 +393,21 @@
     }
     const dailyConsumer = global.InvestmentDailyCloseService.createDailyConsumer({
       getSession: dailySession,
-      invokeFunction: context.data.invokeFunction,
+      invokeFunction: (name, payload) => {
+        const controller = new AbortController();
+        let timer;
+        const timedOut = new Promise((_, reject) => {
+          timer = global.setTimeout(() => {
+            const error = new Error("DAILY_SOURCE_TIMEOUT");
+            reject(error);
+            controller.abort(error);
+          }, 12000);
+        });
+        const request = Promise.resolve().then(() => context.data.invokeFunction(name, payload, { signal: controller.signal }));
+        // The race settles before the consumer sees a value. A late response
+        // cannot enter its snapshot cache after timeout or replace old values.
+        return Promise.race([request, timedOut]).finally(() => global.clearTimeout(timer));
+      },
       normalizeQuote: (quote, now) => global.InvestmentIntelligenceLayer.normalizeQuote(quote, now)
     });
     const unsubscribeSession = context.session.subscribe?.(() => {
