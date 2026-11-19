@@ -168,6 +168,10 @@
   const db = () => store.state();
   const sites = () => db().sites;
   const siteNames = () => sites().map((s) => s.name);
+  // Display-only location hierarchy. Persist the original site and zone keys.
+  function locationMeta(key){if(key==='台北重北')return {city:'台北',label:'重慶北路'};if(key==='台北永春')return {city:'台北',label:'永春'};return {city:'其他據點',label:key};}
+  function locationPicker(kind){const isMap=kind==='map',key=isMap?S.mapSite:S.site,zone=isMap?S.mapZone:S.zone,cityKey=isMap?'mapCity':'scanCity';const cities=[...new Set(siteNames().map(n=>locationMeta(n).city))];const city=S[cityKey]||'';const row=(label,buttons)=>'<div class="location-row"><span class="lbl">'+label+'</span><div class="chips">'+buttons+'</div></div>';let h='<nav class="location-picker" aria-label="選擇城市、據點與樓層">'+row('城市',cities.map(c=>'<button class="pill'+(city===c?' on':'')+'" data-a="location-city" data-kind="'+kind+'" data-v="'+esc(c)+'">'+esc(c)+'</button>').join(''));if(city){h+=row('據點',siteNames().filter(n=>locationMeta(n).city===city).map(n=>'<button class="pill'+(key===n?' on':'')+'" data-a="location-site" data-kind="'+kind+'" data-v="'+esc(n)+'">'+esc(locationMeta(n).label)+'</button>').join(''));if(key&&locationMeta(key).city===city)h+=row('樓層',zonesOf(key).map(z=>'<button class="pill'+(zone===z?' on':'')+'" data-a="location-zone" data-kind="'+kind+'" data-v="'+esc(z)+'">'+esc(z.replace(/^(\d+)F$/i,'$1 樓'))+'</button>').join(''));}return h+'</nav>';}
+
   const siteOf = (n) => sites().find((s) => s.name === n);
   const zonesOf = (n) => { const s = siteOf(n); return s ? s.zones : []; };
   const assets = () => db().assets;
@@ -727,7 +731,7 @@
       '<div class="lbl" style="margin-top:14px">盤點據點（可改）</div>' +
       (siteNames().length === 0
         ? '<div class="chips"><span class="small">尚未建立據點。請先到「電腦 · 管理編輯 → 公司據點」新增第一個據點，這裡才會出現選項。</span></div>'
-        : '<div class="chips">' + siteNames().map((p) => '<button class="pill' + (S.site === p ? " on" : "") + '" data-a="site" data-v="' + esc(p) + '">' + esc(p) + "</button>").join("") + "</div>") +
+        : locationPicker('phone')) +
       (g && S.nearest && S.site && S.site !== S.nearest ? '<div class="warn">你選的據點和定位最近的據點不同，結果會註記。</div>' : "") +
       (store.departmentReady || D.isMock
         ? '<div class="lbl" style="margin-top:14px">本次使用部門（與專案、保管人分開）</div><input class="inp" data-f="scanDepartment" placeholder="例如：管理部；不確定可留白" value="' + esc(S.scanDepartment) + '"><div class="small">開始前設定，之後每筆沿用。未填就記未指定；已有其他部門的設備保留原登記並提示差異。</div>'
@@ -1071,8 +1075,7 @@
   }
   function pcMap() {
     if (!seatUI) return legacyPcMap();
-    S.mapSite = S.mapSite || siteNames()[0] || "";
-    return '<div class="chips">' + siteNames().map(p => '<button class="pill" data-a="mapsite" data-v="' + esc(p) + '">' + esc(p) + '</button>').join("") + '</div>' + seatUI.render(S.mapSite, "") + (S.editCode && getA(S.editCode) ? '<div class="seat-edit-overlay"><div class="seat-edit-panel card">' + assetDrawerHtml(getA(S.editCode), lastRecordOf(S.editCode), zonesOf(getA(S.editCode).site)) + '</div></div>' : '');
+    return locationPicker('map') + (S.mapCity&&S.mapSite&&S.mapZone ? seatUI.render(S.mapSite, S.mapZone) : '<div class="card">請依序選城市、據點與樓層，再開啟平面圖。</div>') + (S.editCode && getA(S.editCode) ? '<div class="seat-edit-overlay"><div class="seat-edit-panel card">' + assetDrawerHtml(getA(S.editCode), lastRecordOf(S.editCode), zonesOf(getA(S.editCode).site)) + '</div></div>' : '');
   }
   /* ---- 入庫作業：整批建單（待入庫，不影響庫存）→ 到貨核對（手機）→ 確認入庫（此時才建設備）---- */
   function pcInbound() {
@@ -1381,7 +1384,7 @@
       let body;
       if (S.dash) body = phoneDash();
       else if (S.screen === "recv") body = phoneRecv();
-      else if (S.screen === "seats") body = (seatUI ? '<section class="card"><h3>座位圖：選目前座位</h3><p class="small">看清楚座號，點選目前座位後按「掃描」開始；換座位隨時回這頁。完整管理功能請用電腦版。</p>' + seatLastScanHtml() + seatUI.render(S.site||S.mapSite||siteNames()[0]||"", "") + '</section>' : '<div class="card">座位圖模組未載入，請重新整理。</div>');
+      else if (S.screen === "seats") body = (seatUI ? '<section class="card"><h3>座位圖：選目前座位</h3><p class="small">看清楚座號，點選目前座位後按「掃描」開始；換座位隨時回這頁。完整管理功能請用電腦版。</p>' + locationPicker('phone') + seatLastScanHtml() + (S.scanCity&&S.site&&S.zone ? seatUI.render(S.site, S.zone) : '<div class="card">請依序選城市、據點與樓層，再開啟平面圖。</div>') + '</section>' : '<div class="card">座位圖模組未載入，請重新整理。</div>');
       else if (S.screen === "start") body = phoneStart();
       else if (S.screen === "scan") body = phoneScan();
       else body = phoneResult();
@@ -1430,6 +1433,9 @@
     else if (a === "workspace-manage") { S.mode="pc"; S.dtab=v; S.dash=false; S.workspaceMore=false; }
     else if (a === "mode") { S.mode = v; }
     else if (a === "tab") { S.dash = v === "dash"; }
+    else if (a === "location-city") {const im=t.dataset.kind==='map';S[im?'mapCity':'scanCity']=v;if(im){S.mapSite='';S.mapZone='';}else{S.site='';S.zone='';}if(seatUI)seatUI.resetSelection();}
+    else if (a === "location-site") {if(seatUI)seatUI.resetSelection();if(t.dataset.kind==='map'){S.mapSite=v;S.mapZone='';}else{S.site=v;S.zone='';}}
+    else if (a === "location-zone") {if(seatUI)seatUI.resetSelection();if(t.dataset.kind==='map')S.mapZone=v;else S.zone=v;}
     else if (a === "site") { if(seatUI)seatUI.resetSelection();S.site = v; }
     else if (a === "gps") { detectGps(); return; }
     else if (a === "start") { startSession(); return; }
