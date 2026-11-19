@@ -510,10 +510,10 @@ window.ArchipelagoCatalog={mount({container,request}){
  panel.innerHTML='<p role="status">正在讀取這個家庭的玩家…</p>';
  try{const d=await request('listParentPlayers',{parentSession});if(!alive||!panel.isConnected)return;
  const labels={chengyu_family_attempts:'成語回合',chengyu_family_challenge_attempts:'成語挑戰',vocab_family_attempts:'英文回合',learning_adventure_xp_ledger:'經驗紀錄',learning_adventure_coin_ledger:'金幣紀錄',learning_adventure_parent_grants:'家長給幣',learning_adventure_redemptions:'兌換紀錄',learning_adventure_daily_plans:'每日任務',learning_adventure_daily_reviews:'訂正複習',learning_adventure_collections:'收藏',learning_adventure_promotion_exams:'升級測驗',learning_adventure_stage_exams:'關卡測驗',learning_adventure_village_exams:'村莊測驗'};
- panel.innerHTML='<p>只刪除你親自選定的玩家，不會按零分自動清理。刪除會同時移除字裡乾坤、英文島與冒險主島的這位玩家、成績、XP、金幣、收藏及所有個人紀錄，無法還原。家庭入口、家長 PIN、共用教材、獎品設定及其他玩家不變。</p><p>不能刪除目前使用的玩家；要刪除他，請先切換另一位玩家。待確認兌換必須先處理。</p><div data-player-list></div><div data-delete-preview></div><p data-delete-note role="status"></p>';
+ panel.innerHTML='<p>只刪除你親自選定的玩家，不會按零分自動清理。刪除會同時移除字裡乾坤、英文練習與冒險主島的這位玩家、成績、XP、金幣、收藏及所有個人紀錄，無法還原。家庭入口、家長 PIN、共用教材、獎品設定及其他玩家不變。</p><p>不能刪除目前使用的玩家；要刪除他，請先切換另一位玩家。待確認兌換必須先處理。</p><div data-player-list></div><div data-delete-preview></div><p data-delete-note role="status"></p>';
  const list=panel.querySelector('[data-player-list]');
  for(const x of d.players||[]){const card=document.createElement('article');card.className='coin-pending';const reason=x.heroId===d.activeHeroId?'目前使用中':d.players.length<2?'至少保留一位玩家':x.pending?'先處理待確認兌換':'';card.innerHTML='<strong>'+esc(x.name)+'</strong><p>'+esc(x.totalXP)+' XP · '+esc(x.balance)+' 金幣 · 玩家 '+esc(x.heroId.slice(-6))+'</p><button type="button" '+(reason?'disabled':'')+'>'+esc(reason||'檢視刪除影響')+'</button>';list.appendChild(card);if(reason)continue;
- card.querySelector('button').onclick=()=>{const preview=panel.querySelector('[data-delete-preview]');preview.innerHTML='<h4>確認刪除「'+esc(x.name)+'」</h4><p>關聯角色：'+(x.worlds||[]).map(w=>esc((w.world==='chengyu'?'字裡乾坤':'英文島')+'：'+w.name)).join('、')+'</p><p>'+esc(x.totalXP)+' XP、'+esc(x.balance)+' 金幣將一併永久刪除。</p><ul>'+Object.entries(labels).map(([k,label])=>'<li>'+label+'：'+esc(x.counts[k]||0)+' 筆</li>').join('')+'</ul><form data-delete-form><label>請完整輸入玩家姓名「'+esc(x.name)+'」<input name="confirmName" autocomplete="off" maxlength="100" required></label><label><input name="understood" type="checkbox" required style="width:auto;min-height:0;display:inline"> 我了解是永久刪除，無法還原</label><button type="submit" disabled>永久刪除此玩家</button><button type="button" data-cancel-delete>取消</button></form>';
+ card.querySelector('button').onclick=()=>{const preview=panel.querySelector('[data-delete-preview]');preview.innerHTML='<h4>確認刪除「'+esc(x.name)+'」</h4><p>關聯角色：'+(x.worlds||[]).map(w=>esc((w.world==='chengyu'?'字裡乾坤':'英文練習')+'：'+w.name)).join('、')+'</p><p>'+esc(x.totalXP)+' XP、'+esc(x.balance)+' 金幣將一併永久刪除。</p><ul>'+Object.entries(labels).map(([k,label])=>'<li>'+label+'：'+esc(x.counts[k]||0)+' 筆</li>').join('')+'</ul><form data-delete-form><label>請完整輸入玩家姓名「'+esc(x.name)+'」<input name="confirmName" autocomplete="off" maxlength="100" required></label><label><input name="understood" type="checkbox" required style="width:auto;min-height:0;display:inline"> 我了解是永久刪除，無法還原</label><button type="submit" disabled>永久刪除此玩家</button><button type="button" data-cancel-delete>取消</button></form>';
  const f=preview.querySelector('form'),button=f.querySelector('[type=submit]');f.oninput=()=>{button.disabled=f.elements.confirmName.value!==x.name||!f.elements.understood.checked;};f.querySelector('[data-cancel-delete]').onclick=()=>preview.replaceChildren();f.onsubmit=async e=>{e.preventDefault();if(busy||f.elements.confirmName.value!==x.name||!f.elements.understood.checked)return;busy=true;button.disabled=true;let deleted=false;try{await request('deletePlayer',{parentSession,heroId:x.heroId,confirmName:f.elements.confirmName.value,snapshot:x.snapshot});deleted=true;if(!alive)return;preview.replaceChildren();window.dispatchEvent(new CustomEvent('archipelago-players-changed'));await showRewards();await playerManagement();const note=root.querySelector('[data-delete-note]');if(note)note.textContent='已永久刪除「'+x.name+'」及其兩島個人紀錄。其他玩家與家庭設定未變。';}catch(err){if(alive){const area=root.querySelector('[data-settings]');if(area){const note=document.createElement('p');note.setAttribute('role','status');note.textContent=deleted?'刪除已完成，但清單重新讀取失敗。請重新開啟家長模式查看，不要重送。':'未能確認刪除結果：'+(err.message||'連線中斷')+'。請先重新讀取玩家名單確認，不要直接重送。';area.prepend(note);const reload=document.createElement('button');reload.type='button';reload.textContent='重新讀取玩家名單';reload.onclick=()=>playerManagement();note.after(reload);}preview.replaceChildren();}}finally{busy=false;}};};}
  }catch(err){if(alive&&panel.isConnected)panel.textContent=err.message||'玩家清單暫時無法讀取。';}
  }
@@ -630,7 +630,7 @@ window.ArchipelagoCatalog={mount({container,request}){
 </style><style>.daily-review-modal{position:fixed;inset:0;background:#101a39cc;z-index:150;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box}.daily-review-modal[hidden]{display:none}.daily-review-modal input[type=text]{font:inherit;box-sizing:border-box;max-width:100%;padding:8px}.daily-review-modal section{background:#fffbed;color:#263658;border-radius:15px;padding:18px;max-height:80dvh;overflow:auto;width:min(100%,500px);font:15px/1.6 system-ui}.daily-review-modal button{min-height:44px;padding:9px 14px;background:#ffe1a2;border:1px solid #ba9d64;border-radius:8px;font:inherit}.daily-review-modal fieldset{margin:16px 0;border:1px solid #cdc6ae;border-radius:8px}.daily-review-modal label{display:block;padding:10px 4px;min-height:24px}.daily-review-modal [data-daily-close]{float:right}.daily-learning{font-size:11px}.daily-learning>button{font:inherit;padding:5px;border:1px solid #b89d6a;border-radius:6px;background:#ffedbd;min-height:44px;margin:2px}.daily-learning p:empty{display:none}</style><script>/* Server-graded daily review. No client balances, reward flags or XP writes. */
 window.ArchipelagoDaily={mount({container,request,worlds=['chengyu','vocab']}){
  const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));let busy=false,alive=true,review=null;
- const box=document.createElement('div');box.className='daily-learning';box.innerHTML=worlds.map(w=>'<button type="button" data-review-world="'+w+'">'+(w==='chengyu'?'字裡乾坤':'英文島')+'訂正／複習 +3</button>').join('')+'<p data-daily-note role="status"></p><div data-daily-quiz></div>';container.appendChild(box);const modal=document.createElement('div');modal.className='daily-review-modal';modal.hidden=true;modal.innerHTML='<section role="dialog" aria-modal="true" aria-label="每日訂正與複習"><button type="button" data-daily-close aria-label="關閉每日複習">關閉</button><h3>每日訂正與複習</h3><p data-daily-result role="status"></p><div data-daily-content></div></section>';document.body.appendChild(modal);modal.querySelector('[data-daily-close]').onclick=()=>{if(!busy)modal.hidden=true;};
+ const box=document.createElement('div');box.className='daily-learning';box.innerHTML=worlds.map(w=>'<button type="button" data-review-world="'+w+'">'+(w==='chengyu'?'字裡乾坤':'英文練習')+'訂正／複習 +3</button>').join('')+'<p data-daily-note role="status"></p><div data-daily-quiz></div>';container.appendChild(box);const modal=document.createElement('div');modal.className='daily-review-modal';modal.hidden=true;modal.innerHTML='<section role="dialog" aria-modal="true" aria-label="每日訂正與複習"><button type="button" data-daily-close aria-label="關閉每日複習">關閉</button><h3>每日訂正與複習</h3><p data-daily-result role="status"></p><div data-daily-content></div></section>';document.body.appendChild(modal);modal.querySelector('[data-daily-close]').onclick=()=>{if(!busy)modal.hidden=true;};
  const note=t=>{if(alive){box.querySelector('[data-daily-note]').textContent=t;modal.querySelector('[data-daily-result]').textContent=t;}};
  function render(){modal.hidden=false;const area=modal.querySelector('[data-daily-content]');if(review.completed){area.innerHTML='<p>今天這座島的每日任務已完成，3 金幣已記錄，不會重複領取。</p>';return;}
  area.innerHTML='<p>'+(review.reviewType==='correction'?'把本回合錯題重新答對。':review.reviewType==='first_review'?'第一次學習，複習剛學過的內容。':'複習已學過的內容。')+'</p><form data-daily-form>'+review.questions.map((q,i)=>'<fieldset><legend>'+(i+1)+'. '+escape(q.stem)+'</legend>'+(q.kind==='vocab-spelling'?'<label>英文拼字 <input type="text" name="q'+i+'" autocomplete="off" autocapitalize="none" spellcheck="false" required></label>':q.choices.map((c,j)=>'<label><input type="radio" name="q'+i+'" value="'+j+'" required> '+escape(c)+'</label>').join(''))+'</fieldset>').join('')+'<button type="submit">檢查訂正與領取每日 3 幣</button></form>';
@@ -672,7 +672,7 @@ html,body{touch-action:pan-x pan-y}
   <div class="islands">
    <a class="island chengyu" id="islandChengyu" href="https://qqweasdzxc.github.io/zhuge-ai-os/learning/chengyu/" aria-label="前往字裡乾坤"><span class="quest-spark">✦</span><div class="island-scene"><span class="pixel-building" aria-hidden="true">🏯</span></div><span class="island-label">📖 字裡乾坤</span><span class="island-desc">探索典故・解開語意謎題</span><span class="island-badge">NOW OPEN · 出航</span></a>
    <div class="island chinese closed" aria-disabled="true"><div class="island-scene"><span class="pixel-building" aria-hidden="true">📝</span></div><span class="island-label">✍️ 國語島</span><span class="island-desc">部首・注音・改錯字</span><span class="island-badge">🔒 研發中</span></div>
-   <a class="island english" id="islandEnglish" href="https://qqweasdzxc.github.io/zhuge-ai-os/learning/vocab/" aria-label="前往英文島"><span class="quest-spark">✦</span><div class="island-scene"><span class="pixel-building" aria-hidden="true">🏰</span></div><span class="island-label">🔤 英文島</span><span class="island-desc">魔法單字・拼字試煉</span><span class="island-badge">NOW OPEN · 出航</span></a>
+   <a class="island english" id="islandEnglish" href="https://qqweasdzxc.github.io/zhuge-ai-os/learning/vocab/" aria-label="前往英文練習"><span class="quest-spark">✦</span><div class="island-scene"><span class="pixel-building" aria-hidden="true">🏰</span></div><span class="island-label">🔤 英文練習</span><span class="island-desc">魔法單字・拼字試煉</span><span class="island-badge">NOW OPEN · 出航</span></a>
    <div class="island math closed" aria-disabled="true"><div class="island-scene"><span class="pixel-building" aria-hidden="true">⛰️</span></div><span class="island-label">🔢 數學島</span><span class="island-desc">算術迷宮・幾何洞窟</span><span class="island-badge">🔒 即將開放</span></div>
    <div class="island nature closed" aria-disabled="true"><div class="island-scene"><span class="pixel-building" aria-hidden="true">🌲</span></div><span class="island-label">🌿 自然島</span><span class="island-desc">植物世界・科學探險</span><span class="island-badge">🔒 即將開放</span></div>
    <div class="island reading closed" aria-disabled="true"><div class="island-scene"><span class="pixel-building" aria-hidden="true">📚</span></div><span class="island-label">📚 閱讀島</span><span class="island-desc">閱讀秘境・推理尋寶</span><span class="island-badge">🔒 即將開放</span></div>
@@ -702,15 +702,15 @@ html,body{touch-action:pan-x pan-y}
  </div>
   <div class="drawer-section"><h3>📜 冒險歷程</h3>
    <div class="stat-row"><span>📖 字裡乾坤累積</span><strong id="idiomXP">— XP</strong></div>
-   <div class="stat-row"><span>🔤 英文島累積</span><strong id="englishXP">— XP</strong></div>
+   <div class="stat-row"><span>🔤 英文練習累積</span><strong id="englishXP">— XP</strong></div>
    <div class="stat-row"><span>🏆 已通過晉級試煉</span><strong id="examWins">— 次</strong></div>
   </div>
-  <div class="drawer-section"><h3>🏆 英雄榜</h3><p class="drawer-note">燈塔英雄榜：字裡乾坤、英文島各自分開排名。</p><button class="btn secondary" id="drawerBoardBtn" type="button">🏆 打開英雄榜</button></div>
+  <div class="drawer-section"><h3>🏆 英雄榜</h3><p class="drawer-note">燈塔英雄榜：字裡乾坤、英文練習各自分開排名。</p><button class="btn secondary" id="drawerBoardBtn" type="button">🏆 打開英雄榜</button></div>
   <div class="drawer-section"><h3>⚙️ 設定與聲音</h3>
    <p class="drawer-note">聲音與環境測試在各島的「勇者→設定」裡，玩家身分會由總部帶入。</p>
    <div class="actions">
     <a class="btn secondary" id="settingsChengyuLink" href="https://qqweasdzxc.github.io/zhuge-ai-os/learning/chengyu/">📖 字裡乾坤設定</a>
-    <a class="btn secondary" id="settingsEnglishLink" href="https://qqweasdzxc.github.io/zhuge-ai-os/learning/vocab/">🔤 英文島設定</a>
+    <a class="btn secondary" id="settingsEnglishLink" href="https://qqweasdzxc.github.io/zhuge-ai-os/learning/vocab/">🔤 英文練習設定</a>
    </div>
   </div>
   <div class="drawer-section"><h3>📊 家長觀察室</h3>
@@ -730,7 +730,7 @@ html,body{touch-action:pan-x pan-y}
   <p class="quest-reset">先完成一回合，再回來訂正或複習。每島每天 +3 幣。</p>
   <div id="dailyLearning"></div><div class="quest-mini">
    <a class="quest-mini-row" data-quest="chengyu" href="https://qqweasdzxc.github.io/zhuge-ai-os/learning/chengyu/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4a2 2 0 0 1 2-2h12v15H7a2 2 0 0 0-2 2V4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M19 17v5H7a2 2 0 0 1 0-4h12z" fill="currentColor" opacity=".28"/></svg><span class="qmr-text"><strong>字裡乾坤</strong> · 1 回合成語練習</span><span class="qmr-go" aria-hidden="true">›</span></a>
-   <a class="quest-mini-row" data-quest="english" href="https://qqweasdzxc.github.io/zhuge-ai-os/learning/vocab/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18 12 4l6 14M8.4 13h7.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="qmr-text"><strong>英文島</strong> · 1 回合單字練習</span><span class="qmr-go" aria-hidden="true">›</span></a>
+   <a class="quest-mini-row" data-quest="english" href="https://qqweasdzxc.github.io/zhuge-ai-os/learning/vocab/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18 12 4l6 14M8.4 13h7.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="qmr-text"><strong>英文練習</strong> · 1 回合單字練習</span><span class="qmr-go" aria-hidden="true">›</span></a>
    <p class="quest-progress" id="questProgress" hidden></p>
    <details class="quest-more"><summary>每日領獎規則</summary><p class="drawer-note">每日先完成一回合，再完成訂正或少量複習可領3幣，愛心用完完成訂正也可領。完成回合且答對率達80%，每島每天前3個達標回合各5幣，XP不變。</p></details>
   </div>
@@ -767,12 +767,13 @@ const FAMILY_DEVICE_KEY='archipelago-verified-family-v1',FAMILY_COOKIE='archipel
 function deviceFamily(){try{const local=localStorage.getItem(FAMILY_DEVICE_KEY);if(local)return JSON.parse(local)}catch(e){}try{const v=document.cookie.split('; ').find(x=>x.startsWith(FAMILY_COOKIE+'='));return v?JSON.parse(decodeURIComponent(v.slice(FAMILY_COOKIE.length+1))):null}catch(e){return null}}
 function forgetDeviceFamily(){window.ArchipelagoIdentity.forget();try{localStorage.removeItem(FAMILY_DEVICE_KEY)}catch(e){}document.cookie=FAMILY_COOKIE+'=; Path=/; Max-Age=0; Secure; SameSite=Strict';}
 try{const h=new URLSearchParams(location.hash.slice(1));token=h.get('f')||'';if(!h.has('f')){const saved=deviceFamily();if(saved&&/^[A-Za-z0-9_-]{40,128}$/.test(saved.token||'')){token=saved.token;savedPlayer=typeof saved.player==='string'?saved.player:''}}}catch(e){}
-let firstEntryNeedsHeroChoice=false;try{const prior=deviceFamily();firstEntryNeedsHeroChoice=location.hostname==='qqweasdzxc.github.io'&&!!token&&(!prior||prior.token!==token)}catch(e){}
+let firstEntryNeedsHeroChoice=false;try{const prior=deviceFamily();firstEntryNeedsHeroChoice=location.hostname==='qqweasdzxc.github.io'&&!!token&&(window.__archipelagoIncomingIdentityChanged===true||!prior||prior.token!==token)}catch(e){}
 function rememberFamily(){if(!rememberDevice)return;const value=JSON.stringify({token,player:player?.name||savedPlayer||''});try{localStorage.setItem(FAMILY_DEVICE_KEY,value)}catch(e){}if(token.startsWith('dv1_')){window.ArchipelagoIdentity.save(token);return;}document.cookie=FAMILY_COOKIE+'='+encodeURIComponent(value)+'; Path=/; Max-Age=2592000; Secure; SameSite=Strict';}
 const NEW_HOME='https://qqweasdzxc.github.io/zhuge-ai-os/learning/';
 function restoreFamilyForm(){
+ if(isFamily()){if(players.length)choosePlayer();else loadPlayers();return;}
  show('<div class="dialog-icon" aria-hidden="true"><svg width="48" height="48" viewBox="0 0 48 48"><circle cx="24" cy="24" r="21" fill="#ffe1a0" stroke="#2b3c63" stroke-width="3"/><path d="M32 16 28 28 16 32 20 20Z" fill="#5472af" stroke="#2b3c63" stroke-width="2"/></svg></div><h2 id="dialogTitle">接回原來的勇者</h2><p>請從和助理的私人對話，點開你的專屬接續連結。開啟後就能選原勇者，不用貼網址，也不用重新建立。</p><p>這個瀏覽器會記住入口；換裝置或清除網站資料後，需要再接續一次。</p><div class="dialog-actions"><button class="btn secondary" id="restoreFamilyBack" type="button">先試玩看看</button></div>','restore');
- $('restoreFamilyBack').onclick=close;
+ $('restoreFamilyBack').onclick=()=>{try{sessionStorage.setItem('archipelago-trial-choice-v1','trial')}catch(_){}close()};
 }
 let entryBusy=false,entryGeneration=0;
 window.addEventListener('archipelago-entry-ready',resumeEntry);
@@ -799,7 +800,7 @@ async function resumeEntry(){
   pending=window.__archipelagoPendingEntry||pending;
   if(grant && pending?.grant!==grant)pending={grant,deviceToken:'dv1_'+[...crypto.getRandomValues(new Uint8Array(32))].map(x=>x.toString(16).padStart(2,'0')).join('')};
   if(!pending&&!token&&!window.ArchipelagoIdentity.current()&&window.ArchipelagoLegacyRecovery.take())return;
-  if(!pending){const remembered=window.ArchipelagoIdentity.current();if(remembered){token=remembered;savedPlayer=deviceFamily()?.player||savedPlayer;}return loadPlayers();}
+  if(!pending){const previousToken=token;const remembered=window.ArchipelagoIdentity.current()||window.ArchipelagoIdentity.params().get('f')||deviceFamily()?.token||'';if(remembered){token=remembered;savedPlayer=deviceFamily()?.player||savedPlayer;}if(player&&hero&&remembered===previousToken&&token===previousToken&&(!window.ArchipelagoIdentity.params().get('p')||window.ArchipelagoIdentity.params().get('p')===player.name)){setLinks();return;}if(!token){try{if(sessionStorage.getItem('archipelago-trial-choice-v1')==='trial'){status('試玩模式：不儲存進度，可隨時找回原勇者。');return;}}catch(_){}}return loadPlayers();}
   if(!/^[0-9a-f]{64}$/.test(pending.grant||''))return await discardInvalidEntry();
   window.__archipelagoPendingEntry=pending;try{sessionStorage.setItem(key,JSON.stringify(pending))}catch(_){}
   entryBusy=true;
@@ -925,7 +926,7 @@ function render(){
  $('examWins').textContent=(stats?.exams||[]).filter(x=>x.passed===true).length+' 次';
 }
 async function loadPlayers(){
- if(!isFamily()){status('試玩模式：找回原勇者後就能繼續累積進度。');show('<div class="dialog-icon" aria-hidden="true">🧭</div><h2 id="dialogTitle">歡迎來到學習島</h2><p>學習島換新網址了，原來的勇者和成績都不用重建。</p><div class="dialog-actions" style="grid-template-columns:1fr"><button class="btn" id="restoreFamilyOpen" type="button">找回我的勇者</button><button class="btn secondary" id="previewClose" type="button">第一次來，先試玩</button></div>','preview');$('previewClose').onclick=close;$('restoreFamilyOpen').onclick=restoreFamilyForm;return}
+ if(!isFamily()){status('試玩模式：找回原勇者後就能繼續累積進度。');show('<div class="dialog-icon" aria-hidden="true">🧭</div><h2 id="dialogTitle">歡迎來到學習島</h2><p>學習島換新網址了，原來的勇者和成績都不用重建。</p><div class="dialog-actions" style="grid-template-columns:1fr"><button class="btn" id="restoreFamilyOpen" type="button">找回我的勇者</button><button class="btn secondary" id="previewClose" type="button">第一次來，先試玩</button></div>','preview');$('previewClose').onclick=()=>{try{sessionStorage.setItem('archipelago-trial-choice-v1','trial')}catch(_){}close()};$('restoreFamilyOpen').onclick=restoreFamilyForm;return}
  status('☁️ 正在連接 Supabase 家庭冒險資料…');
  show('<div class="dialog-icon">☁️</div><h2 id="dialogTitle">正在開啟冒險世界</h2><p>努力載入家庭勇者名單中…</p>','loading');
  try{const data=await call('listPlayers');players=data.players||[];rememberFamily();if(!window.ArchipelagoIdentity.params().get('f')){window.ArchipelagoIdentity.replaceState(null,'',location.pathname+location.search+'#f='+encodeURIComponent(token)+(savedPlayer?'&p='+encodeURIComponent(savedPlayer):''));}setLinks();status('✅ 家庭冒險雲端已連線，選自己的名字就可以出航！');const hint=firstEntryNeedsHeroChoice?'':(window.ArchipelagoIdentity.params().get('p')||savedPlayer);firstEntryNeedsHeroChoice=false;const who=hint&&players.find(x=>x.name===hint);if(who)await selectPlayer(who.id);else choosePlayer()}
@@ -1090,7 +1091,7 @@ function confirmRole(code){
    '<img class="shared-preview-image" src="'+master+'" alt="" draggable="false">'+
    (hero.avatarStyle==='girl'?'<img class="shared-preview-image" src="'+girl+'" alt="" draggable="false">':'')+'</div>'
   :'<div class="role-preview class-art class-art-'+code+' '+hero.avatarStyle+'" role="img" aria-label="'+r.title+'角色插畫"></div>';
- show(preview+'<h2 id="dialogTitle">確定成為「'+r.title+'」嗎？</h2><p>'+r.desc+'。職業會同步到英文島、字裡乾坤。確認後暫時不提供更換功能。</p><p class="error" id="roleError"></p><div class="dialog-actions"><button class="btn mint" type="button" id="roleConfirm">✅ 確認職業</button><button class="btn secondary" type="button" id="roleBack">返回選擇</button></div>','confirmRole');
+ show(preview+'<h2 id="dialogTitle">確定成為「'+r.title+'」嗎？</h2><p>'+r.desc+'。職業會同步到英文練習、字裡乾坤。確認後暫時不提供更換功能。</p><p class="error" id="roleError"></p><div class="dialog-actions"><button class="btn mint" type="button" id="roleConfirm">✅ 確認職業</button><button class="btn secondary" type="button" id="roleBack">返回選擇</button></div>','confirmRole');
  $('roleBack').onclick=chooseRole;
  $('roleConfirm').onclick=async()=>{
   if(busy)return;busy=true;$('roleConfirm').disabled=true;
@@ -1192,7 +1193,7 @@ function dailyAttemptDone(world,attempts,learnerId,taskKey,day,playerName){
 }
 function renderDailyRows(){
  const prog=$('questProgress');
- const rows=[['chengyu',document.querySelector('[data-quest=chengyu]'),'字裡乾坤'],['vocab',document.querySelector('[data-quest=english]'),'英文島']];
+ const rows=[['chengyu',document.querySelector('[data-quest=chengyu]'),'字裡乾坤'],['vocab',document.querySelector('[data-quest=english]'),'英文練習']];
  if(rows.some(r=>!r[1]))return;
  if(!isFamily()||!player){if(prog)prog.hidden=true;return}
  const day=dailyState.walletDay||taipeiDay();
@@ -1216,7 +1217,7 @@ function decorateDailyReviewButtons(){
  for(const b of box.querySelectorAll('[data-review-world]')){
   const w=b.dataset.reviewWorld,done=!!dailyState.reviewDone[w];
   b.classList.toggle('done',done);b.classList.add('quest-mini-row','daily-review-card');
-  const label=(w==='chengyu'?'字裡乾坤':'英文島')+' · 訂正／複習';
+  const label=(w==='chengyu'?'字裡乾坤':'英文練習')+' · 訂正／複習';
   const hint=done?'已完成，今天的 3 金幣已記錄':'未完成回合會先進今日測驗；完成後回來訂正或複習，再領3幣。每島每天最多一次。';
   const signature=String(done)+'|'+w;
   b.setAttribute('aria-label',label+'，'+(done?'今日已完成':'每日獎勵 3 金幣'));
@@ -1476,7 +1477,7 @@ function own(){return plan?.tasks.find(x=>x.world===world)}
 function row(world,mode,done,preview){
  const a=document.createElement('a');a.className='quest-mini-row'+(done?' done':'');a.href=host.childLink(world)+'&t='+(preview?'preview':mode);a.dataset.dailyPart=world+':'+mode;
  const icon=document.createElement('span');icon.className='qmr-icon';icon.textContent=done?'✓':world==='vocab'?'英':'成';
- const text=document.createElement('span');text.className='qmr-text';const strong=document.createElement('strong');strong.textContent=world==='vocab'?'英文島':'字裡乾坤';text.append(strong,document.createTextNode(' · '+labels[world][mode]));
+ const text=document.createElement('span');text.className='qmr-text';const strong=document.createElement('strong');strong.textContent=world==='vocab'?'英文練習':'字裡乾坤';text.append(strong,document.createTextNode(' · '+labels[world][mode]));
  const hint=document.createElement('small');hint.style.cssText='display:block;font-size:11px;line-height:1.5;margin-top:5px';hint.textContent=(done?'已完成。':preview?'翻到最後一張，按「預習完成，去挑戰」。':'完成這個模式的一回合，進度儲存後打勾。')+(preview?'預習不發通關幣；接續測驗依達標規則領幣。':'完成回合且答對率達80%可得5幣；每島每天限前3個達標回合。');text.append(hint);
  const go=document.createElement('span');go.className='qmr-go';go.textContent=done?'✓':'›';a.append(icon,text,go);return a;
 }
