@@ -414,3 +414,30 @@ button.geo-kpi:hover{border-color:var(--ds-teal,#0a7)}
 .seat-num {white-space:nowrap;flex-shrink:0;}
 .seat-anchor.has-name.seat-tall {flex-direction:column;gap:8px;}
 .seat-anchor.has-name.seat-tall small {white-space:normal;max-width:100%;font-size:11px;line-height:1.35;overflow:visible;}
+
+/* Location workflow: input modes share one save path. Camera remains available. */
+.scan-input-switch{display:flex;gap:8px;flex-wrap:wrap;align-items:center;grid-column:1/-1}
+.scan-workspace.scan-input-usb{display:flex;flex-direction:column}
+.scan-input-usb > *{order:5}
+.scan-input-usb > .scanbar{order:0}
+.scan-input-usb > .scan-input-switch{order:1}
+.scan-input-usb > .scan-prog{order:2}
+.scan-input-usb > .usb-scan-card{order:3}
+.scan-input-usb > .toast,.scan-input-usb > .warn{order:4}
+.scan-input-usb > .scan-camera{order:7}
+.screen.scan-input-usb .scan-camera .view{height:180px;min-height:140px}
+.scan-input-usb .usb-scan-card{border:2px solid var(--accent,#187b83)}
+.scan-input-usb .usb-scan-card input{font-size:18px;min-height:48px}
+.scan-input-usb .scan-camera::before{content:'相機掃描仍可使用，也可切換上方「相機掃描」';font-size:12px;color:var(--ds-muted,#64748b)}
+@media(min-width:1100px){.scan-workspace.scan-input-camera>.scan-camera{grid-row:3 / span 8}}
+
+.scan-current-position{display:flex;flex-direction:column;gap:4px;padding:12px;border:1px solid var(--ds-stroke,#ccd4db);border-radius:10px;grid-column:1/-1}.scan-input-usb > .scan-current-position{order:2}
+.scan-workspace.scan-input-usb{align-items:stretch}
+@media(min-width:1100px){
+ .scan-workspace.scan-input-camera>.scanbar{grid-row:1;grid-column:1/-1}
+ .scan-workspace.scan-input-camera>.scan-input-switch{grid-row:2;grid-column:1/-1}
+ .scan-workspace.scan-input-camera>.scan-current-position{grid-row:3;grid-column:1/-1}
+ .scan-workspace.scan-input-camera>.scan-prog{grid-row:4;grid-column:1/-1}
+ .scan-workspace.scan-input-camera>.scan-camera{grid-row:5 / span 8;grid-column:1}
+}
+.seat-pickrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.seat-pickrow select.inp{max-width:100%;min-width:0!important}
