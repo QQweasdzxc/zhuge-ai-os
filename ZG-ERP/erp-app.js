@@ -2,7 +2,7 @@
 "use strict";
 const D = window.ZgErpData;
 const store = D.store;
-const intakeUI = window.ErpIntakeUI ? window.ErpIntakeUI.create(store, () => render()) : null;
+const intakeUI = window.ErpIntakeUI ? window.ErpIntakeUI.create(store, () => render(), () => draftAcct()) : null;
 const seatUI = window.ErpSeatUI ? window.ErpSeatUI.create(store, () => render()) : null;
 const geoUI = window.ErpGeoOverview ? window.ErpGeoOverview.create(store, () => render()) : null;
 const repairUI=window.ErpRepairUI?window.ErpRepairUI.create(store,()=>render()):null;
@@ -496,7 +496,7 @@ if (D.isMock || typeof store.syncStatus !== "function") return "";
 setTimeout(refreshSyncBadge, 0);
 return '<div id="erp-sync-badge" class="syncbadge" style="display:none"></div><div id="erp-version-badge" class="versionbadge" style="display:none"></div>';
 }
-const LOADED_BUILD = { id: "2026-11-20.camerakeep1" };
+const LOADED_BUILD = { id: "2026-11-21.intakestatus1" };
   async function checkAppVersion() {
 if (D.isMock) return;
 try {
