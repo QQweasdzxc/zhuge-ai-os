@@ -441,3 +441,11 @@ button.geo-kpi:hover{border-color:var(--ds-teal,#0a7)}
  .scan-workspace.scan-input-camera>.scan-camera{grid-row:5 / span 8;grid-column:1}
 }
 .seat-pickrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.seat-pickrow select.inp{max-width:100%;min-width:0!important}
+
+/* Compact location groups: share desktop width; wrap without shrinking touch targets. */
+.location-picker{display:flex;flex-wrap:wrap;align-items:flex-start;gap:10px 24px;padding:10px 12px}
+.location-picker .location-row{display:flex;flex:0 1 auto;flex-direction:column;gap:5px;max-width:100%;min-width:0;margin:0}
+.location-picker .location-row .lbl{margin:0;line-height:1.3}
+.location-picker .location-row .chips{display:flex;flex-wrap:wrap;gap:6px;margin:0;min-width:0}
+.location-picker .location-row .pill{min-height:40px;white-space:normal;overflow-wrap:anywhere}
+@media(max-width:600px){.location-picker{gap:10px 16px}.location-picker .location-row .pill{min-height:44px}}
