@@ -6,6 +6,7 @@ export function mayRelease(row,attempts){return row.phase==='EDITING';}
 export function logicalKeys(tab,row,prior){
  if(!Array.isArray(row))throw Error('ROW_REQUIRED');const text=v=>String(v??'').trim();const key=(prefix,...v)=>prefix+':'+JSON.stringify(v.map(text));
  const asset=v=>{if(!text(v))throw Error('ASSET_KEY_REQUIRED');return key('asset',v)};
+ if(tab==='現場觀察'){if(!text(row[0]))throw Error('OBSERVATION_KEY_REQUIRED');return [key('observation',row[0])]}
  if(tab==='資產'){if(prior&&text(prior[0])!==text(row[0]))throw Error('ASSET_ID_IMMUTABLE');return [asset((prior||row)[0]),...([...new Set([text(row[3]),text(prior?.[3])].filter(Boolean))].map(v=>key('serial',v)))].sort()}
  if(tab==='盤點場次'){if(!text(row[0]))throw Error('SESSION_KEY_REQUIRED');return [key('session',row[0])]}
  if(tab==='盤點紀錄'){if(!text(row[0]))throw Error('SESSION_KEY_REQUIRED');return [asset(row[1]),key('record',row[0],row[1])].sort()}
