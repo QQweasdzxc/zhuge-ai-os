@@ -177,7 +177,8 @@
       }
       return this._refreshPromise;
     }
-    async _fetchAuth(url, init) {
+    async _fetchAuth(url, init, canSend=()=>true) {
+      if(!canSend())throw Error('帳號已切換，沒有送出原操作');
       if(init?.method==='POST'){
         const payload=JSON.parse(init.body||'{}');
         payload.operationId=payload.operationId||operationId();
@@ -188,6 +189,7 @@
       if (res && res.status === 401 && this._refresher) {
         const fresh = await this._refreshOnce();
         if (fresh) {
+          if(!canSend())throw Error('帳號已切換，沒有重送原操作');
           res = await this.fetch(url, Object.assign({}, init, { headers: this._authHeaders(init && init.headers) }));
         }
       }
@@ -614,15 +616,16 @@
       if (b.items.length && b.items.every((x) => x.state === "inbound")) b.closed = true;
       return made;
     }
-    async saveRepairVerified(plan){
+    async saveRepairVerified(plan,identitySafe=()=>true){
+      if(!identitySafe())throw Error('帳號已切換，沒有送出維修');const initialDb=this.db;
       if(!plan?.code||!plan?.event)throw new Error('維修資料不完整');
       this._repairAttempts=this._repairAttempts||new Set();
       if(this._repairAttempts.has(plan.code))throw new Error('此筆維修寫入結果待查，不可重送');
       this._repairAttempts.add(plan.code);this._writeGeneration=(this._writeGeneration||0)+1;this._pendingCount=(this._pendingCount||0)+1;
       try{
-        const res=await this._fetchAuth(this._url('repair-stage','assets'),{method:'POST',headers:this._authHeaders({'content-type':'application/json'}),body:JSON.stringify({code:plan.code,stage:plan.stage,note:plan.event.note,site:plan.patch.site||'',zone:plan.patch.zone||'',expected:plan.expected,operationId:operationId(),...(this._editReservations?.has(plan.code)?{editorCode:plan.code,reservationToken:this._editReservations.get(plan.code).token}: {})})});
+        const res=await this._fetchAuth(this._url('repair-stage','assets'),{method:'POST',headers:this._authHeaders({'content-type':'application/json'}),body:JSON.stringify({code:plan.code,stage:plan.stage,note:plan.event.note,site:plan.patch.site||'',zone:plan.patch.zone||'',expected:plan.expected,operationId:operationId(),...(this._editReservations?.has(plan.code)?{editorCode:plan.code,reservationToken:this._editReservations.get(plan.code).token}: {})})},()=>identitySafe()&&this.db===initialDb);
         const body=await res.json();if(!res.ok||body?.ok!==true||!Array.isArray(body.asset)||!Array.isArray(body.movement)||body.asset[0]!==plan.code||body.movement[3]!==plan.code)throw new Error(body.error?.message||'維修寫入結果待查，保留畫面且不可重送');
-        const asset=this._db().assets.find(a=>a.code===plan.code);Object.assign(asset,rowToAsset(body.asset,body.assetRow-2));this._originalRows=this._originalRows||{};this._originalRows.assets=this._originalRows.assets||[];this._originalRows.assets[body.assetRow-2]=[...body.asset];this._db().movements.push(rowToMovement(body.movement,body.movementRow-2));this._repairAttempts.delete(plan.code);this._editReservations?.delete(plan.code);return asset;
+        if(!identitySafe()||this.db!==initialDb)throw Error('帳號已切換，請回原帳號核對維修保存結果');const asset=this._db().assets.find(a=>a.code===plan.code);Object.assign(asset,rowToAsset(body.asset,body.assetRow-2));this._originalRows=this._originalRows||{};this._originalRows.assets=this._originalRows.assets||[];this._originalRows.assets[body.assetRow-2]=[...body.asset];this._db().movements.push(rowToMovement(body.movement,body.movementRow-2));this._repairAttempts.delete(plan.code);this._editReservations?.delete(plan.code);return asset;
       }finally{this._pendingCount-=1;}
     }
     addMovement(code, type, note, extra) {
