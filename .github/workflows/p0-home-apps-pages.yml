@@ -33,6 +33,17 @@ jobs:
       - name: Verify navigation and P0 entry routes
         run: node --test tests/shared-navigation.test.js tests/taskflow-entry.test.js tests/taskflow-cli-sso.test.js
 
+  erp-cutover-contract:
+    name: ERP paired cutover contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Verify protocol, static staging, round rejection and real bundled client lifecycle
+        run: node --test tests/erp-cutover/*.test.cjs
+
   backend-image:
     name: TaskFlow backend build parity
     runs-on: ubuntu-latest
