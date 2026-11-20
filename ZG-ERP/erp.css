@@ -449,3 +449,23 @@ button.geo-kpi:hover{border-color:var(--ds-teal,#0a7)}
 .location-picker .location-row .chips{display:flex;flex-wrap:wrap;gap:6px;margin:0;min-width:0}
 .location-picker .location-row .pill{min-height:40px;white-space:normal;overflow-wrap:anywhere}
 @media(max-width:600px){.location-picker{gap:10px 16px}.location-picker .location-row .pill{min-height:44px}}
+
+/* Location-first mobile detail candidate. No business data or permission effects. */
+.seat-optional-details{margin:12px 0;padding:10px 0;border-block:1px solid var(--ds-hairline)}
+.seat-optional-details>summary{cursor:pointer;font-size:13px;color:var(--ds-ink-2)}
+.seat-modal .icode{font-family:ui-monospace,monospace;overflow-wrap:anywhere;word-break:normal;line-height:1.5}
+@media(max-width:600px){
+ .seat-modal{box-sizing:border-box;max-height:calc(100dvh - 32px);padding:16px}
+ .seat-asset-head{display:none}
+ .seat-asset-row{grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;padding:12px 8px;margin:6px 0}
+ .seat-asset-row>span:nth-child(1){grid-column:1;grid-row:1;font-weight:700}
+ .seat-asset-row>span:nth-child(2){grid-column:1!important;grid-row:2;color:var(--ds-ink-2)}
+ .seat-asset-row>span:nth-child(3){grid-column:1;grid-row:3;color:var(--ds-ink-2)}
+ .seat-asset-row>span:nth-child(3)::before{content:'序號：'}
+ .seat-asset-row>span:nth-child(4){grid-column:1;grid-row:4;font-size:12px}
+ .seat-asset-row>span:nth-child(4)::before{content:'設備碼：';font-family:inherit}
+ .seat-asset-row>span:nth-child(5){grid-column:2;grid-row:1 / 5}
+ .seat-modal-actions>.inp{box-sizing:border-box;max-width:100%}
+}
+
+body:has(.seat-modal-backdrop) .workspace-nav{visibility:hidden;pointer-events:none}
