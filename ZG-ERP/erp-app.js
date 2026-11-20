@@ -5,7 +5,7 @@ const store = D.store;
 const intakeUI = window.ErpIntakeUI ? window.ErpIntakeUI.create(store, () => render(), () => draftAcct()) : null;
 const seatUI = window.ErpSeatUI ? window.ErpSeatUI.create(store, () => render()) : null;
 const geoUI = window.ErpGeoOverview ? window.ErpGeoOverview.create(store, () => render()) : null;
-const repairUI=window.ErpRepairUI?window.ErpRepairUI.create(store,()=>render()):null;
+const repairUI=window.ErpRepairUI?window.ErpRepairUI.create(store,()=>render(),()=>draftAcct()):null;
 const differenceUI=window.ErpDifferenceUI?window.ErpDifferenceUI.create(store,()=>render()):null;
 const LABEL = { ok: "相符", zone: "位置不符", site: "異地設備", none: "查無編號", dup: "重複掃描", seat: "座位差異" };
 const GLYPH = { ok: "✓", zone: "≠", site: "⇄", none: "?", dup: "×2", seat: "⚠" };
@@ -496,7 +496,7 @@ if (D.isMock || typeof store.syncStatus !== "function") return "";
 setTimeout(refreshSyncBadge, 0);
 return '<div id="erp-sync-badge" class="syncbadge" style="display:none"></div><div id="erp-version-badge" class="versionbadge" style="display:none"></div>';
 }
-const LOADED_BUILD = { id: "2026-11-21.intakerefresh1" };
+const LOADED_BUILD = { id: "2026-11-21.repairaccount1" };
   async function checkAppVersion() {
 if (D.isMock) return;
 try {
@@ -1709,7 +1709,7 @@ document.addEventListener('input',e=>{if(e.target.dataset?.diffField&&difference
 document.addEventListener('change',e=>{if(e.target.dataset?.diffField&&differenceUI)differenceUI.field(e.target);});
   function sharedReadSafe(){return !S.scanBusy&&!S.scanQueue?.length&&!Object.keys(S.scanHeld||{}).length&&!S.editDraft&&!S.ibDraft&&!S.annOpen&&!S.camOn&&!seatUI?.state.busy&&!seatUI?.state.draft&&!seatUI?.state.editing&&!intakeUI?.state.busy&&!intakeUI?.state.book&&!differenceUI?.state.key&&!repairUI?.state.code;}
 document.addEventListener('click',async e=>{const t=e.target.closest?.('[data-a="shared-refresh"]');if(!t||S.sharedBusy||!store.refreshShared)return;S.sharedBusy=true;S.sharedMessage='';render();try{await store.refreshShared(sharedReadSafe);const current=S.sess&&db().sessions.find(x=>x.id===S.sess.id);if(current)S.sess=current;S.sharedMessage='共同資料已更新，包含所有人的設備與盤點結果。';}catch(e){S.sharedMessage=e.message;}finally{S.sharedBusy=false;checkAppVersion();render();}});
-document.addEventListener('click',async e=>{const t=e.target.closest?.('[data-repair-action]');if(t&&repairUI){if(t.dataset.repairAction==='save'&&S.editTouched){repairUI.state.error='上方有尚未保存的設備編輯，請先保存或取消後再登記維修。';render();return;}await repairUI.act(t.dataset.repairAction,t.dataset.repairCode);if(t.dataset.repairAction==='save'&&!repairUI.state.code){S.editCode='';S.editDraft=null;render();}}});
+document.addEventListener('click',async e=>{const t=e.target.closest?.('[data-repair-action]');if(t&&repairUI){if(t.dataset.repairAction==='save'&&S.editTouched){repairUI.state.error='上方有尚未保存的設備編輯，請先保存或取消後再登記維修。';render();return;}const who=draftAcct();await repairUI.act(t.dataset.repairAction,t.dataset.repairCode);if(draftAcct()===who&&t.dataset.repairAction==='save'&&!repairUI.state.code){S.editCode='';S.editDraft=null;render();}}});
 document.addEventListener('change',e=>{if(e.target.dataset?.repairField&&repairUI)repairUI.field(e.target)});
 document.addEventListener('input',e=>{if(e.target.dataset?.repairField&&repairUI)repairUI.field(e.target)});
 document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-seat-retry]");if(!t)return;const rec=curRecs().find(r=>r.code===t.dataset.seatRetry);if(!rec||!rec.__seatRetry)return;rec.__seatPending=true;rec.__seatError="";render();Promise.all([rec.__write,getA(rec.code)?.__write,S.sess.__write].filter(Boolean)).then(()=>rec.__seatRetry()).then(()=>{rec.__seatPending=false;render()}).catch(e=>{rec.__seatPending=false;rec.__seatError=e.message;render()})});
