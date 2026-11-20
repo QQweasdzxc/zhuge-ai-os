@@ -155,7 +155,7 @@
   }
   if(typeof repairUI!=='undefined'&&repairUI&&repairUI.setDrafts&&DRAFTS)repairUI.setDrafts({get:k=>{const r=DRAFTS.get(draftAcct(),'repair',k);return r&&r.payload;},put:(k,v)=>DRAFTS.put(draftAcct(),'repair',k,v),discard:k=>DRAFTS.discard(draftAcct(),'repair',k)});
   function draftLine(){return '<div id="erp-draft-line" aria-live="polite">'+draftInner()+'</div>';}
-  function preferredScanInput(){try{const v=localStorage.getItem('zg_erp_scan_input');if(v==='camera'||v==='usb')return v;}catch(_){}return (window.matchMedia?.('(pointer: coarse)').matches||(window.innerWidth||0)<700)?'camera':'usb';}
+  function preferredScanInput(){return (window.matchMedia?.('(pointer: coarse)').matches||(window.innerWidth||0)<700)?'camera':'usb';}
   const S = {scanInput:preferredScanInput(),
     booting: !D.isMock, mode: new URLSearchParams(location.search).get("mode") === "phone" ? "phone" : "pc", workspaceMore: false,
     dtab: "dash", dash: false, screen: "start",
@@ -441,7 +441,8 @@
       render();
     }, { enableHighAccuracy: true, timeout: 10000 });
   }
-  function startSession() {
+  function startSession(options={}) {
+    if(S.scanStarting)return;
     if (!S.site && siteNames().length === 1) S.site = siteNames()[0];
     if (!S.site) { S.scanSetupErr = siteNames().length ? "請先選盤點據點：展開「修改本次設定／取得定位」，點一個據點再開始。" : "尚未建立據點。請先在電腦「公司據點」新增據點。"; render(); return; }
     S.scanStarting = true;
@@ -459,6 +460,7 @@
       S.open = ""; S.screen = "scan";
       render();
     };
+    if(options.direct){begin(null);return;}
     // 開始盤點時抓一次起點定位：未決定時會跳出一次瀏覽器授權請求；明確拒絕則不問，維持手動據點
     if (!S.gps && navigator.geolocation) {
       const capture = () => {
@@ -602,6 +604,7 @@
     });
   }
   function afterRender() {
+    restoreUsbFocus();
     if(seatUI)seatUI.layout();
     if (S.camOn && cam.stream) {
       const v = document.getElementById("camv");
@@ -621,7 +624,7 @@
     setTimeout(refreshSyncBadge, 0); /* 整頁重繪會重建徽章（預設隱藏），重繪後立刻補上內容 */
     return '<div id="erp-sync-badge" class="syncbadge" style="display:none"></div><div id="erp-version-badge" class="versionbadge" style="display:none"></div>';
   }
-  const LOADED_BUILD = { id: "2026-11-19.flow1" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
+  const LOADED_BUILD = { id: "2026-11-20.directscan1" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
   async function checkAppVersion() {
     if (D.isMock) return;
     try {
@@ -807,10 +810,10 @@
       (S.scanSetupErr ? '<div class="warn">'+(S.scanUncertain?'本筆掃描 '+esc(S.scanIntent?.code||'')+'：保存結果待查，請勿重送。':esc(S.scanSetupErr))+(S.scanIntent&&!S.scanUncertain?'<button class="pill" data-a="scan-intent-retry">重試這筆未保存掃描</button>':'')+'</div>' : "") +
       recs.filter(r=>r.__seatError).map(r=>'<div class="warn">座位登記未同步：'+esc(r.code)+' · '+esc(r.__seatError)+'<button class="pill" data-seat-retry="'+esc(r.code)+'">重試座位登記（不重掃設備）</button></div>').join("") +
       (S.zoneOpen ? '<div class="zonepick">' + zonesOf(S.site).map((z) => '<button class="pill' + (S.zone === z ? " on" : "") + '" data-a="zone" data-v="' + esc(z) + '">' + esc(z) + "</button>").join("") + "</div>" : "") +
-      '<div class="scan-camera">' + (seatUI ? seatUI.scanPanel(S.site,S.zone,S.sess,recs,"above") : "") +
+      '<div class="scan-camera">' + (S.camErr ? '<div class="warn" role="status">' + esc(S.camErr) + '</div>' : '') + (seatUI ? seatUI.scanPanel(S.site,S.zone,S.sess,recs,"above") : "") +
       (S.camOn
         ? '<div class="view live"><video id="camv" autoplay playsinline muted></video><svg id="qrframe" class="qrframe" preserveAspectRatio="xMidYMid meet" aria-hidden="true" hidden><polygon id="qrpolygon" vector-effect="non-scaling-stroke"></polygon></svg><span id="qrdetected" class="detectedhint" aria-live="polite">對準標籤；辨識後自動保存，網頁完成聲須等寫入成功；保存狀態見下方</span><span class="hint">' + (cam.engine === "jsqr" ? "對準 QR 碼（此瀏覽器僅支援 QR），掃到會自動記一筆（同一張持續對準只記一次，移開約 1.5 秒後可再掃）" : "對準 QR／條碼，掃到會自動記一筆（同一張持續對準只記一次，移開約 1.5 秒後可再掃）") + '</span></div>'
-        : '<button type="button" class="view camera-activate" data-a="camstart" aria-label="點一下開啟相機掃描"'+(cam.starting?' disabled aria-busy="true"':'')+'><i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i><div class="qr"></div><span class="hint">'+(cam.starting?'正在開啟相機…<br>瀏覽器詢問時，請允許相機':'點一下開啟相機掃描<br>瀏覽器詢問時，請允許相機')+'</span></button>' + (S.camErr ? '<div class="warn">' + esc(S.camErr) + "</div>" : "")) +
+        : '<button type="button" class="view camera-activate" data-a="camstart" aria-label="點一下開啟相機掃描"'+(cam.starting?' disabled aria-busy="true"':'')+'><i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i><div class="qr"></div><span class="hint">'+(cam.starting?'正在開啟相機…<br>瀏覽器詢問時，請允許相機':'點一下開啟相機掃描<br>瀏覽器詢問時，請允許相機')+'</span></button>') +
       (seatUI ? seatUI.scanPanel(S.site,S.zone,S.sess,recs) : "") +
       (S.camOn?'<button class="pill sm camera-stop" data-a="camstop">關閉相機</button>':'') + '</div>' +
       '<details class="scan-meta"><summary>進度、範圍與場次資訊</summary>' +
@@ -824,7 +827,7 @@
       heldReloaded().map(r=>'<div class="warn">上次中斷的掃描 '+esc(r.payload.values.code)+'：'+(r.payload.values.uncertain?'結果待查':'未保存')+'，不會自動重送。請先核對該編號的紀錄，再到「管理功能 › 本機草稿」移除。</div>').join('') +
       Object.values(S.scanHeld||{}).map(x=>'<div class="warn">'+(x.uncertain?'結果待查掃描 ':'未保存掃描 ')+esc(x.code)+' · '+esc(x.zone)+'：'+(x.uncertain?'不能確認已保存':esc(x.error))+(x.uncertain?'（結果待查，不可重送）':'<button class="pill" data-a="scan-intent-retry" data-v="'+esc(x.code)+'">重試這筆</button>')+'</div>').join('') +
       (S.scanAudioNote?'<div class="small" role="status">'+esc(S.scanAudioNote)+'</div>':'')+
-      '<div class="card usb-scan-card"><label class="lbl" for="usb-scan-code">USB 掃描槍</label><button type="button" class="pill" data-a="usb-ready">掃描槍就緒（點此接收）</button><div class="small">選好本次據點與座位後，點下方輸入框再掃 QR。掃描槍送出 Enter 或 Tab 會直接登記；沒有結束鍵時，完整舊帳／已登記編號停留片刻也會自動送出。新編號或有快捷鍵警告時，核對完整文字後按「送出掃描」。請使用英文輸入模式。</div><div class="frow"><input id="usb-scan-code" class="inp" data-f="usbScanCode" autocomplete="off" spellcheck="false" placeholder="點這裡後，用 USB 掃描槍掃 QR" value="'+esc(S.usbScanCode||'')+'"><button class="btn mini" data-a="usb-scan">送出掃描</button></div><div class="small">掃描後自動保存，不用再按保存。網頁完成聲只在核對寫入成功後響；掃描槍自己的嗶聲只代表讀到。請同時核對保存狀態。<button class="pill" data-a="scan-audio">啟用完成音效</button></div><div class="small" id="usb-focus-status" role="status">'+esc(S.usbControlBlocked?'已攔住導頁快捷鍵，尚未送出。請核對框內完整編號，再按「送出掃描」；或點「掃描槍就緒」清空重掃。':'掃描前請點「掃描槍就緒」或輸入框，確認游標在框內。')+'</div></div>' +
+      '<div class="card usb-scan-card"'+(S.scanInput==='camera'?' style="display:none"':'')+'><label class="lbl" for="usb-scan-code">USB 掃描槍</label><div class="small">已自動接收，直接掃 QR 即可。掃描槍送出 Enter 或 Tab 會直接登記；沒有結束鍵時，完整舊帳／已登記編號停留片刻也會自動送出。新編號請讓掃描槍帶 Enter 或 Tab 結束鍵；不完整文字不會猜測送出。請使用英文輸入模式。</div><div class="frow"><input id="usb-scan-code" class="inp" data-f="usbScanCode" autocomplete="off" spellcheck="false" placeholder="直接使用 USB 掃描槍掃 QR" value="'+esc(S.usbScanCode||'')+'"><button class="btn mini" data-a="usb-scan">送出掃描</button></div><div class="small">掃描後自動保存，不用再按保存。網頁完成聲只在核對寫入成功後響；掃描槍自己的嗶聲只代表讀到。請同時核對保存狀態。<button class="pill" data-a="scan-audio">啟用完成音效</button></div><div class="small" id="usb-focus-status" role="status">'+esc('正在接收掃描槍，掃到有效設備碼即保存至目前位置。')+'</div></div>' +
       '<div class="frow"><input class="inp" data-f="manualCode" placeholder="輸入登記編號（如 CSPH107030182）" value="' + esc(S.manualCode) + '"><button class="btn mini" data-a="manual">手動登記</button></div>' +
       (D.isMock
         ? '<div class="lbl sim">測試用：模擬掃到（虛構設備）</div><div class="chips">' +
@@ -1410,7 +1413,11 @@
     if(scanNavigationPending())throw Error('還有輸入未送出、未保存或結果待查的掃描，請完成本筆或清除未送出文字，再換位置。');
     if(S.sess&&!S.sess.closed&&S.sess.site!==m.site)throw Error('目前場次在「'+S.sess.site+'」，所選位置在「'+m.site+'」。請先返回目前場次核對並結束，再為此據點開始新場次。');
     const origin=rememberScanMap();origin.map=m.id;origin.seat=n;S.scanMapOrigin=origin;
-    S.site=m.site;S.zone=m.zone;S.scanCity=locationMeta(m.site).city;S.mode='phone';S.screen=S.sess&&!S.sess.closed?'scan':'start';S.dash=false;S.workspaceMore=false;S.scanSetupErr='';seatUI.state.popup=null;seatUI.state.mapId=m.id;render();window.scrollTo(0,0);if(S.scanInput==='usb')document.querySelector('[data-f=usbScanCode]')?.focus({preventScroll:true});
+    S.site=m.site;S.zone=m.zone;S.scanCity=locationMeta(m.site).city;S.mode='phone';S.dash=false;S.workspaceMore=false;S.scanSetupErr='';seatUI.state.popup=null;seatUI.state.mapId=m.id;
+    window.ErpReadFeedback?.unlock().then(ok=>{S.audioReady=ok;});
+    if(S.sess&&!S.sess.closed){S.screen='scan';if(S.scanInput==='camera')camPreWarm();render();}
+    else {startSession({direct:true});}
+    window.scrollTo(0,0);restoreUsbFocus();
   }
   function returnToScanMap(){
     if(scanNavigationPending()){S.scanSetupErr='還有輸入未送出、未保存或結果待查的掃描，請完成本筆或清除未送出文字，再換位置。';render();return;}
@@ -1437,7 +1444,7 @@
     if(a==='view-asset'){if(S.mode!=='phone'){const x=getA(v);if(!x)return;openControlledEditor(v);return;}S.viewScroll=window.scrollY;S.viewCode=v;render();window.scrollTo(0,0);return;}
     if(a==='view-close'){S.viewCode='';render();window.scrollTo(0,S.viewScroll||0);return;}
     if(a==='view-edit'){S.viewCode='';const x=getA(v);if(!x)return;S.retTab=S.dtab;S.mode='pc';S.dtab='assets';S.asite=x.site;openControlledEditor(v);return;}
-    if(a==='scan-input'){if(v!=='usb'&&v!=='camera')return;S.scanInput=v;try{localStorage.setItem('zg_erp_scan_input',v)}catch(_){}if(v==='usb'&&(S.camOn||cam.starting))camStop(true);render();if(v==='usb')document.querySelector('[data-f=usbScanCode]')?.focus({preventScroll:true});return;}
+    if(a==='scan-input'){if(v!=='usb'&&v!=='camera')return;S.scanInput=v;try{localStorage.setItem('zg_erp_scan_input',v)}catch(_){}if(v==='usb'&&(S.camOn||cam.starting))camStop(true);render();if(v==='usb')restoreUsbFocus();else camStart();return;}
     if(a==='scan-map-return'){returnToScanMap();return;}
     if(a==='goal-search'){S.goalSearchDone=String(S.goalSearch||'').trim();render();return;}
     if(a==='goal-find'){S.mode='pc';S.dtab='dash';render();document.querySelector('#goal-search')?.focus();return;}
@@ -1800,21 +1807,38 @@
     S.usbScanCode='';await scan(code);
     const input=document.querySelector('[data-f="usbScanCode"]');if(input&&S.screen==='scan'&&!S.scanSetupErr)input.focus({preventScroll:true});
   }
-  function usbFocusStatus(){const h=document.getElementById('usb-focus-status');if(h&&!S.usbControlBlocked)h.textContent=document.hasFocus()&&document.activeElement?.dataset?.f==='usbScanCode'?'已取得輸入焦點，可接收掃描槍。':'輸入框目前沒有焦點，掃描前請點「掃描槍就緒」。';}
-  document.addEventListener('focusin',usbFocusStatus);document.addEventListener('focusout',()=>setTimeout(usbFocusStatus,0));window.addEventListener('blur',usbFocusStatus);window.addEventListener('focus',usbFocusStatus);
+  function usbScanActive(){return S.screen==='scan'&&S.mode==='phone'&&S.scanInput==='usb'&&S.sess&&!S.sess.closed;}
+  function usbOtherEditor(el){return el&&el.dataset?.f!=='usbScanCode'&&(el.matches?.('input,textarea,select,[contenteditable="true"]')||el.isContentEditable);}
+  function restoreUsbFocus(){
+    if(!usbScanActive()||!document.hasFocus()||usbOtherEditor(document.activeElement)||document.querySelector('[role="dialog"],.seat-modal'))return;
+    document.querySelector('[data-f="usbScanCode"]')?.focus({preventScroll:true});usbFocusStatus();
+  }
+  function usbFocusStatus(){const h=document.getElementById('usb-focus-status');if(h)h.textContent=document.hasFocus()&&document.activeElement?.dataset?.f==='usbScanCode'?'正在接收掃描槍，掃到有效設備碼即保存至目前位置。':'目前暫停接收；回到盤點頁後會自動接收。';}
+  document.addEventListener('focusin',usbFocusStatus);
+  document.addEventListener('focusout',()=>setTimeout(restoreUsbFocus,0));
+  document.addEventListener('pointerup',()=>setTimeout(restoreUsbFocus,0));
+  window.addEventListener('blur',usbFocusStatus);window.addEventListener('focus',restoreUsbFocus);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)restoreUsbFocus();});
   window.addEventListener('keydown',e=>{
-    if(e.target.dataset?.f!=='usbScanCode')return;
-    // Modifier keydown is not a shortcut. HID scanners may frame text with Ctrl+B / Ctrl+C.
+    if(!usbScanActive()||usbOtherEditor(e.target)||document.querySelector('[role="dialog"],.seat-modal'))return;
     if(['Control','Alt','Meta','Shift'].includes(e.key))return;
     const key=String(e.key||'').toLowerCase();
-    const navigate=e.key==='F6'||(e.ctrlKey&&['l','t','n','w','r','o'].includes(key))||(e.altKey&&['d','arrowleft','arrowright','f4'].includes(key))||(e.metaKey&&['l','t','n','w','r','o'].includes(key));
+    const navigate=e.key==='F6'||(e.ctrlKey&&['l','t','n','w','r','o','f','k','e'].includes(key))||(e.altKey&&['d','arrowleft','arrowright','f4'].includes(key))||(e.metaKey&&['l','t','n','w','r','o','f','k','e'].includes(key));
     if(navigate){
-      if(e.cancelable)e.preventDefault();e.stopImmediatePropagation();S.usbControlBlocked=true;clearTimeout(usbIdleTimer);
-      const h=document.getElementById('usb-focus-status');if(h)h.textContent='已攔住導頁快捷鍵，尚未送出。請核對框內完整編號，再按「送出掃描」；或點「掃描槍就緒」清空重掃。';return;
+      if(e.cancelable)e.preventDefault();e.stopImmediatePropagation();
+      // Discard navigation prefixes, not the next complete asset code. Never navigate from scan input.
+      restoreUsbFocus();return;
     }
+    const input=document.querySelector('[data-f="usbScanCode"]');if(!input)return;
     if(e.ctrlKey&&!e.altKey&&!e.metaKey&&['m','j','i'].includes(key)){e.preventDefault();e.stopImmediatePropagation();if(!e.isComposing)submitUsbScan();return;}
-    if(e.ctrlKey&&!e.altKey&&!e.metaKey&&['b','c'].includes(key)){e.preventDefault();e.stopImmediatePropagation();return;}
-    if(e.key==='Enter'||(e.key==='Tab'&&String(e.target.value||'').trim())){e.preventDefault();e.stopImmediatePropagation();if(!e.isComposing)submitUsbScan();}
+    if(e.ctrlKey&&!e.altKey&&!e.metaKey&&['b','c'].includes(key)){e.preventDefault();e.stopImmediatePropagation();restoreUsbFocus();return;}
+    if(e.key==='Enter'||(e.key==='Tab'&&String(input.value||'').trim())){e.preventDefault();e.stopImmediatePropagation();if(!e.isComposing)submitUsbScan();return;}
+    // A click on a status/blank area must not discard the first scanner character.
+    if(e.target!==input&&!e.ctrlKey&&!e.altKey&&!e.metaKey&&!e.isComposing&&e.key.length===1){
+      e.preventDefault();e.stopImmediatePropagation();input.focus({preventScroll:true});
+      input.setRangeText(e.key,input.selectionStart??input.value.length,input.selectionEnd??input.value.length,'end');
+      S.usbScanCode=input.value;scheduleUsbScan({target:input,isComposing:false});
+    }
   },true);
   document.addEventListener("keydown", (e) => {
 
