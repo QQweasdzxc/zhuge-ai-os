@@ -54,11 +54,12 @@
     });
   }
   function session() {
-    for (const key of ["zhuge_ai_os_google_auth_session_v1", "zhuge_ai_os_session_v1"]) {
-      try {
-        const s = JSON.parse(localStorage.getItem(key) || "null");
-        if (s) return s;
-      } catch { /* 下一個 key */ }
+    const verified=window.ErpAuth?.state?.();
+    if(verified?.status==='ready'&&verified.identity)return verified.identity;
+    for(const key of ['zhuge_ai_os_session_v1','zhuge_ai_os_google_auth_session_v1']){
+      try{const value=JSON.parse(localStorage.getItem(key)||'null'),user=value&&(value.user||value);
+        if(user&&(user.email||user.id||user.sub||user.uid))return value;
+      }catch{}
     }
     return null;
   }
@@ -624,7 +625,7 @@
     setTimeout(refreshSyncBadge, 0); /* 整頁重繪會重建徽章（預設隱藏），重繪後立刻補上內容 */
     return '<div id="erp-sync-badge" class="syncbadge" style="display:none"></div><div id="erp-version-badge" class="versionbadge" style="display:none"></div>';
   }
-  const LOADED_BUILD = { id: "2026-11-20.fieldsave1" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
+  const LOADED_BUILD = { id: "2026-11-20.draftidentity1" }; /* 隨本頁程式載入的建置識別（不含手填時間）；每次部署必須同步改這裡與 version.json 的 build。發布時間只取伺服器回應的 Last-Modified */
   async function checkAppVersion() {
     if (D.isMock) return;
     try {
