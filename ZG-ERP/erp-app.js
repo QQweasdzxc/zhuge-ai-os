@@ -496,7 +496,7 @@ if (D.isMock || typeof store.syncStatus !== "function") return "";
 setTimeout(refreshSyncBadge, 0);
 return '<div id="erp-sync-badge" class="syncbadge" style="display:none"></div><div id="erp-version-badge" class="versionbadge" style="display:none"></div>';
 }
-const LOADED_BUILD = { id: "2026-11-21.intakestatus1" };
+const LOADED_BUILD = { id: "2026-11-21.intakerefresh1" };
   async function checkAppVersion() {
 if (D.isMock) return;
 try {
