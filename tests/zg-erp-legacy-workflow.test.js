@@ -262,3 +262,9 @@ test('all legacy groups have distinct paging keys; filters reset; no zero comple
 });
 
 }
+
+{
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+test('ERP loaded runtime build matches its published version file',()=>{const root=path.resolve(__dirname,'..','ZG-ERP');const app=fs.readFileSync(path.join(root,'erp-app.js'),'utf8');const version=JSON.parse(fs.readFileSync(path.join(root,'version.json'),'utf8'));const match=app.match(/const LOADED_BUILD\s*=\s*\{\s*id:\s*"([^"]+)"\s*\}/);assert.ok(match,'loaded runtime build literal exists');assert.equal(match[1],version.build);});
+
+}
