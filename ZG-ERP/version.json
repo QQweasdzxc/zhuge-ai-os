@@ -3,5 +3,5 @@
   "version": "0.6.0",
   "dataBackend": "google-sheets",
   "note": "位置資訊內直接掃描；相容場次沿用、相機與外接槍介面切換、同位置多台核實保存、保留圖面視角自由換位。",
-  "build": "2026-11-20.directscan1"
+  "build": "2026-11-20.fieldsave1"
 }
