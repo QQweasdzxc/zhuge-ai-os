@@ -1,3 +1,7 @@
+import { notifyVerifiedSave } from './server-notification.ts';
+import {sharedRoundPlan,sharedSiteKey,SHARED_HEADER,SHARED_MARKER,sharedSessionRequired,roundKey,closeRoundPlan} from './shared-round.mjs';
+import { observationPlan, observationLockKeys, OBSERVATION_HEADER } from './observation-core.mjs';
+import { detectLayout, logicalRows, shiftRange, mapBatch } from './asset-layout-core.mjs';
 // zg-ledger-bridge - deployed source custody recovered 2026-11-04; structured scan department + authenticated actor.
 // ZG-ERP「現存資料庫」專用橋接：前台 → 本函式（Google 服務帳號）→ Google Sheets。
 // 架構定案：新帳（LEDGER_SPREADSHEET_ID）是唯一讀寫目標；舊帳 59 工作簿唯讀比對。
@@ -8,6 +12,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
 
 import "./seat-map-core.js";
 import {scanPlan,scanBatch} from "./scan-core.mjs";
+import {projectSeats} from "./seat-projection-core.mjs";
 import {repairPlan,repairBatch} from "./repair-core.mjs";
 import { RowCustody } from "./row-control-server.ts";
 import { logicalKeys, trackedAttempt,validOperationId, custodyErrorMapping } from "./row-control-core.mjs";
@@ -30,7 +35,7 @@ const APPROVAL_CHECK_TIMEOUT_MS = 10000;
 const DEFAULT_ORIGIN = "https://qqweasdzxc.github.io";
 
 // 新帳分頁（唯寫目標；釐清標示記錄每筆舊帳的核對進度與人工結論，不改寫舊帳原文）；舊帳僅整合-主檔/待確認/整合-流轉對應可比對讀取
-const LEDGER_TABS = ["資產", "盤點場次", "盤點紀錄", "流轉紀錄", "進貨批次", "位置表", "釐清標示", "座位圖"] as const;
+const LEDGER_TABS = ["資產", "盤點場次", "盤點紀錄", "流轉紀錄", "進貨批次", "位置表", "釐清標示", "座位圖", "現場觀察"] as const;
 const LEGACY_READABLE_TABS = ["整合-主檔", "整合-待確認", "整合-流轉對應"] as const;
 /* 33 個已納整併的出處分頁：唯讀補存原始列（整筆來源完整性）。明列、不擴其他頁；總表_0331 依 11/4 決定維持排除。
  * 注意「10F機房 」頁名尾端有空白，與 Sheets 實際頁名精確一致。 */
@@ -140,41 +145,55 @@ function resolveTarget(tab: string): { spreadsheetId: string; readonly: boolean 
   throw new HttpError("Unknown tab.", 400, "TAB_UNKNOWN");
 }
 
-async function sheetsRead(token: string, spreadsheetId: string, tab: string) {
-  const url = `${GOOGLE_SHEETS_API}/${spreadsheetId}/values/${encodeURIComponent(tab)}!A1:Z10000?valueRenderOption=UNFORMATTED_VALUE`;
+async function sheetsRead(token: string, spreadsheetId: string, tab: string):Promise<{header:unknown[];rows:unknown[][];layout?:{offset:number;seat:string}}> {
+  const url = `${GOOGLE_SHEETS_API}/${spreadsheetId}/values/${encodeURIComponent(tab)}!A1:${tab==='資產'?'AA':'Z'}10000?valueRenderOption=UNFORMATTED_VALUE`;
   const res = await fetch(url, { headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(GOOGLE_REQUEST_TIMEOUT_MS) });
   const body = await res.json();
   if (!res.ok) throw new HttpError("Sheet read failed.", 502, "SHEET_READ_FAILED");
   const values = (body.values || []) as unknown[][];
+  if(tab==='資產'){let layout;try{layout=detectLayout(values[0]||[])}catch{throw new HttpError('資產欄位配置不符，未寫入。',503,'ASSET_LAYOUT_UNKNOWN')}const logical=logicalRows(values,layout);return {header:logical[0]||[],rows:logical.slice(1),layout};}
   return { header: values[0] || [], rows: values.slice(1) };
 }
 
+async function assetLayout(token:string,spreadsheetId:string){
+ const r=await fetch(`${GOOGLE_SHEETS_API}/${spreadsheetId}/values/${encodeURIComponent('資產!A1:AA1')}?valueRenderOption=UNFORMATTED_VALUE`,{headers:{authorization:`Bearer ${token}`},signal:AbortSignal.timeout(GOOGLE_REQUEST_TIMEOUT_MS)});const b=await r.json();
+ if(!r.ok)throw new HttpError('資產欄位配置未能核實，未寫入。',503,'ASSET_LAYOUT_UNVERIFIED');
+ try{return detectLayout(b.values?.[0]||[])}catch{throw new HttpError('資產欄位配置不符，未寫入。',503,'ASSET_LAYOUT_UNKNOWN')}
+}
+
 async function sheetsUpdate(token: string, spreadsheetId: string, range: string, row: unknown[], custody: RowCustody) {
-  const url = `${GOOGLE_SHEETS_API}/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
+  const layout=range.startsWith('資產!')?await assetLayout(token,spreadsheetId):undefined;
+  const physical=layout?shiftRange(range,layout.offset):range;
+  const url = `${GOOGLE_SHEETS_API}/${spreadsheetId}/values/${encodeURIComponent(physical)}?valueInputOption=RAW`;
   const res = await trackedAttempt(custody,()=>fetch(url, {
     method: "PUT", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
     body: JSON.stringify({ values: [row] }), signal: AbortSignal.timeout(GOOGLE_REQUEST_TIMEOUT_MS)
   }));
   const body = await res.json();
   if (!res.ok) throw new HttpError("Sheet update failed.", 502, "SHEET_UPDATE_FAILED");
+  if(layout&&body.updatedRange)body.updatedRange=shiftRange(body.updatedRange,-layout.offset);
   return body;
 }
 
 async function sheetsAppend(token: string, spreadsheetId: string, tab: string, row: unknown[], custody: RowCustody) {
-  const url = `${GOOGLE_SHEETS_API}/${spreadsheetId}/values/${encodeURIComponent(tab)}!A1:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
+  const layout=tab==='資產'?await assetLayout(token,spreadsheetId):undefined;
+  const start=layout?.offset?'B':'A';
+  const url = `${GOOGLE_SHEETS_API}/${spreadsheetId}/values/${encodeURIComponent(tab)}!${start}1:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
   const res = await trackedAttempt(custody,()=>fetch(url, {
     method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
     body: JSON.stringify({ values: [row] }), signal: AbortSignal.timeout(GOOGLE_REQUEST_TIMEOUT_MS)
   }));
   const body = await res.json();
   if (!res.ok) throw new HttpError("Sheet append failed.", 502, "SHEET_APPEND_FAILED");
+  if(layout&&body.updates?.updatedRange)body.updates.updatedRange=shiftRange(body.updates.updatedRange,-layout.offset);
   return body; // 讀回驗證由呼叫端以 updatedRange 再 read 確認
 }
 
 // Update changed cells only. Sheets has no atomic compare-and-set across simultaneous writers.
 async function sheetsPatchCells(token:string, spreadsheetId:string, tab:string, rowNum:number, changes:Record<string,unknown>,custody:RowCustody) {
   const letters=(n:number):string=>n?letters(Math.floor((n-1)/26))+String.fromCharCode(65+(n-1)%26):"";
-  const data=Object.entries(changes).map(([col,v])=>({range:tab+"!"+letters(Number(col)+1)+rowNum,values:[[v]]}));
+  const offset=tab==='資產'?(await assetLayout(token,spreadsheetId)).offset:0;
+  const data=Object.entries(changes).map(([col,v])=>({range:tab+"!"+letters(Number(col)+1+offset)+rowNum,values:[[v]]}));
   const res=await trackedAttempt(custody,()=>fetch(`${GOOGLE_SHEETS_API}/${spreadsheetId}/values:batchUpdate`,{method:"POST",headers:{authorization:`Bearer ${token}`,"content-type":"application/json"},body:JSON.stringify({valueInputOption:"RAW",data}),signal:AbortSignal.timeout(GOOGLE_REQUEST_TIMEOUT_MS)}));
   const b=await res.json();if(!res.ok||b.totalUpdatedCells!==data.length)throw new HttpError("儲存未確認，請保留輸入後重試。",502,"WRITE_VERIFY_FAILED");
 }
@@ -192,11 +211,31 @@ function canonicalSeatEvents(rows: unknown[][]) {
   return accepted;
 }
 
+// Read/write only AA. A:Z and the event history are never rewritten by this projection.
+async function syncSeatDisplay(token:string, spreadsheetId:string, keys:string[], custody:RowCustody) {
+ const codes=new Set(keys.filter(k=>k.startsWith('asset:')).map(k=>JSON.parse(k.slice(6))[0]));
+ if(!codes.size)return;
+ const [assets,seats]=await Promise.all(['資產','座位圖'].map(t=>sheetsRead(token,spreadsheetId,t)));
+ const displayColumn=assets.layout!.seat;
+ const range='資產!'+displayColumn+'1:'+displayColumn+'10000';
+ const read=async()=>{const r=await fetch(`${GOOGLE_SHEETS_API}/${spreadsheetId}/values/${encodeURIComponent(range)}?valueRenderOption=UNFORMATTED_VALUE`,{headers:{authorization:`Bearer ${token}`},signal:AbortSignal.timeout(GOOGLE_REQUEST_TIMEOUT_MS)});const b=await r.json();if(!r.ok)throw new HttpError('座位顯示讀取失敗，結果待查。',502,'SEAT_DISPLAY_UNVERIFIED');return b.values||[];};
+ const before=await read();
+ if(before[0]?.[0]!=='對應座位編號')throw new HttpError('座位顯示欄位尚未就緒，未完成保存核對。',503,'SEAT_DISPLAY_SCHEMA');
+ const expected=(projectSeats(assets.rows,seats.rows,canonicalSeatEvents(seats.rows),seatMaps.snapshot(seats.rows).maps) as Array<{code:string;row:number;value:string|number}>).filter(x=>codes.has(x.code));
+ const changed=expected.filter(x=>String(before[x.row-1]?.[0]??'')!==String(x.value));
+ if(changed.length){const data=changed.map(x=>({range:'資產!'+displayColumn+x.row,values:[[x.value]]}));const r=await trackedAttempt(custody,()=>fetch(`${GOOGLE_SHEETS_API}/${spreadsheetId}/values:batchUpdate`,{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'application/json'},body:JSON.stringify({valueInputOption:'RAW',data}),signal:AbortSignal.timeout(GOOGLE_REQUEST_TIMEOUT_MS)}));const b=await r.json();if(!r.ok||b.totalUpdatedCells!==data.length)throw new HttpError('座位顯示尚未核實，保留輸入。',502,'SEAT_DISPLAY_UNVERIFIED');}
+ const after=changed.length?await read():before;
+ if(expected.some(x=>String(after[x.row-1]?.[0]??'')!==String(x.value)))throw new HttpError('座位顯示讀回不符，結果待查。',409,'SEAT_DISPLAY_UNVERIFIED');
+ return expected;
+}
+
 /* --- 動作路由 --- */
 Deno.serve(async (request) => {
   let origin = "";
   let custody:RowCustody|undefined;
   let beganWrite=false;let retainKeys:string[]=[];
+  let projectionContext:{token:string;spreadsheetId:string;keys:string[]}|undefined;
+  const reply=async(body:unknown,status:number,o:string)=>{if(status===200&&beganWrite&&custody&&projectionContext)await syncSeatDisplay(projectionContext.token,projectionContext.spreadsheetId,projectionContext.keys,custody);if(status===200&&beganWrite&&custody&&projectionContext&&Deno.env.get('ZG_ERP_PRIVATE_UPDATES_ENABLED')==='true')await notifyVerifiedSave(asText(Deno.env.get('SUPABASE_URL')),asText(Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')));return json(body,status,o);};
   try {
     origin = allowedOrigin(request);
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(origin) });
@@ -219,34 +258,59 @@ Deno.serve(async (request) => {
     const tab = url.searchParams.get("tab") ?? ""; // 頁名精確比對：不可 trim（"10F機房 "尾空白是實際頁名）
     const target = resolveTarget(tab);
 
-    if (action === "read") {
-      return json({ ...(await sheetsRead(token, target.spreadsheetId, tab)), actor }, 200, origin);
+    if(action==='observation-status'){
+      if(tab!=='現場觀察')throw new HttpError('現場觀察分頁不符。',400,'BAD_REQUEST');
+      const id=String(url.searchParams.get('observationId')||'');if(!/^[a-f0-9-]{36}$/i.test(id))throw new HttpError('觀察鍵不符。',400,'BAD_REQUEST');
+      const all=(await sheetsRead(token,target.spreadsheetId,tab)).rows,rs=all.filter(r=>r[0]===id);if(rs.length>1)throw new HttpError('觀察鍵有重複，請保留原紀錄。',409,'OBSERVATION_DUPLICATE_ID');
+      const session=url.searchParams.get('sessionId')||'',raw=(url.searchParams.get('scanRaw')||'').trim();
+      const duplicate=!rs.length&&session&&raw?all.filter(r=>r[1]===session&&r[6]==='有QR'&&String(r[7]??'').trim()===raw):[];
+      if(duplicate.length>1)throw new HttpError('既有重複觀察需另行核對，未變動。',409,'OBSERVATION_EXISTING_DUPLICATES');
+      const found=rs[0]||duplicate[0];return await reply({ok:true,found:!!found,row:found||null,duplicate:!rs.length&&!!found},200,origin);
     }
+    if (action === "read") {
+      return await reply({ ...(await sheetsRead(token, target.spreadsheetId, tab)), actor }, 200, origin);
+    }
+    if(request.headers.get('x-zg-erp-protocol')!=='shared-round-v1')throw new HttpError('此頁版本不符，本次未保存；保留原草稿，查核舊結果後重開新版，不可自動重送。',409,'ERP_CLIENT_UPGRADE_REQUIRED');
+    if(Deno.env.get('ZG_ERP_WRITES_PAUSED')==='true')throw new HttpError('保存暫停保護中，原草稿保留，請稍後查保存結果。',503,'ERP_WRITES_PAUSED');
     if (target.readonly) {
       throw new HttpError("Legacy workbook is comparison-only and read-only.", 400, "TARGET_READ_ONLY");
     }
     if (tab === LEGACY_NOTE_TAB && action !== "legacy-note") {
       throw new HttpError("Note tab accepts only the legacy-note action.", 400, "BAD_REQUEST");
     }
+    if(tab==='現場觀察'&&action!=='field-observation')throw new HttpError('現場觀察僅接受受控觀察登記。',400,'OBSERVATION_ACTION_REQUIRED');
     const payload = request.method==='POST' ? await request.json() : {};
+    if(tab==='資產'&&((Array.isArray(payload.row)&&payload.row.length>26)||(payload.range&&!/^資產!A[0-9]+:[A-Z][0-9]+$/.test(String(payload.range)))))throw new HttpError('座位顯示由原座位流程自動帶入，不可直接編輯。',400,'SEAT_DISPLAY_READONLY');
     const uuid=(v:unknown)=>typeof v==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(v);
     const reservation=payload.reservationToken, operation=payload.operationId;
     if(!uuid(reservation))throw new HttpError('更新版本後重整頁面再操作，未寫入。',409,'CUSTODY_REQUIRED');
     if(!validOperationId(operation))throw new HttpError('操作識別已到期或裝置時間不準，未寫入。請校正裝置時間並重新整理後再操作。',409,'OPERATION_EXPIRED');
     let keys:string[]=[];
     async function scanDatabase(){
-      const [assets,sessions,records,seats,legacy]=await Promise.all(['資產','盤點場次','盤點紀錄','座位圖','整合-主檔'].map(t=>sheetsRead(token,t==='整合-主檔'?LEGACY_SPREADSHEET_ID:target.spreadsheetId,t)));
+      // Field saving never waits for the legacy workbook. Matching is a later task.
+      const [assets,sessions,records,seats]=await Promise.all(['資產','盤點場次','盤點紀錄','座位圖'].map(t=>sheetsRead(token,target.spreadsheetId,t)));
       if([assets,sessions,records,seats].some(x=>x.rows.length>=9999))throw new HttpError('讀取範圍不足，未寫入。',409,'SCAN_LIMIT');
       if(assets.header[0]!=='資產編號'||assets.header[21]!=='使用部門'||sessions.header[12]!=='使用部門'||records.header[10]!=='經手人'||seats.header[0]!=='事件鍵')throw new HttpError('盤點欄位尚未就緒，未寫入。',503,'SCHEMA_NOT_READY');
-      const ix=(...names:string[])=>names.map(n=>legacy.header.indexOf(n)).find(i=>i>=0),get=(r:unknown[],...names:string[])=>String(r[ix(...names)??-1]??'').trim();
-      const old=legacy.rows.map(r=>({code:get(r,'資產編號'),name:get(r,'名稱'),model:get(r,'型號規格','型號'),serial:get(r,'S-N','S/N','序號'),purchase:get(r,'採購日期'),recordKey:get(r,'記錄鍵'),provenance:get(r,'來源工作表')+' 第'+get(r,'來源列')+'列'}));
-      return {assets:assets.rows,sessions:sessions.rows,records:records.rows,seats:seats.rows,legacy:old};
+      return {assets:assets.rows,sessions:sessions.rows,records:records.rows,seats:seats.rows,legacy:[]};
     }
 
-    if(action==='scan-intent'){
+    if(action==='close-shared-session'){
+      if(tab!=='盤點場次'||payload.confirmed!==true||typeof payload.site!=='string')throw new HttpError('需確認結束共同盤點。',400,'SHARED_CLOSE_REQUIRED');
+      keys=[sharedSiteKey(payload.site),roundKey(payload.sessionId)];
+    }else if(action==='shared-session'){
+      if(tab!=='盤點場次'||typeof payload.site!=='string'||!payload.site.trim())throw new HttpError('請選據點。',400,'SHARED_SITE_INVALID');
+      keys=[sharedSiteKey(payload.site)];
+    }else if(action==='field-observation'){
+      if(String(payload.localAccount||'').toLowerCase()!==String(user.email||user.id).toLowerCase())throw new HttpError('帳號與原觀察草稿不同，未寫入。',409,'OBSERVATION_ACCOUNT_MISMATCH');
+      if(tab!=='現場觀察')throw new HttpError('現場觀察分頁不符。',400,'BAD_REQUEST');
+      const id=String(payload.observationId||'');if(!/^[a-f0-9-]{36}$/i.test(id))throw new HttpError('觀察鍵不符。',400,'BAD_REQUEST');
+      keys=[...await observationLockKeys(payload),roundKey(payload.sessionId)];
+    }else if(action==='scan-intent'){
       if(tab!=='資產')throw new HttpError('Asset tab required.',400,'BAD_REQUEST');
-      const initial=scanPlan(await scanDatabase(),payload,user.id,new Date().toISOString());
-      keys=[...logicalKeys('資產',initial.asset,initial.original||undefined),...logicalKeys('盤點紀錄',initial.record),...(initial.binding?logicalKeys('座位圖',initial.binding):[])];
+      roundKey(payload.sessionId);
+      const initialDb=await scanDatabase();try{sharedSessionRequired(initialDb.sessions,payload.sessionId)}catch{throw new HttpError('本輪已結束或不符，這筆未保存。原輸入保留，請重新進入共同盤點。',409,'JOIN_CURRENT_SHARED_ROUND')}
+      const initial=scanPlan(initialDb,payload,user.id,new Date().toISOString());
+      keys=[roundKey(payload.sessionId),...logicalKeys('資產',initial.asset,initial.original||undefined),...logicalKeys('盤點紀錄',initial.record),...(initial.binding?logicalKeys('座位圖',initial.binding):[])];
     }else if(['reserve','renew','release','asset-edit','repair-stage'].includes(action)){
       if(tab!=="資產"||typeof payload.code!=='string'||!payload.code.trim())throw new HttpError("Asset identity required.",400,"BAD_REQUEST");
       const assets=await sheetsRead(token,target.spreadsheetId,tab),hits=assets.rows.filter(r=>r[0]===payload.code);
@@ -259,6 +323,7 @@ Deno.serve(async (request) => {
       if(!match||match[1]!==match[2]||!Array.isArray(payload.row))throw new HttpError("Single server-resolved row required.",400,"BAD_REQUEST");
       const prior=(await sheetsRead(token,target.spreadsheetId,tab)).rows[Number(match[1])-2];
       if(!prior)throw new HttpError("Original row missing.",409,"ROW_MISSING");
+      if(tab==='盤點場次'&&prior[13]===SHARED_MARKER)throw new HttpError('共用場次需受控結束，不能覆寫。',409,'SHARED_SESSION_CONTROLLED');
       // Both original and resulting logical identities must be reserved. Asset code cannot change.
       keys=[...new Set([...logicalKeys(tab,prior),...logicalKeys(tab,payload.row,prior)])].sort();
     }else if(action==='append'||action==='seat-event')keys=logicalKeys(tab,payload.row);
@@ -268,12 +333,14 @@ Deno.serve(async (request) => {
       for(const [i,g] of payload.groups.entries())for(const serial of g.serials||[])keys.push(...logicalKeys(tab,['明細',payload.id+'-'+i,'','','','','','','','','','pending',serial]));
       keys=[...new Set(keys)].sort();
     }else throw new HttpError("Unknown action.",400,"ACTION_UNKNOWN");
+    if(action==='seat-event'&&['map','area'].includes(payload.row?.[1])){const ar=await sheetsRead(token,target.spreadsheetId,'資產');for(const row of ar.rows)if(row[4]===payload.row[3]&&row[5]===payload.row[4])keys.push(...logicalKeys('資產',row));keys=[...new Set(keys)].sort();}
     const serviceKey=asText(Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'));
     if(!serviceKey)throw new HttpError("ERP control is not configured.",503,"CUSTODY_UNAVAILABLE");
     const admin=createClient(supabaseUrl,serviceKey,{auth:{persistSession:false,autoRefreshToken:false}});
+    projectionContext=target.spreadsheetId===asText(Deno.env.get(LEDGER_SPREADSHEET_ID_SECRET))?{token,spreadsheetId:target.spreadsheetId,keys}:undefined;
     custody=new RowCustody(admin,user.id,reservation,operation,keys);
-    if(action==='renew'){await custody.renew();return json({ok:true},200,origin)}
-    if(action==='release'){await custody.release();return json({ok:true},200,origin)}
+    if(action==='renew'){await custody.renew();return await reply({ok:true},200,origin)}
+    if(action==='release'){await custody.release();return await reply({ok:true},200,origin)}
     if(action==='seat-event'&&payload.row?.[1]==='placement'){
       if(!payload.editorCode)throw new HttpError('需要有效設備編輯權限，未寫入。',409,'CUSTODY_REQUIRED');
       if(payload.row[6]!==payload.editorCode)throw new HttpError('Editor asset mismatch.',409,'CUSTODY_REQUIRED');
@@ -288,19 +355,50 @@ Deno.serve(async (request) => {
       const primary=new RowCustody(admin,user.id,reservation,operation,logicalKeys('資產',[payload.code]));
       await primary.renew();await custody.reserve();
     }else await custody.reserve();
-    if(action==='reserve')return json({ok:true,expiresIn:300},200,origin);
+    if(action==='reserve')return await reply({ok:true,expiresIn:300},200,origin);
     await custody.begin();beganWrite=true;
+    if(action==='close-shared-session'){
+      const sessions=await sheetsRead(token,target.spreadsheetId,tab);
+      if(sessions.rows.length>=9999||sessions.header[13]!==SHARED_HEADER)throw new HttpError('共同盤點欄位尚未就緒。',503,'SHARED_SCHEMA_NOT_READY');
+      let plan;try{plan=closeRoundPlan({sessions:sessions.rows},{...payload,at:new Date().toISOString()})}catch(e){throw new HttpError(String(e),409,'SHARED_CLOSE_CONFLICT')}
+      if(!plan.replayed)await sheetsUpdate(token,target.spreadsheetId,tab+'!A'+plan.rowNumber+':N'+plan.rowNumber,plan.row,custody);
+      const hits=(await sheetsRead(token,target.spreadsheetId,tab)).rows.filter(row=>row[0]===payload.sessionId);
+      if(hits.length!==1||plan.row.some((v:unknown,i:number)=>String(v??'')!==String(hits[0][i]??'')))throw new HttpError('結束結果待查，原紀錄保留。',409,'SHARED_CLOSE_UNVERIFIED');
+      return await reply({ok:true,row:hits[0],replayed:plan.replayed},200,origin);
+    }
+    if(action==='shared-session'){
+      const [sessions,sites]=await Promise.all(['盤點場次','位置表'].map(t=>sheetsRead(token,target.spreadsheetId,t)));
+      if(sessions.rows.length>=9999||sites.rows.length>=9999||sessions.header[13]!==SHARED_HEADER)throw new HttpError('共同盤點欄位尚未就緒，未開始。',503,'SHARED_SCHEMA_NOT_READY');
+      let plan;try{plan=sharedRoundPlan({sessions:sessions.rows,sites:[...new Set(sites.rows.map(r=>String(r[0]||'')))]},{site:payload.site,newId:'round-'+crypto.randomUUID(),actor,at:new Date().toISOString()})}catch(e){throw new HttpError(String(e),409,'SHARED_ROUND_CONFLICT')}
+      if(plan.changed)await sheetsAppend(token,target.spreadsheetId,tab,plan.row,custody);
+      const matches=(await sheetsRead(token,target.spreadsheetId,tab)).rows.filter(r=>r[0]===plan.row[0]);
+      if(matches.length!==1||plan.row.some((v:unknown,i:number)=>String(v??'')!==String(matches[0][i]??'')))throw new HttpError('共用場次未能確認，請保留畫面查詢，不重建。',409,'SHARED_ROUND_UNVERIFIED');
+      return await reply({ok:true,row:matches[0],joined:plan.join},200,origin);
+    }
+    if(action==='field-observation'){
+      const [observations,sessions,seats]=await Promise.all(['現場觀察','盤點場次','座位圖'].map(t=>sheetsRead(token,target.spreadsheetId,t)));
+      if(observations.rows.length>=9999||sessions.rows.length>=9999||seats.rows.length>=9999)throw new HttpError('觀察讀取範圍不足，未寫入。',409,'OBSERVATION_LIMIT');
+      if(OBSERVATION_HEADER.some((h:string,i:number)=>observations.header[i]!==h))throw new HttpError('現場觀察欄位尚未就緒，未寫入。',503,'SCHEMA_NOT_READY');
+      try{sharedSessionRequired(sessions.rows,payload.sessionId)}catch{throw new HttpError('請重新進入目前共用盤點，再掃描。原草稿保留。',409,'JOIN_CURRENT_SHARED_ROUND')}
+      let plan;try{plan=observationPlan({sessions:sessions.rows,maps:seatMaps.reduce(seats.rows),observations:observations.rows},payload,actor,new Date().toISOString())}catch(e){throw new HttpError(String(e instanceof Error?e.message:e),409,'OBSERVATION_INVALID')}
+      if(plan.duplicate)return await reply({ok:true,row:plan.row,duplicate:true,warnings:[]},200,origin);
+      if(plan.replayed)return await reply({ok:true,row:plan.row,replayed:true,warnings:plan.warnings},200,origin);
+      await sheetsAppend(token,target.spreadsheetId,tab,plan.row,custody);
+      const saved=(await sheetsRead(token,target.spreadsheetId,tab)).rows.filter(r=>r[0]===plan.row[0]);
+      if(saved.length!==1||plan.row.some((v:unknown,i:number)=>String(v??'')!==String(saved[0][i]??'')))throw new HttpError('觀察保存尚未核實，原觀察鍵保留，不重複送出。',409,'OBSERVATION_UNVERIFIED');
+      return await reply({ok:true,row:saved[0],replayed:false,warnings:plan.warnings},200,origin);
+    }
     if(action==='scan-intent'){
-      const db=await scanDatabase(),plan=scanPlan(db,payload,user.id,new Date().toISOString());
+      const db=await scanDatabase();try{sharedSessionRequired(db.sessions,payload.sessionId)}catch{throw new HttpError('本輪已結束或不符，這筆未保存。原輸入保留，請重新進入共同盤點。',409,'JOIN_CURRENT_SHARED_ROUND')}const plan=scanPlan(db,payload,user.id,new Date().toISOString());
       const freshKeys=[...logicalKeys('資產',plan.asset,plan.original||undefined),...logicalKeys('盤點紀錄',plan.record),...(plan.binding?logicalKeys('座位圖',plan.binding):[])];
       if(freshKeys.some(k=>!keys.includes(k)))throw new HttpError('設備資料已改變，未寫入，請重新核對。',409,'SCAN_CONFLICT');
       const metaRes=await fetch(`${GOOGLE_SHEETS_API}/${target.spreadsheetId}?fields=sheets(properties(sheetId,title))`,{headers:{authorization:`Bearer ${token}`},signal:AbortSignal.timeout(GOOGLE_REQUEST_TIMEOUT_MS)}),meta=await metaRes.json();if(!metaRes.ok)throw new HttpError('無法核對分頁，未寫入。',503,'SCAN_METADATA');
       const ids:Record<string,number>={};for(const title of ['資產','盤點紀錄','座位圖']){const match=meta.sheets?.filter((x:{properties:{title:string;sheetId:number}})=>x.properties.title===title);if(match?.length!==1)throw new HttpError('分頁不唯一，未寫入。',503,'SCAN_METADATA');ids[title]=match[0].properties.sheetId;}
-      const batch=scanBatch(ids,plan),result=await trackedAttempt(custody,()=>fetch(`${GOOGLE_SHEETS_API}/${target.spreadsheetId}:batchUpdate`,{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'application/json'},body:JSON.stringify(batch),signal:AbortSignal.timeout(GOOGLE_REQUEST_TIMEOUT_MS)})),body=await result.json();
+      const batch=mapBatch(scanBatch(ids,plan),ids['資產'],await assetLayout(token,target.spreadsheetId)),result=await trackedAttempt(custody,()=>fetch(`${GOOGLE_SHEETS_API}/${target.spreadsheetId}:batchUpdate`,{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'application/json'},body:JSON.stringify(batch),signal:AbortSignal.timeout(GOOGLE_REQUEST_TIMEOUT_MS)})),body=await result.json();
       if(!result.ok||body.spreadsheetId!==target.spreadsheetId||body.replies?.length!==batch.requests.length)throw new HttpError('盤點保存結果待查，不可重送。',502,'SCAN_UNVERIFIED');
       const after=await scanDatabase(),assets=after.assets.map((r,i)=>({r,i})).filter(x=>x.r[0]===plan.code),records=after.records.map((r,i)=>({r,i})).filter(x=>x.r[0]===payload.sessionId&&x.r[1]===plan.code),binding=plan.binding?after.seats.filter(r=>r[0]===plan.binding![0]):[];
       if(assets.length!==1||records.length!==1||plan.asset.some((v,i)=>String(assets[0].r[i]??'')!==String(v??''))||plan.record.some((v,i)=>String(records[0].r[i]??'')!==String(v??''))||plan.binding&&(binding.length!==1||plan.binding.some((v,i)=>String(binding[0][i]??'')!==String(v??''))))throw new HttpError('盤點未能完整核對，不可重送。',409,'SCAN_UNVERIFIED');
-      return json({ok:true,asset:assets[0].r,assetRow:assets[0].i+2,record:records[0].r,recordRow:records[0].i+2,binding:binding[0]||null,bindingConflict:plan.bindingConflict||'',exception:plan.exception,metadataIssue:plan.metadataIssue,assignedProject:plan.assignedProject,departmentMismatch:plan.departmentMismatch},200,origin);
+      return await reply({ok:true,asset:assets[0].r,assetRow:assets[0].i+2,record:records[0].r,recordRow:records[0].i+2,binding:binding[0]||null,bindingConflict:plan.bindingConflict||'',exception:plan.exception,metadataIssue:plan.metadataIssue,assignedProject:plan.assignedProject,departmentMismatch:plan.departmentMismatch},200,origin);
     }
     if(action==='repair-stage'){
       const assets=await sheetsRead(token,target.spreadsheetId,'資產'),movements=await sheetsRead(token,target.spreadsheetId,'流轉紀錄');
@@ -311,12 +409,12 @@ Deno.serve(async (request) => {
       const metaRes=await fetch(`${GOOGLE_SHEETS_API}/${target.spreadsheetId}?fields=sheets(properties(sheetId,title))`,{headers:{authorization:`Bearer ${token}`},signal:AbortSignal.timeout(GOOGLE_REQUEST_TIMEOUT_MS)});
       const meta=await metaRes.json();if(!metaRes.ok)throw new HttpError('無法核對分頁，未寫入。',503,'REPAIR_METADATA');
       const sheet=(title:string)=>{const match=meta.sheets?.filter((x:{properties:{title:string;sheetId:number}})=>x.properties.title===title);if(match?.length!==1)throw new HttpError('分頁不唯一，未寫入。',503,'REPAIR_METADATA');return match[0].properties.sheetId};
-      const batch=repairBatch(sheet('資產'),sheet('流轉紀錄'),hits[0].i+1,plan);
+      const batch=mapBatch(repairBatch(sheet('資產'),sheet('流轉紀錄'),hits[0].i+1,plan),sheet('資產'),await assetLayout(token,target.spreadsheetId));
       const result=await trackedAttempt(custody,()=>fetch(`${GOOGLE_SHEETS_API}/${target.spreadsheetId}:batchUpdate`,{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'application/json'},body:JSON.stringify(batch),signal:AbortSignal.timeout(GOOGLE_REQUEST_TIMEOUT_MS)}));
       const body=await result.json();if(!result.ok||body.spreadsheetId!==target.spreadsheetId||body.replies?.length!==batch.requests.length)throw new HttpError('維修保存結果待查，不可重送。',502,'REPAIR_UNVERIFIED');
       const after=await sheetsRead(token,target.spreadsheetId,'資產'),history=await sheetsRead(token,target.spreadsheetId,'流轉紀錄'),asset=after.rows[hits[0].i],events=history.rows.map((r,i)=>({r,i})).filter(x=>x.r[0]===plan.movement[0]);
       if(!asset||asset[0]!==payload.code||Object.entries(plan.changes).some(([c,v])=>String(asset[Number(c)]??'')!==String(v))||events.length!==1||plan.movement.some((v,i)=>String(events[0].r[i]??'')!==String(v)))throw new HttpError('維修資料未能完整核對，不可重送。',409,'REPAIR_UNVERIFIED');
-      return json({ok:true,asset,assetRow:hits[0].i+2,movement:events[0].r,movementRow:events[0].i+2},200,origin);
+      return await reply({ok:true,asset,assetRow:hits[0].i+2,movement:events[0].r,movementRow:events[0].i+2},200,origin);
     }
     if (tab === "座位圖") {
       if (action !== "seat-event") throw new HttpError("Seat map events are append-only.",400,"SEAT_APPEND_ONLY");
@@ -329,7 +427,7 @@ Deno.serve(async (request) => {
       let data;try{data=JSON.parse(row[7]);}catch{throw new HttpError("Seat payload invalid.",400,"BAD_REQUEST");}
       if(!data||typeof data!=="object"||Array.isArray(data))throw new HttpError("Seat payload must be an object.",400,"BAD_REQUEST");
       const previous=schema.rows.find(r=>r[0]===row[0]);
-      if(previous) {if(previous.slice(1,8).some((v,i)=>String(v)!==String(row[i+1])))throw new HttpError("Seat event conflicts.",409,"SEAT_CONFLICT");if(!canonicalSeatEvents(schema.rows).has(asText(row[0])))throw new HttpError("Concurrent seat event won; reload before retry.",409,"SEAT_CONFLICT");return json({ok:true,row:previous,actor},200,origin);}
+      if(previous) {if(previous.slice(1,8).some((v,i)=>String(v)!==String(row[i+1])))throw new HttpError("Seat event conflicts.",409,"SEAT_CONFLICT");if(!canonicalSeatEvents(schema.rows).has(asText(row[0])))throw new HttpError("Concurrent seat event won; reload before retry.",409,"SEAT_CONFLICT");return await reply({ok:true,row:previous,actor},200,origin);}
       if (["occupant","binding","placement","check"].includes(row[1]) && (!Number.isInteger(Number(row[5])) || Number(row[5])<1 || Number(row[5])>500))throw new HttpError("Seat number invalid.",400,"BAD_REQUEST");
       if(row[1]==="occupant" && (typeof data.previous!=="string"||typeof data.name!=="string"||data.name.length>120))throw new HttpError("Name invalid.",400,"BAD_REQUEST");
       if (["occupant","binding","placement","check"].includes(row[1])) {
@@ -369,7 +467,7 @@ Deno.serve(async (request) => {
       const rangeMatch=String(appended.updates.updatedRange).match(/!A(\d+):J\d+$/);if(!rangeMatch||Number(rangeMatch[1])>readback.rows.length+1)throw new HttpError("Seat append prefix not read back.",502,"WRITE_VERIFY_FAILED");
       const saved=readback.rows.find(r=>r[0]===row[0]);if(!saved||saved.slice(0,8).some((v,i)=>String(v)!==String(row[i])))throw new HttpError("Seat readback failed.",502,"WRITE_VERIFY_FAILED");
       if(!canonicalSeatEvents(readback.rows).has(asText(row[0])))throw new HttpError("A concurrent edit or binding won. Reload seat data before retry; your write was not applied.",409,"SEAT_CONFLICT");
-      return json({ok:true,row:saved,actor},200,origin);
+      return await reply({ok:true,row:saved,actor},200,origin);
     }
     if (action === "intake-import") {
       if(tab!=="進貨批次")throw new HttpError("進貨批次限定。",400,"BAD_REQUEST");
@@ -387,7 +485,7 @@ Deno.serve(async (request) => {
       const own=(rs:unknown[][])=>rs.filter(r=>String(r[1]??"").startsWith(id+"-"));
       const equal=(stored:unknown[][])=>stored.length===rows.length&&stored.every((r,i)=>rows[i].every((v,c)=>c===10||String(r[c]??"")===String(v)));
       const prior=own(before.rows);
-      if(prior.length){if(!equal(prior))throw new HttpError("此匯入已有不完整或不同內容，未重複追加。請保留畫面並核對批次。",409,"IMPORT_PARTIAL");return json({ok:true,rows:prior,ids,replayed:true},200,origin);}
+      if(prior.length){if(!equal(prior))throw new HttpError("此匯入已有不完整或不同內容，未重複追加。請保留畫面並核對批次。",409,"IMPORT_PARTIAL");return await reply({ok:true,rows:prior,ids,replayed:true},200,origin);}
       const assets=await sheetsRead(token,target.spreadsheetId,"資產");
       if(assets.rows.length>=9999)throw new HttpError("設備讀取範圍不足，未匯入。",409,"IMPORT_LIMIT");
       if(assets.header[3]!=="序號")throw new HttpError("設備序號欄位不符。",503,"SCHEMA_NOT_READY");
@@ -401,7 +499,7 @@ Deno.serve(async (request) => {
       if(!res.ok)throw new HttpError("匯入未確認，請保留畫面並用同一按鈕重試。",502,"IMPORT_UNVERIFIED");
       const saved=own((await sheetsRead(token,target.spreadsheetId,tab)).rows);
       if(!equal(saved))throw new HttpError("寫入後未完整讀回，請保留畫面並用同一按鈕重試。",409,"IMPORT_UNVERIFIED");
-      return json({ok:true,rows:saved,ids},200,origin);
+      return await reply({ok:true,rows:saved,ids},200,origin);
     }
     if (action === "asset-edit") {
       if(tab!=="資產")throw new HttpError("Asset tab required.",400,"BAD_REQUEST");
@@ -421,10 +519,10 @@ Deno.serve(async (request) => {
       if(Object.keys(changes).length){changes["20"]=new Date().toISOString();await sheetsPatchCells(token,target.spreadsheetId,tab,i+2,changes,custody);}
       const after=await sheetsRead(token,target.spreadsheetId,tab),saved=after.rows[i];
       if(!saved||saved[0]!==code||(Object.keys(patch).some(k=>String(saved[columns[k]]??"")!==patch[k])||Object.entries(changes).some(([k,v])=>String(saved[Number(k)]??"")!==String(v))))throw new HttpError("儲存後資料未能一致讀回，請保留輸入並重新核對。",409,"WRITE_VERIFY_FAILED");
-      return json({ok:true,row:saved,rowNum:i+2},200,origin);
+      return await reply({ok:true,row:saved,rowNum:i+2},200,origin);
     }
     if (action === "append") {
-      const row=payload.row;if(!Array.isArray(row))throw new HttpError('row 必填。',400,'BAD_REQUEST');const prior=await sheetsRead(token,target.spreadsheetId,tab);
+      const row=payload.row;if(tab==='盤點場次'&&row?.[13])throw new HttpError('共用場次需從盤點入口加入。',409,'SHARED_SESSION_CONTROLLED');if(!Array.isArray(row))throw new HttpError('row 必填。',400,'BAD_REQUEST');const prior=await sheetsRead(token,target.spreadsheetId,tab);
       const identity=(r:unknown[])=>tab==='資產'?String(r[0]):tab==='盤點紀錄'?JSON.stringify([r[0],r[1]]):tab==='盤點場次'||tab==='流轉紀錄'?String(r[0]):tab==='位置表'?JSON.stringify([r[0],r[1]]):null;
       if(identity(row)!==null&&prior.rows.some(r=>identity(r)===identity(row)))throw new HttpError('原始記錄已存在，沒有追加重複資料。請更新後核對。',409,'ROW_EXISTS');
       if (!Array.isArray(row)) throw new HttpError("row 必填。", 400, "BAD_REQUEST");
@@ -441,7 +539,7 @@ Deno.serve(async (request) => {
       if (!range) throw new HttpError("Write verification failed.", 502, "WRITE_VERIFY_FAILED");
       const stored=(await sheetsRead(token,target.spreadsheetId,tab)).rows[Number(/!A([0-9]+):/.exec(range)?.[1])-2];
       if(!stored||row.some((v,i)=>String(stored[i]??'')!==String(v??'')))throw new HttpError('寫入後未能完整讀回，結果待查，不可重送。',409,'WRITE_VERIFY_FAILED');
-      return json({ ok: true, updatedRange: range, actor }, 200, origin);
+      return await reply({ ok: true, updatedRange: range, actor }, 200, origin);
     }
     if (action === "legacy-note") {
       // 舊庫註記：append-only 寫入舊帳專用分頁「現場註記」。不覆寫任何既有列；同一 operationId 重送不複寫。
@@ -463,14 +561,14 @@ Deno.serve(async (request) => {
       const HEAD=["註記鍵","時間","記錄鍵","來源分頁","資產編號","現況","處置","備註","經手人","處理狀態"];
       if(HEAD.some((h,i)=>schema.header[i]!==h)) throw new HttpError("註記分頁欄位尚未就緒，未寫入。",503,"SCHEMA_NOT_READY");
       const dup=schema.rows.find(r=>String(r[0]??"")===operation);
-      if(dup) return json({ ok:true, deduped:true, row:dup },200,origin);
+      if(dup) return await reply({ ok:true, deduped:true, row:dup },200,origin);
       const row=[operation,new Date().toISOString(),rk,src,code,condition,disposition,noteText,actor,"待行政處理"];
       const appended=await sheetsAppend(token,target.spreadsheetId,tab,row,custody);
       const range=asText(appended?.updates?.updatedRange);
       if(!range) throw new HttpError("Write verification failed.",502,"WRITE_VERIFY_FAILED");
       const stored=(await sheetsRead(token,target.spreadsheetId,tab)).rows[Number(/!A([0-9]+):/.exec(range)?.[1])-2];
       if(!stored||row.some((v,i)=>String(stored[i]??'')!==String(v??''))) throw new HttpError('寫入後未能完整讀回，結果待查，不可重送。',409,'WRITE_VERIFY_FAILED');
-      return json({ ok:true, updatedRange:range, actor },200,origin);
+      return await reply({ ok:true, updatedRange:range, actor },200,origin);
     }
     if (action === "update") {
       const { range, row,expected } = payload as { range: string; row: unknown[];expected:unknown[] };
@@ -495,7 +593,7 @@ Deno.serve(async (request) => {
       const updatedRange = asText(updated?.updatedRange);
       if (!updatedRange) throw new HttpError("Write verification failed.", 502, "WRITE_VERIFY_FAILED");
       const verified=(await sheetsRead(token,target.spreadsheetId,tab)).rows[rowIndex];if(!verified||row.some((v,i)=>String(verified[i]??'')!==String(v??'')))throw new HttpError('寫入後未能完整讀回，結果待查，不可重送。',409,'WRITE_VERIFY_FAILED');
-      return json({ ok: true, updatedRange }, 200, origin);
+      return await reply({ ok: true, updatedRange }, 200, origin);
     }
     throw new HttpError("Unknown action.", 400, "ACTION_UNKNOWN");
   } catch (e) {
@@ -511,7 +609,7 @@ Deno.serve(async (request) => {
 function corsHeaders(origin: string) {
   return {
     "access-control-allow-origin": origin || DEFAULT_ORIGIN,
-    "access-control-allow-headers": "authorization,content-type",
+    "access-control-allow-headers": "authorization,content-type,x-zg-erp-protocol",
     "access-control-allow-methods": "GET,POST,OPTIONS"
   };
 }
