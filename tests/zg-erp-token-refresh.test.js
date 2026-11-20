@@ -2,7 +2,7 @@
  * 情境：使用者 session 還在（已登入），但 access_token 過期 → bridge 回 401。
  * 契約：
  *  (1) 只有 401 才觸發換發＋原樣重試一次；網路錯誤／5xx／其他 4xx 一律不重試（寫入不可模糊重送）；
- *  (2) 換發單機單次：init() 的 7 路並行讀取共用同一個換發 Promise（refresh token 會輪替）；
+ *  (2) 換發單機單次：init() 的 12 分頁、6 worker 並行讀取共用同一個換發 Promise（refresh token 會輪替）；
  *  (3) 重試帶新 token；換發失敗（回 null）維持原錯誤，不假裝成功；
  *  (4) zhugeRefreshToken 把輪替後的 token 對寫回同一個 localStorage key，其他欄位（user 等）保留。
  */
@@ -41,7 +41,7 @@ test("401 → 換發成功 → 帶新 token 原樣重試一次", async () => {
   const fetchImpl = async (url, init) => {
     calls.push({ url, auth: (init && init.headers && init.headers.Authorization) || "" });
     wave += 1;
-    if (wave <= 7) return { ok: false, status: 401, json: async () => ({}) };
+    if (wave <= 6) return { ok: false, status: 401, json: async () => ({}) };
     return { ok: true, status: 200, json: async () => ({ header: HEADERS.sites, rows: [] }) };
   };
   let refreshCalls = 0;
@@ -49,10 +49,10 @@ test("401 → 換發成功 → 帶新 token 原樣重試一次", async () => {
   const store = new SheetsStore({ bridgeUrl: "https://b.test/fn", fetchImpl, tokenProvider: () => (refreshCalls ? "newTok" : "oldTok"), tokenRefresher: refresher });
   // 直接驗證單支 _read 的重試行為
   await store.init().catch(() => {});
-  const firstWave = calls.slice(0, 7);
+  const firstWave = calls.slice(0, 6);
   assert.ok(firstWave.every((c) => c.auth === "Bearer oldTok"), "第一波應帶舊 token");
-  assert.equal(refreshCalls, 1, "7 路並行 401 只能觸發一次換發（單機單次）");
-  const retries = calls.slice(7);
+  assert.equal(refreshCalls, 1, "6 個並行 worker 的 401 只能觸發一次換發（單機單次）");
+  const retries = calls.slice(6);
   assert.ok(retries.length > 0 && retries.every((c) => c.auth === "Bearer newTok"), "重試應帶新 token");
 });
 
@@ -66,7 +66,7 @@ test("換發回 null → 不重試；讀取 401 歸類為登入驗證被拒（�
   assert.ok(caught, "應拋錯");
   assert.match(caught.message, /登入驗證被拒/);
   assert.equal(caught.authRefused, true, "要帶 authRefused 標記給前台顯示重新登入");
-  assert.equal(fetchCount, 7, "換發失敗不得重試（每路各一次）");
+  assert.equal(fetchCount, 12, "換發失敗不得重試（每路各一次）");
 });
 
 test("500 與網路錯誤一律不觸發換發、不重試", async () => {
@@ -75,7 +75,7 @@ test("500 與網路錯誤一律不觸發換發、不重試", async () => {
   const fetchImpl = async () => { fetchCount += 1; return { ok: false, status: 500, json: async () => ({}) }; };
   const store = new SheetsStore({ bridgeUrl: "https://b.test/fn", fetchImpl, tokenProvider: () => "tok", tokenRefresher: async () => { refreshCalls += 1; return "x"; } });
   await assert.rejects(store.init(), /讀取失敗/);
-  assert.equal(fetchCount, 7);
+  assert.equal(fetchCount, 12);
   assert.equal(refreshCalls, 0, "非 401 不得換發");
 });
 
