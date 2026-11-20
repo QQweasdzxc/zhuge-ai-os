@@ -1,18 +1,18 @@
-/* ZG-ERP 正式 Google 試算表轉接器（設計版 v2，尚未連線）。
- * 架構（2026-11-04 使用者定案）：舊帳（59 整合工作簿）唯讀比對；
- * 新帳「現存資料庫」（另創試算表，PRIVATE）是 ERP 唯一讀寫目標。
- * 路徑：前端 → zg-ledger-bridge（Supabase Edge，登入＋已放行 fail-closed）→ Google Sheets。
- * 寫入紀律：每筆異動先寫 bridge，成功才更新本機狀態；失敗一律丟出「未同步」錯誤，
- * 不假裝成功、不靜默保留本機幻覺（使用者 11:54 要求：寫入失敗要明確顯示）。
- * 值一律 RAW 寫入，保留前導零與原文。
- */
+
+
+
+
+
+
+
+
 (function (global) {
   "use strict";
 
   const NOT_CONNECTED = "現存資料庫尚未接入（等待新試算表建立與部署）";
   const UNSYNCED = "寫入失敗，資料未同步";
 
-  /* 新帳六分頁與欄位順序（RAW 寫入，順序即契約） */
+
   const TABS = {
     assets: "資產",
     sessions: "盤點場次",
@@ -77,8 +77,8 @@
     return [a.recordKey, a.code || "", a.provenance || "", JSON.stringify(a.snapshot || {}), a.progress || "",
       a.conclusion || "", a.reason || "", a.evidence || "", a.confirmer || "", a.at || "", a.newAssetCode || "", a.note || ""];
   }
-  /* 舊帳（59 整合工作簿，唯讀比對）：依「欄名」對應，不倚賴欄位順序；
-   * 記錄鍵逐字採用（永不以列位置推導）；出處＝來源工作表＋來源列；髒值欄不作篩選維度 */
+
+
   function rowToNote(row) {
     return { key: String((row && row[0]) || ""), at: String((row && row[1]) || ""), recordKey: String((row && row[2]) || ""), source: String((row && row[3]) || ""), code: String((row && row[4]) || ""), condition: String((row && row[5]) || ""), disposition: String((row && row[6]) || ""), note: String((row && row[7]) || ""), actor: String((row && row[8]) || ""), status: String((row && row[9]) || "") };
   }
@@ -90,7 +90,7 @@
       return "";
     };
     const src = g("來源工作表"), srcRow = g("來源列");
-    /* 來源工作表原始值（不 trim）：「10F機房 」等頁名尾空白是實際頁名，trim 會對不上白名單 */
+
     const srcTabRaw = (() => { const n = ix["來源工作表"]; return n != null ? String(row[n] == null ? "" : row[n]) : ""; })();
     return {
       __row: i + 2,
@@ -108,13 +108,13 @@
       project: g("專案"),
       scopeStatus: g("對應狀態"),
       provenance: src + (srcRow ? " 第" + srcRow + "列" : ""),
-      /* 通用全欄帶入：保留完整表頭與原始列（僅記憶體；不進 snapshot 以外的寫入） */
+
       header: (header || []).map((h) => String(h == null ? "" : h).trim()),
       raw: (row || []).map((c) => String(c == null ? "" : c))
     };
   }
 
-  /* 舊帳整合-流轉對應（唯讀）：記錄間關係線索（同編號快照、可能移轉等）；非移動證明 */
+
   function rowToFlow(header, row, i) {
     const ix = {};
     (header || []).forEach((h, n) => { const k = String(h == null ? "" : h).trim(); if (k && ix[k] == null) ix[k] = n; });
@@ -126,7 +126,7 @@
       rkeyA: g("記錄鍵A"), rkeyB: g("記錄鍵B"), originA: g("出處A"), originB: g("出處B"),
       status: g("狀態"), note: g("說明") };
   }
-  /* 舊帳整合-待確認（唯讀）：舊帳人工整理的待確認事項 */
+
   function rowToQuestion(header, row, i) {
     const ix = {};
     (header || []).forEach((h, n) => { const k = String(h == null ? "" : h).trim(); if (k && ix[k] == null) ix[k] = n; });
@@ -147,8 +147,8 @@
   }
 
   class SheetsStore {
-    /* opts: { fetchImpl, bridgeUrl, actor, tokenProvider } — actor 為目前登入者顯示名（寫入建立人/經手人欄）；
-       tokenProvider 回傳諸葛登入 session 的 access_token，每次呼叫即時取（可隨登入狀態改變）。 */
+
+
     constructor(opts) {
       if (!opts || !opts.bridgeUrl) throw new Error("SheetsStore 需要 bridgeUrl（zg-ledger-bridge 位址）");
       this.fetch = opts.fetchImpl || global.fetch.bind(global);
@@ -165,10 +165,10 @@
       if (t) h.Authorization = "Bearer " + t;
       return h;
     }
-    /* 只在「驗證被拒」(401) 且換發到新 token 時，帶新 token 原樣重試一次。
-     * 網路錯誤、5xx、其他 4xx 一律不重試——寫入尤其不可模糊重送（冪等性不明）。
-     * 換發由 tokenRefresher 負責單機單次（並行讀取共用同一 Promise，refresh token 會輪替）。 */
-    /* 單機單次：並行的多路 401 共用同一次換發（refresh token 會輪替，不可同時多送） */
+
+
+
+
     async _refreshOnce() {
       if (!this._refreshPromise) {
         this._refreshPromise = Promise.resolve()
@@ -199,12 +199,12 @@
       return this.bridgeUrl + "?action=" + action + "&tab=" + encodeURIComponent(TABS[tab] || tab);
     }
     async _read(tab) { return (await this._readFull(tab)).rows; }
-    /* 讀取完整回應（含 header）：舊帳依欄名對應，必須拿到實際標頭 */
+
     async _readFull(tab) {
       const res = await this._fetchAuth(this._url("read", tab), { method: "GET", headers: this._authHeaders() });
       const label = TABS[tab] || tab;
       if (res && res.status === 401) {
-        // 已走過換發仍被拒（或無 token 可換）：這是登入問題，不是資料庫問題，要給可行動的錯誤。
+
         const err = new Error("登入驗證被拒（" + label + "）");
         err.authRefused = true;
         throw err;
@@ -224,7 +224,7 @@
       if (!body || body.ok !== true || !body.updatedRange) throw new Error(UNSYNCED + "（寫回驗證失敗 " + TABS[tab] + "）");
       const m = /!A(\d+):/.exec(body.updatedRange);
       if(m){this._originalRows=this._originalRows||{};this._originalRows[tab]=this._originalRows[tab]||[];const actual=[...row],actorCol={assets:19,sessions:8,records:10,movements:7,annotations:8}[tab];if(actorCol!==undefined)actual[actorCol]=body.actor||actual[actorCol]||'';this._originalRows[tab][Number(m[1])-2]=actual;}
-      return m ? Number(m[1]) : -1; // 讀回驗證的實際列號
+      return m ? Number(m[1]) : -1;
     }
     async _update(tab, rowNum, row) {
       const range = TABS[tab] + "!A" + rowNum + ":" + String.fromCharCode(64 + row.length) + rowNum;
@@ -239,12 +239,12 @@
       this._originalRows[tab][rowNum-2]=[...row];
     }
 
-    /* 讀回整份狀態（與 MockStore.state() 同形、同步；需先 await init()） */
+
     state() { return this._db(); }
-    /* 開機載入鏡像（唯一 async 入口） */
+
     async init() {
       if (this.db) return this.db;
-      // One bounded read wave, not five serial legacy/seat round trips. No data cache.
+
       const tabs=["assets","sessions","records","movements","batches","sites","annotations","整合-主檔","整合-流轉對應","整合-待確認","現場註記","座位圖"];
       const reads={};let cursor=0;
       await Promise.all(Array.from({length:6},async()=>{while(cursor<tabs.length){const t=tabs[cursor++];try{reads[t]={body:await this._readFull(t)}}catch(error){reads[t]={error}}}}));
@@ -263,7 +263,7 @@
         const zone = String(row[1] || ""); if (zone && !s.zones.includes(zone)) s.zones.push(zone);
         if (row[2]) this._siteQrRows.push({ qr: String(row[2]), site: name, zone: String(row[1] || "") });
       });
-      /* 批次：行別=批次 為主列，行別=明細 掛到同批次鍵 */
+
       const batches = [];
       batchRows.forEach((row) => {
         const kind = String(row[0] || "");
@@ -286,7 +286,7 @@
         movements: movementRows.map(rowToMovement).filter((m) => m.code),
         batches,
         annotations: annotationRows.map(rowToAnnotation).filter((a) => a.recordKey),
-        meta: { codePrefix: "CSNW", codeSeq: 1 } // codePrefix 待公司正式編碼規則；codeSeq 由現有資產推導
+        meta: { codePrefix: "CSNW", codeSeq: 1 }
       };
       this._legacyRows = [];
       this._legacyError = "";
@@ -299,9 +299,9 @@
         const lm = await auxiliary("整合-主檔");
         this._legacyRows = lm.rows.map((row, i) => rowToLegacy(lm.header, row, i)).filter((r) => r.recordKey);
       } catch (e) {
-        this._legacyError = String((e && e.message) || e); // 舊帳讀取失敗不拖垮新帳；UI 據實顯示
+        this._legacyError = String((e && e.message) || e);
       }
-      /* 舊帳關係與待確認事項：各自失敗隔離，缺了只少線索區塊 */
+
       try {
         const lf = await auxiliary("整合-流轉對應");
         this._legacyFlows = lf.rows.map((row, i) => rowToFlow(lf.header, row, i)).filter((f) => f.relationKey || f.code || f.rkeyA || f.rkeyB);
@@ -314,7 +314,7 @@
       } catch (e) {
         this._legacyAuxError = this._legacyAuxError || String((e && e.message) || e);
       }
-      /* \u73fe\u5834\u8a3b\u8a18\uff1a\u820a\u5e33 append-only \u5206\u9801\uff1b\u5c1a\u672a\u5efa\u7acb\u6216\u8b80\u53d6\u5931\u6557\u6642\u9694\u96e2\u6210\u7a7a\u6e05\u55ae\uff0c\u4e0d\u62d6\u57ae\u5176\u4ed6\u5340\u584a */
+
       try {
         const ln=await auxiliary("現場註記");this._legacyNotes=ln.rows.map(rowToNote).filter(n=>n.recordKey);
       } catch (e) {
@@ -334,15 +334,15 @@
     }
     _db() { if (!this.db) throw new Error("請先 await init()"); return this.db; }
 
-    /* ---- 鏡像寫入：即時反映＋背景寫回＋誠實標記 ---- */
+
     onSyncChange(cb) { (this._listeners = this._listeners || []).push(cb); }
     syncStatus() {
       const u = this._unsynced || [];
       return { pending: this._pendingCount || 0, unsynced: u.length, lastSync: this.lastSharedReadAt || null };
     }
-    _notify() { (this._listeners || []).forEach((cb) => { try { cb(this.syncStatus()); } catch (e) { /* 聽眾錯誤不影響寫入 */ } }); }
-    /* Explicit shared read refresh. Never replace pending/failed local work or a snapshot
-       if a local write started while the read was in flight. No polling timer. */
+    _notify() { (this._listeners || []).forEach((cb) => { try { cb(this.syncStatus()); } catch (e) {  } }); }
+
+
     async refreshShared(canApply) {
       const safe=()=>!(this._seatAttempts?.size)&&!([...(this._intakeAttempts||[])].some(id=>!this._intakeVerified?.has(id)))&&!(this._scanIntents?.size)&&!(this._repairAttempts?.size)&&!(this._pendingCount||0)&&!(this._unsynced||[]).length&&(!canApply||canApply());
       if(!safe())throw new Error("請先完成或取消編輯，並處理未同步資料，再更新共同盤點結果");
@@ -355,8 +355,8 @@
       this.lastSharedReadAt=new Date().toISOString();
       return this.db;
     }
-    /* entity 先進鏡像並標 __pending；writeFn 背景執行；失敗標 __unsynced 並可重試。
-     * 同一 entity 的寫入依序執行（__chain），避免「新增尚未完成就更新」的競態。 */
+
+
     _mirror(entity, writeFn,options) {
       this._writeGeneration=(this._writeGeneration||0)+1;
       this._pendingCount = (this._pendingCount || 0) + 1;
@@ -376,9 +376,9 @@
         this._notify();
       });
       if (entity) entity.__chain = task.catch(() => {});
-      return task; // 呼叫端可 await 確認寫回完成（測試用），前台則靠 syncStatus 呈現
+      return task;
     }
-    /* 等待所有鏡像寫回完成（測試與關閉前用）；個別失敗不中断，回傳 syncStatus */
+
     async flush() {
       const db = this._db();
       const grab = (e) => e && e.__chain;
@@ -389,7 +389,7 @@
       await Promise.all(chains.map((c) => c.catch(() => {})));
       return this.syncStatus();
     }
-    /* 重試所有未同步寫入；回傳 {ok, failed} */
+
     async retryUnsynced() {
       const u = (this._unsynced || []).slice();
       let failed = 0;
@@ -399,32 +399,37 @@
       return { ok: failed === 0, failed };
     }
 
+    _editContext(){const owner=this.editAccount?String(this.editAccount()||''):'';if(this.editAccount&&!owner)throw Error('登入資料尚未重新驗證，原輸入保留；請先重新驗證後核對');const db=this.db,epoch=this._editAccountEpoch,authGeneration=this.editAuthGeneration?.();return {owner,db,safe:()=>this.editAuthGeneration?.()===authGeneration&&this._editAccountEpoch===epoch&&this.db===db&&(!this.editAccount||String(this.editAccount()||'')===owner)};}
+    _assertEditContext(ctx){if(!ctx.safe())throw Error('帳號已切換，原編輯保留；請回原帳號核對，不可重送');}
     async editControl(action,code){
+      const ctx=this._editContext();
       this._editReservations=this._editReservations||new Map();
       let held=this._editReservations.get(code);
-      if(action==='reserve'){if(held)throw new Error('請先完成或取消原本的編輯');held={token:crypto.randomUUID(),expiresAt:0,lastRenewAt:0};}
+      if(held?.owner!==undefined&&held.owner!==ctx.owner)throw Error('原帳號仍有編輯待核對，沒有沿用或釋放');
+      if(action==='reserve'){if(held)throw new Error('請先完成或取消原本的編輯');held={token:crypto.randomUUID(),expiresAt:0,lastRenewAt:0,owner:ctx.owner};this._editReservations.set(code,held);}
       if(!held)throw new Error('編輯權限已失效，輸入已保留；請重新讀取後核對');
-      const res=await this._fetchAuth(this._url(action,'assets'),{method:'POST',headers:this._authHeaders({'content-type':'application/json'}),body:JSON.stringify({code,reservationToken:held.token,operationId:operationId()})});
-      const body=await res.json();
-      if(!res.ok||body.ok!==true)throw new Error(body.error?.message||'正由其他人編輯，尚未保存，請稍後重試');
+      const res=await this._fetchAuth(this._url(action,'assets'),{method:'POST',headers:this._authHeaders({'content-type':'application/json'}),body:JSON.stringify({code,reservationToken:held.token,operationId:operationId()})},ctx.safe);
+      const body=await res.json();this._assertEditContext(ctx);
+      if(!res.ok||body.ok!==true){if(action==='reserve'&&res.status>=400&&res.status<500)this._editReservations.delete(code);throw new Error(body.error?.message||'正由其他人編輯，尚未保存，請稍後重試');}
       if(action==='release'){this._editReservations.delete(code);return;}
       held.expiresAt=Date.now()+300000;held.lastRenewAt=Date.now();this._editReservations.set(code,held);
       return held;
     }
     async reserveAssetEdit(code){return this.editControl('reserve',code);}
-    async readAssetForEdit(code){const data=await this._readFull('assets'),hits=data.rows.map((r,i)=>({r,i})).filter(x=>x.r[0]===code);if(hits.length!==1)throw new Error('設備編號不唯一，沒有取得可編輯資料');const fresh=rowToAsset(hits[0].r,hits[0].i);Object.assign(this._db().assets.find(a=>a.code===code),fresh);return fresh;}
+    async readAssetForEdit(code){const ctx=this._editContext();const data=await this._readFull('assets');this._assertEditContext(ctx);const hits=data.rows.map((r,i)=>({r,i})).filter(x=>x.r[0]===code);if(hits.length!==1)throw new Error('設備編號不唯一，沒有取得可編輯資料');const fresh=rowToAsset(hits[0].r,hits[0].i);Object.assign(this._db().assets.find(a=>a.code===code),fresh);return fresh;}
     async releaseAssetEdit(code){if(this._editReservations?.has(code))return this.editControl('release',code);}
     async noteEditActivity(code){const h=this._editReservations?.get(code);if(!h||h.expiresAt<=Date.now())throw new Error('編輯權限已到期，輸入保留；請重新讀取後核對');if(Date.now()-h.lastRenewAt>=60000){if(!h.renewing)h.renewing=this.editControl('renew',code).finally(()=>{h.renewing=null});return h.renewing;}}
     async saveAssetVerified(code, draft, base, opId) {
+      const ctx=this._editContext();
       const a = this._db().assets.find(x => x.code === code);
       if (!a) throw new Error("找不到設備 " + code);
-      const held=this._editReservations?.get(code);if(held?.attempted)throw new Error('上次儲存結果未確定，不可重送；輸入保留請先核對');if(!held||held.expiresAt<=Date.now())throw new Error('編輯權限已到期，輸入保留；請重新讀取後核對');
+      const held=this._editReservations?.get(code);if(held?.owner!==undefined&&held.owner!==ctx.owner)throw Error('原帳號編輯權不可沿用');if(held?.attempted)throw new Error('上次儲存結果未確定，不可重送；輸入保留請先核對');if(!held||held.expiresAt<=Date.now())throw new Error('編輯權限已到期，輸入保留；請重新讀取後核對');
       const patch = {}, expected = {};
       const normalized = { ...draft }; if (["未指定（待確認）", "未指定(待確認)", "未指定"].includes(normalized.project)) normalized.project = "";
       for (const k of Object.keys(normalized)) if (String(normalized[k] ?? "") !== String(base[k] ?? "")) { patch[k] = String(normalized[k] ?? ""); expected[k] = String(base[k] ?? ""); }
       held.attempted=true;
-      const res = await this._fetchAuth(this._url("asset-edit", "assets"), { method: "POST", headers: this._authHeaders({ "content-type": "application/json" }), body: JSON.stringify({ code, patch, expected,reservationToken:held.token,operationId:opId||operationId() }) });
-      const b = res ? await res.json() : null;
+      const res = await this._fetchAuth(this._url("asset-edit", "assets"), { method: "POST", headers: this._authHeaders({ "content-type": "application/json" }), body: JSON.stringify({ code, patch, expected,reservationToken:held.token,operationId:opId||operationId() }) },ctx.safe);
+      const b = res ? await res.json() : null;this._assertEditContext(ctx);
       if (!res || !res.ok || !b?.ok || !Array.isArray(b.row) || !Number.isInteger(b.rowNum) || b.row[0] !== code) throw new Error(b?.error?.message || "儲存未確認，請保留輸入後重試");
       Object.assign(a, rowToAsset(b.row, b.rowNum - 2));this._originalRows=this._originalRows||{};this._originalRows.assets=this._originalRows.assets||[];this._originalRows.assets[b.rowNum-2]=[...b.row];this._editReservations.delete(code);
       return a;
@@ -487,7 +492,7 @@
         this._scanIntents.delete(key);return oldRecord||record;
       }finally{this._pendingCount-=1;}
     }
-    /* 同場次同編號：次數 +1（更新原列），不重複列（比照 MockStore 語意） */
+
     addRecord(sess, rec) {
       const db = this._db();
       const prev = db.records.find((r) => r.sessionId === sess.id && r.code === rec.code);
@@ -519,7 +524,7 @@
       cur.closed = true; cur.closedAt = new Date().toISOString();
       cur.__write = this._mirror(cur, () => this._update("sessions", cur.__row, sessionToRow(cur, this.actor)));
     }
-    /* ---- 進貨批次 ---- */
+
     listBatches() { return this._db().batches; }
     batch(id) { return this._db().batches.find((b) => b.id === id); }
     async importIntakeVerified(id, groups, identitySafe=()=>true) {
@@ -582,7 +587,7 @@
       b.unexpected.push({ serial: s, at: new Date().toISOString(), n: 1 });
       return { result: "unexpected" };
     }
-    /* 確認入庫：逐台建資產＋入庫事件；同序號防撞標 conflict 保留人工處理（背景寫回，失敗標未同步） */
+
     confirmInbound(id, dest) {
       const db = this._db();
       const b = this.batch(id); if (!b) return [];
@@ -592,7 +597,7 @@
         const code = (db.meta.codePrefix || "CSNW") + String(107040000 + db.meta.codeSeq++).padStart(9, "0");
         const now = new Date().toISOString();
         const a = { code, name: b.model || b.brand || "未命名設備", model: b.model || "", brand: b.brand || "", origin: b.origin || "未確認",
-          owner: dest.owner || "公用", site: dest.site, zone: dest.zone, status: "備用", project: dest.project || "", // 入庫＝可調度備用；部署使用後才轉使用中
+          owner: dest.owner || "公用", site: dest.site, zone: dest.zone, status: "備用", project: dest.project || "",
           serial: x.serial, purchase: b.at.slice(0, 10), activate: "", warranty: "", mfgYear: b.mfgYear || "", type: b.type || "", po: b.po || "",
           source: "入庫", createdAt: now, createdBy: this.actor, updatedAt: now };
         db.assets.push(a);
@@ -638,13 +643,13 @@
       });
       return m;
     }
-    /* 現場觀察（使用者 12:07 商業規則）：現場在用的設備按「使用中」記，不逐台再問；
-     * 已有 待修/維修中/已報廢 的，不因再掃到自動改回可用——回 exception 給管理端提示。
-     * 備用（入庫新建）不因掃描被猜成使用中；位置以最新現場觀察更新。 */
-    /* 通用全欄帶入（使用者 11/6 要求：已掃設備完整舊資料帶入新庫，非全庫遷移）：
-     * 唯一完整編號命中時，空白欄位自舊帳主檔補齊；既有新帳值永不覆寫，衝突列出保留新帳待查。
-     * 不帶入：保管人、使用部門、專案、據點區域、狀態（現場與盤點規則）。
-     * 總表_0331 依用戶 11/4 排除，不在來源內（主檔本不含總表）。 */
+
+
+
+
+
+
+
     legacyMetadata(code) {
       const LEGACY_FIELD_MAP = [
         ["name", ["名稱"]], ["model", ["型號規格", "型號"]], ["serial", ["S-N", "S/N", "序號"]],
@@ -671,8 +676,8 @@
       }
       const srcRow = {};
       header.forEach((h, n) => { if (h && String(raw[n] || "").trim()) srcRow[h] = String(raw[n]).trim(); });
-      /* 快照增量整併：唯一對碼下，舊 9-key 形狀升級、同來源缺欄補存；
-       * 已保存的其他來源與既有欄值一律保留（不覆蓋較完整的已存內容），齊全則不重寫。 */
+
+
       let snap = null;
       try { snap = a.legacySnapshot ? JSON.parse(a.legacySnapshot) : null; } catch (e) { snap = null; }
       const linked = a.legacyKey === r.recordKey;
@@ -682,7 +687,7 @@
         const merged = Object.assign({ "列": r.__row }, srcRow);
         snapNeedsWrite = Object.keys(merged).some((k) => !(k in cur));
       }
-      /* 無欄位需補且快照齊全：不重複寫入（避免每次掃描都產生一次儲存） */
+
       if (!Object.keys(patch).length && !snapNeedsWrite) {
         return { patch, issue: conflicts.length ? "舊帳與新帳欄位不同（" + conflicts.join("、") + "），保留新帳待查" : "" };
       }
@@ -710,10 +715,10 @@
       if (Object.keys(result.patch).length) this.saveAsset(code, result.patch);
       return { asset: a, issue: result.issue, changed: Object.keys(result.patch).length > 0 };
     }
-    /* 出處分頁整筆補存（.28）：唯一對碼且主檔記有出處時，唯讀讀回來源分頁原始列，
-     * 以編號或欄結構（項目/型號/位置）核對確為同一筆才併入快照；只補缺不覆寫已存內容。
-     * 列內容對不上（移列/排序）→拒絕錯綁，快照標「來源未補齊」可見狀態；
-     * 來源讀取失敗→保留既有快照並同樣標記；同碼多候選不猜。 */
+
+
+
+
     async enrichLegacySnapshotFromSource(code) {
       const a = this._db().assets.find((x) => x.code === code);
       if (!a) return { done: false, reason: "新帳無此編號" };
@@ -731,7 +736,7 @@
         const next = snap && typeof snap === "object" && !Array.isArray(snap) ? Object.assign({}, snap) : { code: r.code, recordKey: r.recordKey, provenance: r.provenance, sources: {} };
         next.sources = next.sources && typeof next.sources === "object" ? next.sources : {};
         const cur = next["來源未補齊"] && typeof next["來源未補齊"] === "object" ? Object.assign({}, next["來源未補齊"]) : {};
-        if (cur[tab] && cur[tab]["原因"] === reason) return; /* 已標同因，不重寫 */
+        if (cur[tab] && cur[tab]["原因"] === reason) return;
         cur[tab] = { "列": rowNo, "原因": reason, "時間": new Date().toISOString() };
         next["來源未補齊"] = cur;
         this.saveAsset(code, { legacySnapshot: JSON.stringify(next) });
@@ -739,7 +744,7 @@
       let src;
       try { src = await this._readFull(tab); }
       catch (e) { markIncomplete("來源分頁讀取失敗：" + String((e && e.message) || e)); return { done: false, incomplete: "讀取失敗" }; }
-      /* 來源列＝試算表實際列號（含表頭列）：bridge rows 自第 2 列起 */
+
       const row = src.rows[rowNo - 2];
       if (!row) { markIncomplete("來源列不存在（可能已刪列），拒絕錯綁"); return { done: false, incomplete: "列不存在" }; }
       const h = (src.header || []).map((x) => String(x == null ? "" : x).trim());
@@ -749,7 +754,7 @@
       const srcCode = gv("編號", "資產編號"), masterCode = masterRaw["編號"] || masterRaw["資產編號"] || "";
       let verified = false;
       if (srcCode) {
-        /* 來源列載有編號：須與主檔記載編號一致；主檔記無編號而來源有→身分出入了，退回結構核對也不綁 */
+
         verified = !!(masterCode && srcCode === masterCode);
       } else {
         const pairs = [
@@ -790,7 +795,7 @@
         const patch = Object.assign({}, metadata.patch);
         const departmentMismatch = !!(department && existing.department && existing.department !== department);
         if (department && !existing.department) patch.department = department;
-        /* 使用者 14:30 定案：掃到原本沒有專案的設備，歸入正在盤的專案；已屬其他專案的保留原歸屬，只提示差異 */
+
         if (currentProject && ["", "未指定", "未指定（待確認）", "未指定(待確認)"].includes(String(existing.project || "").trim())) patch.project = currentProject;
         if (existing.site !== sess.site || (zone && existing.zone !== zone)) { patch.site = sess.site; patch.zone = zone || existing.zone; }
         if (Object.keys(patch).length) {
@@ -800,7 +805,7 @@
         return { exception: false, moved: false, departmentMismatch, metadataIssue: metadata.issue, asset: existing };
       }
       const now = new Date().toISOString();
-      /* 新掃建檔：座位使用人帶入為保管人（僅新建；既有資產一律不改保管人）。無座位使用人→留空待現場確認。 */
+
       const bring = String(occupantName || "").trim();
       const a = { code, name: "", model: "", serial: "", owner: bring, site: sess.site, zone: zone || "",
         status: "使用中", project: currentProject, department, brand: "", origin: "未確認", type: "", mfgYear: "", po: "",
@@ -813,7 +818,7 @@
       });
       return { exception: false, created: true, ownerBroughtIn: bring || "", asset: a };
     }
-    /* 釐清標示：寫入前由呼叫端過 validateAnnotation；快照由呼叫端以 snapshotOf(舊帳列) 提供 */
+
     addAnnotation(ann) {
       const db = this._db();
       const full = Object.assign({ at: new Date().toISOString(), confirmer: this.actor }, ann);
@@ -831,14 +836,14 @@
     legacyQuestions() { return this._legacyQuestions || []; }
     legacyAuxError() { return this._legacyAuxError || ""; }
     legacyNotes() { return this._legacyNotes || []; }
-    newOperationId() { return operationId(); } /* 同一張註記表單的重送共用同一 operationId，bridge 據此去重 */
+    newOperationId() { return operationId(); }
     legacyNoteError() { return this._legacyNotesError || ""; }
     async _reloadLegacyNotes() {
       const ln = await this._readFull("\u73fe\u5834\u8a3b\u8a18");
       this._legacyNotes = ln.rows.map((row) => rowToNote(row)).filter((n) => n.recordKey);
       this._legacyNotesError = "";
     }
-    /* \u820a\u5eab\u8a3b\u8a18\uff1a\u5beb\u5165\u820a\u5e33\u300c\u73fe\u5834\u8a3b\u8a18\u300d\u5206\u9801\uff08bridge legacy-note\uff09\u3002operationId/reservationToken \u7531 _fetchAuth \u6ce8\u5165\u3002 */
+
     async addLegacyNote(input) {
       const res = await this._fetchAuth(this._url("legacy-note", "\u73fe\u5834\u8a3b\u8a18"), { method: "POST", headers: this._authHeaders({ "content-type": "application/json" }), body: JSON.stringify(input || {}) });
       const body = await res.json().catch(() => null);
@@ -848,32 +853,34 @@
       });
       return body;
     }
-    /* 以原 operationId 查證註記是否已落地：讀到=已寫入；讀不到不代表未寫入（請求可能仍在途），呼叫方必須保留未確認狀態；讀取失敗擲錯，同樣不可當未寫入 */
+
     async verifyLegacyNote(operationId) {
       if (!operationId) return null;
       await this._reloadLegacyNotes();
       return (this._legacyNotes || []).find((n) => n.key === operationId) || null;
     }
-    async loadSeatMap() {
+    async loadSeatMap(identitySafe=()=>true) {
       try { const initial=this._initialSeatRead;delete this._initialSeatRead;if(initial?.error)throw initial.error;const b = initial?initial.body:await this._readFull("座位圖");
         const headers = ["事件鍵","類型","圖版本","據點","區域","座位編號","資產編號","內容JSON","時間","經手人"];
         if (!headers.every((v,i) => b.header[i] === v)) throw new Error("座位圖欄位不符");
-        this.seatRows = b.rows; this.seatReady = true; this.seatError = "";
-      } catch(e) { this.seatReady = false; this.seatError = e.message; this.seatRows = []; }
+        if(!identitySafe())throw Error('帳號已切換，沒有套用原座位資料');this.seatRows = b.rows; this.seatReady = true; this.seatError = "";
+      } catch(e) { if(!identitySafe())throw e;this.seatReady = false; this.seatError = e.message; this.seatRows = []; }
       return this.seatRows;
     }
-    async appendSeatEvent(row) {
+    async appendSeatEvent(row,identitySafe=()=>true) {
+      const ctx=row[1]==='placement'?this._editContext():{safe:()=>true};const safe=()=>identitySafe()&&ctx.safe();if(!safe())throw Error('帳號已切換，沒有送出座位編輯');
       this._seatAttempts=this._seatAttempts||new Set();if(this._seatAttempts.has(row[0]))throw Error('上次座位寫入結果待查，不可重送；請先核對');
       if (!this.seatReady) throw new Error("座位圖尚未連接，未寫入");
       this._seatAttempts.add(row[0]);this._writeGeneration=(this._writeGeneration||0)+1;
-      const res = await this._fetchAuth(this._url("seat-event", "座位圖"), {method:"POST",headers:this._authHeaders({"content-type":"application/json"}),body:JSON.stringify({row,...(row[1]==='placement'&&this._editReservations?.has(row[6])?{editorCode:row[6],reservationToken:this._editReservations.get(row[6]).token}: {})})});
+      const res = await this._fetchAuth(this._url("seat-event", "座位圖"), {method:"POST",headers:this._authHeaders({"content-type":"application/json"}),body:JSON.stringify({row,...(row[1]==='placement'&&this._editReservations?.has(row[6])?{editorCode:row[6],reservationToken:this._editReservations.get(row[6]).token}: {})})},safe);
+      if(!safe())throw Error('帳號已切換，座位保存結果待原帳號核對');
       if (!res || !res.ok) { let b;try{b=await res.json()}catch{}if(res.status===409)await this.loadSeatMap();const err=new Error(b?.error?.message || b?.error?.code || (typeof b?.error==="string"?b.error:"") || "座位資料未同步，請重試");err.conflict=res.status===409;throw err; }
-      const body = await res.json(); if (!body.ok) throw new Error("座位寫回失敗");
+      const body = await res.json();if(!safe())throw Error('帳號已切換，座位保存結果待原帳號核對'); if (!body.ok) throw new Error("座位寫回失敗");
       const stored = body.row || row;
       if (!this.seatRows.some(r => r[0] === stored[0])) this.seatRows.push(stored);
       this._seatAttempts.delete(row[0]);return stored;
     }
-    /* 地點 QR：掃到位置表登錄的 QR 內容 → 回傳 {site, zone}；未登錄回傳 null（不自動猜） */
+
     findSiteByQr(qrContent) {
       const q = String(qrContent || "").trim();
       if (!q) return null;
