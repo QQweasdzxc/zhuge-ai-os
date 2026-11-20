@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - erp-sharedround-controlled-20261121
       - review/p0-home-apps-pages-20261015
       - review/pixel-office-homepage-20261018
       - review/pixel-office-furnishings-p1-20261018
@@ -355,6 +356,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     needs:
       - overlay-contract
+      - erp-cutover-contract
       - backend-image
       - web-image
       - browser
