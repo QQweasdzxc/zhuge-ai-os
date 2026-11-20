@@ -582,18 +582,18 @@ const thisSess=S.sess&&best.sessionId===S.sess.id;
 const lbl=LABEL[best.status]||best.status||'已掃';
 return '<div class="small" style="margin-top:4px">'+(thisSess?'本次已掃':'以前掃過')+'：'+esc(whenTxt)+' · '+esc(a?a.name:best.code)+' '+esc(best.code)+' · '+esc(lbl)+(thisSess?'':'（紀錄保留，不等於本次已確認；本次請照掃）')+'</div>';
 }
-  function prestartSeat(){if(!seatUI)return '';const m=seatUI.mapFor(S.site,S.zone),st=seatUI.state;if(!m||!st.scanSelected)return '<div class="warn">尚未選目前座位。<button class="pill em" data-a="goal-seat">先選座位</button></div>';const count=Object.values(seatUI.seatBindings()).filter(x=>x.version===m.id&&x.seat===st.selected).length;return '<div class="match"><b>目前座位：'+esc(m.site)+' '+esc(m.zone)+' · '+st.selected+'號</b><div>此座位已登記 '+count+' 台設備（不代表現場全部設備）；換號不會自動核對。</div>'+seatLastScanHtml()+'<div style="margin-top:6px"><button class="pill em" data-a="goal-seat">換座位</button></div></div>';}
+  function prestartSeat(){if(!seatUI)return '';const m=seatUI.mapFor(S.site,S.zone),st=seatUI.state;if(!m||!st.scanSelected)return '<div class="warn">尚未選目前位置。請按下方「先選位置，再開始」。</div>';const count=Object.values(seatUI.seatBindings()).filter(x=>x.version===m.id&&x.seat===st.selected).length;return '<div class="match"><b>目前座位：'+esc(m.site)+' '+esc(m.zone)+' · '+st.selected+'號</b><div>此座位已登記 '+count+' 台設備（不代表現場全部設備）；換號不會自動核對。</div>'+seatLastScanHtml()+'<div style="margin-top:6px"><button class="pill em" data-a="goal-seat">換座位</button></div></div>';}
   function modeBar() {
 const more = S.workspaceMore ? '<section class="workspace-more" aria-label="管理功能"><h3>管理功能</h3>'+[['geo','地圖總覽'],['assets','設備資料'],['inbound','入庫作業'],['zones','公司據點'],['map','座位圖'],['diff','盤點差異'],['legacy','舊帳比對']].map(([key,label])=>'<button class="pill" data-a="workspace-manage" data-v="'+key+'">'+label+'</button>').join('')+draftCard()+'<button class="pill" data-a="workspace-more">關閉</button></section>' : '';
-if (S.mode==='phone') return '<nav class="workspace-nav" aria-label="工作區"><span class="workspace-title">設備管理工作區</span><button class="mb on" data-a="workspace-scan">掃描</button></nav>';
+if (S.mode==='phone') return '<nav class="workspace-nav" aria-label="工作區"><span class="workspace-title">設備管理工作區</span><button class="mb on" data-a="workspace-scan">盤點工作區</button></nav>';
 return '<nav class="workspace-nav" aria-label="工作區"><span class="workspace-title">設備管理工作區</span><button class="mb'+(S.dtab==='dash'?' on':'')+'" data-a="workspace-overview">總覽</button><button class="mb" data-a="workspace-scan">掃描</button><button class="mb" aria-expanded="'+!!S.workspaceMore+'" data-a="workspace-more">更多管理</button></nav>'+more;
 }
   function phoneStart() {
 ensureSetupDraft();
 if (!S.site && siteNames().length === 1) S.site = siteNames()[0];
 const g = S.gps;
-return '<div class="screen"><h3 class="ptitle">設備盤點 <button class="pill em" data-a="workspace-seats" style="float:right">座位圖</button></h3>' +
-'<p class="psub">確認目前座位與設定後開始；同一次盤點換座位不用重填。</p>' + prestartSeat() + '<div class="small">本次部門：'+esc(S.scanDepartment||'未指定')+' · 專案：'+esc(S.scanProject||'全部專案')+'（既有設備歸屬不會因此覆蓋）</div><details class="goal-setup"><summary>修改本次設定／取得定位</summary>' +
+return '<div class="screen"><h3 class="ptitle">設備盤點</h3>' +
+'<p class="psub">先選目前位置，再開始逐台盤點。同位置可記多台，換位置不用重填設定。</p>' + prestartSeat() + '<div class="small">本次部門：'+esc(S.scanDepartment||'未指定')+' · 專案：'+esc(S.scanProject||'全部專案')+'（既有設備歸屬不會因此覆蓋）</div><details class="goal-setup"><summary>修改本次設定／取得定位</summary>' +
 '<div class="card"><div class="lbl">掃描起點定位（使用瀏覽器實際定位，需你授權）</div>' +
 (!g
 ? '<button class="btn secondary" data-a="gps">取得目前定位</button>' + (S.gpsErr ? '<div class="warn">' + esc(S.gpsErr) + "</div>" : "")
@@ -618,8 +618,8 @@ projects().map((p) => '<button class="pill' + (S.scanProject === p ? " on" : "")
 " · 應盤 <b>" + assets().filter((a) => a.site === S.site && (!S.scanProject || (a.project || D.UNASSIGNED) === S.scanProject)).length + "</b> 台</div>" : "") +
 "</div></details>" +
 (S.scanSetupErr ? '<div class="warn">' + esc(S.scanSetupErr) + "</div>" : "") +
-(S.setupRestored ? '<div class="warn" id="setup-restored">已還原上次尚未開始的設定：部門「' + esc(S.scanDepartment || "未填") + '」、專案「' + esc(S.scanProject || S.scanProjectInput || "全部專案") + '」。這只是預填，沒有開始盤點、沒有寫入任何資料；請核對，按下面「開始掃描」才會生效。<button class="pill sm" data-a="setup-clear">清除這些還原內容</button></div>' : "") +
-'<button class="btn" data-a="start">' + "開始掃描" + (S.site ? " · " + esc(S.site) : "") + (S.scanProject ? " · " + esc(S.scanProject.replace("（測試）", "")) : "") + "</button></div>";
+(S.setupRestored ? '<div class="warn" id="setup-restored">已還原上次尚未開始的設定：部門「' + esc(S.scanDepartment || "未填") + '」、專案「' + esc(S.scanProject || S.scanProjectInput || "全部專案") + '」。這只是預填，沒有開始盤點、沒有寫入任何資料；請核對，選好位置並開始盤點才會生效。<button class="pill sm" data-a="setup-clear">清除這些還原內容</button></div>' : "") +
+'<button class="btn" data-a="'+(seatUI?.state.scanSelected?'start':'goal-seat')+'">' + (seatUI?.state.scanSelected?'開始這個位置的盤點':'先選位置，再開始') + (S.site ? " · " + esc(S.site) : "") + (S.scanProject ? " · " + esc(S.scanProject.replace("（測試）", "")) : "") + "</button></div>";
 }
   function phoneScan() {
 const recs = curRecs();
@@ -1254,7 +1254,7 @@ if (S.mode === "phone") {
 let body;
 if (S.dash) body = phoneDash();
 else if (S.screen === "recv") body = phoneRecv();
-else if (S.screen === "seats") body = (seatUI ? '<section class="card"><h3>座位圖：選目前座位</h3><p class="small">看清楚座號，點選目前座位後按「掃描」開始；換座位隨時回這頁。完整管理功能請用電腦版。</p>' + locationPicker('phone') + seatLastScanHtml() + (S.scanCity&&S.site&&S.zone ? seatUI.render(S.site, S.zone) : '<div class="card">請依序選城市、據點與樓層，再開啟平面圖。</div>') + '</section>' : '<div class="card">座位圖模組未載入，請重新整理。</div>');
+else if (S.screen === "seats") body = (seatUI ? '<section class="card"><h3>座位圖：選目前座位</h3><p class="small">點圖上的位置，再按「從這個位置開始盤點」。同位置可記多台；換位置隨時回這頁。完整管理功能請用電腦版。</p>' + locationPicker('phone') + seatLastScanHtml() + (S.scanCity&&S.site&&S.zone ? seatUI.render(S.site, S.zone) : '<div class="card">請依序選城市、據點與樓層，再開啟平面圖。</div>') + '</section>' : '<div class="card">座位圖模組未載入，請重新整理。</div>');
 else if (S.screen === "start") body = phoneStart();
 else if (S.screen === "scan") body = phoneScan();
 else body = phoneResult();
