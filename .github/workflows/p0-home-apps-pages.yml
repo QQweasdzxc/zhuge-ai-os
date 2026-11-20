@@ -43,7 +43,9 @@ jobs:
         with:
           node-version: 24
       - name: Verify protocol, static staging, round rejection and real bundled client lifecycle
-        run: node --test tests/erp-cutover/*.test.cjs
+        run: |
+          node --test tests/erp-cutover/*.test.cjs tests/zg-erp-inbound-account.test.cjs tests/zg-erp-inbound-result-check.test.cjs tests/zg-erp-inbound-custody.test.cjs tests/zg-erp-inbound-bridge-format.test.cjs
+          node tests/zg-erp-intake.cjs
 
   backend-image:
     name: TaskFlow backend build parity
@@ -99,6 +101,18 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Export CI Chromium path
         run: echo "BROWSER_EXECUTABLE=$(node -e 'process.stdout.write(require("playwright").chromium.executablePath())')" >> "$GITHUB_ENV"
+      - name: Verify source and built ERP inbound lifecycle
+        env:
+          CHROME_PATH: ${{ env.BROWSER_EXECUTABLE }}
+        run: |
+          node tests/zg-erp-inbound-browser.cjs
+          node tests/zg-erp-editor-browser.cjs
+          mkdir -p "$RUNNER_TEMP/erp-minified/ZG-ERP"
+          cp ZG-ERP/erp-app.js ZG-ERP/erp-sheets-adapter.js "$RUNNER_TEMP/erp-minified/ZG-ERP/"
+          node tools/build-erp-artifacts.cjs "$RUNNER_TEMP/erp-minified"
+          ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-inbound-browser.cjs
+          ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-editor-browser.cjs
+          node tests/zg-erp-artifact-runtime.cjs "$RUNNER_TEMP/erp-minified"
       - name: Verify read-only daily source and private overview boundaries
         run: |
           cd tests/investment/daily-close-v4
@@ -145,6 +159,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+      - name: Install locked ERP build dependency
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify locked ERP artifact transform
+        run: node --test tests/zg-erp-artifact.test.cjs
       - name: Assemble curated tracked AI OS Pages routes
         run: node tools/build-pages-site.js "$RUNNER_TEMP/pages-site"
       - name: Build pinned MIT Habblaud Pixel Office into the ACTUAL Pages artifact
