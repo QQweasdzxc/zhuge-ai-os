@@ -520,16 +520,18 @@
     /* ---- 進貨批次 ---- */
     listBatches() { return this._db().batches; }
     batch(id) { return this._db().batches.find((b) => b.id === id); }
-    async importIntakeVerified(id, groups) {
-      this._intakeAttempts=this._intakeAttempts||new Set();if(this._intakeAttempts.has(id))throw Error('上次匯入結果待查，不可重送；請先核對批次');this._intakeAttempts.add(id);this._writeGeneration=(this._writeGeneration||0)+1;
-      const res=await this._fetchAuth(this._url("intake-import","batches"),{method:"POST",headers:this._authHeaders({"content-type":"application/json"}),body:JSON.stringify({id,groups})});
-      const body=res?await res.json():null;
-      if(!res||!res.ok||!body?.ok||!Array.isArray(body.rows)||!Array.isArray(body.ids))throw new Error(body?.error?.message||"匯入未確認，請保留畫面重試");
+    async importIntakeVerified(id, groups, identitySafe=()=>true) {
+      if(!identitySafe())throw Error('帳號已切換，沒有送出或接續');const initialDb=this.db;
+      this._intakeAttempts=this._intakeAttempts||new Set();const statusOnly=this._intakeAttempts.has(id);this._intakeAttempts.add(id);this._writeGeneration=(this._writeGeneration||0)+1;
+      const res=statusOnly?null:await this._fetchAuth(this._url("intake-import","batches"),{method:"POST",headers:this._authHeaders({"content-type":"application/json"}),body:JSON.stringify({id,groups})});
+      const snapshot=statusOnly?await this._readFull('batches'):null;
+      const body=statusOnly?{ok:true,rows:snapshot.rows,ids:groups.map((_,i)=>id+'-'+i)}:res?await res.json():null;
+      if((!statusOnly&&(!res||!res.ok))||!body?.ok||!Array.isArray(body.rows)||!Array.isArray(body.ids))throw new Error(body?.error?.message||"匯入未確認，請保留畫面重試");
       const made=[];for(let i=0;i<groups.length;i++){const b=groups[i],bid=id+"-"+i,rows=body.rows.filter(r=>r[1]===bid),head=rows.find(r=>r[0]==="批次");
-        if(!head||head[11]!=="進行中"||["po","vendor","brand","model","origin","type","mfgYear","note"].some((k,i)=>String(head[i+2]??"")!==b[k])||rows.length!==b.serials.length+1||!b.serials.every(serial=>rows.some(r=>r[0]==="明細"&&r[12]===serial&&r[11]==="pending")))throw Error("讀回批次不完整，請保留畫面重試");
+        if(!head||head[11]!=="進行中"||["po","vendor","brand","model","origin","type","mfgYear","note"].some((k,i)=>String(head[i+2]??"")!==b[k])||rows.length!==b.serials.length+1||!b.serials.every(serial=>rows.some(r=>r[0]==="明細"&&r[12]===serial&&r[11]==="pending")))throw Error(statusOnly?'尚無法核實原匯入的完整結果，可能仍在保存或後續到貨進度已改變；不代表未保存。請查看現存批次，勿重選檔案或再次建立。':'讀回批次不完整，請保留畫面查保存結果，不要重新建立。');
         made.push({...b,id:bid,at:head[10],closed:false,items:b.serials.map(serial=>({serial,state:"pending",receivedAt:"",code:""})),unexpected:[]});
       }
-      const db=this._db();for(const b of made){const i=db.batches.findIndex(x=>x.id===b.id);if(i<0)db.batches.push(b);else db.batches[i]=b;}this._intakeAttempts.delete(id);return made;
+      if(!identitySafe()||this.db!==initialDb)throw Error('帳號已切換，請回原帳號查保存結果');const db=this._db();for(const b of made){const i=db.batches.findIndex(x=>x.id===b.id);if(i<0)db.batches.push(b);else db.batches[i]=b;}return made;
     }
     _batchWrite(batch, entity, writeFn, onFailure) {
       const prior=batch.__batchChain;
