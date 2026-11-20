@@ -29,37 +29,38 @@ function planSeatCascade(opts){
    store 需提供 reserveAssetEdit/releaseAssetEdit/readAssetForEdit/saveAssetVerified(code,draft,base,opId)。
    opId 讓整批寫入共用同一個 operationId 以便追查。 */
 async function runSeatCascade(store,code,draft,base,plan,opId){
+  const ctx=store._editContext?store._editContext():{safe:()=>true};const guard=()=>{if(!ctx.safe())throw Error('帳號已切換，同座位連動結果待原帳號核對；沒有跨帳號補償或重送');};guard();
   const peers=(plan&&plan.peers)||[];
-  if(!peers.length){await store.saveAssetVerified(code,draft,base,opId);return{saved:[code],cascaded:[]};}
+  if(!peers.length){guard();await store.saveAssetVerified(code,draft,base,opId);guard();return{saved:[code],cascaded:[]};}
   const preflight=[];
   for(const p of peers){
-    const fresh=await store.readAssetForEdit(p.code);
+    const fresh=await store.readAssetForEdit(p.code);guard();
     const drift=Object.keys(p.expected).filter(f=>String(fresh[f]??'')!==p.expected[f]);
     if(drift.length){throw new Error('同座位設備 '+p.code+' 的欄位已被改動（'+drift.join('、')+'），未寫入任何資料；請重新整理核對後再儲存。');}
     preflight.push({code:p.code,fresh,patch:p.patch});
   }
   const reserved=[];
-  try{for(const p of peers){await store.reserveAssetEdit(p.code);reserved.push(p.code);}}
-  catch(e){for(const c of reserved){try{await store.releaseAssetEdit(c);}catch(_){}}throw new Error('同座位設備無法取得編輯權（'+e.message+'），未寫入任何資料；請稍後重試。');}
+  try{for(const p of peers){await store.reserveAssetEdit(p.code);guard();reserved.push(p.code);}}
+  catch(e){guard();for(const c of reserved){guard();try{await store.releaseAssetEdit(c);guard();}catch(_){}}throw new Error('同座位設備無法取得編輯權（'+e.message+'），未寫入任何資料；請稍後重試。');}
   const written=[];
   const revertOne=async(w)=>{
-    try{await store.releaseAssetEdit(w.code);}catch(_){}
-    await store.reserveAssetEdit(w.code);
-    await store.saveAssetVerified(w.code,w.revertDraft,w.revertBase,opId);
+    guard();try{await store.releaseAssetEdit(w.code);}catch(_){}guard();
+    guard();await store.reserveAssetEdit(w.code);guard();
+    guard();await store.saveAssetVerified(w.code,w.revertDraft,w.revertBase,opId);guard();
   };
   try{
     const afterPrimary={...base};for(const k of Object.keys(draft))afterPrimary[k]=['未指定（待確認）','未指定(待確認)','未指定'].includes(draft[k])?'':draft[k];
-    await store.saveAssetVerified(code,draft,base,opId);
+    guard();await store.saveAssetVerified(code,draft,base,opId);guard();
     written.push({code,revertDraft:{...base},revertBase:afterPrimary});
     for(const p of preflight){
       const peerDraft={...p.fresh,...p.patch};
-      await store.saveAssetVerified(p.code,peerDraft,p.fresh,opId);
+      guard();await store.saveAssetVerified(p.code,peerDraft,p.fresh,opId);guard();
       written.push({code:p.code,revertDraft:{...p.fresh},revertBase:{...p.fresh,...p.patch}});
     }
   }catch(e){
-    const rolled=[],failed=[];
-    for(const w of written){try{await revertOne(w);rolled.push(w.code);}catch(re){failed.push(w.code+'（'+(re&&re.message||re)+'）');}}
-    for(const c of reserved){if(!written.some(w=>w.code===c)){try{await store.releaseAssetEdit(c);}catch(_){}}}
+    guard();const rolled=[],failed=[];
+    for(const w of written){guard();try{await revertOne(w);guard();rolled.push(w.code);}catch(re){failed.push(w.code+'（'+(re&&re.message||re)+'）');}}
+    for(const c of reserved){if(!written.some(w=>w.code===c)){guard();try{await store.releaseAssetEdit(c);guard();}catch(_){}}}
     let msg='同座位連動寫入失敗（'+(e&&e.message||e)+'）。';
     if(failed.length)msg+='警告：以下設備未能回復，請立即人工核對：'+failed.join('、')+'。';
     else if(rolled.length)msg+='已回復本次全部寫入（'+rolled.join('、')+'），同座位資料維持原狀。';

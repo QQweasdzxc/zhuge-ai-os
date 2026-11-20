@@ -58,17 +58,22 @@ return null;
 const DRAFT=window.ErpDraftCore||null;
 const DRAFTS=DRAFT?DRAFT.create((()=>{try{return window.localStorage;}catch(e){return null;}})()):null;
 const draftAcct=()=>DRAFT?DRAFT.accountOf(session()):'';
+store.editAccount=()=>window.ErpAuth&&!D.isMock&&window.ErpAuth.state().status!=='ready'?'':draftAcct();store.editAuthGeneration=()=>window.ErpAuth?.state?.().generation;
+let editAccountEpoch=0,editSeenAccount=null;function editorAccountSafe(){const who=draftAcct();if(editSeenAccount===null)editSeenAccount=who;else if(who!==editSeenAccount){editSeenAccount=who;editAccountEpoch++;store._editAccountEpoch=editAccountEpoch;}if(S.editCode&&S.editAccount===undefined)S.editAccount=who;return !S.editCode||S.editAccount===who;}
+function editorContext(){editorAccountSafe();const who=draftAcct(),epoch=editAccountEpoch,authGeneration=store.editAuthGeneration(),db=store.db;return ()=>store.editAuthGeneration()===authGeneration&&editorAccountSafe()&&draftAcct()===who&&editAccountEpoch===epoch&&store.db===db;}
+function guardEditor(safe){if(!safe())throw Error('帳號已切換，原編輯與保存結果保留；請回原帳號核對，不可跨帳號重送');}
+
 const fieldObservation=window.ErpFieldObservation?window.ErpFieldObservation.create({store,context:()=>({sessionId:S.sess?.id,zone:S.zone,seatTarget:seatUI?.target(S.site,S.zone,''),sessionWrite:S.sess?.__write,sessionUnsynced:()=>!!S.sess?.__unsynced}),drafts:DRAFTS,account:draftAcct,render,recover:recoverObservation}):null;
   function draftSaveEdit(){
-if(!DRAFTS||!S.editCode||!S.editDraft)return;
+if(!editorAccountSafe()||!DRAFTS||!S.editCode||!S.editDraft)return;
 const r=DRAFTS.put(draftAcct(),'asset-edit',S.editCode,{values:{...S.editDraft},base:{...S.editBase}});
 S.draftNote=r.saved?'draft':(r.reason==='no-account'?'':'failed');
 const el=document.getElementById('erp-draft-line');if(el)el.innerHTML=draftInner();
 }
 const AUTO_FIELDS=['name','model','serial','purchase','activate','warranty','brand','origin','mfgYear','type','po'];
   async function autosaveAsset(f){
-if(!S.editCode||!S.editDraft||!AUTO_FIELDS.includes(f)||S.editBusy||S.editLocked||S.editConflict)return;
-const code=S.editCode,oldBase={...S.editBase},oldDraft={...S.editDraft},val=String(oldDraft[f]??'').trim();
+if(!editorAccountSafe()||!S.editCode||!S.editDraft||!AUTO_FIELDS.includes(f)||S.editBusy||S.editLocked||S.editConflict)return;
+const safe=editorContext();const code=S.editCode,oldBase={...S.editBase},oldDraft={...S.editDraft},val=String(oldDraft[f]??'').trim();
 if(!val&&f==='name'){if(String(oldBase[f]??'').trim()){S.autoNote='';S.editError='設備名稱不能留空，沒有儲存；正式資料維持原名稱「'+String(oldBase[f]||'')+'」。請輸入名稱，或取消編輯。';render();}return;}
 if(val===String(oldBase[f]??''))return;
 if(!D.isMock&&store._editReservations?.get(code)?.attempted)return;
@@ -76,8 +81,8 @@ let wrote=false;S.editBusy=true;S.autoNote='';render();
 try{
 if(D.isMock){store.saveAsset(code,{[f]:val});}
 else{
-await store.saveAssetVerified(code,{...oldBase,[f]:val},oldBase);wrote=true;
-await store.reserveAssetEdit(code);const fresh=await store.readAssetForEdit(code);
+await store.saveAssetVerified(code,{...oldBase,[f]:val},oldBase);guardEditor(safe);wrote=true;
+await store.reserveAssetEdit(code);guardEditor(safe);const fresh=await store.readAssetForEdit(code);guardEditor(safe);
 const nd=editValues(fresh);
 for(const k of Object.keys(nd)){if(k!==f&&String(oldDraft[k]??'')!==String(oldBase[k]??''))nd[k]=oldDraft[k];}
 const typed=String(S.editDraft[f]??'');if(typed.trim()!==val)nd[f]=S.editDraft[f];
@@ -87,10 +92,10 @@ if(D.isMock){S.editBase={...S.editBase,[f]:val};}
 S.autoNote='已自動儲存：'+(window.ErpDraftCore?window.ErpDraftCore.fieldLabels([f])[0]:f)+(val?'':'已清空（原：'+String(oldBase[f]||'')+'）')+'（已存入正式資料並讀回）';
 const others=Object.keys(S.editDraft).some(k=>String(S.editDraft[k]??'')!==String(S.editBase[k]??''));
 if(others)draftSaveEdit();else draftDiscardEdit(code);
-}catch(e){S.editLocked=true;S.editError=wrote?'這個欄位已存入正式資料，但重新取得編輯權失敗（'+(e.message||'未知')+'）。其餘輸入保留為草稿；請取消後重新開啟再繼續。':'自動儲存沒有確認成功（'+(e.message||'未知')+'）。輸入已保留為草稿，不會重送；請取消後重新開啟核對。';draftSaveEdit();}
-finally{S.editBusy=false;render();}
+}catch(e){if(!safe())return;S.editLocked=true;S.editError=wrote?'這個欄位已存入正式資料，但重新取得編輯權失敗（'+(e.message||'未知')+'）。其餘輸入保留為草稿；請取消後重新開啟再繼續。':'自動儲存沒有確認成功（'+(e.message||'未知')+'）。輸入已保留為草稿，不會重送；請取消後重新開啟核對。';draftSaveEdit();}
+finally{S.editBusy=false;if(!safe()){S.editLocked=true;S.editError='帳號已切換，原編輯結果待核對，沒有自動重送。';}render();}
 }
-  function draftDiscardEdit(code){if(DRAFTS)DRAFTS.discard(draftAcct(),'asset-edit',code);S.draftNote='';}
+  function draftDiscardEdit(code){if(!editorAccountSafe())return;if(DRAFTS)DRAFTS.discard(draftAcct(),'asset-edit',code);S.draftNote='';}
   function draftApplyEdit(code){
 S.draftNote='';S.draftConflict=[];
 if(!DRAFTS||!DRAFT)return;
@@ -285,6 +290,7 @@ return plan;
   function assetDrawerHtml(a, lr, zones) {
 let out = '';
 if (S.editCode === a.code && S.editDraft) {
+if(!editorAccountSafe())return '<div class="warn">帳號已切換，原設備編輯已隔離保留。請回原帳號核對保存結果；這裡不可沿用、清稿或重送。</div>';
 const d = S.editDraft;
 out += '<div class="drawer">' + (repairUI&&!S.editLocked?repairUI.html(a):'') + (S.editLocked?(S.editBusy?'<div class="small">正在取得編輯權…</div>':'<div class="warn">編輯權限不可用，資料為唯讀，原輸入保留。'+esc(S.editError||'')+'</div>'+(S.editConflict?'':'<button class="pill" data-a="edit-rebase">重新讀取核對並取得編輯權</button>')+'<button class="pill" data-a="cancel">取消編輯</button>'):'') + (S.editLegacy?.length ? '<div class="small">已帶入唯一完整編號舊帳的空白描述欄位：'+esc(S.editLegacy.join('、'))+'。供核對，按儲存才寫入；不帶入保管人或座位。</div>' : '') + '<fieldset style="border:0;padding:0;margin:0;min-width:0"' + (S.editBusy||S.editLocked ? ' disabled' : '') + '>' + legacyDetails(a.code) +
 '<div class="frow"><span class="lbl">名稱</span><input class="inp" data-f="name" value="' + esc(d.name) + '"></div>' +
@@ -319,28 +325,28 @@ return '<div class="warn"><b>同座位連動</b>（'+esc(String(plan.seat.seat))
 return out;
 }
   async function openControlledEditor(code){
-if(S.editBusy)return;const x=getA(code);if(!x)return;
-if(S.editCode&&S.editCode!==code&&!D.isMock)await store.releaseAssetEdit(S.editCode);
-S.editTouched=false;S.editCode=code;S.editDraft=editValues(x);S.editError='';S.editSeat='';S.savedAt='';S.editBusy=true;S.editLocked=true;S.cascadeInfo='';render();
-try{if(!D.isMock){await store.reserveAssetEdit(code);const fresh=await store.readAssetForEdit(code);S.editDraft=editValues(fresh);}draftApplyEdit(code);S.editConflict=false;S.editLocked=false;}
-catch(e){S.editError=e.message+'；輸入已保留，尚未保存。';}
-finally{S.editBusy=false;render();}
+if(!editorAccountSafe()||S.editBusy)return;const safe=editorContext();const x=getA(code);if(!x)return;
+if(S.editCode&&S.editCode!==code&&!D.isMock){try{await store.releaseAssetEdit(S.editCode);}catch(e){if(safe()){S.editError=e.message;render();}return;}if(!safe())return;}
+guardEditor(safe);S.editAccount=draftAcct();S.editTouched=false;S.editCode=code;S.editDraft=editValues(x);S.editError='';S.editSeat='';S.savedAt='';S.editBusy=true;S.editLocked=true;S.cascadeInfo='';render();
+try{if(!D.isMock){await store.reserveAssetEdit(code);guardEditor(safe);const fresh=await store.readAssetForEdit(code);guardEditor(safe);S.editDraft=editValues(fresh);}draftApplyEdit(code);S.editConflict=false;S.editLocked=false;}
+catch(e){if(!safe())return;S.editError=e.message+'；輸入已保留，尚未保存。';}
+finally{S.editBusy=false;if(!safe()){S.editLocked=true;S.editError='帳號已切換，原編輯結果待核對，沒有自動重送。';}render();}
 }
   async function rebaseControlledEditor(){
-const code=S.editCode,draft={...S.editDraft},base={...S.editBase};if(!code||S.editBusy||S.editConflict)return;
+if(!editorAccountSafe())return;const safe=editorContext();const code=S.editCode,draft={...S.editDraft},base={...S.editBase};if(!code||S.editBusy||S.editConflict)return;
 if(store._editReservations?.get(code)?.attempted){S.editError='上次寫入結果待查，輸入保留，不可重新取得權限或重送。';render();return;}
 S.editBusy=true;render();
 try{
-await store.releaseAssetEdit(code);await store.reserveAssetEdit(code);
-const fresh=await store.readAssetForEdit(code);
+await store.releaseAssetEdit(code);guardEditor(safe);await store.reserveAssetEdit(code);guardEditor(safe);
+const fresh=await store.readAssetForEdit(code);guardEditor(safe);
 const merged=window.ErpEditCore.rebase(base,draft,fresh),conflicts=merged.conflicts;
 if(!conflicts.length){S.editDraft=merged.values;S.editBase=merged.base;}
-if(conflicts.length){S.editConflict=true;S.editLocked=true;S.editError='資料已被其他操作改動，輸入保留但未保存。衝突欄位：'+(window.ErpDraftCore?window.ErpDraftCore.fieldLabels(conflicts):conflicts).join('、')+'。請取消後重新核對，不自動覆蓋。';await store.releaseAssetEdit(code);}
+if(conflicts.length){S.editConflict=true;S.editLocked=true;S.editError='資料已被其他操作改動，輸入保留但未保存。衝突欄位：'+(window.ErpDraftCore?window.ErpDraftCore.fieldLabels(conflicts):conflicts).join('、')+'。請取消後重新核對，不自動覆蓋。';await store.releaseAssetEdit(code);guardEditor(safe);}
 else{S.editLocked=false;S.editError='已重新讀取並取得編輯權，原輸入保留；請核對後再儲存。';}
-}catch(e){S.editLocked=true;S.editError=e.message;}
-finally{S.editBusy=false;render();}
+}catch(e){if(!safe())return;S.editLocked=true;S.editError=e.message;}
+finally{S.editBusy=false;if(!safe()){S.editLocked=true;S.editError='帳號已切換，原編輯結果待核對，沒有自動重送。';}render();}
 }
-  function noteControlledActivity(){S.editTouched=true;if(D.isMock||!S.editCode||S.editLocked)return;store.noteEditActivity(S.editCode).catch(e=>{S.editLocked=true;S.editError=e.message;render();});}
+  function noteControlledActivity(){if(!editorAccountSafe())return;const safe=editorContext();S.editTouched=true;if(D.isMock||!S.editCode||S.editLocked)return;store.noteEditActivity(S.editCode).catch(e=>{if(!safe())return;S.editLocked=true;S.editError=e.message;render();});}
   async function scan(code,retained,captured) {
 code = String(code || "").trim();
 if (!code || !S.sess) return;
@@ -496,7 +502,7 @@ if (D.isMock || typeof store.syncStatus !== "function") return "";
 setTimeout(refreshSyncBadge, 0);
 return '<div id="erp-sync-badge" class="syncbadge" style="display:none"></div><div id="erp-version-badge" class="versionbadge" style="display:none"></div>';
 }
-const LOADED_BUILD = { id: "2026-11-21.repairaccount1" };
+const LOADED_BUILD = { id: "2026-11-21.editoraccount1" };
   async function checkAppVersion() {
 if (D.isMock) return;
 try {
@@ -1223,6 +1229,7 @@ return '<div class="desktop"><div class="dbody"><nav class="dside"><div class="d
   function render() {
 clearTimeout(usbIdleTimer);
 const usbFocused=document.activeElement?.dataset?.f==="usbScanCode";
+editorAccountSafe();
 const cameraScanning=S.mode==='phone'&&S.screen==='scan'&&!S.dash&&!S.viewCode&&S.scanInput==='camera';
 const cameraMap=cam.mapReturn&&S.sess&&!S.sess.closed&&S.sess.id===cam.pauseSession&&!S.dash&&!S.viewCode&&((S.mode==='phone'&&S.screen==='seats')||(S.mode==='pc'&&S.dtab==='map'));
 if(document.hidden||(window.ErpAuth&&window.ErpAuth.state().status!=='ready'&&!D.isMock)){if(S.camOn||cam.starting)camStop(true);}
@@ -1293,6 +1300,7 @@ document.addEventListener("click", (e) => {
 const t = e.target.closest("[data-a]");
 if (!t) return;
 const a = t.getAttribute("data-a"), v = t.getAttribute("data-v") || "";
+if(!editorAccountSafe()){render();return;}
 if(['location-city','location-site','location-zone','zone','site','workspace-seats','goal-seat'].includes(a)&&scanNavigationPending()){S.scanSetupErr='還有輸入未送出、未保存或結果待查的掃描，請完成本筆或清除未送出文字，再換位置。';render();return;}
 if(S.editCode&&['goal-seat','goal-find','goal-resume','view-asset','view-edit','workspace-overview','workspace-scan','workspace-seats','workspace-manage','mode','tab','dtab','back','godiff','sitelist','gositepc','asite','gosite'].includes(a)){
 if(S.editTouched){S.editError='還有未保存的輸入，請先保存或明確取消編輯後再離開。';render();return;}
@@ -1388,8 +1396,8 @@ S.cancelAsk=false;openControlledEditor(v);return;
 }
 else if (a === "asset-seat-save") {
 if (!S.editBusy && !S.editLocked && S.editCode && S.editSeat) {
-const code = S.editCode, asset = getA(code); S.editBusy = true; S.editError = ""; render();
-seatUI.savePlacement(asset, S.editSeat).then(() => { S.editSeat = ""; }).catch(e => { S.editError = e.message; }).finally(() => { S.editBusy = false; render(); });
+const safe=editorContext();const code = S.editCode, asset = getA(code); S.editBusy = true; S.editError = ""; render();
+seatUI.savePlacement(asset, S.editSeat,safe).then(() => {if(safe())S.editSeat = '';}).catch(e => {if(safe())S.editError=e.message;}).finally(() => {S.editBusy=false;if(!safe())S.editLocked=true;render();});
 }
 }
 else if (a === "edit-rebase") {rebaseControlledEditor();return;}
@@ -1398,7 +1406,7 @@ else if (a === "cancel") { const hasDraft=S.editCode&&S.editDraft&&['draft','res
 else if (a === "save") {
 if (S.editCode && S.editDraft) {
 if (S.editBusy||S.editLocked) return;
-const code = S.editCode, draft = { ...S.editDraft }, base = { ...S.editBase };
+const safe=editorContext();const code = S.editCode, draft = { ...S.editDraft }, base = { ...S.editBase };
 if(!String(draft.name??'').trim()){S.editError='設備名稱不能留空，沒有儲存；請輸入名稱後再儲存。';render();return;}
 S.savedAt = ""; S.editBusy = true; S.editError = ""; render();
 const keepY2 = window.scrollY;
@@ -1415,21 +1423,21 @@ const changed={};
 if(String(draft.owner??'')!==String(base.owner??''))changed.owner=String(draft.owner??'');
 if(String(draft.department??'')!==String(base.department??''))changed.department=String(draft.department??'');
 if(Object.keys(changed).length&&seatUI){
-if(!seatUI.state.loaded&&typeof store.loadSeatMap==='function'){await store.loadSeatMap();seatUI.state.loaded=true;}
+if(!seatUI.state.loaded&&typeof store.loadSeatMap==='function'){await store.loadSeatMap();guardEditor(safe);seatUI.state.loaded=true;}
 const bindings=seatUI.state.loaded&&store.seatReady?seatUI.seatBindings():null;
 if(!bindings)throw new Error('座位資料未能讀取，無法確認同座位設備；未保存，請重新整理後重試。');
 const plan=window.ErpEditCore.planSeatCascade({bindings,assets:assets(),code,changed});
 if(plan.peers.length){
-const res=await window.ErpEditCore.runSeatCascade(store,code,draft,base,plan);
+const res=await window.ErpEditCore.runSeatCascade(store,code,draft,base,plan);guardEditor(safe);
 cascadeInfo='已一併更新同座位 '+res.cascaded.length+' 台：'+res.cascaded.join('、');
 }
-else await store.saveAssetVerified(code, draft, base);
+else await store.saveAssetVerified(code, draft, base);guardEditor(safe);
 }
-else await store.saveAssetVerified(code, draft, base);
+else await store.saveAssetVerified(code, draft, base);guardEditor(safe);
 }
-draftDiscardEdit(code);if (S.editCode === code) { S.savedAt = code; S.editCode = ""; S.editDraft = null; S.cascadeInfo=cascadeInfo; }
-} catch (e) { S.editLocked=true;S.editError = e.message || "儲存結果未確認，輸入保留，不可重送，請先核對"; }
-finally { S.editBusy = false; render(); window.scrollTo(0, keepY2); }
+guardEditor(safe);draftDiscardEdit(code);if (S.editCode === code) { S.savedAt = code; S.editCode = ""; S.editDraft = null; S.cascadeInfo=cascadeInfo; }
+} catch (e) { if(!safe())return;S.editLocked=true;S.editError = e.message || "儲存結果未確認，輸入保留，不可重送，請先核對"; }
+finally { S.editBusy = false;if(!safe()){S.editLocked=true;S.editError='帳號已切換，原編輯結果待核對，沒有自動重送。';} render(); window.scrollTo(0, keepY2); }
 })();
 }
 }
@@ -1626,6 +1634,7 @@ if (f === "recvCode") { S.recvCode = e.target.value; S.recvRestored = ""; if (S.
 if (f === "ageThreshold") { S.ageThreshold = Number(e.target.value) || AGE_THRESHOLD_DEFAULT; return; }
 if (f === "ageBasis") { S.ageBasis = e.target.value; render(); return; }
 if (f === "ageThreshold") { S.ageThreshold = Number(e.target.value) || AGE_THRESHOLD_DEFAULT; render(); return; }
+if(!editorAccountSafe())return;
 if (f === "editSeat") S.editSeat = e.target.value;
 if (S.editDraft && Object.prototype.hasOwnProperty.call(S.editDraft, f)) {S.editDraft[f] = e.target.value;S.cancelAsk=false;S.autoNote='';noteControlledActivity();draftSaveEdit();}
 });
@@ -1644,6 +1653,7 @@ if (f === "ibd_site") S.ibDraft.zone = zonesOf(S.ibDraft.site)[0] || "";
 if (DRAFTS && S.ibConfirm) DRAFTS.put(draftAcct(), 'inbound-confirm', S.ibConfirm, { values: { ...S.ibDraft } });
 render(); return;
 }
+if(!editorAccountSafe())return;
 if (f === "editSeat") S.editSeat = e.target.value;
 if (f && S.editDraft && Object.prototype.hasOwnProperty.call(S.editDraft, f)) {S.editDraft[f] = e.target.value;noteControlledActivity();draftSaveEdit();render();}
 });
@@ -1763,6 +1773,6 @@ const t = e.target.closest && e.target.closest('[data-a="bootretry"]');
 if (t) boot();
 });
 document.addEventListener('click',async e=>{const t=e.target.closest?.('[data-erp-auth]');if(!t)return;if(t.dataset.erpAuth==='login')await window.ErpAuth.login();else if(await window.ErpAuth.verify())boot();});
-window.addEventListener('erp-auth-change',()=>render());
+window.addEventListener('erp-auth-change',()=>{editorAccountSafe();render();});
 if(window.ErpAuth&&!D.isMock)window.ErpAuth.ready.then(ok=>{if(ok)boot();else render();});else boot();
 })();
