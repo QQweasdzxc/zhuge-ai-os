@@ -10,22 +10,19 @@ const differenceUI=window.ErpDifferenceUI?window.ErpDifferenceUI.create(store,()
 const LABEL = { ok: "相符", zone: "位置不符", site: "異地設備", none: "查無編號", dup: "重複掃描", seat: "座位差異" };
 const GLYPH = { ok: "✓", zone: "≠", site: "⇄", none: "?", dup: "×2", seat: "⚠" };
 const LOGIN_URL = "./";
-
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
   function dist(a, b, c, d) {
 const r = Math.PI / 180, x = (c - a) * r, y = (d - b) * r * Math.cos(((a + c) / 2) * r);
 return Math.sqrt(x * x + y * y) * 6371;
-  }
+}
   function timeStr(d) { return d.toTimeString().slice(0, 8); }
   function chip(st) { const g = GLYPH[st] || "•", l = LABEL[st] || String(st || "未知"); return '<span class="chip chip-' + (GLYPH[st] ? st : "unknown") + '"><b>' + g + "</b> " + l + "</span>"; }
-
   function syncMark(r) {
 if (D.isMock || !r) return "";
 if (r.__unsynced) return '<span class="syncmark">未同步</span>';
 if (r.__pending) return '<span class="syncmark ing">同步中</span>';
 return "";
-  }
-
+}
   function scanSyncState(r) {
 if (D.isMock) return "mock";
 const entities = [r, r && getA(r.code), S.sess].filter(Boolean);
@@ -34,10 +31,10 @@ if (r && r.__seatPending) return "pending";
 if (entities.some((x) => x.__unsynced)) return "failed";
 if (entities.some((x) => x.__pending)) return "pending";
 return "saved";
-  }
+}
   function scanSyncCopy(state) {
 return state === "failed" ? "辨識到，但未同步。尚未存妥，請點未同步提示重試。" : state === "pending" ? "辨識到，正在同步。請等同步完成。" : state === "mock" ? "辨識到（隔離測試，不寫正式資料）" : "已同步保存這筆掃描與設備資料。";
-  }
+}
   function refreshScanSync() {
 document.querySelectorAll("[data-scan-sync]").forEach((el) => {
 const r = curRecs().find((x) => x.code === el.getAttribute("data-scan-sync"));
@@ -46,19 +43,18 @@ const state = scanSyncState(r);
 el.textContent = scanSyncCopy(state);
 const card = el.closest(".toast");
 if (card) { card.classList.toggle("syncfailed", state === "failed"); card.classList.toggle("syncpending", state === "pending"); }
-  });
-  }
+});
+}
   function session() {
 const verified=window.ErpAuth?.state?.();
 if(verified?.status==='ready'&&verified.identity)return verified.identity;
 for(const key of ['zhuge_ai_os_session_v1','zhuge_ai_os_google_auth_session_v1']){
 try{const value=JSON.parse(localStorage.getItem(key)||'null'),user=value&&(value.user||value);
 if(user&&(user.email||user.id||user.sub||user.uid))return value;
-  }catch{}
-  }
+}catch{}
+}
 return null;
-  }
-
+}
 const DRAFT=window.ErpDraftCore||null;
 const DRAFTS=DRAFT?DRAFT.create((()=>{try{return window.localStorage;}catch(e){return null;}})()):null;
 const draftAcct=()=>DRAFT?DRAFT.accountOf(session()):'';
@@ -68,8 +64,7 @@ if(!DRAFTS||!S.editCode||!S.editDraft)return;
 const r=DRAFTS.put(draftAcct(),'asset-edit',S.editCode,{values:{...S.editDraft},base:{...S.editBase}});
 S.draftNote=r.saved?'draft':(r.reason==='no-account'?'':'failed');
 const el=document.getElementById('erp-draft-line');if(el)el.innerHTML=draftInner();
-  }
-
+}
 const AUTO_FIELDS=['name','model','serial','purchase','activate','warranty','brand','origin','mfgYear','type','po'];
   async function autosaveAsset(f){
 if(!S.editCode||!S.editDraft||!AUTO_FIELDS.includes(f)||S.editBusy||S.editLocked||S.editConflict)return;
@@ -87,14 +82,14 @@ const nd=editValues(fresh);
 for(const k of Object.keys(nd)){if(k!==f&&String(oldDraft[k]??'')!==String(oldBase[k]??''))nd[k]=oldDraft[k];}
 const typed=String(S.editDraft[f]??'');if(typed.trim()!==val)nd[f]=S.editDraft[f];
 S.editDraft=nd;
-  }
+}
 if(D.isMock){S.editBase={...S.editBase,[f]:val};}
 S.autoNote='已自動儲存：'+(window.ErpDraftCore?window.ErpDraftCore.fieldLabels([f])[0]:f)+(val?'':'已清空（原：'+String(oldBase[f]||'')+'）')+'（已存入正式資料並讀回）';
 const others=Object.keys(S.editDraft).some(k=>String(S.editDraft[k]??'')!==String(S.editBase[k]??''));
 if(others)draftSaveEdit();else draftDiscardEdit(code);
-  }catch(e){S.editLocked=true;S.editError=wrote?'這個欄位已存入正式資料，但重新取得編輯權失敗（'+(e.message||'未知')+'）。其餘輸入保留為草稿；請取消後重新開啟再繼續。':'自動儲存沒有確認成功（'+(e.message||'未知')+'）。輸入已保留為草稿，不會重送；請取消後重新開啟核對。';draftSaveEdit();}
+}catch(e){S.editLocked=true;S.editError=wrote?'這個欄位已存入正式資料，但重新取得編輯權失敗（'+(e.message||'未知')+'）。其餘輸入保留為草稿；請取消後重新開啟再繼續。':'自動儲存沒有確認成功（'+(e.message||'未知')+'）。輸入已保留為草稿，不會重送；請取消後重新開啟核對。';draftSaveEdit();}
 finally{S.editBusy=false;render();}
-  }
+}
   function draftDiscardEdit(code){if(DRAFTS)DRAFTS.discard(draftAcct(),'asset-edit',code);S.draftNote='';}
   function draftApplyEdit(code){
 S.draftNote='';S.draftConflict=[];
@@ -103,7 +98,7 @@ const stored=DRAFTS.get(draftAcct(),'asset-edit',code);if(!stored)return;
 const plan=DRAFT.restorePlan(stored,{...S.editBase},window.ErpEditCore.rebase);
 if(plan.mode==='restored'||plan.mode==='merged'){S.editDraft=plan.values;S.editBase=plan.base;S.editTouched=true;S.draftNote=plan.mode==='merged'?'restored-merged':'restored';}
 else if(plan.mode==='conflict'){S.draftConflict=plan.conflicts;S.draftNote='conflict';}
-  }
+}
 const bagHooks=(kind)=>({get:k=>bagGet(kind,k),put:(k,v)=>bagPut(kind,k,v),discard:k=>bagDiscard(kind,k)});
 if(intakeUI&&intakeUI.setDrafts&&DRAFTS)intakeUI.setDrafts(bagHooks('intake-xlsx'));
 if(differenceUI&&differenceUI.setDrafts&&DRAFTS)differenceUI.setDrafts(bagHooks('difference'));
@@ -118,12 +113,11 @@ if(n==='restored-merged')return '<div class="small">已還原上次草稿，並�
 if(n==='conflict')return '<div class="warn">上次草稿與最新資料有衝突，沒有套用：'+esc(DRAFT.fieldLabels(S.draftConflict||[]).join('、'))+'。草稿仍保留；取消編輯不會刪除它，可到「管理功能 › 本機草稿」刪除。</div>';
 if(n==='failed')return '<div class="warn">草稿無法保留在這台裝置，請先不要關閉頁面。</div>';
 return '';
-  }
+}
 const KIND_LABEL={'asset-edit':'設備編輯','inbound-batch':'入庫批次表單','difference':'帳上A／現場B差異表單','intake-xlsx':'XLSX批次匯入（需重新選檔）','map-image':'地圖圖片（需重新選檔）','inbound-confirm':'入庫確認','seat-name':'座位使用人姓名','site-new':'新增據點','zone-new':'新增區域','annotation':'釐清標示','scan-held':'待核對掃描',repair:'維修登記','geo-name':'座位使用人（地圖）','seat-import':'座位圖匯入預覽（需重新選檔）','scan-setup':'掃描場次設定（部門／專案，尚未開始）','recv-serial':'到貨序號（尚未核對）'};
   function bagPut(kind,entity,values){if(DRAFTS)DRAFTS.put(draftAcct(),kind,entity,{values:{...values},base:{}});}
   function bagGet(kind,entity){const r=DRAFTS&&DRAFTS.get(draftAcct(),kind,entity);return r&&r.payload&&r.payload.values?r.payload.values:null;}
   function bagDiscard(kind,entity){if(DRAFTS)DRAFTS.discard(draftAcct(),kind,entity);}
-
   function putSetup(){if(!DRAFTS)return;if(S.scanDepartment||S.scanProject||S.scanProjectInput)bagPut('scan-setup','new',{dept:S.scanDepartment,proj:S.scanProject,projIn:S.scanProjectInput});else bagDiscard('scan-setup','new');}
   function ensureSetupDraft(){if(S._setupRestored||S.sess||!draftAcct())return;S._setupRestored=true;const b=bagGet('scan-setup','new');if(b&&(b.dept||b.proj||b.projIn)){if(!S.scanDepartment&&b.dept)S.scanDepartment=b.dept;if(!S.scanProject&&!S.scanProjectInput){if(b.proj)S.scanProject=b.proj;if(b.projIn)S.scanProjectInput=b.projIn;}S.setupRestored=true;}}
   function ensureRecvDraft(){if(!draftAcct()||!S.recvBatch)return;S._recvR=S._recvR||{};if(S._recvR[S.recvBatch])return;S._recvR[S.recvBatch]=true;if(!S.recvCode){const d=bagGet('recv-serial',S.recvBatch);if(d&&d.v){S.recvCode=d.v;S.recvRestored=S.recvBatch;}}}
@@ -131,12 +125,12 @@ const KIND_LABEL={'asset-edit':'設備編輯','inbound-batch':'入庫批次表�
   function heldSync(){
 S.scanCheckpointFailed=false;if(!DRAFTS){S.scanCheckpointFailed=true;return;}
 for(const [code,h] of Object.entries(S.scanHeld||{})){const ent=(h.sessionId||'')+':'+code;const saved=DRAFTS.put(draftAcct(),'scan-held',ent,{values:{...h,code,zone:h.zone||'',sessionId:h.sessionId||'',seatTarget:h.seatTarget?JSON.parse(JSON.stringify(h.seatTarget)):null,uncertain:!!h.uncertain,error:String(h.error||''),at:h.at||new Date().toISOString()},base:{}});if(!saved.saved)S.scanCheckpointFailed=true;}
-  }
+}
   function heldDrop(code,sessionId){if(DRAFTS)DRAFTS.discard(draftAcct(),'scan-held',(sessionId||'')+':'+code);}
   function heldReloaded(){
 if(!DRAFTS)return [];const mem=new Set(Object.entries(S.scanHeld||{}).map(([c,h])=>(h.sessionId||'')+':'+c));
 return DRAFTS.list(draftAcct(),'scan-held').filter(r=>!mem.has(r.entity));
-  }
+}
   function recoverObservation(intent){
 if(S.sess&&S.sess.id!==intent.sessionId)throw Error('目前另有盤點場次，保留兩邊草稿，請先核對後再接續。');
 const matches=db().sessions.filter(x=>x.id===intent.sessionId);
@@ -146,7 +140,7 @@ const map=maps.find(m=>m.id===intent.seatTarget?.map&&m.site===sess.site&&m.zone
 if(!store.seatReady||!map?.seats.some(x=>x.number===intent.seatTarget.seat))throw Error('原平面圖或座位尚未核實，草稿保留。');
 S.sess=sess;S.site=sess.site;S.zone=intent.zone;S.scanDepartment=sess.department||'';S.scanProject=sess.project||'';S.mode='phone';S.screen='scan';S.dash=false;
 seatUI.state.mapId=map.id;seatUI.state.selected=intent.seatTarget.seat;seatUI.state.loaded=true;seatUI.state.scanSelected=true;seatUI.state.popup=null;
-  }
+}
   function draftCard(){
 if(!DRAFTS)return '';
 const mine=DRAFTS.list(draftAcct()).filter(r=>r.kind!=='scan-held'),held=heldReloaded();
@@ -157,7 +151,7 @@ if(held.length)h+='<div class="warn">上次中斷時有 '+held.length+' 筆掃�
 if(S.draftClearAsk){h+='<div class="warn">將永久刪除'+('你的 '+mine.length+' 筆草稿')+'（尚未存入正式資料，無法復原；待核對掃描不受影響）。</div><button class="pill" data-a="draft-clear-do">確定刪除</button><button class="pill" data-a="draft-clear-no">先不要</button>';}
 else{if(mine.length)h+='<button class="pill" data-a="draft-clear-ask" data-v="mine">刪除我的草稿</button>';}
 return h+'</details>';
-  }
+}
 if(typeof repairUI!=='undefined'&&repairUI&&repairUI.setDrafts&&DRAFTS)repairUI.setDrafts({get:k=>{const r=DRAFTS.get(draftAcct(),'repair',k);return r&&r.payload;},put:(k,v)=>DRAFTS.put(draftAcct(),'repair',k,v),discard:k=>DRAFTS.discard(draftAcct(),'repair',k)});
   function draftLine(){return '<div id="erp-draft-line" aria-live="polite">'+draftInner()+'</div>';}
   function preferredScanInput(){return (window.matchMedia?.('(pointer: coarse)').matches||(window.innerWidth||0)<700)?'camera':'usb';}
@@ -168,15 +162,12 @@ place: "", gps: null, gpsErr: "", site: "", zone: "", zoneOpen: false,
 open: "", filter: "all", metric: "total", dsite: "", dst: "", pfilter: "",
 asite: "", editCode: "", editDraft: null, savedAt: "", newZone: {}, newSite: {}, siteErr: "", sess: null, manualCode: "", camOn: false, scanStarting: false, camErr: "", camLast: "", camLastAt: 0,
 mapSite: "", mapZone: "", mapImg: "", mapEdit: false, retTab: "", scanDepartment: "", scanSetupErr: "", scanProject: "", scanProjectInput: "", afOrigin: "", afBrand: "", afType: "", ageBasis: "purchase", ageFilter: "", ibOpen: "", ibConfirm: "", ibDraft: null, recvBatch: "", recvCode: "", recvLast: null
-  };
-
+};
 const db = () => store.state();
 const sites = () => db().sites;
 const siteNames = () => sites().map((s) => s.name);
-
   function locationMeta(key){if(key==='台北重北')return {city:'台北',label:'重慶北路'};if(key==='台北永春')return {city:'台北',label:'永春'};return {city:'其他據點',label:key};}
   function locationPicker(kind){const isMap=kind==='map',key=isMap?S.mapSite:S.site,zone=isMap?S.mapZone:S.zone,cityKey=isMap?'mapCity':'scanCity';const cities=[...new Set(siteNames().map(n=>locationMeta(n).city))];const city=S[cityKey]||'';const row=(label,buttons)=>'<div class="location-row"><span class="lbl">'+label+'</span><div class="chips">'+buttons+'</div></div>';let h='<nav class="location-picker" aria-label="選擇城市、據點與樓層">'+row('城市',cities.map(c=>'<button class="pill'+(city===c?' on':'')+'" data-a="location-city" data-kind="'+kind+'" data-v="'+esc(c)+'">'+esc(c)+'</button>').join(''));if(city){h+=row('據點',siteNames().filter(n=>locationMeta(n).city===city).map(n=>'<button class="pill'+(key===n?' on':'')+'" data-a="location-site" data-kind="'+kind+'" data-v="'+esc(n)+'">'+esc(locationMeta(n).label)+'</button>').join(''));if(key&&locationMeta(key).city===city)h+=row('樓層',zonesOf(key).map(z=>'<button class="pill'+(zone===z?' on':'')+'" data-a="location-zone" data-kind="'+kind+'" data-v="'+esc(z)+'">'+esc(z.replace(/^(\d+)F$/i,'$1 樓'))+'</button>').join(''));}return h+'</nav>';}
-
 const siteOf = (n) => sites().find((s) => s.name === n);
 const zonesOf = (n) => { const s = siteOf(n); return s ? s.zones : []; };
 const assets = () => db().assets;
@@ -186,16 +177,13 @@ const allRecords = () => db().records.map((r) => ({ ...r, sessionSite: (db().ses
   function lastRecordOf(code) {
 const rs = allRecords().filter((r) => r.code === code);
 return rs.length ? rs[rs.length - 1] : null;
-  }
-
+}
 const isScanOk = (r) => !!r && r.status === "ok" && r.sessionSite !== undefined;
 const isRegPending = (r) => !!r && r.status === "none";
 const curRecs = () => (S.sess ? store.sessionRecords(S.sess) : []);
-
 const MARKS_KEY = "zg_erp_mapmarks_v1";
   function getMarks() { try { return JSON.parse(localStorage.getItem(MARKS_KEY) || "{}"); } catch { return {}; } }
   function setMark(site, zone, x, y) { const m = getMarks(); (m[site] = m[site] || {})[zone] = { x, y }; try { localStorage.setItem(MARKS_KEY, JSON.stringify(m)); } catch {} }
-
   function siteRows() {
 return sites().map((s) => {
 const mine = assets().filter((a) => a.site === s.name);
@@ -206,23 +194,22 @@ const mismatch = mine.filter((a) => isMis(lastRecordOf(a.code))).length;
 const noscan = mine.filter((a) => !lastRecordOf(a.code)).length;
 const pct = mine.length ? Math.round((done / mine.length) * 100) : 0;
 return { n: s.name, t: mine.length, done, reg, left: noscan, z: mismatch, pct };
-  });
-  }
+});
+}
 const stCount = (st) => assets().filter((a) => a.status === st).length;
 const todayStr = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
-
   function attention() {
 const t = todayStr();
 const items = [];
 assets().forEach((a) => {
 if (a.status === "待修" || a.status === "維修中") items.push({ a, why: a.status, tone: "bad" });
 else if (a.warranty && a.warranty < t) items.push({ a, why: "保固已到期 " + a.warranty, tone: "mid" });
-  });
+});
 const undecided = allRecords().filter((r) => r.status !== "ok" && !r.decision).length;
 const recv = openBatches().map((b) => ({ b, left: b.items.filter((x) => x.state === "pending").length, got: b.items.filter((x) => x.state === "received").length }));
 const regPending = assets().filter((a) => { const r = lastRecordOf(a.code); return isRegPending(r) && !!r.decision; }).length;
 return { items, undecided, recv, regPending };
-  }
+}
   function attentionCard() {
 const { items, undecided, recv, regPending } = attention();
 if (!items.length && !undecided && !recv.length && !regPending) return '<div class="acard ok"><b>目前沒有需要立即處理的項目。</b><span class="small">待修、維修中、保固到期和未決定的盤點差異會列在這裡。</span></div>';
@@ -243,23 +230,21 @@ if (regPending) rows += '<div class="arow2"><span class="dot mid"></span><span c
 '<button class="pill sm" data-a="metric" data-v="reg">看明細</button></div>';
 if (items.length > shown.length) rows += '<div class="small">另有 ' + (items.length - shown.length) + " 筆；到「設備資料」依狀態篩選可逐筆處理。</div>";
 return '<div class="acard"><div class="albl">需要處理（' + (items.length + (undecided ? 1 : 0) + (regPending ? 1 : 0) + recv.length) + "）</div>" + rows + "</div>";
-  }
+}
 const projAssets = (p) => assets().filter((a) => (a.project || D.UNASSIGNED) === p);
 const batches = () => store.listBatches();
 const openBatches = () => batches().filter((b) => !b.closed);
 const originOf = (a) => a.origin || "未確認";
 const brandOf = (a) => a.brand || "未確認";
 const distinctOrigins = () => [...new Set(assets().map(originOf))];
-
 const AGE_THRESHOLD_DEFAULT = 5;
   function assetAge(a, basis) {
 const now = new Date().getFullYear();
 if (basis === "mfgYear") return a.mfgYear ? now - Number(a.mfgYear) : null;
 const v = basis === "activate" ? a.activate : a.purchase;
 return v ? now - Number(String(v).slice(0, 4)) : null;
-  }
+}
 const distinctBrands = () => [...new Set(assets().map(brandOf))];
-
   function legacyFullSnapshotHtml(code) {
 const cur = getA(code); let snap = null;
 try { snap = cur && cur.legacySnapshot ? JSON.parse(cur.legacySnapshot) : null; } catch (e) { snap = null; }
@@ -268,7 +253,7 @@ const src = Object.entries(snap.sources).map(([k, v]) => '<div class="small"><b>
 const inc = snap['來源未補齊'] && typeof snap['來源未補齊'] === 'object' ? Object.entries(snap['來源未補齊']).map(([k, v]) => '<div class="warn">出處「' + esc(k) + '」第 ' + esc(String(v['列'] != null ? v['列'] : '—')) + ' 列原始資料尚未補齊：' + esc(String(v['原因'] || '')) + '</div>').join('') : '';
 const cand = snap['序號候選'] ? '<div class="warn">序號候選（未當實機序號）：' + esc(String(snap['序號候選'].value)) + ' · 來源 ' + esc(snap['序號候選'].來源) + ' · ' + esc(snap['序號候選'].疑點) + '</div>' : '';
 return '<details class="legacyfull"><summary>舊帳全量保存（' + Object.keys(snap.sources).length + ' 個來源原始列，展開核對）</summary>' + inc + cand + src + (snap['補入說明'] ? '<div class="small">' + esc(snap['補入說明']) + '</div>' : '') + '</details>';
-  }
+}
   function legacyDetails(code) {
 if (typeof store.legacyRows !== "function") return "";
 const rows = store.legacyRows().filter((r) => r.code === code);
@@ -278,16 +263,14 @@ const r = rows[0], current = getA(code);
 const conflicts = current ? ["name", "model", "serial", "purchase"].filter((k) => current[k] && r[k] && String(current[k]).trim() !== String(r[k]).trim()) : [];
 const warning = conflicts.length ? '<div class="warn">新舊資料不同（' + esc(conflicts.join("、")) + '），保留新帳待查。</div>' : "";
 return warning + '<div class="small legacydetail">舊帳參考（尚未確認為現況）：' + esc(r.name || "名稱未填") + " · 型號 " + esc(r.model || "未填") + " · S/N " + esc(r.serial || "舊帳未填") + '<br>出處 ' + esc(r.provenance || r.siteLead || "") + " · " + esc(r.recordKey || "") + " · 原區域 " + esc(r.zone || "未填") + " · 原位置 " + esc(r.place || "未填") + "。舊帳內容不會自動帶入使用部門、專案或保管人。</div>" + legacyFullSnapshotHtml(code);
-  }
-
+}
   function editValues(x) {
 const d={ name:x.name||"",model:x.model||"",department:x.department||"",owner:x.owner||"",zone:x.zone||"",status:x.status||"",project:x.project||"",serial:x.serial||"",purchase:x.purchase||"",activate:x.activate||"",warranty:x.warranty||"",brand:x.brand||"",origin:x.origin||"",mfgYear:x.mfgYear||"",type:x.type||"",po:x.po||"" };
 S.editBase={...d}; S.editLegacy=[];
 const matches=(store.legacyRows?store.legacyRows():[]).filter(r=>r.code===x.code);
 if(matches.length===1)for(const k of ["name","model","serial","purchase"])if(!String(d[k]).trim()&&matches[0][k]){d[k]=matches[0][k];S.editLegacy.push(k);}
 return d;
-  }
-
+}
   function cascadePlanFor(code,draft,base){
 if(!code||!draft||!base||!window.ErpEditCore)return null;
 const changed={};
@@ -298,7 +281,7 @@ const ready=seatUI&&seatUI.state&&seatUI.state.loaded&&store.seatReady;
 if(!ready)return {unavailable:true,fields:Object.keys(changed),peers:[]};
 const plan=window.ErpEditCore.planSeatCascade({bindings:seatUI.seatBindings(),assets:assets(),code,changed});
 return plan;
-  }
+}
   function assetDrawerHtml(a, lr, zones) {
 let out = '';
 if (S.editCode === a.code && S.editDraft) {
@@ -332,9 +315,9 @@ return '<div class="warn"><b>同座位連動</b>（'+esc(String(plan.seat.seat))
 '<div class="frow"><button class="btn mini" data-a="save"' + (S.editBusy ? ' disabled' : '') + '>' + (S.editBusy ? '正在儲存並讀回核對…' : D.isMock ? '儲存（隔離測試）' : '儲存至資料庫') + '</button><button class="pill sm" data-a="cancel"' + (S.editBusy ? ' disabled' : '') + '>取消</button></div>' +
 (seatUI ? seatUI.assetEditor(a, S.editSeat, S.editBusy) : '') +
 '<div class="small">狀態改動是人工判斷（例如送修），手機掃描本身不會改狀態。歸屬專案和實際放置地點分開。序號、購入、啟用、保固到期都可留空；登記編號不等於設備序號。</div></fieldset></div>';
-  }
+}
 return out;
-  }
+}
   async function openControlledEditor(code){
 if(S.editBusy)return;const x=getA(code);if(!x)return;
 if(S.editCode&&S.editCode!==code&&!D.isMock)await store.releaseAssetEdit(S.editCode);
@@ -342,7 +325,7 @@ S.editTouched=false;S.editCode=code;S.editDraft=editValues(x);S.editError='';S.e
 try{if(!D.isMock){await store.reserveAssetEdit(code);const fresh=await store.readAssetForEdit(code);S.editDraft=editValues(fresh);}draftApplyEdit(code);S.editConflict=false;S.editLocked=false;}
 catch(e){S.editError=e.message+'；輸入已保留，尚未保存。';}
 finally{S.editBusy=false;render();}
-  }
+}
   async function rebaseControlledEditor(){
 const code=S.editCode,draft={...S.editDraft},base={...S.editBase};if(!code||S.editBusy||S.editConflict)return;
 if(store._editReservations?.get(code)?.attempted){S.editError='上次寫入結果待查，輸入保留，不可重新取得權限或重送。';render();return;}
@@ -354,11 +337,10 @@ const merged=window.ErpEditCore.rebase(base,draft,fresh),conflicts=merged.confli
 if(!conflicts.length){S.editDraft=merged.values;S.editBase=merged.base;}
 if(conflicts.length){S.editConflict=true;S.editLocked=true;S.editError='資料已被其他操作改動，輸入保留但未保存。衝突欄位：'+(window.ErpDraftCore?window.ErpDraftCore.fieldLabels(conflicts):conflicts).join('、')+'。請取消後重新核對，不自動覆蓋。';await store.releaseAssetEdit(code);}
 else{S.editLocked=false;S.editError='已重新讀取並取得編輯權，原輸入保留；請核對後再儲存。';}
-  }catch(e){S.editLocked=true;S.editError=e.message;}
+}catch(e){S.editLocked=true;S.editError=e.message;}
 finally{S.editBusy=false;render();}
-  }
+}
   function noteControlledActivity(){S.editTouched=true;if(D.isMock||!S.editCode||S.editLocked)return;store.noteEditActivity(S.editCode).catch(e=>{S.editLocked=true;S.editError=e.message;render();});}
-
   async function scan(code,retained,captured) {
 code = String(code || "").trim();
 if (!code || !S.sess) return;
@@ -371,7 +353,7 @@ let occupantName='';
 if(!retained&&!getA(code)&&seatTarget&&typeof seatUI!=="undefined"&&seatUI&&typeof seatUI.occupantAt==='function'){
 const occ=seatUI.occupantAt(seatTarget.map,seatTarget.seat);
 if(occ&&!occ.pub&&occ.name)occupantName=occ.name;
-  }
+}
 const occField=occupantName?{occupantName}:{};
 if(!D.isMock&&typeof store.scanIntentVerified==='function'){
 if(S.scanBusy){S.scanQueue=S.scanQueue||[];const queued=JSON.parse(JSON.stringify(retained||{sessionId:S.sess.id,code,zone:S.zone,seatTarget,...occField,...(captured||{})}));S.scanQueue.push(queued);S.scanHeld=S.scanHeld||{};S.scanHeld[code]={...queued,uncertain:false,error:'等候送出',at:new Date().toISOString()};heldSync();render();return;}
@@ -380,14 +362,13 @@ S.scanBusy=true;S.scanIntent=retained||{sessionId:S.sess.id,code,zone:S.zone,sea
 try{await S.sess.__write;if(S.sess.__unsynced)throw Error('盤點場次尚未保存，不能追加掃描');await store.scanIntentVerified(S.scanIntent);try{window.ErpReadFeedback?.beep();}catch(_){}S.scanIntent=null;if(S.scanHeld)delete S.scanHeld[code];heldDrop(code,S.sess&&S.sess.id);S.manualCode='';S.open=code;}
 catch(e){S.scanSetupErr=e.message;S.scanUncertain=!e.safeToRetry;S.scanHeld=S.scanHeld||{};S.scanHeld[code]={...S.scanIntent,uncertain:S.scanUncertain,error:e.message};heldSync();}
 finally{S.scanBusy=false;render();const next=S.scanQueue?.shift();if(next)scan(next.code,next);}return;
-  }
+}
 const a = getA(code);
 const status = !a ? "none" : a.site !== S.site ? "site" : a.zone !== S.zone ? "zone" : "ok";
 const rawProject = String(S.sess.project || "").trim();
 const sessProj = ["", "全部", "全部專案", "未指定", "未指定（待確認）", "未指定(待確認)"].includes(rawProject) ? "" : rawProject;
 const pm = !!(a && sessProj && a.project && a.project !== D.UNASSIGNED && a.project !== sessProj);
 store.addRecord(S.sess, { code, status, zone: S.zone, department: S.sess.department || "", at: new Date().toISOString(), projMismatch: pm, sessProject: sessProj });
-
 let obs;
 if (typeof store.observeAsset === "function") {
 obs = store.observeAsset(S.sess, code, S.zone, occupantName);
@@ -399,21 +380,21 @@ if (rec && obs.metadataIssue) rec.metadataIssue = obs.metadataIssue;
 if (rec && obs.departmentMismatch) rec.departmentMismatch = true;
 if (rec && obs.exception) rec.stateException = obs.reason;
 if (rec && obs.assignedProject) rec.projectAssigned = obs.assignedProject;
-  }
-  }
+}
+}
 if (typeof store.enrichLegacySnapshotFromSource === "function" && !(obs && obs.exception)) {
 store.enrichLegacySnapshotFromSource(code).then(() => render()).catch(() => {});
-  }
+}
 if (seatTarget && typeof seatUI !== "undefined" && seatUI) {
 const rec = [...curRecs()].reverse().find(r => r.code === code);
 const scanSess=S.sess,scanSite=S.site,scanZone=S.zone;
 rec.__seatRetry=()=>seatUI.bind(code,scanSite,scanZone,scanSess,seatTarget);
 rec.__seatPending = true;
 Promise.all([rec.__write,getA(code)?.__write,scanSess.__write].filter(Boolean)).then(() => rec.__seatRetry()).then(() => {rec.__seatPending=false;rec.__seatError="";render();}).catch(e => {rec.__seatPending=false;rec.__seatError=e.message;render();});
-  }
+}
 S.open = code;
 render();
-  }
+}
   function detectGps() {
 S.gpsErr = "";
 if (!navigator.geolocation) { S.gpsErr = "這個瀏覽器不支援定位，請直接選擇盤點據點。"; render(); return; }
@@ -423,7 +404,7 @@ if (done) return;
 done = true;
 S.gpsErr = "定位逾時：瀏覽器沒有回應（可能授權視窗沒有顯示或被忽略）。請直接選擇盤點據點，或確認網址列的定位授權後再試。";
 render();
-  }, 12000);
+}, 12000);
 navigator.geolocation.getCurrentPosition((pos) => {
 if (done) return;
 done = true; clearTimeout(wd);
@@ -434,7 +415,7 @@ sites().forEach((s) => { const d = dist(fix.lat, fix.lon, s.lat, s.lon); if (d <
 S.nearest = best; S.nearestD = bd;
 if (best) S.site = best;
 render();
-  }, (err) => {
+}, (err) => {
 if (done) return;
 done = true; clearTimeout(wd);
 const code = err && err.code;
@@ -443,8 +424,8 @@ S.gpsErr = code === 1 ? "定位權限被拒絕。要用定位請在瀏覽器設�
 : code === 3 ? "定位逾時。可手動選擇盤點據點，或再試一次。"
 : "定位失敗（" + (err && err.message ? err.message : "未知原因") + "）。可改為手動選擇盤點據點，紀錄會註記沒有定位。";
 render();
-  }, { enableHighAccuracy: true, timeout: 10000 });
-  }
+}, { enableHighAccuracy: true, timeout: 10000 });
+}
   function startSession(options={}) {
 if(S.scanStarting)return;
 if (!S.site && siteNames().length === 1) S.site = siteNames()[0];
@@ -463,9 +444,8 @@ bagDiscard('scan-setup','new'); S.setupRestored = false;
 S.zone = zonesOf(S.site).includes(S.zone) ? S.zone : (zonesOf(S.site)[0] || "");
 S.open = ""; S.screen = "scan";
 render();
-  };
+};
 if(options.direct){begin(null);return;}
-
 if (!S.gps && navigator.geolocation) {
 const capture = () => {
 let done = false;
@@ -474,160 +454,49 @@ if (done) return;
 done = true;
 S.gpsErr = "起點定位逾時：瀏覽器沒有回應（可能授權視窗沒有顯示）。本次先以手動據點開始，紀錄會註記沒有定位。";
 begin(null);
-  }, 8000);
+}, 8000);
 navigator.geolocation.getCurrentPosition((pos) => {
 if (done) return;
 done = true; clearTimeout(wd);
 const f = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc: Math.round(pos.coords.accuracy || 0), at: timeStr(new Date()) };
 S.gps = f; S.gpsErr = ""; begin(f);
-  }, (err) => {
+}, (err) => {
 if (done) return;
 done = true; clearTimeout(wd);
 S.gpsErr = err && err.code === 1 ? "定位權限被拒絕。本次紀錄會註記沒有定位；之後要用定位請在瀏覽器設定允許。"
 : "起點定位未取得（" + (err && err.code === 3 ? "逾時" : "收不到訊號") + "）。本次先以手動據點開始，紀錄會註記沒有定位。";
 begin(null);
-  }, { enableHighAccuracy: true, timeout: 6000 });
-  };
+}, { enableHighAccuracy: true, timeout: 6000 });
+};
 if (navigator.permissions && navigator.permissions.query) {
 navigator.permissions.query({ name: "geolocation" }).then((p) => {
 if (p.state === "denied") { S.gpsErr = "定位權限已被拒絕。本次紀錄會註記沒有定位；要用定位請在瀏覽器設定允許。"; begin(null); }
 else capture();
-  }).catch(() => capture());
-  } else capture();
-  } else begin(null);
-  }
-
-const cam = { starting:false, startId:0, watchdog:null, busy:false, format:"", stream: null, det: null, timer: null, canvas: null, dedup: null, engine: "", detection: null };
-  function camStop(silent) {
-cam.startId++;cam.starting=false;if(cam.watchdog){clearTimeout(cam.watchdog);cam.watchdog=null;}
-if (cam.timer) { clearInterval(cam.timer); cam.timer = null; }
-if (cam.stream) { cam.stream.getTracks().forEach((t) => t.stop()); cam.stream = null; }
-cam.det = null; cam.engine = ""; cam.detection = null;
-S.camOn = false;
-if (!silent) render();
-  }
-  function drawQrFrame() {
-const svg = document.getElementById("qrframe"), poly = document.getElementById("qrpolygon"), label = document.getElementById("qrdetected");
-if (!svg || !poly) return;
-const d = cam.detection;
-const visible = !!(d && d.value && d.points);
-svg.toggleAttribute("hidden", !visible);
-if (visible) {
-svg.setAttribute("viewBox", "0 0 " + d.width + " " + d.height);
-poly.setAttribute("points", d.points.map((p) => p.x + "," + p.y).join(" "));
-  } else poly.removeAttribute("points");
-if (label) label.textContent = d && d.value ? (visible ? "已辨識 QR／條碼，框線是實際位置；儲存狀態見下方" : "已辨識，但瀏覽器未提供位置，無法畫框；儲存狀態見下方") : "對準標籤；辨識後自動保存，網頁完成聲須等寫入成功；保存狀態見下方";
-  }
-  function camOnDetection(detection) {
-cam.detection = detection;
-drawQrFrame();
-camOnCode(detection && detection.value || "", detection && detection.format || cam.format);
-  }
-  function camOnCode(val,format) {
-if (!cam.dedup) cam.dedup = ErpScanCore.makePresenceDeduper(1500);
-if (!cam.dedup.accept(val)) return;
-const isQr = /^(qr_code|QRCode)$/i.test(format||'');
-if(isQr){S.vendorReview=null;scan(val);return;}
-const hits=assets().filter(a=>a.code===val||a.serial===val);
-const unique=[...new Map(hits.map(a=>[a.code,a])).values()];
-if(unique.length===1){S.vendorReview=null;scan(unique[0].code,null,{scanSource:'vendor',scanRaw:val,scanFormat:format});return;}
-S.vendorReview={raw:val,format:format||'未知碼別',reason:unique.length?'同一條碼符合多台設備，尚未入帳':'未能唯一對應設備，尚未入帳'};
-render();
-  }
-  async function camTick() {
-const v=document.getElementById('camv');
-if(cam.busy||!v||v.readyState<2||!S.sess)return;
-cam.busy=true;
-try {
-if(!cam.canvas)cam.canvas=document.createElement('canvas');
-const w=v.videoWidth,h=v.videoHeight;if(!w||!h)return;
-cam.canvas.width=w;cam.canvas.height=h;
-const ctx=cam.canvas.getContext('2d',{willReadFrequently:true});ctx.drawImage(v,0,0,w,h);
-const codes=await window.ZXingWASM.readBarcodes(ctx.getImageData(0,0,w,h),{formats:['QRCode','Code128','Code39','EAN13','EAN8','ITF','DataMatrix','PDF417','Aztec'],tryHarder:true,maxNumberOfSymbols:1});
-const c=codes.find(x=>x.isValid);cam.format=c?.format||'';
-camOnDetection(c?{value:c.text,format:c.format,width:w,height:h,points:[c.position.topLeft,c.position.topRight,c.position.bottomRight,c.position.bottomLeft]}:{value:'',width:w,height:h,points:null});
-  }catch(e){cam.detection=null;drawQrFrame();S.camErr='辨識元件暫時失敗，尚未入帳。可重新開相機或使用手動輸入。';}
-finally{cam.busy=false;}
-  }
-  function camMapErr(err){return err&&err.name==="NotAllowedError"?"相機權限被拒絕。請在瀏覽器允許相機，再點取景區重試；也可使用手動輸入。":err&&err.name==="NotFoundError"?"找不到可用的相機鏡頭。請使用手動輸入。":"相機開啟失敗（"+(err&&err.name?err.name:"未知原因")+"），可點取景區重試或使用手動輸入。";}
-  function camAdopt(stream){
-if(cam.stream&&cam.stream!==stream)cam.stream.getTracks().forEach(t=>t.stop());
-cam.stream=stream;cam.engine="zxing";
-cam.dedup=ErpScanCore.makePresenceDeduper(1500);S.camOn=true;S.camLast="";S.camLastAt=0;render();
-if(cam.timer)clearInterval(cam.timer);cam.timer=setInterval(camTick,700);
-  }
-
-  function camPreWarm(){
-if(cam.starting||S.camOn||cam.stream)return;
-if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)return;
-if(!window.ZXingWASM)return;
-if(window.ZXingWASM.setZXingModuleOverrides)window.ZXingWASM.setZXingModuleOverrides({locateFile:p=>p.endsWith(".wasm")?new URL("vendor/zxing_reader.wasm",location.href).href:p});
-if(window.ErpReadFeedback&&window.ErpReadFeedback.unlock)window.ErpReadFeedback.unlock().then(ok=>{S.audioReady=ok;});
-S.camErr="";
-const attempt=++cam.startId;cam.starting=true;
-const current=()=>cam.startId===attempt&&cam.starting;
-cam.watchdog=setTimeout(()=>{if(!current())return;cam.starting=false;cam.startId++;S.camErr="相機超過 8 秒沒有回應，尚未開啟。可點取景區重試，或使用手動輸入。";if(S.screen==="scan")render();},8000);
-navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"},audio:false}).then(stream=>{
-if(!current()){stream.getTracks().forEach(t=>t.stop());return;}
-cam.starting=false;if(cam.watchdog){clearTimeout(cam.watchdog);cam.watchdog=null;}
-camAdopt(stream);
-  }).catch(err=>{
-if(!current())return;
-cam.starting=false;if(cam.watchdog){clearTimeout(cam.watchdog);cam.watchdog=null;}
-S.camErr=camMapErr(err);if(S.screen==="scan")render();
-  });
-  }
-  function camStart() {
-if(cam.starting||S.camOn||cam.stream)return;
-window.ErpReadFeedback?.unlock().then(ok=>{S.audioReady=ok;const h=document.getElementById('qrdetected');if(h&&!ok)h.textContent='音效未啟用；請看辨識提示與保存狀態';});
-window.ZXingWASM?.setZXingModuleOverrides({locateFile:p=>p.endsWith(".wasm")?new URL("vendor/zxing_reader.wasm",location.href).href:p});
-S.camErr = "";
-if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-S.camErr = "這個瀏覽器沒有相機功能（需要 HTTPS 與支援的瀏覽器），請用輸入或測試按鈕。"; render(); return;
-  }
-const hasBD = false;
-if (!window.ZXingWASM) {
-S.camErr = "這個瀏覽器不支援即時條碼辨識，備用辨識元件也未載入，請用輸入或測試按鈕。"; render(); return;
-  }
-const attempt=++cam.startId;cam.starting=true;render();
-const current=()=>cam.starting&&cam.startId===attempt;
-const clear=()=>{if(cam.watchdog){clearTimeout(cam.watchdog);cam.watchdog=null;}cam.starting=false;};
-cam.watchdog=setTimeout(()=>{if(!current())return;clear();cam.startId++;S.camErr="相機超過 8 秒沒有回應，尚未開啟。可點取景區重試，或使用手動輸入。";render();},8000);
-Promise.resolve().then(()=>navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })).then(stream=>{
-if(!current()){stream.getTracks().forEach(t=>t.stop());return;}
-clear();if(cam.stream&&cam.stream!==stream)cam.stream.getTracks().forEach(t=>t.stop());
-cam.stream=stream;cam.engine="zxing";
-if(hasBD)cam.det=new BarcodeDetector({formats:["qr_code","code_128","code_39","ean_13","ean_8","data_matrix"]});
-cam.dedup=ErpScanCore.makePresenceDeduper(1500);S.camOn=true;S.camLast="";S.camLastAt=0;render();
-if(cam.timer)clearInterval(cam.timer);cam.timer=setInterval(camTick,700);
-  }).catch(err=>{
-if(!current())return;clear();
-S.camErr=err&&err.name==="NotAllowedError"?"相機權限被拒絕。請在瀏覽器允許相機，再點取景區重試；也可使用手動輸入。":err&&err.name==="NotFoundError"?"找不到可用的相機鏡頭。請使用手動輸入。":"相機開啟失敗（"+(err&&err.name?err.name:"未知原因")+"），可點取景區重試或使用手動輸入。";
-render();
-  });
-  }
+}).catch(() => capture());
+} else capture();
+} else begin(null);
+}
+const cam={starting:false,startId:0,watchdog:null,busy:false,format:"",stream:null,det:null,timer:null,canvas:null,dedup:null,engine:"",detection:null};function camLocation(){return[S.sess?.id,seatUI?.state.mapId,seatUI?.state.selected].join(":")}function camLive(){return!!cam.stream?.getVideoTracks().some(e=>e.readyState==="live")}function camPause(){if(!camLive()){camStop(true);return}if(cam.paused)return;cam.paused=true;cam.pauseLocation=camLocation();cam.pauseSession=S.sess?.id;cam.stream.getVideoTracks().forEach(e=>e.enabled=false);clearInterval(cam.timer);cam.timer=null;cam.detection=null;cam.pauseTimer=setTimeout(()=>{camStop(true);render()},6e4)}function camResume(){if(!camLive()){if(cam.stream)camStop(true);return false}if(cam.paused&&cam.pauseLocation!==camLocation())cam.dedup=ErpScanCore.makePresenceDeduper(1500);clearTimeout(cam.pauseTimer);cam.pauseTimer=null;cam.paused=false;cam.mapReturn=false;cam.stream.getVideoTracks().forEach(e=>e.enabled=true);if(!cam.timer)cam.timer=setInterval(camTick,700);S.camOn=true;return true}function camStop(e){clearTimeout(cam.pauseTimer);cam.pauseTimer=null;cam.paused=false;cam.mapReturn=false;cam.pauseSession="";cam.startId++;cam.starting=false;if(cam.watchdog){clearTimeout(cam.watchdog);cam.watchdog=null}if(cam.timer){clearInterval(cam.timer);cam.timer=null}if(cam.stream){cam.stream.getTracks().forEach(e=>e.stop());cam.stream=null}cam.det=null;cam.engine="";cam.detection=null;S.camOn=false;if(!e)render()}function drawQrFrame(){const e=document.getElementById("qrframe"),a=document.getElementById("qrpolygon"),t=document.getElementById("qrdetected");if(!e||!a)return;const r=cam.detection;const c=!!(r&&r.value&&r.points);e.toggleAttribute("hidden",!c);if(c){e.setAttribute("viewBox","0 0 "+r.width+" "+r.height);a.setAttribute("points",r.points.map(e=>e.x+","+e.y).join(" "))}else a.removeAttribute("points");if(t)t.textContent=r&&r.value?c?"已辨識 QR／條碼，框線是實際位置；儲存狀態見下方":"已辨識，但瀏覽器未提供位置，無法畫框；儲存狀態見下方":"對準標籤；辨識後自動保存，網頁完成聲須等寫入成功；保存狀態見下方"}function camOnDetection(e){cam.detection=e;drawQrFrame();camOnCode(e&&e.value||"",e&&e.format||cam.format)}function camOnCode(e,a){if(!cam.dedup)cam.dedup=ErpScanCore.makePresenceDeduper(1500);if(!cam.dedup.accept(e))return;const t=/^(qr_code|QRCode)$/i.test(a||"");if(t){S.vendorReview=null;scan(e);return}const r=assets().filter(a=>a.code===e||a.serial===e);const c=[...new Map(r.map(e=>[e.code,e])).values()];if(c.length===1){S.vendorReview=null;scan(c[0].code,null,{scanSource:"vendor",scanRaw:e,scanFormat:a});return}S.vendorReview={raw:e,format:a||"未知碼別",reason:c.length?"同一條碼符合多台設備，尚未入帳":"未能唯一對應設備，尚未入帳"};render()}async function camTick(){const e=document.getElementById("camv");if(cam.paused||document.hidden||cam.busy||!e||e.readyState<2||!S.sess)return;cam.busy=true;try{if(!cam.canvas)cam.canvas=document.createElement("canvas");const a=e.videoWidth,t=e.videoHeight;if(!a||!t)return;cam.canvas.width=a;cam.canvas.height=t;const r=cam.canvas.getContext("2d",{willReadFrequently:true});r.drawImage(e,0,0,a,t);const c=await window.ZXingWASM.readBarcodes(r.getImageData(0,0,a,t),{formats:["QRCode","Code128","Code39","EAN13","EAN8","ITF","DataMatrix","PDF417","Aztec"],tryHarder:true,maxNumberOfSymbols:1});const n=c.find(e=>e.isValid);cam.format=n?.format||"";camOnDetection(n?{value:n.text,format:n.format,width:a,height:t,points:[n.position.topLeft,n.position.topRight,n.position.bottomRight,n.position.bottomLeft]}:{value:"",width:a,height:t,points:null})}catch(e){cam.detection=null;drawQrFrame();S.camErr="辨識元件暫時失敗，尚未入帳。可重新開相機或使用手動輸入。"}finally{cam.busy=false}}function camMapErr(e){return e&&e.name==="NotAllowedError"?"相機權限被拒絕。請在瀏覽器允許相機，再點取景區重試；也可使用手動輸入。":e&&e.name==="NotFoundError"?"找不到可用的相機鏡頭。請使用手動輸入。":"相機開啟失敗（"+(e&&e.name?e.name:"未知原因")+"），可點取景區重試或使用手動輸入。"}function camAdopt(e){if(cam.stream&&cam.stream!==e)cam.stream.getTracks().forEach(e=>e.stop());cam.stream=e;cam.engine="zxing";cam.dedup=ErpScanCore.makePresenceDeduper(1500);S.camOn=true;S.camLast="";S.camLastAt=0;render();if(cam.timer)clearInterval(cam.timer);cam.timer=setInterval(camTick,700)}function camPreWarm(){if(camResume())return;if(cam.starting)return;if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)return;if(!window.ZXingWASM)return;if(window.ZXingWASM.setZXingModuleOverrides)window.ZXingWASM.setZXingModuleOverrides({locateFile:e=>e.endsWith(".wasm")?new URL("vendor/zxing_reader.wasm",location.href).href:e});if(window.ErpReadFeedback&&window.ErpReadFeedback.unlock)window.ErpReadFeedback.unlock().then(e=>{S.audioReady=e});S.camErr="";const e=++cam.startId;cam.starting=true;const a=()=>cam.startId===e&&cam.starting;cam.watchdog=setTimeout(()=>{if(!a())return;cam.starting=false;cam.startId++;S.camErr="相機超過 8 秒沒有回應，尚未開啟。可點取景區重試，或使用手動輸入。";if(S.screen==="scan")render()},8e3);navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"},audio:false}).then(e=>{if(!a()){e.getTracks().forEach(e=>e.stop());return}cam.starting=false;if(cam.watchdog){clearTimeout(cam.watchdog);cam.watchdog=null}camAdopt(e)}).catch(e=>{if(!a())return;cam.starting=false;if(cam.watchdog){clearTimeout(cam.watchdog);cam.watchdog=null}S.camErr=camMapErr(e);if(S.screen==="scan")render()})}function camStart(){if(camResume()){render();return}if(cam.starting)return;window.ErpReadFeedback?.unlock().then(e=>{S.audioReady=e;const a=document.getElementById("qrdetected");if(a&&!e)a.textContent="音效未啟用；請看辨識提示與保存狀態"});window.ZXingWASM?.setZXingModuleOverrides({locateFile:e=>e.endsWith(".wasm")?new URL("vendor/zxing_reader.wasm",location.href).href:e});S.camErr="";if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){S.camErr="這個瀏覽器沒有相機功能（需要 HTTPS 與支援的瀏覽器），請用輸入或測試按鈕。";render();return}if(!window.ZXingWASM){S.camErr="這個瀏覽器不支援即時條碼辨識，備用辨識元件也未載入，請用輸入或測試按鈕。";render();return}const e=++cam.startId;cam.starting=true;render();const a=()=>cam.starting&&cam.startId===e;const t=()=>{if(cam.watchdog){clearTimeout(cam.watchdog);cam.watchdog=null}cam.starting=false};cam.watchdog=setTimeout(()=>{if(!a())return;t();cam.startId++;S.camErr="相機超過 8 秒沒有回應，尚未開啟。可點取景區重試，或使用手動輸入。";render()},8e3);Promise.resolve().then(()=>navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"},audio:false})).then(e=>{if(!a()){e.getTracks().forEach(e=>e.stop());return}t();camAdopt(e)}).catch(e=>{if(!a())return;t();S.camErr=camMapErr(e);render()})}
   function afterRender() {
 restoreUsbFocus();
 if(seatUI)seatUI.layout();
 const seatModal=document.querySelector('.seat-modal');if(seatModal&&fieldObservation&&seatUI.state.popup)seatModal.insertAdjacentHTML('beforeend',fieldObservation.locationHtml({map:seatUI.mapFor(seatUI.state.curSite,seatUI.state.curZone)?.id,seat:Number(seatUI.state.popup)}));
 if (S.camOn && cam.stream) {
 const v = document.getElementById("camv");
-if (v && v.srcObject !== cam.stream) { v.srcObject = cam.stream; v.play().catch(() => {}); }
+if (!cam.paused && v && v.srcObject !== cam.stream) { v.srcObject = cam.stream; v.play().catch(() => {}); }
 drawQrFrame();
-  }
-  }
-
+}
+}
   function mockBar() {
 if (!D.isMock) return "";
 return '<div class="mockbar">這是<b>測試資料</b>畫面：資料為虛構範例，只存在這個瀏覽器，不會寫入你的 Google 試算表或任何正式系統。正式版將直接讀寫你的試算表（欄位對照待你提供實際表格）。</div>';
-  }
-
+}
   function syncBadge() {
 if (D.isMock || typeof store.syncStatus !== "function") return "";
 setTimeout(refreshSyncBadge, 0);
 return '<div id="erp-sync-badge" class="syncbadge" style="display:none"></div><div id="erp-version-badge" class="versionbadge" style="display:none"></div>';
-  }
-const LOADED_BUILD = { id: "2026-11-20.fieldcapture1" };
+}
+const LOADED_BUILD = { id: "2026-11-20.camerakeep1" };
   async function checkAppVersion() {
 if (D.isMock) return;
 try {
@@ -638,8 +507,8 @@ S.manifest = v;
 S.servedAt = res.headers.get("last-modified") || "";
 S.newerVersion = !!(v.build && v.build !== LOADED_BUILD.id);
 refreshVersionBadge();
-  } catch (e) {                  }
-  }
+} catch (e) {                  }
+}
   function refreshVersionBadge() {
 const el = document.getElementById("erp-version-badge");
 if (!el) return;
@@ -654,7 +523,7 @@ if (S.newerVersion) { cls += " new"; extra += " · 已有新版本 " + String(S.
 el.className = cls;
 el.textContent = ver + " · 整份資料最後完整讀取 " + fmt(st.lastSync) + extra;
 el.style.display = "";
-  }
+}
   function refreshSyncBadge() {
 if (D.isMock || typeof store.syncStatus !== "function") return;
 const el = document.getElementById("erp-sync-badge");
@@ -664,16 +533,16 @@ if (st.unsynced > 0) {
 el.style.display = "";
 el.className = "syncbadge bad";
 el.textContent = st.unsynced + " 筆未同步（寫入失敗，資料只在本機）——點此重試";
-  } else if (st.pending > 0) {
+} else if (st.pending > 0) {
 el.style.display = "";
 el.className = "syncbadge ing";
 el.textContent = "同步中…" + st.pending + " 筆";
-  } else {
+} else {
 el.style.display = "none";
 el.textContent = "";
-  }
+}
 refreshVersionBadge();
-  }
+}
   function loginBar() {
 const s = session();
 if (s && s.access_token) {
@@ -681,16 +550,15 @@ const exp = Number(s.expires_at || (s.session && s.session.expires_at) || 0);
 const expMs = exp ? (exp < 1e12 ? exp * 1000 : exp) : 0;
 if (expMs && expMs < Date.now() && !S.booting) {
 return '<div class="loginbar">TRQN 登入狀態：工作階段已過期。<a href="' + LOGIN_URL + '">重新登入 TRQN</a>（換發失敗時需要）</div>';
-  }
+}
 const who = s.user && (s.user.email || s.user.name) ? esc(s.user.email || s.user.name) : "已登入";
 return '<div class="loginbar">TRQN 登入狀態：' + who + "</div>";
-  }
+}
 return '<div class="loginbar">尚未登入 TRQN。' + (D.isMock ? '測試資料可直接操作；正式版需要 ' : '') + '<a href="' + LOGIN_URL + '">登入 TRQN</a> 才能讀寫你的試算表。</div>';
-  }
+}
   function zhugeBar() {
 return '<div class="zhugebar"><img class="brandmark" src="../shared/assets/logo/tron-icon.svg" alt=""><img src="../shared/assets/logo/tron-wordmark.svg" alt="TRQN" style="height:18px;vertical-align:-4px;margin-right:2px"><span>／ ZG-ERP 庫存 · 設備管理</span><a class="pill sm" style="display:inline-flex;align-items:center;text-decoration:none" href="../">返回 TRQN</a><button class="pill sm" type="button" data-a="theme-toggle" style="flex:none">'+(document.documentElement.dataset.theme==="dark"?"淺色":"深色")+'</button></div>';
-  }
-
+}
   function seatLabelFor(code){const b=seatUI&&seatUI.seatBindings&&seatUI.seatBindings();const x=b&&b[code];return x?x.zone+' · '+x.seat+'號':'座位未登記';}
   function assetView(){const a=getA(S.viewCode);if(!a)return '';return '<section class="card goal-read" aria-label="設備資料唯讀"><button class="pill" data-a="view-close">返回原清單</button><h3>'+esc(a.name||a.code)+'</h3><b>'+esc(a.code)+'</b><p>'+esc(a.model||'型號未填')+' · S/N '+esc(a.serial||'未登記')+'</p><p>'+esc(a.site)+' '+esc(seatLabelFor(a.code))+'</p><p>保管人：'+esc(a.owner||'未確認')+' · 使用部門：'+esc(a.department||'未指定')+' · '+esc(a.status)+'</p><p>專案：'+esc(a.project||D.UNASSIGNED)+'</p><details><summary>來源與其他資料</summary>'+legacyDetails(a.code)+'<p>購入：'+esc(a.purchase||'未填')+' · 品牌：'+esc(a.brand||'未填')+' · 產地：'+esc(a.origin||'未確認')+'</p></details>'+(S.mode==='phone'?'<div class="small">完整編輯請回電腦操作；現場資料不符請在掃描頁保留待核對。</div>':'<button class="pill" data-a="view-edit" data-v="'+esc(a.code)+'">需要變更，進入編輯</button>')+'<div class="small">目前只查詢，沒有取得編輯權或改動資料。</div></section>';}
   function goalRows(list){
@@ -698,7 +566,7 @@ if(!list.length)return '<p class="small">這個範圍沒有符合的設備。</p
 const bm=(a)=>{const br=String(a.brand||'').trim(),mo=String(a.model||'').trim();return br&&mo?(mo.toLowerCase().indexOf(br.toLowerCase())>=0?mo:br+' '+mo):(mo||br||'無資料')};
 return '<div class="goal-tbl-wrap"><div class="goal-tbl"><div class="goal-tr goal-th"><span>品項</span><span>資產編號</span><span>品牌 / 型號</span><span>位置</span><span>保管人</span><span>部門</span><span></span></div>'+
 list.map(a=>'<div class="goal-tr"><span>'+esc(a.name||a.code)+'</span><span class="icode">'+esc(a.code)+'</span><span>'+esc(bm(a))+'</span><span>'+esc(a.site)+' '+esc(seatLabelFor(a.code))+'</span><span>'+esc(a.owner||'未確認')+'</span><span>'+esc(a.department||'未指定')+'</span><span><button class="pill sm" data-a="'+(S.mode==='phone'?'view-asset':'scan-edit')+'" data-v="'+esc(a.code)+'">'+(S.mode==='phone'?'查看':'編輯')+'</button></span></div>').join('')+'</div></div>';
-  }
+}
   function goalPanel(){const all=assets(),scope=all.filter(a=>(!S.goalSite||a.site===S.goalSite)&&(!S.goalDept||(a.department||'未指定')===S.goalDept));const pending=scope.filter(a=>{const r=lastRecordOf(a.code);return !r||isRegPending(r)}),mismatch=scope.filter(a=>{const r=lastRecordOf(a.code);return r&&!isRegPending(r)&&(r.sessionSite!==a.site||r.zone!==a.zone)});const list=S.goalMetric==='pending'?pending:S.goalMetric==='mismatch'?mismatch:scope;return '<section class="goal-home"><h3>今天要做什麼？</h3><div class="chips"><button class="pill" data-a="goal-seat">選座位，開始盤點</button><button class="pill" data-a="goal-find">找設備</button>'+(S.sess?'<button class="pill" data-a="goal-resume">接續本次盤點</button>':'')+'</div><label class="lbl" for="goal-search">找設備：編號、序號、型號或保管人</label><input id="goal-search" class="inp" data-f="goalSearch" placeholder="輸入關鍵字，按 Enter 查詢" value="'+esc(S.goalSearch||'')+'"><button class="pill sm" data-a="goal-search">查詢</button>'+(S.goalSearchDone?'<div class="card"><b>查詢結果（全部已登記設備）</b>'+goalRows(all.filter(a=>[a.code,a.serial,a.model,a.name,a.owner].some(v=>String(v||'').toLowerCase().includes(String(S.goalSearchDone).toLowerCase()))))+'</div>':'')+'<h3>快速看數據</h3><div class="goal-scope"><label>據點<select class="inp" data-f="goalSite"><option value="">全部據點</option>'+siteNames().map(n=>'<option value="'+esc(n)+'"'+(S.goalSite===n?' selected':'')+'>'+esc(n)+'</option>').join('')+'</select></label><label>使用部門<select class="inp" data-f="goalDept"><option value="">全部部門</option>'+[...new Set(all.map(a=>a.department||'未指定'))].sort().map(n=>'<option value="'+esc(n)+'"'+(S.goalDept===n?' selected':'')+'>'+esc(n)+'</option>').join('')+'</select></label></div><div class="small">範圍：'+esc(S.goalSite||'全部據點')+' · '+esc(S.goalDept||'全部部門')+' · 目前登記設備（依最後紀錄，不是本次場次或全公司舊帳）</div><div class="tiles three"><button class="tile tb" data-a="goal-metric" data-v="all"><b>'+scope.length+'</b>登記設備</button><button class="tile tb" data-a="goal-metric" data-v="pending"><b>'+pending.length+'</b>待現場核對</button><button class="tile tb" data-a="goal-metric" data-v="mismatch"><b>'+mismatch.length+'</b>位置差異</button></div><div class="small">待現場核對＝沒有掃描紀錄或補登待核對，逐台去重；位置差異另列，不等於座位盤完。'+(!store.seatReady?'座位資料尚未就緒。':'')+'</div>'+(S.goalMetric?'<div class="card" id="goal-results"><b>'+({all:'登記設備',pending:'待現場核對',mismatch:'位置差異'}[S.goalMetric])+' · '+list.length+'台</b>'+goalRows(list)+'</div>':'')+(S.editCode&&getA(S.editCode)?'<div class="seat-edit-overlay"><div class="seat-edit-panel card">'+assetDrawerHtml(getA(S.editCode),lastRecordOf(S.editCode),zonesOf(getA(S.editCode).site))+'</div></div>':'')+'</section>';}
   function seatLastScanHtml(){
 if(!seatUI||!seatUI.state||!seatUI.state.scanSelected)return '';
@@ -713,14 +581,13 @@ const whenTxt=(sameDay?'今天 ':when.getMonth()+1+'/'+when.getDate()+' ')+when.
 const thisSess=S.sess&&best.sessionId===S.sess.id;
 const lbl=LABEL[best.status]||best.status||'已掃';
 return '<div class="small" style="margin-top:4px">'+(thisSess?'本次已掃':'以前掃過')+'：'+esc(whenTxt)+' · '+esc(a?a.name:best.code)+' '+esc(best.code)+' · '+esc(lbl)+(thisSess?'':'（紀錄保留，不等於本次已確認；本次請照掃）')+'</div>';
-  }
+}
   function prestartSeat(){if(!seatUI)return '';const m=seatUI.mapFor(S.site,S.zone),st=seatUI.state;if(!m||!st.scanSelected)return '<div class="warn">尚未選目前座位。<button class="pill em" data-a="goal-seat">先選座位</button></div>';const count=Object.values(seatUI.seatBindings()).filter(x=>x.version===m.id&&x.seat===st.selected).length;return '<div class="match"><b>目前座位：'+esc(m.site)+' '+esc(m.zone)+' · '+st.selected+'號</b><div>此座位已登記 '+count+' 台設備（不代表現場全部設備）；換號不會自動核對。</div>'+seatLastScanHtml()+'<div style="margin-top:6px"><button class="pill em" data-a="goal-seat">換座位</button></div></div>';}
   function modeBar() {
 const more = S.workspaceMore ? '<section class="workspace-more" aria-label="管理功能"><h3>管理功能</h3>'+[['geo','地圖總覽'],['assets','設備資料'],['inbound','入庫作業'],['zones','公司據點'],['map','座位圖'],['diff','盤點差異'],['legacy','舊帳比對']].map(([key,label])=>'<button class="pill" data-a="workspace-manage" data-v="'+key+'">'+label+'</button>').join('')+draftCard()+'<button class="pill" data-a="workspace-more">關閉</button></section>' : '';
 if (S.mode==='phone') return '<nav class="workspace-nav" aria-label="工作區"><span class="workspace-title">設備管理工作區</span><button class="mb on" data-a="workspace-scan">掃描</button></nav>';
 return '<nav class="workspace-nav" aria-label="工作區"><span class="workspace-title">設備管理工作區</span><button class="mb'+(S.dtab==='dash'?' on':'')+'" data-a="workspace-overview">總覽</button><button class="mb" data-a="workspace-scan">掃描</button><button class="mb" aria-expanded="'+!!S.workspaceMore+'" data-a="workspace-more">更多管理</button></nav>'+more;
-  }
-
+}
   function phoneStart() {
 ensureSetupDraft();
 if (!S.site && siteNames().length === 1) S.site = siteNames()[0];
@@ -753,7 +620,7 @@ projects().map((p) => '<button class="pill' + (S.scanProject === p ? " on" : "")
 (S.scanSetupErr ? '<div class="warn">' + esc(S.scanSetupErr) + "</div>" : "") +
 (S.setupRestored ? '<div class="warn" id="setup-restored">已還原上次尚未開始的設定：部門「' + esc(S.scanDepartment || "未填") + '」、專案「' + esc(S.scanProject || S.scanProjectInput || "全部專案") + '」。這只是預填，沒有開始盤點、沒有寫入任何資料；請核對，按下面「開始掃描」才會生效。<button class="pill sm" data-a="setup-clear">清除這些還原內容</button></div>' : "") +
 '<button class="btn" data-a="start">' + "開始掃描" + (S.site ? " · " + esc(S.site) : "") + (S.scanProject ? " · " + esc(S.scanProject.replace("（測試）", "")) : "") + "</button></div>";
-  }
+}
   function phoneScan() {
 const recs = curRecs();
 const last = recs.length ? recs[recs.length - 1] : null;
@@ -783,15 +650,14 @@ legacyDetails(r.code) +
 (lastShown.stateException ? '<div class="warn">' + esc(lastShown.stateException) + "。需由管理端確認後才會變更，本次掃描已照常保存。</div>" : "") +
 (r.status === "none" && !lastShown.stateException ? '<div class="tloc">新設備依現場觀察登記「使用中」；是否存妥請以上方同步狀態為準。</div>' : "") +
 (a ? '<div class="tloc"><button class="pill sm" data-a="view-asset" data-v="' + esc(r.code) + '">查看這台資料</button> ' + (a.legacyKey ? (store.annotationsOf && store.annotationsOf(a.legacyKey).some(x=>x.progress==='待查清') ? '<span class="dbadge">已標待核對</span>' : '<button class="pill sm" data-a="scan-flag" data-v="' + esc(r.code) + '">標記待核對（回電腦處理）</button>') : '') + '<div class="small">需要修改（名稱、保管人、部門）請回電腦；現場不符請按「標記待核對」留下紀錄。</div></div>' : "") + "</div>";
-  } else {
+} else {
 toast = D.isMock ? '<div class="toast idle">還沒掃到東西。輸入登記編號，或點下面的測試按鈕模擬掃描。</div>' : '<div class="toast idle">還沒掃到東西。對準設備標籤掃描，或手動輸入登記編號。</div>';
-  }
-
+}
 if (S.scanIntent && (S.scanBusy || S.scanHeld?.[S.scanIntent.code])) {
 const current = S.scanIntent, uncertain = !!S.scanHeld?.[current.code]?.uncertain;
 const copy = S.scanBusy ? "正在核對保存，尚未確認完成。" : uncertain ? "保存結果待查，不能確認已保存。請勿重送，也不計入已掃筆數。" : "這筆尚未保存，輸入已保留。可在下方重試。";
 toast = '<div class="toast syncpending" data-current-scan="'+esc(current.code)+'"><b>'+esc(copy)+'</b><div class="tcode">本筆掃描：'+esc(current.code)+'</div><div class="small">區域：'+esc(current.zone||"未指定")+'。先前已完成的掃描另列於下方「本次已掃」。</div></div>';
-  }
+}
 const sessProj = S.sess.project || "";
 const scope = assets().filter((a) => a.site === S.site && (!sessProj || (a.project || D.UNASSIGNED) === sessProj));
 const scopeGot = scope.filter((a) => recs.some((r) => r.code === a.code));
@@ -846,15 +712,15 @@ const a = getA(r.code);
 return '<button class="item" data-a="open" data-v="' + esc(r.code) + '">' + chip(dupFlag(r)) +
 '<span class="iname">' + (seatUI?esc(seatUI.recordLabel(r.code))+' · ':'') + esc(a ? a.name : r.code) + '</span><span class="icode">' + esc(r.code) + "</span>" +
 (S.open === r.code ? '<span class="idet">' + (a ? esc(a.model) + " · S/N " + esc(a.serial || "未登記") + " · 狀態 " + esc(a.status) + " · 保管人 " + esc(a.owner ? (a.owner === "公用" && a.source === "盤點" ? "公用（舊版預設，未確認）" : a.owner) : "未確認") + " · 使用部門 " + esc(a.department || "未指定") + " · 歸屬 " + esc(a.project || D.UNASSIGNED) + " · 購入 " + esc(a.purchase || "未登記") + " · 啟用 " + esc(a.activate || "未登記") + " · 保固 " + esc(a.warranty || "未登記") + " · 登記 " + esc(a.site) + " " + esc(a.zone) : "清冊無此編號") + " · " + esc(new Date(r.at).toLocaleTimeString("zh-TW", { hour12: false })) + (r.n > 1 ? " · 已重複 " + r.n + " 次" : "") + (r.departmentMismatch ? " · 使用部門不同（保留原登記）" : "") + " · 本次部門 " + esc(r.department || "未指定") + (r.projMismatch ? " · 歸屬專案與本次範圍不同（未改歸屬）" : "") + (r.projectAssigned ? " · 原本未指定專案→已歸入本次專案" : "") + (r.stateException ? " · ⚠ " + esc(r.stateException) : "") + (r.bindingConflict ? " · ⚠ " + esc(r.bindingConflict) : "") + "</span>" : "") + "</button>";
-  }).join("") + "</div>" + (S.editCode && getA(S.editCode) ? '<div class="seat-edit-overlay"><div class="seat-edit-panel card">' + assetDrawerHtml(getA(S.editCode), lastRecordOf(S.editCode), zonesOf(getA(S.editCode).site)) + '</div></div>' : '');
-  }
+}).join("") + "</div>" + (S.editCode && getA(S.editCode) ? '<div class="seat-edit-overlay"><div class="seat-edit-panel card">' + assetDrawerHtml(getA(S.editCode), lastRecordOf(S.editCode), zonesOf(getA(S.editCode).site)) + '</div></div>' : '');
+}
   function decisionButtons(r) {
 if (r.decision) return '<span class="done">已選：' + esc(r.decision) + "</span>";
 return '<span class="acts">' +
 (r.status !== "none" ? '<button class="pill sm" data-a="decide" data-v="' + esc(r.code) + '" data-d="維持登記">維持登記</button>' : "") +
 '<button class="pill sm" data-a="decide" data-v="' + esc(r.code) + '" data-d="' + (r.status === "none" ? "標記補登" : "以現場為準") + '">' + (r.status === "none" ? "標記補登" : "以現場為準") + "</button>" +
 '<button class="pill sm" data-a="decide" data-v="' + esc(r.code) + '" data-d="稍後處理">稍後</button></span>';
-  }
+}
   function phoneResult() {
 if(!D.isMock&&fieldObservation)return '<div class="screen"><h3>本次現場記錄</h3><p class="small">這是記錄檢視，不會丟棄未保存資料或把待查當完成。原場次保留，仍可繼續掃描或換位。</p>'+fieldObservation.scanHtml(true)+fieldObservation.html(true)+'<button class="btn" data-a="workspace-scan">繼續掃描</button><button class="btn secondary" data-a="goal-seat">返回座位圖</button></div>';
 const recs = curRecs();
@@ -882,7 +748,7 @@ const got = should.filter((a) => recs.some((r) => r.code === a.code));
 const miss = should.filter((a) => !got.includes(a));
 return '<div class="zrow"><span>' + esc(z) + "</span><b>" + got.length + " / " + should.length + "</b>" +
 (miss.length ? '<span class="miss">未掃：' + miss.map((a) => esc(a.name) + " " + esc(a.code)).join("、") + "</span>" : "") + "</div>";
-  }).join("") + "</div>" +
+}).join("") + "</div>" +
 '<div class="lbl sim">需要你決定（' + todo.length + "）</div>" +
 '<div class="chips"><button class="pill sm' + (S.filter === "all" ? " on" : "") + '" data-a="filter" data-v="all">全部</button><button class="pill sm' + (S.filter === "todo" ? " on" : "") + '" data-a="filter" data-v="todo">只看待處理</button></div>' +
 (shown.length === 0 ? '<div class="toast idle">沒有要處理的項目。</div>' : shown.map((r) => {
@@ -890,18 +756,18 @@ const a = getA(r.code);
 return '<div class="item static">' + chip(r.status) + syncMark(r) + '<span class="iname">' + esc(a ? a.name : r.code) + '</span><span class="icode">' + esc(r.code) + "</span>" +
 '<span class="idet">' + (a ? esc(a.status) + " · S/N " + esc(a.serial || "未登記") + " · 使用部門 " + esc(a.department || "未指定") + " · 歸屬 " + esc(a.project || D.UNASSIGNED) + " · 購入 " + esc(a.purchase || "未登記") + " · 保固 " + esc(a.warranty || "未登記") + " · 登記 " + esc(a.site) + " " + esc(a.zone) + " → 現場 " + esc(S.site) + " " + esc(r.zone) : "清冊查無，需補登") + "</span>" +
 decisionButtons(r) + "</div>";
-  }).join("")) +
+}).join("")) +
 (D.isMock ? '<div class="hand">接下來：這批掃描只存在這個瀏覽器的測試資料，尚未連接試算表；正式版會把同一批寫進試算表。</div>' : '<div class="hand">接下來在電腦整理：這批掃描已寫進試算表，「電腦 · 管理編輯」的盤點差異會看到同一份。</div>') +
 '<button class="btn" data-a="mode" data-v="pc">到電腦管理端處理</button>' +
 '<button class="btn secondary" data-a="tostart">回到起點</button></div>';
-  }
+}
   function phoneDash() {
 const rows = siteRows();
 const sum = rows.reduce((a, r) => ({ t: a.t + r.t, d: a.d + r.done, g: a.g + r.reg, n: a.n + r.left, z: a.z + r.z }), { t: 0, d: 0, g: 0, n: 0, z: 0 });
 const metric = S.metric;
 const sorted = [...rows].sort((a, b) => metric === "reg" ? b.reg - a.reg : metric === "todo" ? b.left - a.left : metric === "zone" ? b.z - a.z : metric === "done" ? b.pct - a.pct : b.t - a.t);
 return '<div class="screen"><h3 class="ptitle">統計儀表板</h3><p class="psub">' + (D.isMock ? "由本頁測試資料即時計算，不是公司實際資料。" : "由現存資料庫即時計算。") + '</p>' + dashBody(rows, sum, sorted, true) + "</div>";
-  }
+}
   function dashBody(rows, sum, sorted, isPhone) {
 const metric = S.metric, dst = S.dst, pfilter = S.pfilter;
 let drill = "";
@@ -916,13 +782,13 @@ drill = '<div class="drill"><div class="lbl">' + { done: "位置核對相符明�
 (list.length === 0 ? '<div class="small">沒有符合的設備。</div>' : list.slice(0, 8).map((x) =>
 '<div class="zrow act"><span><b>' + esc(x.a.name) + "</b> " + esc(x.a.code) + '<br><span class="small">' + esc(x.a.site) + " " + esc(x.a.zone) + " · " + esc(x.a.status) + " · 歸屬 " + esc(x.a.project || D.UNASSIGNED) + (x.note ? " · " + esc(x.note) : "") + '</span></span><button class="pill sm" data-a="ajump" data-v="' + esc(x.a.code) + '">處理</button><span class="small">' + esc(x.tag) + "</span></div>").join("")) +
 (list.length > 8 ? '<div class="small">另有 ' + (list.length - 8) + " 筆。</div>" : "") + "</div>";
-  }
+}
 let projDrill = "";
 if (pfilter) {
 const list = projAssets(pfilter);
 projDrill = '<div class="drill"><div class="lbl">「' + esc(pfilter) + "」反查到 " + list.length + " 台，分布在 " + esc([...new Set(list.map((a) => a.site))].join("、") || "無") + "；同一專案可跨據點。</div>" +
 list.map((a) => '<div class="zrow act"><span><b>' + esc(a.name) + "</b> " + esc(a.code) + '<br><span class="small">' + esc(a.site) + " " + esc(a.zone) + " · " + esc(a.owner ? (a.owner === "公用" && a.source === "盤點" ? "公用（舊版預設，未確認）" : a.owner) : "未確認") + " · " + esc(a.status) + '</span></span><button class="pill sm" data-a="ajump" data-v="' + esc(a.code) + '">處理</button><span class="small">' + esc((a.project || D.UNASSIGNED).replace("（測試）", "")) + "</span></div>").join("") + "</div>";
-  }
+}
 const tiles = '<div class="' + (isPhone ? "tiles two" : "dtiles") + '">' +
 '<button class="tile tb' + (metric === "total" ? " sel" : "") + '" data-a="metric" data-v="total"><b>' + sum.t + "</b>設備總數</button>" +
 '<button class="tile tb' + (metric === "done" ? " sel" : "") + '" data-a="metric" data-v="done"><b>' + (sum.t ? Math.round((sum.d / sum.t) * 100) : 0) + "%</b>位置核對相符（" + sum.d + "／" + sum.t + " 台，依最後一筆掃描）</button>" +
@@ -932,9 +798,8 @@ const tiles = '<div class="' + (isPhone ? "tiles two" : "dtiles") + '">' +
 const stChips = '<div class="lbl sim">設備狀態篩選（和盤點是兩回事）</div><div class="chips">' +
 '<button class="pill sm' + (dst === "" ? " on" : "") + '" data-a="dst" data-v="">全部</button>' +
 D.STATUSES.map((st) => '<button class="pill sm' + (dst === st ? " on" : "") + '" data-a="dst" data-v="' + esc(st) + '">' + esc(st) + " " + stCount(st) + "</button>").join("") + "</div>";
-
 return attentionCard() + tiles + drill + siteTable(rows, sorted, isPhone) + stChips + projTable(pfilter) + projDrill;
-  }
+}
   function projTable(pfilter) {
 const head = '<div class="lbl sim">各專案使用概況（按專案反查設備，和實際放置地點、保管人分開；部門為已登記的使用部門彙總）</div>';
 const rowsHtml = projects().map((p) => {
@@ -948,17 +813,17 @@ return '<button class="prow' + (pfilter === p ? " sel" : "") + '" data-a="pfilte
 '<span class="pn">' + esc(p.replace("（測試）", "")) + '</span><span>' + list.length + " 台</span>" +
 '<span>使用中 ' + use + '</span><span class="' + (repair ? "pbad" : "") + '">' + (repair ? "待修/維修 " + repair : "—") + '</span>' +
 '<span class="small">' + esc(where) + '</span><span class="small">部門：' + esc(deptText) + "</span></button>";
-  }).join("");
+}).join("");
 return head + '<div class="ptable">' + rowsHtml + "</div>" +
 (pfilter ? '<div class="chips" style="margin-top:6px"><button class="pill sm" data-a="pfilter" data-v="">清除專案篩選</button></div>' : "");
-  }
+}
   function siteTable(rows, sorted, isPhone) {
 const mlabel = { total: "依設備數排序", done: "依位置核對相符排序", reg: "依待核對排序", todo: "依尚無掃描排序", zone: "依位置不符排序" }[S.metric];
 if (isPhone) {
 return '<div class="lbl sim">各據點 · ' + mlabel + " · 點開看明細</div>" + sorted.map((r) =>
 '<div class="srow"><button class="shead" data-a="dsite" data-v="' + esc(r.n) + '"><span class="sname">' + esc(r.n) + '</span><span class="spct">' + r.pct + '%</span><span class="bar"><i style="width:' + r.pct + '%"></i></span><span class="smeta">相符 ' + r.done + "/" + r.t + " · 待核對 " + r.reg + " · 無掃描 " + r.left + " · 不符 " + r.z + "</span></button>" +
 (S.dsite === r.n ? '<div class="sdet"><div class="lbl">狀態分布</div><div class="smeta">' + D.STATUSES.map((st) => esc(st) + " " + assets().filter((a) => a.site === r.n && a.status === st).length).join(" · ") + '</div><button class="pill sm" data-a="gosite" data-v="' + esc(r.n) + '">去盤點' + esc(r.n) + "</button></div>" : "") + "</div>").join("");
-  }
+}
 return '<div class="lbl sim">各據點位置核對（掃描相符，不等於整場盤點完成）· ' + mlabel + "</div>" +
 '<div class="scards">' + sorted.map((r) => {
 const worst = r.left > 0;
@@ -968,16 +833,15 @@ return '<div class="scard"><div class="sct"><b>' + esc(r.n) + "</b><span class=\
 '<div class="smeta">' + D.STATUSES.map((st) => esc(st) + " " + assets().filter((a) => a.site === r.n && a.status === st).length).join(" · ") + "</div>" +
 '<div class="scact"><button class="pill sm" data-a="sitelist" data-v="' + esc(r.n) + '">看設備</button>' +
 (worst ? '<button class="pill sm" data-a="gositepc" data-v="' + esc(r.n) + '">去盤點</button>' : "") + "</div></div>";
-  }).join("") + "</div>" +
+}).join("") + "</div>" +
 '<p class="small">位置核對相符與已登記待核對依試算表盤點紀錄的最後一筆「判定」即時計算；僅涵蓋目前登記的設備，不代表整場或全公司盤點進度。</p>';
-  }
-
+}
   function pcDash() {
 const rows = siteRows();
 const sum = rows.reduce((a, r) => ({ t: a.t + r.t, d: a.d + r.done, g: a.g + r.reg, n: a.n + r.left, z: a.z + r.z }), { t: 0, d: 0, g: 0, n: 0, z: 0 });
 const sorted = [...rows].sort((a, b) => S.metric === "reg" ? b.reg - a.reg : S.metric === "todo" ? b.left - a.left : S.metric === "zone" ? b.z - a.z : S.metric === "done" ? b.pct - a.pct : b.t - a.t);
 return '<h3 class="ptitle">總覽儀表板</h3><p class="psub">' + (D.isMock ? "由本頁測試資料即時計算，不是公司實際資料。" : "由現存資料庫即時計算。") + '</p>' + goalPanel() + '<details class="goal-more-stats"><summary>其他統計與地圖總覽</summary><div class="chips"><button class="pill" data-a="dtab" data-v="geo">地圖總覽</button></div>' + dashBody(rows, sum, sorted, false) + '</details>';
-  }
+}
   function pcAssets() {
 const belongLabel = (a) => { const p = a.project && a.project !== D.UNASSIGNED ? "專案：" + a.project.replace("（測試）", "") : ""; const dep = a.department ? "部門：" + a.department : ""; return p || dep ? esc(p) + (p && dep ? "<br>" : "") + esc(dep) : esc(D.UNASSIGNED); };
 if (!S.asite) S.asite = siteNames()[0] || "";
@@ -989,7 +853,7 @@ const list = assets().filter((a) => a.site === S.asite)
 if (!S.ageFilter) return true;
 const g = assetAge(a, S.ageBasis);
 return S.ageFilter === "aged" ? (g !== null && g >= (S.ageThreshold || AGE_THRESHOLD_DEFAULT)) : g === null;
-  });
+});
 const zones = zonesOf(S.asite);
 return '<h3 class="ptitle">設備資料</h3><button class="pill" data-a="goal-find">快速搜尋設備</button><p class="psub">編輯保管人、區域、設備狀態、歸屬專案、序號與日期。儲存直接寫回你的試算表；失敗會標「未同步」，不會假裝成功。</p>' +
 (S.retTab ? '<div class="chips"><button class="pill sm" data-a="back">← 回' + ({ dash: "儀表板", map: "位置圖", diff: "盤點差異" }[S.retTab] || "上一頁") + "</button></div>" : "") +
@@ -1020,8 +884,8 @@ let row = '<button class="atr arow" data-a="edit" data-v="' + esc(a.code) + '"><
 "<span>" + belongLabel(a) + '</span><span class="opt">' + esc(a.owner ? (a.owner === "公用" && a.source === "盤點" ? "公用（舊版預設，未確認）" : a.owner) : "未確認") + '</span><span class="opt">' + esc(a.zone) + "</span><span>" + esc(a.status) + '</span><span class="small">' + (S.editCode === a.code ? "編輯中" : "編輯") + "</span></button>";
 row += assetDrawerHtml(a, lr, zones);
 return row;
-  }).join("") + "</div>";
-  }
+}).join("") + "</div>";
+}
   function pcZones() {
 const addForm = '<div class="zcard"><b>新增據點</b><div class="small">建立據點和它的第一個區域；手機「盤點據點」就會出現這個選項。座標選填，填了手機才能用定位自動找最近據點。</div>' +
 (ensureSiteDraft(), "") + '<div class="frow"><input class="inp" data-f="ns_name" placeholder="據點名稱（如 台北）" value="' + esc(S.newSite.name || "") + '"></div>' +
@@ -1036,10 +900,9 @@ sites().map((s) => '<div class="zcard"><div><b>' + esc(s.name) + '</b> <span cla
 s.zones.map((z) => '<div class="zrow"><span>' + esc(z) + "</span><b>" + assets().filter((a) => a.site === s.name && a.zone === z).length + " 台</b></div>").join("") +
 '<div class="frow"><input class="inp" data-f="nz_' + esc(s.name) + '" placeholder="新增' + esc(s.name) + '的區域" value="' + esc(S.newZone[s.name] != null ? S.newZone[s.name] : ((bagGet('zone-new', s.name) || {}).v || "")) + '"><button class="pill sm" data-a="addzone" data-v="' + esc(s.name) + '">加入</button></div>' +
 '<div class="small">加入後，手機端「目前區域」會出現這個選項。重新命名、停用區域尚未支援。</div></div>').join("");
-  }
+}
   function zoneAssets(site, zone) { return assets().filter((a) => a.site === site && a.zone === zone); }
   function demoPlanSvg(site, zones, sel) {
-
 const cols = Math.min(3, zones.length) || 1, rows = Math.ceil(zones.length / cols) || 1;
 const W = 640, H = 120 * rows + 20, cw = (W - 20) / cols;
 let cells = "";
@@ -1050,9 +913,9 @@ cells += '<g data-a="mapzone" data-v="' + esc(z) + '" style="cursor:pointer">' +
 '<rect x="' + cx + '" y="' + cy + '" width="' + (cw - 10) + '" height="110" rx="10" fill="' + (on ? "var(--ds-teal-soft)" : "var(--ds-surface)") + '" stroke="' + (on ? "var(--ds-teal)" : "var(--ds-hairline)") + '" stroke-width="' + (on ? 2 : 1) + '"/>' +
 '<text x="' + (cx + 12) + '" y="' + (cy + 26) + '" font-size="13" font-weight="600" fill="var(--ds-ink)">' + esc(z) + "</text>" +
 '<text x="' + (cx + 12) + '" y="' + (cy + 46) + '" font-size="11" fill="var(--ds-ink-2)">' + zoneAssets(site, z).length + " 台設備</text></g>";
-  });
+});
 return '<svg viewBox="0 0 ' + W + " " + H + '" style="width:100%;max-width:720px;border:1px solid var(--ds-hairline);border-radius:12px;background:var(--ds-canvas)">' + cells + "</svg>";
-  }
+}
   function legacyPcMap() {
 if (!S.mapSite) S.mapSite = siteNames()[0] || "";
 const zones = zonesOf(S.mapSite);
@@ -1065,9 +928,9 @@ if (S.mapImg) {
 canvas = '<div style="position:relative;max-width:720px"><img src="' + S.mapImg + '" style="width:100%;border:1px solid var(--ds-hairline);border-radius:12px;display:block" data-a="mapimg" alt="位置圖（本機預覽）">' +
 zones.filter((z) => marks[z]).map((z) =>
 '<button class="pill sm" data-a="mapzone" data-v="' + esc(z) + '" style="position:absolute;left:' + marks[z].x + "%;top:" + marks[z].y + "%;transform:translate(-50%,-50%);min-height:32px;background:" + (sel === z ? "var(--ds-teal);color:#fff;border-color:var(--ds-teal)" : "#fff") + '">' + esc(z) + "</button>").join("") + "</div>";
-  } else {
+} else {
 canvas = demoPlanSvg(S.mapSite, zones, sel);
-  }
+}
 return '<h3 class="ptitle">位置圖</h3>' +
 '<p class="psub">選據點、在圖上點一個位置，就帶出該位置的設備、歸屬專案與狀態。位置標記由人綁定到區域，不靠系統猜圖。設備清單仍讀同一份試算表資料，圖裡不另存一套。</p>' +
 '<div class="chips">' + siteNames().map((p) => '<button class="pill sm' + (S.mapSite === p ? " on" : "") + '" data-a="mapsite" data-v="' + esc(p) + '">' + esc(p) + "</button>").join("") + "</div>" +
@@ -1082,18 +945,16 @@ mapNote + canvas +
 (selAssets.length === 0 ? '<div class="small">這個位置目前沒有登記設備。</div>' :
 selAssets.map((a) => '<div class="zrow act"><span><b>' + esc(a.name) + "</b> " + esc(a.code) + '<br><span class="small">S/N ' + esc(a.serial || "未登記") + " · " + esc(a.status) + " · 保管人 " + esc(a.owner ? (a.owner === "公用" && a.source === "盤點" ? "公用（舊版預設，未確認）" : a.owner) : "未確認") + " · 歸屬 " + esc((a.project || D.UNASSIGNED).replace("（測試）", "")) + '</span></span><button class="pill sm" data-a="ajump" data-v="' + esc(a.code) + '">處理</button></div>').join("")) + "</div>"
 : '<div class="small">點圖上任一位置，帶出該位置的設備資料。</div>');
-  }
+}
   function pcMap() {
 if (!seatUI) return legacyPcMap();
 return locationPicker('map') + (S.mapCity&&S.mapSite&&S.mapZone ? seatUI.render(S.mapSite, S.mapZone) : '<div class="card">請依序選城市、據點與樓層，再開啟平面圖。</div>') + (S.editCode && getA(S.editCode) ? '<div class="seat-edit-overlay"><div class="seat-edit-panel card">' + assetDrawerHtml(getA(S.editCode), lastRecordOf(S.editCode), zonesOf(getA(S.editCode).site)) + '</div></div>' : '');
-  }
-
+}
   function pcInbound() {
 const bs = batches().slice().reverse();
 const nb = S.nb || (S.nb = Object.assign({ po: "", vendor: "", brand: "", model: "", origin: "", mfgYear: "", type: "", note: "", serials: "" }, bagGet('inbound-batch', 'new') || {}));
 let html = '<h3 class="ptitle">入庫作業</h3><p class="psub">廠商序號清單先建成「待入庫」批次，不增加庫存；實物到貨逐台核對後確認入庫，才產生內部登記編號並列入設備與應盤。批次直接存進你的試算表。</p>';
 if(intakeUI)html+=intakeUI.html();
-
 html += '<div class="card"><div class="lbl">建立進貨批次（貼上廠商給的序號清單，每行一筆）</div>' +
 '<div class="frow"><span class="lbl">PO 編號</span><input class="inp" data-f="nb_po" value="' + esc(nb.po) + '" placeholder="採購編號；同一筆採購分批到貨用同一個"></div>' +
 '<div class="frow"><span class="lbl">廠商</span><input class="inp" data-f="nb_vendor" value="' + esc(nb.vendor) + '" placeholder="廠商名稱（測試）"></div>' +
@@ -1105,7 +966,6 @@ html += '<div class="card"><div class="lbl">建立進貨批次（貼上廠商給
 '<div class="frow"><span class="lbl">序號清單</span><textarea class="inp" data-f="nb_serials" rows="4" placeholder="每行一筆廠商序號">' + esc(nb.serials) + '</textarea></div>' +
 '<div class="frow"><span class="lbl">備註</span><input class="inp" data-f="nb_note" value="' + esc(nb.note) + '" placeholder="可留空"></div>' +
 '<button class="btn" data-a="nbcreate">建立待入庫批次</button>' + (S.nbNote ? '<div class="toast t-none" style="margin-top:8px">' + esc(S.nbNote) + "</div>" : "") + '</div>';
-
 if (!bs.length) html += '<div class="toast idle" style="margin-top:10px">還沒有進貨批次。</div>';
 html += bs.map((b) => {
 const pend = b.items.filter((x) => x.state === "pending").length;
@@ -1123,7 +983,7 @@ if (open) {
 card += '<div class="dtable" style="margin-top:8px">' + b.items.map((x) =>
 '<div class="zrow"><span>' + esc(x.serial) + (x.code ? " → " + esc(x.code) : "") + '</span><span class="small">' + ({ pending: "待收", received: "已核對", inbound: "已入庫", conflict: "序號已在清冊，未重複建立" })[x.state] + "</span></div>").join("") +
 (b.unexpected.length ? '<div class="lbl sim">清單外掃到（不會自動入庫）</div>' + b.unexpected.map((u) => '<div class="zrow"><span>' + esc(u.serial) + '</span><span class="small">清單外' + (u.n > 1 ? " ×" + u.n : "") + "</span></div>").join("") : "") + "</div>";
-  }
+}
 if (S.ibConfirm === b.id) {
 const dr = S.ibDraft || (S.ibDraft = { site: siteNames()[0], zone: zonesOf(siteNames()[0])[0] || "", project: D.UNASSIGNED, owner: "公用" });
 card += '<div class="card" style="margin-top:8px;background:var(--ds-raised)"><div class="lbl">確認入庫 ' + got + ' 台：建立內部登記編號，狀態「備用」</div>' +
@@ -1133,15 +993,14 @@ card += '<div class="card" style="margin-top:8px;background:var(--ds-raised)"><d
 '<div class="frow"><span class="lbl">保管人</span><input class="inp" data-f="ibd_owner" value="' + esc(dr.owner) + '"></div>' +
 '<button class="btn" data-a="ibdo" data-v="' + esc(b.id) + '">建立 ' + got + ' 台設備並入庫</button>' +
 '<button class="btn secondary" data-a="ibconfirm" data-v="' + esc(b.id) + '">取消</button></div>';
-  }
+}
 if (S.ibDone && S.ibDone[b.id]) {
 card += '<div class="toast t-ok" style="margin-top:8px">已入庫 ' + S.ibDone[b.id].length + " 台：" + S.ibDone[b.id].map((a) => esc(a.code)).join("、") + "。到「設備資料」可繼續編輯。</div>";
-  }
+}
 return card + "</div>";
-  }).join("");
+}).join("");
 return html;
-  }
-
+}
   function phoneRecv() {
 const obs = openBatches();
 if (!S.recvBatch || !obs.some((b) => b.id === S.recvBatch)) S.recvBatch = obs.length ? obs[0].id : "";
@@ -1174,8 +1033,7 @@ toast +
 '<button class="pill sm" data-a="recvtest" data-v="YK-T46U-107030182">已在清冊的序號</button></div>' +
 '<div class="hand">核對完到「電腦 · 入庫作業」確認入庫，才會產生登記編號並列入設備。</div>' +
 '<button class="btn" data-a="goinbound" data-v="' + esc(b.id) + '">到電腦確認入庫</button></div>';
-  }
-
+}
   function pcDiff() {
 const recs = allRecords().filter((r) => r.status !== "ok").slice().reverse();
 const todoN = recs.filter((r) => !r.decision).length;
@@ -1187,10 +1045,9 @@ const a = getA(r.code);
 return '<div class="item static">' + chip(r.status) + syncMark(r) + '<span class="iname">' + esc(a ? a.name : r.code) + '</span><span class="icode">' + esc(r.code) + "</span>" +
 '<span class="idet">' + (a ? esc(a.status) + " · S/N " + esc(a.serial || "未登記") + " · 使用部門 " + esc(a.department || "未指定") + " · 歸屬 " + esc(a.project || D.UNASSIGNED) + " · 登記 " + esc(a.site) + " " + esc(a.zone) + " → 現場 " + esc(r.sessionSite) + " " + esc(r.zone) : "清冊查無，需補登") + (r.departmentMismatch ? " · 使用部門不同（保留原登記）" : "") + " · 本次部門 " + esc(r.department || "未指定") + (r.projMismatch ? " · 歸屬專案與該場次範圍不同（未改歸屬）" : "") + " · " + esc(new Date(r.at).toLocaleString("zh-TW", { hour12: false })) + "</span>" +
 decisionButtons(r) + "</div>";
-  }).join("")) +
+}).join("")) +
 '';
-  }
-
+}
   function annForm(row) {
 if (S.annOpen !== row.recordKey) return '<button class="pill sm" data-a="annopen" data-v="' + esc(row.recordKey) + '">釐清標示</button>';
 const d = S.annDraft || {};
@@ -1204,9 +1061,8 @@ window.ZgErpReconcile.CONCLUSIONS.map((c) => '<option value="' + esc(c) + '"' + 
 '<button class="pill sm" data-a="annsub" data-v="' + esc(row.recordKey) + '">存標示</button>' +
 '<button class="pill sm" data-a="anncancel">取消</button>' +
 (S.annErr ? '<div class="warn">' + esc(S.annErr) + "</div>" : "") + "</span>";
-  }
+}
   const LEGACY_PAGE = 100;
-
   function capList(key, list, renderOne) {
 const pages = S.legPages || (S.legPages = {});
 const last = Math.max(0, Math.ceil(list.length / LEGACY_PAGE) - 1);
@@ -1218,7 +1074,7 @@ const btn = (label, target, disabled) => '<button class="pill sm" data-a="legpag
 const nav = '<div class="zrow"><span class="small" role="status">顯示第 ' + (list.length ? start + 1 : 0) + '–' + end + ' 筆／共 ' + list.length + ' 筆 · 第 ' + (page + 1) + '/' + (last + 1) + ' 頁</span><span class="acts">' +
 btn('第一頁', 0, page === 0) + btn('上一頁', page - 1, page === 0) + btn('下一頁', page + 1, page === last) + btn('最後一頁', last, page === last) + '</span></div>';
 return nav + list.slice(start, end).map(renderOne).join('') + (list.length > LEGACY_PAGE ? nav : '');
-  }
+}
   function noteStatusLine(row) {
 if (typeof store.legacyNotes !== "function") return "";
 const notes = store.legacyNotes().filter((n) => n.recordKey === row.recordKey);
@@ -1226,7 +1082,7 @@ if (!notes.length) return "";
 const latest = notes[notes.length - 1];
 const at = latest.at ? String(latest.at).slice(0, 16).replace("T", " ") : "";
 return '<br><span class="small">已註記舊庫 ' + notes.length + ' 筆 · 最新：' + esc(latest.disposition || "") + ' · ' + esc(latest.status || "待行政處理") + (at ? " · " + esc(at) : "") + (latest.note ? " · " + esc(latest.note) : "") + '</span>';
-  }
+}
   function noteForm(row) {
 if (typeof store.addLegacyNote !== "function") return "";
 if (S.noteOpen !== row.recordKey) return '<button class="pill sm" data-a="noteopen" data-v="' + esc(row.recordKey) + '">註記舊庫</button>';
@@ -1244,13 +1100,13 @@ return '<div class="drawer">' +
 : '<button class="btn mini" data-a="notesub" data-v="' + esc(row.recordKey) + '"' + (S.noteBusy ? " disabled" : "") + '>' + (S.noteBusy ? "正在寫入註記…" : "送出註記") + '</button>') +
 '<button class="pill sm" data-a="notecancel"' + (S.noteBusy ? " disabled" : "") + '>取消</button></div>' +
 '</div>';
-  }
+}
   function legacyLine(row, extra, withForm, flowText) {
 return '<div class="zrow"><span><b>' + esc(row.code || "（無編號）") + "</b> " + esc(row.name || "") + (row.model ? " · " + esc(row.model) : "") +
 '<br><span class="small">出處 ' + esc(row.provenance || row.siteLead || "?") + (row.zone ? " · " + esc(row.zone) : "") + (row.place ? " · " + esc(row.place) : "") + (row.scopeStatus ? " · " + esc(row.scopeStatus) : "") + "</span>" +
 (flowText ? '<br><span class="small">' + flowText + "</span>" : "") +
 (extra ? '<br><span class="small">' + extra + "</span>" : "") + noteStatusLine(row) + "</span>" + (withForm ? annForm(row) + noteForm(row) + (differenceUI?differenceUI.html(row):"") : "") + "</div>";
-  }
+}
   function pcLegacy() {
 const R = window.ZgErpReconcile;
 const legacy = store.legacyRows ? store.legacyRows() : [];
@@ -1260,12 +1116,11 @@ const noCode = legacy.filter((r) => !r.code && (!S.legLead || r.siteLead === S.l
 if (!legacy.length) {
 return '<h3 class="ptitle">舊帳比對</h3><p class="psub">' +
 (lerr ? "舊帳暫時讀不到（" + esc(lerr) + "）。新帳功能不受影響，修好後這裡會顯示比對。" : "舊帳還沒有可比對的資料。") + "</p>";
-  }
+}
 const leads = [...new Set(legacy.map((r) => r.siteLead).filter(Boolean))].sort();
 const projs = [...new Set(legacy.map((r) => r.project).filter(Boolean))].sort();
 const scope = { source: S.legLead || "", site: "", project: S.legProj || "", closed: false };
 const res = R.reconcile(legacy, db(), scope, db().annotations || []);
-
 const flows = store.legacyFlows ? store.legacyFlows() : [];
 const questions = store.legacyQuestions ? store.legacyQuestions() : [];
 const auxErr = store.legacyAuxError ? store.legacyAuxError() : "";
@@ -1274,13 +1129,13 @@ flows.forEach((f) => {
 [f.rkeyA, f.rkeyB, f.code].filter(Boolean).forEach((k) => {
 if (!flowsByKey.has(k)) flowsByKey.set(k, []);
 flowsByKey.get(k).push(f);
-  });
-  });
+});
+});
 const flowHint = (row) => {
 const hit = (flowsByKey.get(row.recordKey) || []).concat(row.code ? (flowsByKey.get(row.code) || []) : []);
 const uniq = [...new Map(hit.map((f) => [f.relationKey || f.note, f])).values()];
 return uniq.slice(0, 3).map((f) => "舊帳關係 " + esc(f.relationKey || "") + (f.type ? "（" + esc(f.type) + "）" : "") + (f.note ? "：" + esc(f.note) : "") + (f.status ? " · " + esc(f.status) : "")).join("<br>");
-  };
+};
 const c = res.counts;
 const chips = '<div class="chips"><button class="pill' + (!S.legLead ? " on" : "") + '" data-a="leglead" data-v="">全部出處</button>' +
 leads.map((p) => '<button class="pill' + (S.legLead === p ? " on" : "") + '" data-a="leglead" data-v="' + esc(p) + '">' + esc(p) + "</button>").join("") + "</div>" +
@@ -1293,59 +1148,59 @@ chips +
 '<div class="smeta">已盤到 ' + c.matched + " · 已釐清 " + c.clarified + " · 尚未掃到 " + c.pending + " · 位置不符 " + c.locationMismatch + " · 同編號多筆 " + c.ambiguous + " 組 · 現場實際觀察 " + c.newInventory + " 台 · 新有舊無 " + c.newOnly + (noCode ? " · 無編號 " + noCode + " 列僅人工查" : "") + "</div></div>";
 if (res.pending.length && res.newOnly.length) {
 out += '<div class="warn">本範圍有 ' + res.pending.length + " 筆舊帳尚未掃到，同時有 " + res.newOnly.length + " 台現場新掃到（舊帳沒有）。可能是少一台或換機（例如管理部原發 A、現場卻是 B）；兩邊一起列待查，系統不自動認定換機關係。查明後用釐清標示記下去向、依據與確認人。</div>";
-  }
+}
 if (auxErr) {
 out += '<div class="warn">舊帳的關係／待確認資料暫時讀不到（' + esc(auxErr) + "）；主檔比對不受影響。</div>";
-  }
+}
 const noteErr = store.legacyNoteError ? store.legacyNoteError() : "";
 if (noteErr) {
 out += '<div class="warn">現場註記清單暫時讀不到（' + esc(noteErr) + '）；註記狀態未確認——沒顯示「已註記」不代表尚未註記，請勿依畫面補送重複註記。主檔比對不受影響。</div>';
-  }
+}
 const inScopeKeys = new Set(legacy.filter((r) => (!S.legLead || r.siteLead === S.legLead) && (!S.legProj || r.project === S.legProj)).map((r) => r.recordKey));
 const qShown = questions.filter((q) => {
 const toks = String(q.related || "").split(/\s+/).filter(Boolean);
 return !toks.length ? (!S.legLead && !S.legProj) : toks.some((t) => inScopeKeys.has(t));
-  });
+});
 if (qShown.length) {
 out += '<div class="lbl">舊帳待確認事項（' + qShown.length + "）— 舊帳人工紀錄，唯讀；處理結果請用釐清標示記到新帳</div><div class=\"ztable\">" +
 capList("舊帳待確認事項", qShown, (q) => '<div class="zrow"><span><b>' + esc(q.itemKey || "") + "</b> " + esc(q.category || "") + " · " + esc(q.summary || "") + '<br><span class="small">相關 ' + esc(q.related || "") + (q.suggestion ? " · 建議：" + esc(q.suggestion) : "") + (q.status ? " · " + esc(q.status) : "") + "</span></span></div>") + "</div>";
-  }
+}
 if (noCode) {
 out += '<div class="lbl">無編號原始紀錄（' + noCode + '） - 僅人工查，不自動配對設備</div><div class="ztable">' +
 capList("無編號", legacy.filter((r) => !r.code && (!S.legLead || r.siteLead === S.legLead) && (!S.legProj || r.project === S.legProj)),
 (row) => legacyLine(row, "記錄鍵 " + esc(row.recordKey), true, flowHint(row))) + '</div>';
-  }
+}
 if (res.staleAnnotations.length) {
 out += '<div class="lbl">標示失配（舊帳列內容變動，原標示未套用，請人工核對）</div><div class="ztable">' +
 capList("標示失配", res.staleAnnotations, (x) => '<div class="zrow"><span><b>' + esc(x.recordKey) + '</b> 原結論「' + esc(x.annotation.conclusion || x.annotation.progress || "") + "」<br><span class=\"small\">快照 " + esc(JSON.stringify(x.annotation.snapshot || {})) + "<br>現列 " + esc(JSON.stringify(x.currentRow || {})) + "</span></span></div>") + "</div>";
-  }
+}
 if (res.pending.length) {
 out += '<div class="lbl">尚未掃到（' + res.pending.length + "）— 不等於遺失；查明後用釐清標示記結論</div><div class=\"ztable\">" +
 capList("尚未掃到", res.pending, (x) => legacyLine(x.legacy, esc(x.openQuestion || ""), true, flowHint(x.legacy))) + "</div>";
-  }
+}
 if (res.locationMismatch.length) {
 out += '<div class="lbl">位置不符（' + res.locationMismatch.length + "）— 舊帳主張與現場觀察不同，逐筆確認，不自動改帳</div><div class=\"ztable\">" +
 capList("位置不符", res.locationMismatch, (x) => legacyLine(x.legacy, "本次在「" + esc(x.observedSite || "?") + " " + esc(x.observedZone || "") + "」觀察到。" + esc(x.openQuestion || ""), true, flowHint(x.legacy))) + "</div>";
-  }
+}
 if (res.ambiguous.length) {
 out += '<div class="lbl">同編號多筆（' + res.ambiguous.length + " 組）— 候選並列，不自動選定；請對實機逐列判定</div><div class=\"ztable\">" +
 capList("同編號候選", res.ambiguous.flatMap((g) => g.candidates.map((row) => ({ row, count: g.totalCandidates || g.candidates.length }))),
 (x) => legacyLine(x.row, "此編號共有 " + x.count + " 筆候選；不自動選定。已存結論見「已釐清」；快照變動見「標示失配」", true, flowHint(x.row))) + "</div>";
-  }
+}
 if (res.clarified.length) {
 out += '<details><summary class="lbl">已釐清（' + res.clarified.length + "）— 已有結論，預設收合</summary><div class=\"ztable\">" +
 capList("已釐清", res.clarified, (x) => legacyLine(x.legacy, (x.identityUnresolved ? "同編號候選關係仍待確認 · " : "") + "結論「" + esc(x.annotation.conclusion) + "」" + (x.annotation.reason ? " · 原因：" + esc(x.annotation.reason) : "") + (x.annotation.evidence ? " · 證據：" + esc(x.annotation.evidence) : "") + (x.annotation.note ? " · 備註：" + esc(x.annotation.note) : "") + " · 確認人 " + esc(x.annotation.confirmer || "") + " " + esc(x.annotation.at ? new Date(x.annotation.at).toLocaleString("zh-TW", { hour12: false }) : ""), false)) + "</div></details>";
-  }
+}
 if (res.matched.length) {
 out += '<details><summary class="lbl">已盤到、無差異（' + res.matched.length + "）— 不用處理，預設收合</summary><div class=\"ztable\">" +
 capList("已盤到", res.matched, (x) => legacyLine(x.legacy, "", true, flowHint(x.legacy))) + "</div></details>";
-  }
+}
 if (res.newOnly.length) {
 out += '<div class="lbl">新有舊無（' + res.newOnly.length + "）— 現場實際觀察到、舊帳沒有；已算進新帳</div><div class=\"ztable\">" +
 capList("新有舊無", res.newOnly, (x) => '<div class="zrow"><span><b>' + esc(x.code) + "</b><br><span class=\"small\">" + esc((x.observed.site || "") + " " + (x.observed.zone || "")) + " · 來源 " + esc([...x.observed.sources].join("、")) + "</span></span></div>") + "</div>";
-  }
+}
 return out;
-  }
+}
   function pcGeo() { return geoUI ? geoUI.html() : '<div class="card">地圖總覽模組未載入，請重新整理。</div>'; }
   function pcView() {
 const tab = S.dtab;
@@ -1364,20 +1219,24 @@ return '<div class="desktop"><div class="dbody"><nav class="dside"><div class="d
 '<div class="dmain"><div class="dhand">' + (recs.length > 0
 ? "手機在 <b>" + esc(S.site) + "</b> 掃了 " + recs.length + " 筆（" + esc(new Date(S.sess.at).toLocaleTimeString("zh-TW", { hour12: false })) + " 起）。差異已帶到「盤點差異」。"
 : "這個視窗尚未開始盤點場次；不代表共用試算表沒有紀錄。既有紀錄請看總覽與「盤點差異」。") + "</div>" + body + "</div></div></div>";
-  }
-
+}
   function render() {
 clearTimeout(usbIdleTimer);
 const usbFocused=document.activeElement?.dataset?.f==="usbScanCode";
-if ((S.mode !== "phone" || S.screen !== "scan" || S.dash) && (S.camOn||cam.starting) && !S.scanStarting) camStop(true);
+const cameraScanning=S.mode==='phone'&&S.screen==='scan'&&!S.dash&&!S.viewCode&&S.scanInput==='camera';
+const cameraMap=cam.mapReturn&&S.sess&&!S.sess.closed&&S.sess.id===cam.pauseSession&&!S.dash&&!S.viewCode&&((S.mode==='phone'&&S.screen==='seats')||(S.mode==='pc'&&S.dtab==='map'));
+if(document.hidden||(window.ErpAuth&&window.ErpAuth.state().status!=='ready'&&!D.isMock)){if(S.camOn||cam.starting)camStop(true);}
+else if(cameraScanning&&cam.paused){camResume();}
+else if(!cameraScanning&&(S.camOn||cam.starting)&&!S.scanStarting){if(cameraMap)camPause();else camStop(true);}
 const root = document.getElementById("erp-root");
 refreshSyncBadge.__lastRoot = root;
 if (window.ErpAuth && window.ErpAuth.state().status !== "ready" && !D.isMock) {
 const auth=window.ErpAuth.state(),signed=auth.status==="signed-out",denied=auth.status==="denied",checking=auth.status==="checking";
 root.innerHTML=zhugeBar()+'<div class="phone"><div class="card"><h2>'+ (checking?'正在確認登入…':denied?'此帳號尚未獲准使用 ERP':signed?'登入 ZG-ERP':'登入暫時無法完成')+'</h2><p>'+esc(auth.error||(denied?'已登入 Google，但尚未通過原本的使用核准。設備資料不會載入。':'沿用 TRQN 原本的 Google 帳號與 UUID。登入後留在 ERP；所有已核准使用者共看完整設備與盤點結果。'))+'</p>'+(!checking?'<button class="pill" data-erp-auth="'+(signed||denied||auth.error.includes('重新使用 Google')?'login':'retry')+'">'+(signed||denied||auth.error.includes('重新使用 Google')?'使用 Google 登入':'重試驗證')+'</button>':'')+'</div></div>';
 return;
-  }
+}
 let html = zhugeBar() + loginBar() + mockBar() + syncBadge() + modeBar();
+if(cam.paused)html+='<div class="loginbar" role="status">相機已暫停，未在辨識；60秒內回掃描沿用，逾時自動關閉。<button class="pill" data-a="camstop">關閉相機</button></div>';
 if(S.vendorReview)html+='<section class="warn" role="status"><b>已讀到 '+esc(S.vendorReview.format)+'</b><p style="overflow-wrap:anywhere">'+esc(S.vendorReview.raw)+'</p><p>'+esc(S.vendorReview.reason)+'。請在設備資料／入庫作業核對，原碼已保留，不會把廠商條碼直接當成登記編號。</p><button class="pill" data-a="vendor-copy">複製原碼</button><span role="status">'+esc(S.vendorCopyStatus||'')+'</span></section>';
 if(!D.isMock)html+='<div class="loginbar"><button class="pill sm" data-a="shared-refresh"'+(S.sharedBusy?' disabled':'')+'>'+(S.sharedBusy?'正在更新共同資料…':'更新共同盤點結果')+'</button> <span>'+esc(S.sharedMessage||(store.lastSharedReadAt?'上次更新 '+new Date(store.lastSharedReadAt).toLocaleTimeString('zh-TW'):'共用同一份設備與盤點紀錄；更新可查看其他人的新結果。'))+'</span></div>';
 if (S.bootErr) {
@@ -1385,11 +1244,11 @@ root.innerHTML = html + (S.bootAuth
 ? '<div class="phone"><div class="card"><h2>工作階段已失效</h2><p>登入驗證被現存資料庫拒絕，自動換發也失敗。請 <a href="' + LOGIN_URL + '">重新登入 TRQN</a> 後再回來。</p><button data-a="bootretry">重試</button></div></div>'
 : '<div class="phone"><div class="card"><h2>連線失敗</h2><p>' + esc(S.bootErr) + '</p><button data-a="bootretry">重試</button></div></div>');
 return;
-  }
+}
 if (S.booting) {
 root.innerHTML = html + '<div class="phone"><div class="card"><h2>正在連接現存資料庫…</h2></div></div>';
 return;
-  }
+}
 if(S.viewCode){html+=assetView();root.innerHTML=html;afterRender();return;}
 if (S.mode === "phone") {
 let body;
@@ -1400,15 +1259,14 @@ else if (S.screen === "start") body = phoneStart();
 else if (S.screen === "scan") body = phoneScan();
 else body = phoneResult();
 html += '<div class="phone">' + body + '</div>';
-  } else {
+} else {
 html += pcView();
-  }
+}
 if(fieldObservation&&!(S.mode==='phone'&&S.screen==='scan'&&!S.dash))html+=fieldObservation.html(true);
 root.innerHTML = html;
 afterRender();
 if(usbFocused)document.querySelector('[data-f="usbScanCode"]')?.focus({preventScroll:true});
-  }
-
+}
   function scanNavigationPending(){if(S.scanCheckpointFailed&&(S.scanBusy||Object.keys(S.scanHeld||{}).length))return true;const held=S.scanHeld||{};const unsent=v=>{const c=String(v||'').trim();return c&&!held[c]&&S.scanIntent?.code!==c;};return unsent(S.usbScanCode)||unsent(S.manualCode);}
   function rememberScanMap(){const box=document.querySelector('.seat-layout-scroll');return {mode:S.mode,dtab:S.dtab,screen:S.screen,mapSite:S.mapSite,mapZone:S.mapZone,mapCity:S.mapCity,site:S.site,zone:S.zone,scanCity:S.scanCity,x:window.scrollX,y:window.scrollY,left:box?.scrollLeft||0,top:box?.scrollTop||0,map:seatUI.state.mapId,seat:seatUI.state.selected};}
   function scanChosenLocation(n,m){
@@ -1420,18 +1278,17 @@ window.ErpReadFeedback?.unlock().then(ok=>{S.audioReady=ok;});
 if(S.sess&&!S.sess.closed){S.screen='scan';if(S.scanInput==='camera')camPreWarm();render();}
 else {startSession({direct:true});}
 window.scrollTo(0,0);restoreUsbFocus();
-  }
+}
   function returnToScanMap(){
 if(scanNavigationPending()){S.scanSetupErr='還有輸入未送出、未保存或結果待查的掃描，請完成本筆或清除未送出文字，再換位置。';render();return;}
+if(camLive()){cam.mapReturn=true;cam.pauseSession=S.sess?.id;}
 const o=S.scanMapOrigin;if(o){o.seat=seatUI.state.selected;}if(!o){S.screen='seats';S.mode='phone';render();return;}
 Object.assign(S,{mode:o.mode,dtab:o.dtab,screen:o.screen,mapSite:o.mapSite,mapZone:o.mapZone,mapCity:o.mapCity,site:o.site,zone:o.zone,scanCity:o.scanCity,dash:false});seatUI.state.mapId=o.map;seatUI.state.selected=o.seat;seatUI.state.scanSelected=true;seatUI.state.popup=null;render();
 const restore=()=>{const box=document.querySelector('.seat-layout-scroll');if(box){box.scrollLeft=o.left;box.scrollTop=o.top;}window.scrollTo(o.x,o.y);};restore();requestAnimationFrame(restore);
-  }
-
+}
 document.addEventListener('click',e=>{if(!e.target.matches?.('.seat-modal-backdrop')||!seatUI||seatUI.state.busy)return;const c={site:S.mode==='phone'?S.site:S.mapSite,zone:S.mode==='phone'?S.zone:S.mapZone,sess:S.sess};if(seatUI.state.editing===seatUI.state.selected){seatUI.autosaveName(c);}else seatUI.act('close-popup',c);});
 document.addEventListener('click',e=>{const t=e.target.closest?.('[data-observation-action]');if(t&&fieldObservation)fieldObservation.action(t.dataset.observationAction,t.dataset.observationId);});
 document.addEventListener('input',e=>{const k=e.target.dataset?.observationField;if(k&&fieldObservation)fieldObservation.field(k,e.target.value);});
-
 document.addEventListener("click", (e) => {
 const t = e.target.closest("[data-a]");
 if (!t) return;
@@ -1442,7 +1299,7 @@ if(S.editTouched){S.editError='還有未保存的輸入，請先保存或明確�
 if(S.editBusy)return;
 if(!D.isMock)store.releaseAssetEdit(S.editCode).catch(()=>{});
 S.editCode='';S.editDraft=null;S.editConflict=false;
-  }
+}
 if(['end','finish','newsession','start'].includes(a)&&(fieldObservation?.hasPending()||S.scanBusy||S.scanQueue?.length||Object.keys(S.scanHeld||{}).length)){S.scanSetupErr='尚有未保存或結果待查的掃描，保留場次與輸入；請先核對。';render();return;}
 if(a==='vendor-copy'){navigator.clipboard.writeText(S.vendorReview?.raw||'').then(()=>{S.vendorCopyStatus='已複製';render();}).catch(()=>{S.vendorCopyStatus='複製未成功，請選取上方原碼';render();});return;}
 if(['workspace-overview','workspace-scan','workspace-seats','workspace-manage','goal-seat','goal-find','goal-resume'].includes(a))S.viewCode='';
@@ -1465,7 +1322,7 @@ else if (a === "draft-clear-no") { S.draftClearAsk = ""; }
 else if (a === "draft-clear-do") {
 if (DRAFTS) { for (const r of DRAFTS.list(draftAcct())) if (r.kind !== 'scan-held') DRAFTS.discard(draftAcct(), r.kind, r.entity); }
 S.draftClearAsk = ""; S.draftNote = "";
-  }
+}
 else if (a === "map-image-clear") { bagDiscard('map-image', 'last'); }
 else if (a === "workspace-more") { S.workspaceMore=!S.workspaceMore; }
 else if (a === "workspace-manage") { S.mode="pc"; S.dtab=v; S.dash=false; S.workspaceMore=false; }
@@ -1499,7 +1356,7 @@ else if (a === "dtab") { S.dtab = v; S.editCode = ""; S.editDraft = null; S.retT
 else if (a === "ajump") {
 const x = getA(v); if (!x) return;
 S.retTab=S.dtab;S.mode='pc';S.dtab='assets';S.asite=x.site;openControlledEditor(v);return;
-  }
+}
 else if (a === "back") { S.dtab = S.retTab || "dash"; S.retTab = ""; S.editCode = ""; S.editDraft = null; }
 else if (a === "godiff") { S.mode = "pc"; S.dash = false; S.dtab = "diff"; }
 else if (a === "sitelist") { S.mode = "pc"; S.dash = false; S.asite = v; S.dtab = "assets"; S.retTab = "dash"; S.editCode = ""; S.editDraft = null; }
@@ -1521,20 +1378,20 @@ reason: '手機掃描現場標記：資料待回電腦核對', evidence: '', not
 const chk = window.ZgErpReconcile ? window.ZgErpReconcile.validateAnnotation(ann) : { ok: true };
 if (!chk.ok) { S.scanSetupErr = chk.reason; render(); return; }
 store.addAnnotation(ann); render(); return;
-  }
+}
 else if (a === "edit") {
 if(S.editBusy)return;
 if(S.editCode===v){t.dataset.a='cancel';t.click();return;}
 if(S.editCode&&S.editTouched){S.editError='還有未保存的輸入，請先保存或明確取消編輯後再離開。';render();return;}
 if(S.editCode&&!D.isMock)store.releaseAssetEdit(S.editCode).catch(()=>{});
 S.cancelAsk=false;openControlledEditor(v);return;
-  }
+}
 else if (a === "asset-seat-save") {
 if (!S.editBusy && !S.editLocked && S.editCode && S.editSeat) {
 const code = S.editCode, asset = getA(code); S.editBusy = true; S.editError = ""; render();
 seatUI.savePlacement(asset, S.editSeat).then(() => { S.editSeat = ""; }).catch(e => { S.editError = e.message; }).finally(() => { S.editBusy = false; render(); });
-  }
-  }
+}
+}
 else if (a === "edit-rebase") {rebaseControlledEditor();return;}
 else if (a === "theme-toggle") { const el=document.documentElement; const next=el.dataset.theme==="dark"?"light":"dark"; el.dataset.theme=next; try{localStorage.setItem("erp-theme",next)}catch(e){} render(); return; }
 else if (a === "cancel") { const hasDraft=S.editCode&&S.editDraft&&['draft','restored','restored-merged'].includes(S.draftNote);if(hasDraft&&!S.editLocked&&!S.cancelAsk){S.cancelAsk=true;render();return;}S.cancelAsk=false;if(S.editCode&&!S.editLocked&&S.draftNote!=='conflict')draftDiscardEdit(S.editCode);if(!D.isMock&&S.editCode)store.releaseAssetEdit(S.editCode).catch(()=>{});S.editCode = ""; S.editDraft = null; }
@@ -1552,7 +1409,7 @@ if (D.isMock) {
 store.saveAsset(code, draft);
 const plan=cascadePlanFor(code,draft,base);
 if(plan&&!plan.unavailable&&plan.peers.length){for(const p of plan.peers)store.saveAsset(p.code,p.patch);cascadeInfo='已一併更新同座位 '+plan.peers.length+' 台：'+plan.peers.map(p=>p.code).join('、');}
-  }
+}
 else {
 const changed={};
 if(String(draft.owner??'')!==String(base.owner??''))changed.owner=String(draft.owner??'');
@@ -1565,17 +1422,17 @@ const plan=window.ErpEditCore.planSeatCascade({bindings,assets:assets(),code,cha
 if(plan.peers.length){
 const res=await window.ErpEditCore.runSeatCascade(store,code,draft,base,plan);
 cascadeInfo='已一併更新同座位 '+res.cascaded.length+' 台：'+res.cascaded.join('、');
-  }
+}
 else await store.saveAssetVerified(code, draft, base);
-  }
+}
 else await store.saveAssetVerified(code, draft, base);
-  }
+}
 draftDiscardEdit(code);if (S.editCode === code) { S.savedAt = code; S.editCode = ""; S.editDraft = null; S.cascadeInfo=cascadeInfo; }
-  } catch (e) { S.editLocked=true;S.editError = e.message || "儲存結果未確認，輸入保留，不可重送，請先核對"; }
+} catch (e) { S.editLocked=true;S.editError = e.message || "儲存結果未確認，輸入保留，不可重送，請先核對"; }
 finally { S.editBusy = false; render(); window.scrollTo(0, keepY2); }
-  })();
-  }
-  }
+})();
+}
+}
 else if (a === "addsite") {
 const name = (S.newSite.name || "").trim();
 const zone = (S.newSite.zone || "").trim();
@@ -1589,12 +1446,12 @@ else if ((latS && (Number(latS) < -90 || Number(latS) > 90)) || (lonS && (Number
 if (S.siteErr) { render(); return; }
 if (typeof store.addSite === "function" && store.addSite(name, zone, latS === "" ? null : Number(latS), lonS === "" ? null : Number(lonS))) {
 S.newSite = {}; bagDiscard('site-new', 'new');
-  }
-  }
+}
+}
 else if (a === "addzone") {
 const val = (S.newZone[v] || "").trim();
 if (val) { store.addZone(v, val); S.newZone[v] = ""; bagDiscard('zone-new', v); }
-  }
+}
 else if (a === "mapsite") { if(seatUI)seatUI.resetSelection();S.mapSite = v; S.mapZone = ""; }
 else if (a === "mapzone") { S.mapZone = S.mapZone === v ? "" : v; }
 else if (a === "mapedit") { S.mapEdit = !S.mapEdit; }
@@ -1603,8 +1460,8 @@ else if (a === "mapimg") {
 if (S.mapEdit && S.mapZone) {
 const r = t.getBoundingClientRect();
 setMark(S.mapSite, S.mapZone, Math.round(((e.clientX - r.left) / r.width) * 1000) / 10, Math.round(((e.clientY - r.top) / r.height) * 1000) / 10);
-  }
-  }
+}
+}
 else if (a === "aforigin") { S.afOrigin = v; }
 else if (a === "afbrand") { S.afBrand = v; }
 else if (a === "aftype") { S.afType = v; }
@@ -1618,8 +1475,8 @@ else {
 const b = store.addBatch({ po: nb.po, vendor: nb.vendor, brand: nb.brand, model: nb.model, origin: nb.origin, mfgYear: nb.mfgYear, type: nb.type, note: nb.note, serials });
 S.nb = { po: "", vendor: "", brand: "", model: "", origin: "", mfgYear: "", type: "", note: "", serials: "" }; S.nbNote = ""; bagDiscard('inbound-batch', 'new');
 S.ibOpen = b.id; S.ibConfirm = ""; S.ibDraft = null;
-  }
-  }
+}
+}
 else if (a === "ibopen") { S.ibOpen = S.ibOpen === v ? "" : v; }
 else if (a === "ibconfirm") {
 if (S.ibConfirm === v) { if (DRAFTS) DRAFTS.discard(draftAcct(), 'inbound-confirm', v); S.ibConfirm = ""; S.ibDraft = null; }
@@ -1630,41 +1487,41 @@ const s0 = siteNames()[0] || "";
 S.ibDraft = { site: s0, zone: zonesOf(s0)[0] || "", project: D.UNASSIGNED, owner: "公用" };
 const sd = DRAFTS && DRAFTS.get(draftAcct(), 'inbound-confirm', v);
 if (sd && sd.payload && sd.payload.values && siteNames().includes(sd.payload.values.site)) { const o = sd.payload.values; S.ibDraft = { ...S.ibDraft, ...o, zone: zonesOf(o.site).includes(o.zone) ? o.zone : (zonesOf(o.site)[0] || "") }; S.draftNote = 'restored'; }
-  }
-  }
+}
+}
 else if (a === "ibdo") {
 const made = store.confirmInbound(v, S.ibDraft || {});
 if (made.length) {
 S.ibDone = S.ibDone || {}; S.ibDone[v] = made;
 if (DRAFTS) DRAFTS.discard(draftAcct(), 'inbound-confirm', v);
 S.ibConfirm = ""; S.ibDraft = null; S.ibOpen = v;
-  }
-  }
+}
+}
 else if (a === "gorecv") { S.mode = "phone"; S.screen = "recv"; S.recvBatch = v; S.recvLast = null; }
 else if (a === "recvbatch") { S.recvBatch = v; S.recvLast = null; }
 else if (a === "recvscan") {
 const r = store.receiveSerial(S.recvBatch, S.recvCode);
 S.recvLast = { serial: String(S.recvCode || "").trim(), result: r.result, asset: r.asset || null };
 S.recvCode = ""; S.recvRestored = ""; bagDiscard('recv-serial', S.recvBatch);
-  }
+}
 else if (a === "recvtest") {
 const r = store.receiveSerial(S.recvBatch, v);
 S.recvLast = { serial: v, result: r.result, asset: r.asset || null };
-  }
+}
 else if (a === "decide") {
 if (S.sess) store.decide(S.sess.id, v, t.getAttribute("data-d"));
 else {
 const r = allRecords().find((x) => x.code === v && !x.decision);
 if (r) store.decide(r.sessionId, v, t.getAttribute("data-d"));
-  }
-  }
+}
+}
 else if (a === "legpage") {
 const page = Number(t.getAttribute("data-page"));
 if (Number.isInteger(page) && page >= 0) {
 (S.legPages || (S.legPages = {}))[v] = page;
 S.annOpen = ""; S.annDraft = {}; S.annErr = "";
-  }
-  }
+}
+}
 else if (a === "leglead") { S.legLead = v; S.legPages = {}; S.annOpen = ""; S.annDraft = {}; S.annErr = ""; }
 else if (a === "legproj") { S.legProj = v; S.legPages = {}; S.annOpen = ""; S.annDraft = {}; S.annErr = ""; }
 else if (a === "annopen") { S.annOpen = v; S.annDraft = bagGet('annotation', v) || {}; S.annErr = ""; }
@@ -1672,7 +1529,7 @@ else if (a === "anncancel") {
 const has = Object.values(S.annDraft || {}).some(x => String(x || '').trim());
 if (has && !S.annCancelAsk) { S.annCancelAsk = true; S.annErr = '取消會刪除已輸入的內容。再按一次「取消」確定刪除，或繼續填寫。'; }
 else { bagDiscard('annotation', S.annOpen); S.annCancelAsk = false; S.annOpen = ""; S.annDraft = {}; S.annErr = ""; }
-  }
+}
 else if (a === "annsub") {
 const row = (store.legacyRows ? store.legacyRows() : []).find((x) => x.recordKey === v);
 const d = S.annDraft || {};
@@ -1686,7 +1543,7 @@ conclusion: (d.conclusion || "").trim(),
 reason: (d.reason || "").trim(),
 evidence: (d.evidence || "").trim(),
 note: (d.note || "").trim()
-  };
+};
 const chk = window.ZgErpReconcile.validateAnnotation(ann);
 if (!row) { S.annErr = "找不到這筆舊帳列，請重新整理後再試。"; }
 else if (!chk.ok) { S.annErr = chk.reason; }
@@ -1694,14 +1551,14 @@ else {
 store.addAnnotation(ann);
 bagDiscard('annotation', S.annOpen);
 S.annOpen = ""; S.annDraft = {}; S.annErr = "";
-  }
-  }
+}
+}
 else if (a === "noteopen") { S.noteOpen = v; S.noteDraft = bagGet('legacy-note', v) || { condition: "帳上有現場無", disposition: "交行政查報修", note: "" }; if (!S.noteDraft.operationId) S.noteDraft.operationId = (typeof store.newOperationId === "function" ? store.newOperationId() : ""); S.noteErr = ""; S.noteCancelAsk = false; S.noteNeedVerify = false; }
 else if (a === "notecancel") {
 const hasNote = String((S.noteDraft || {}).note || "").trim();
 if (hasNote && !S.noteCancelAsk) { S.noteCancelAsk = true; S.noteErr = "取消會刪除已輸入的備註。再按一次「取消」確定刪除，或繼續填寫。"; }
 else { bagDiscard('legacy-note', S.noteOpen); S.noteCancelAsk = false; S.noteOpen = ""; S.noteDraft = {}; S.noteErr = ""; }
-  }
+}
 else if (a === "notesub") {
 const row = (store.legacyRows ? store.legacyRows() : []).find((x) => x.recordKey === v);
 const d = S.noteDraft || {};
@@ -1723,15 +1580,15 @@ if (SAFE_RETRY.includes(code)) {
 if (typeof store.newOperationId === "function") d.operationId = store.newOperationId();
 S.noteNeedVerify = false;
 S.noteErr = "註記未送出：" + msg + "（已確定未寫入，修正後可直接重送）";
-  } else {
+} else {
 S.noteNeedVerify = true;
 S.noteErr = "送出結果未確認：" + msg + "。這筆註記可能已寫入；請先按「查證註記」核對，確認未寫入後才會換新識別重送，避免重複註記。";
-  }
-  })
+}
+})
 .finally(() => { S.noteBusy = false; render(); });
 return;
-  }
-  }
+}
+}
 else if (a === "noteverify") {
 const opId = (S.noteDraft || {}).operationId || "";
 if (!opId || S.noteBusy || typeof store.verifyLegacyNote !== "function") return;
@@ -1739,16 +1596,16 @@ S.noteBusy = true; S.noteErr = ""; render();
 Promise.resolve().then(() => store.verifyLegacyNote(opId)).then((found) => {
 if (found) { bagDiscard('legacy-note', v); S.noteOpen = ""; S.noteDraft = {}; S.noteErr = ""; S.noteNeedVerify = false; S.noteCancelAsk = false; }
 else { S.noteNeedVerify = true; S.noteErr = "查證未找到這筆註記，但無法排除先前請求仍在處理，狀態仍未確認。請隔一段時間再按「查證註記」；若持續查不到，請回報行政或系統處理——不會自動重送，以免重複。"; }
-  }).catch((e) => { S.noteErr = "查證失敗：" + String((e && e.message) || e) + "；狀態仍未確認，請稍後再按「查證註記」，勿直接重送。"; })
+}).catch((e) => { S.noteErr = "查證失敗：" + String((e && e.message) || e) + "；狀態仍未確認，請稍後再按「查證註記」，勿直接重送。"; })
 .finally(() => { S.noteBusy = false; render(); });
 return;
-  }
+}
 else if (a === "geo") { if (geoUI) geoUI.act(v); }
 else if (a === "asset-seat-pick") { S.editSeat = v; }
 else if (a === "asset-seat-custodian") { if (S.editDraft && Object.prototype.hasOwnProperty.call(S.editDraft, "owner")) { S.editDraft.owner = v; noteControlledActivity(); } }
 if(a==='edit'||a==='cancel'||a==='save'){const keepY=window.scrollY;render();window.scrollTo(0,keepY);return;}
 render();
-  });
+});
 document.addEventListener("input", (e) => {
 const gf = e.target.getAttribute && e.target.getAttribute("data-geo-field");
 if (gf) { if (geoUI) geoUI.field(gf, e.target.value); return; }
@@ -1771,13 +1628,13 @@ if (f === "ageBasis") { S.ageBasis = e.target.value; render(); return; }
 if (f === "ageThreshold") { S.ageThreshold = Number(e.target.value) || AGE_THRESHOLD_DEFAULT; render(); return; }
 if (f === "editSeat") S.editSeat = e.target.value;
 if (S.editDraft && Object.prototype.hasOwnProperty.call(S.editDraft, f)) {S.editDraft[f] = e.target.value;S.cancelAsk=false;S.autoNote='';noteControlledActivity();draftSaveEdit();}
-  });
+});
 document.addEventListener("change", (e) => {
 if (e.target.getAttribute && e.target.getAttribute("data-f") === "mapfile") {
 const file = e.target.files && e.target.files[0];
 if (file) { S.mapImg = URL.createObjectURL(file); S.mapZone = ""; bagPut('map-image', 'last', { name: file.name }); render(); }
 return;
-  }
+}
 const f = e.target.getAttribute && e.target.getAttribute("data-f");
 if(f==="goalSite"||f==="goalDept"){S[f]=e.target.value;render();return;}
 if (f === "ageBasis") { S.ageBasis = e.target.value; render(); return; }
@@ -1786,10 +1643,10 @@ S.ibDraft[f.slice(4)] = e.target.value;
 if (f === "ibd_site") S.ibDraft.zone = zonesOf(S.ibDraft.site)[0] || "";
 if (DRAFTS && S.ibConfirm) DRAFTS.put(draftAcct(), 'inbound-confirm', S.ibConfirm, { values: { ...S.ibDraft } });
 render(); return;
-  }
+}
 if (f === "editSeat") S.editSeat = e.target.value;
 if (f && S.editDraft && Object.prototype.hasOwnProperty.call(S.editDraft, f)) {S.editDraft[f] = e.target.value;noteControlledActivity();draftSaveEdit();render();}
-  });
+});
 let usbLast='',usbAt=0;
 var usbIdleTimer=0;
   function scheduleUsbScan(e){
@@ -1797,11 +1654,10 @@ clearTimeout(usbIdleTimer);
 if(e.isComposing||S.usbControlBlocked)return;
 const code=String(e.target.value||'').trim();
 const known=[...assets(),...(store.legacyRows?store.legacyRows():[])].map(x=>String(x.code||''));
-
 if(!code||!known.includes(code)||known.some(x=>x!==code&&x.startsWith(code)))return;
 let target;try{target=JSON.stringify({session:S.sess?.id,site:S.site,zone:S.zone,seat:seatUI?.target(S.site,S.zone,code)});}catch(_){return;}
 usbIdleTimer=setTimeout(()=>{const input=document.querySelector('[data-f="usbScanCode"]');let current;try{current=JSON.stringify({session:S.sess?.id,site:S.site,zone:S.zone,seat:seatUI?.target(S.site,S.zone,code)});}catch(_){return;}if(current===target&&input&&input.value.trim()===code&&document.activeElement===input)submitUsbScan();},350);
-  }
+}
 document.addEventListener('compositionend',e=>{if(e.target.dataset?.f==='usbScanCode')scheduleUsbScan(e);});
   async function submitUsbScan(explicit=false){
 clearTimeout(usbIdleTimer);
@@ -1811,13 +1667,13 @@ const code=String(document.querySelector('[data-f="usbScanCode"]')?.value||S.usb
 const now=Date.now();if(code===usbLast&&now-usbAt<1500)return;usbLast=code;usbAt=now;
 S.usbScanCode='';await scan(code);
 const input=document.querySelector('[data-f="usbScanCode"]');if(input&&S.screen==='scan'&&!S.scanSetupErr)input.focus({preventScroll:true});
-  }
+}
   function usbScanActive(){return S.screen==='scan'&&S.mode==='phone'&&S.scanInput==='usb'&&S.sess&&!S.sess.closed;}
   function usbOtherEditor(el){return el&&el.dataset?.f!=='usbScanCode'&&(el.matches?.('input,textarea,select,[contenteditable="true"]')||el.isContentEditable);}
   function restoreUsbFocus(){
 if(!usbScanActive()||!document.hasFocus()||usbOtherEditor(document.activeElement)||document.querySelector('[role="dialog"],.seat-modal'))return;
 document.querySelector('[data-f="usbScanCode"]')?.focus({preventScroll:true});usbFocusStatus();
-  }
+}
   function usbFocusStatus(){const h=document.getElementById('usb-focus-status');if(h)h.textContent=document.hasFocus()&&document.activeElement?.dataset?.f==='usbScanCode'?'正在接收掃描槍，掃到有效設備碼即保存至目前位置。':'目前暫停接收；回到盤點頁後會自動接收。';}
 document.addEventListener('focusin',usbFocusStatus);
 document.addEventListener('focusout',()=>setTimeout(restoreUsbFocus,0));
@@ -1831,27 +1687,23 @@ const key=String(e.key||'').toLowerCase();
 const navigate=e.key==='F6'||(e.ctrlKey&&['l','t','n','w','r','o','f','k','e'].includes(key))||(e.altKey&&['d','arrowleft','arrowright','f4'].includes(key))||(e.metaKey&&['l','t','n','w','r','o','f','k','e'].includes(key));
 if(navigate){
 if(e.cancelable)e.preventDefault();e.stopImmediatePropagation();
-
 restoreUsbFocus();return;
-  }
+}
 const input=document.querySelector('[data-f="usbScanCode"]');if(!input)return;
 if(e.ctrlKey&&!e.altKey&&!e.metaKey&&['m','j','i'].includes(key)){e.preventDefault();e.stopImmediatePropagation();if(!e.isComposing)submitUsbScan();return;}
 if(e.ctrlKey&&!e.altKey&&!e.metaKey&&['b','c'].includes(key)){e.preventDefault();e.stopImmediatePropagation();restoreUsbFocus();return;}
 if(e.key==='Enter'||(e.key==='Tab'&&String(input.value||'').trim())){e.preventDefault();e.stopImmediatePropagation();if(!e.isComposing)submitUsbScan();return;}
-
 if(e.target!==input&&!e.ctrlKey&&!e.altKey&&!e.metaKey&&!e.isComposing&&e.key.length===1){
 e.preventDefault();e.stopImmediatePropagation();input.focus({preventScroll:true});
 input.setRangeText(e.key,input.selectionStart??input.value.length,input.selectionEnd??input.value.length,'end');
 S.usbScanCode=input.value;scheduleUsbScan({target:input,isComposing:false});
-  }
-  },true);
+}
+},true);
 document.addEventListener("keydown", (e) => {
-
 if(e.key==="Enter"&&e.target.dataset?.f==="goalSearch"){S.goalSearchDone=String(S.goalSearch||" ").trim();render();return;}
 if (e.key === "Enter" && e.target.getAttribute && e.target.getAttribute("data-f") === "manualCode") { scan(S.manualCode); }
 if (e.key === "Enter" && e.target.getAttribute && e.target.getAttribute("data-f") === "scanProjectInput") { S.scanProject = (S.scanProjectInput || "").trim(); render(); }
-  });
-
+});
 document.addEventListener('click',e=>{const t=e.target.closest?.('[data-diff-action]');if(t&&differenceUI)differenceUI.act(t.dataset.diffAction,t.dataset.diffKey);});
 document.addEventListener('input',e=>{if(e.target.dataset?.diffField&&differenceUI)differenceUI.field(e.target);});
 document.addEventListener('change',e=>{if(e.target.dataset?.diffField&&differenceUI)differenceUI.field(e.target);});
@@ -1866,18 +1718,17 @@ const t=e.target.closest && e.target.closest("[data-seat-action]"); if(!t||!seat
 e.preventDefault();
 if(['select','scan','next','previous'].includes(t.dataset.seatAction)&&scanNavigationPending()){S.scanSetupErr='還有輸入未送出、未保存或結果待查的掃描，請完成本筆或清除未送出文字，再換位置。';render();return;}
 seatUI.act(t.dataset.seatAction,{number:t.dataset.seatNumber,code:t.dataset.seatCode,site:S.mode==="phone"?S.site:S.mapSite,zone:S.mode==="phone"?S.zone:S.mapZone,sess:S.sess,onScan:scanChosenLocation,onView:code=>{S.viewCode=code;render();window.scrollTo(0,0);}});
-  });
+});
 document.addEventListener("change",e=>{
 const f=e.target.dataset && e.target.dataset.seatField;if(!f||!seatUI)return;
 if(["number","number-typed"].includes(f)&&scanNavigationPending()){S.scanSetupErr="還有輸入未送出、未保存或結果待查的掃描，請完成本筆或清除未送出文字，再換位置。";render();return;}
 if(f==="file"){const file=e.target.files&&e.target.files[0];if(file)seatUI.file(file,S.mapSite,"");}
 else if(f==="plan-file"){const file=e.target.files&&e.target.files[0];if(file)seatUI.planFile(file);}
 else {seatUI.field(f,f==='imp-names'?e.target.checked:e.target.value);if(f==="name")seatUI.autosaveName({site:S.mode==="phone"?S.site:S.mapSite,zone:S.mode==="phone"?S.zone:""});}
-  });
+});
 document.addEventListener("input",e=>{const f=e.target.dataset&&e.target.dataset.seatField;if(f==="name"&&seatUI)seatUI.field(f,e.target.value);});
 document.addEventListener("change",e=>{if(intakeUI&&(e.target.dataset.intake||e.target.dataset.intakeMap))intakeUI.field(e.target);});
 document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-intake-action]");if(t&&intakeUI)intakeUI.act(t.dataset.intakeAction);});
-
   function applyMobileBootDefault(){try{const qp=new URLSearchParams(location.search);const coarse=!!(window.matchMedia&&matchMedia("(pointer: coarse)").matches);const narrow=(window.innerWidth||0)<700;if(!qp.get("mode")&&(coarse||narrow)&&S.mode!=="phone"){S.mode="phone";S.dash=false;if(S.sess)S.screen="scan";}}catch(e){}}
   function boot() {
 if (!D.isMock && typeof store.init === "function") {
@@ -1891,25 +1742,26 @@ if (typeof store.onSyncChange === "function") store.onSyncChange(() => { refresh
 checkAppVersion();
 fieldObservation?.load();
 render();
-  }).catch((e) => {
+}).catch((e) => {
 S.booting = false; S.bootErr = String(e && e.message || e); S.bootAuth = !!(e && e.authRefused);
 render();
-  });
-  } else {
+});
+} else {
 if (seatUI && typeof store.loadSeatMap === "function") store.loadSeatMap().then(() => {seatUI.state.loaded=true;render();});
 applyMobileBootDefault();
 render();
-  }
-  }
-document.addEventListener("visibilitychange", () => { if (!document.hidden) checkAppVersion(); });
+}
+}
+document.addEventListener("visibilitychange", () => { if(document.hidden){camStop(true);}else{checkAppVersion();render();} });
+window.addEventListener('pagehide',()=>camStop(true));
 document.addEventListener("click", (e) => {
 const t = e.target.closest && e.target.closest("#erp-sync-badge");
 if (t && typeof store.retryUnsynced === "function") { store.retryUnsynced(); }
-  });
+});
 document.addEventListener("click", (e) => {
 const t = e.target.closest && e.target.closest('[data-a="bootretry"]');
 if (t) boot();
-  });
+});
 document.addEventListener('click',async e=>{const t=e.target.closest?.('[data-erp-auth]');if(!t)return;if(t.dataset.erpAuth==='login')await window.ErpAuth.login();else if(await window.ErpAuth.verify())boot();});
 window.addEventListener('erp-auth-change',()=>render());
 if(window.ErpAuth&&!D.isMock)window.ErpAuth.ready.then(ok=>{if(ok)boot();else render();});else boot();
