@@ -3,11 +3,11 @@
  'use strict';
  const RETURN_KEY='zg-erp-login-return-v1';
  const base=new URL('./',location.href),safePath=base.pathname;
- let status='checking',error='',identity=null;
+ let status='checking',error='',identity=null,generation=0;
  function safeReturn(value){try{const u=new URL(value,location.origin);if(u.origin!==location.origin||![safePath,safePath+'index.html'].includes(u.pathname))return base.href;for(const k of ['code','state','error','error_code','error_description','access_token','refresh_token'])u.searchParams.delete(k);if(/access_token|refresh_token/.test(u.hash))u.hash='';return u.href;}catch{return base.href;}}
  function notify(){global.dispatchEvent(new CustomEvent('erp-auth-change'));}
  async function verify(){
-  status='checking';error='';notify();
+  generation++;status='checking';error='';notify();
   try{
    session=readJson(AI_OS_SESSION_KEY,null);
    if(new URLSearchParams(location.search).has('code')&&!getStoredCodeVerifier()){cleanAuthCallbackUrl();throw new Error('登入回傳驗證未完成，請重新使用 Google 登入。');}
@@ -30,6 +30,7 @@
   try{sessionStorage.setItem(RETURN_KEY,safeReturn(location.href));history.replaceState(null,'',base.pathname);error='';await signInWithGoogle();}
   catch(e){status='error';error=String(e.message||'無法開始 Google 登入。');notify();}
  }
- global.ErpAuth={state:()=>({status,error,identity}),verify,login,safeReturn,refresh:async()=>{const s=await refreshAuthSession(true);return s?.access_token||null;}};
+ global.ErpAuth={state:()=>({status,error,identity,generation}),verify,login,safeReturn,refresh:async()=>{const s=await refreshAuthSession(true);return s?.access_token||null;}};
+ global.addEventListener('storage',e=>{if(e.key===null||['zhuge_ai_os_session_v1','zhuge_ai_os_google_auth_session_v1'].includes(e.key)){generation++;status='error';identity=null;error='登入資料已變更，請重新驗證後再編輯。';notify();}});
  global.ErpAuth.ready=verify();
 })(window);
