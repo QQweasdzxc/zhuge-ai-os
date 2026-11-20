@@ -342,7 +342,7 @@
     /* Explicit shared read refresh. Never replace pending/failed local work or a snapshot
        if a local write started while the read was in flight. No polling timer. */
     async refreshShared(canApply) {
-      const safe=()=>!(this._seatAttempts?.size)&&!(this._intakeAttempts?.size)&&!(this._scanIntents?.size)&&!(this._repairAttempts?.size)&&!(this._pendingCount||0)&&!(this._unsynced||[]).length&&(!canApply||canApply());
+      const safe=()=>!(this._seatAttempts?.size)&&!([...(this._intakeAttempts||[])].some(id=>!this._intakeVerified?.has(id)))&&!(this._scanIntents?.size)&&!(this._repairAttempts?.size)&&!(this._pendingCount||0)&&!(this._unsynced||[]).length&&(!canApply||canApply());
       if(!safe())throw new Error("請先完成或取消編輯，並處理未同步資料，再更新共同盤點結果");
       const generation=this._writeGeneration||0;
       const fresh=new SheetsStore({fetchImpl:this.fetch,bridgeUrl:this.bridgeUrl,actor:this.actor,tokenProvider:this._token,tokenRefresher:this._refresher});
@@ -531,7 +531,7 @@
         if(!head||head[11]!=="進行中"||["po","vendor","brand","model","origin","type","mfgYear","note"].some((k,i)=>String(head[i+2]??"")!==b[k])||rows.length!==b.serials.length+1||!b.serials.every(serial=>rows.some(r=>r[0]==="明細"&&r[12]===serial&&r[11]==="pending")))throw Error(statusOnly?'尚無法核實原匯入的完整結果，可能仍在保存或後續到貨進度已改變；不代表未保存。請查看現存批次，勿重選檔案或再次建立。':'讀回批次不完整，請保留畫面查保存結果，不要重新建立。');
         made.push({...b,id:bid,at:head[10],closed:false,items:b.serials.map(serial=>({serial,state:"pending",receivedAt:"",code:""})),unexpected:[]});
       }
-      if(!identitySafe()||this.db!==initialDb)throw Error('帳號已切換，請回原帳號查保存結果');const db=this._db();for(const b of made){const i=db.batches.findIndex(x=>x.id===b.id);if(i<0)db.batches.push(b);else db.batches[i]=b;}return made;
+      if(!identitySafe()||this.db!==initialDb)throw Error('帳號已切換，請回原帳號查保存結果');const db=this._db();for(const b of made){const i=db.batches.findIndex(x=>x.id===b.id);if(i<0)db.batches.push(b);else db.batches[i]=b;}this._intakeVerified=this._intakeVerified||new Set();this._intakeVerified.add(id);return made;
     }
     _batchWrite(batch, entity, writeFn, onFailure) {
       const prior=batch.__batchChain;
