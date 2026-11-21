@@ -233,7 +233,7 @@ async function syncSeatDisplay(token:string, spreadsheetId:string, keys:string[]
 Deno.serve(async (request) => {
   let origin = "";
   let custody:RowCustody|undefined;
-  let beganWrite=false;let retainKeys:string[]=[];
+  let beganWrite=false;let observationReservationRejected=false;let retainKeys:string[]=[];
   let projectionContext:{token:string;spreadsheetId:string;keys:string[]}|undefined;
   const reply=async(body:unknown,status:number,o:string)=>{if(status===200&&beganWrite&&custody&&projectionContext)await syncSeatDisplay(projectionContext.token,projectionContext.spreadsheetId,projectionContext.keys,custody);if(status===200&&beganWrite&&custody&&projectionContext&&Deno.env.get('ZG_ERP_PRIVATE_UPDATES_ENABLED')==='true')await notifyVerifiedSave(asText(Deno.env.get('SUPABASE_URL')),asText(Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')));return json(body,status,o);};
   try {
@@ -354,7 +354,7 @@ Deno.serve(async (request) => {
       // Primary edit reservation must still be alive BEFORE acquiring added serial key.
       const primary=new RowCustody(admin,user.id,reservation,operation,logicalKeys('資產',[payload.code]));
       await primary.renew();await custody.reserve();
-    }else await custody.reserve();
+    }else {try{await custody.reserve()}catch(error){observationReservationRejected=action==='field-observation'&&custodyErrorMapping(error instanceof Error?error.message:'').code==='RECORD_BUSY';throw error}}
     if(action==='reserve')return await reply({ok:true,expiresIn:300},200,origin);
     await custody.begin();beganWrite=true;
     if(action==='close-shared-session'){
@@ -600,7 +600,9 @@ Deno.serve(async (request) => {
     if(custody&&beganWrite){try{await custody.quarantine()}catch{}}
     const mapped = custodyErrorMapping(e instanceof Error ? e.message : '');
     const err = e instanceof HttpError ? e : new HttpError(mapped.message, mapped.status, mapped.code);
-    return json({ error: { code: err.code, message: err.message, details: err.details } }, err.status, origin);
+    // Only a failed atomic reservation with no begin/write can certify an unsent observation.
+    const notStarted=observationReservationRejected&&!beganWrite&&err.code==='RECORD_BUSY';
+    return json({ error: { code: err.code, message: err.message, details: { ...err.details, ...(notStarted?{observationWriteState:'not-started'}:{}) } } }, err.status, origin);
   } finally {
     if(custody&&beganWrite){try{await custody.finish(retainKeys)}catch{ /* Durable WRITING remains quarantined; never guess unlock. */ }}
   }
