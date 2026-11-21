@@ -1,3 +1,4 @@
+import { planInput, assertInputEpoch, inputLockKeys, reduceInputs, inputObservationRow, projectInputObservations } from './reinput-core.mjs';
 import { notifyVerifiedSave } from './server-notification.ts';
 import {sharedRoundPlan,sharedSiteKey,SHARED_HEADER,SHARED_MARKER,sharedSessionRequired,roundKey,closeRoundPlan} from './shared-round.mjs';
 import { observationPlan, observationLockKeys, OBSERVATION_HEADER } from './observation-core.mjs';
@@ -234,7 +235,7 @@ async function syncSeatDisplay(token:string, spreadsheetId:string, keys:string[]
 Deno.serve(async (request) => {
   let origin = "";
   let custody:RowCustody|undefined;
-  let beganWrite=false;let observationRequest=false;let observationReservationRejected=false;let retainKeys:string[]=[];
+  let beganWrite=false;let inputRequest=false;let inputReservationRejected=false;let observationRequest=false;let observationReservationRejected=false;let retainKeys:string[]=[];
   let projectionContext:{token:string;spreadsheetId:string;keys:string[]}|undefined;
   const reply=async(body:unknown,status:number,o:string)=>{if(status===200&&beganWrite&&custody&&projectionContext)await syncSeatDisplay(projectionContext.token,projectionContext.spreadsheetId,projectionContext.keys,custody);if(status===200&&beganWrite&&custody&&projectionContext&&Deno.env.get('ZG_ERP_PRIVATE_UPDATES_ENABLED')==='true')await notifyVerifiedSave(asText(Deno.env.get('SUPABASE_URL')),asText(Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')));return json(body,status,o);};
   try {
@@ -259,6 +260,25 @@ Deno.serve(async (request) => {
     const tab = url.searchParams.get("tab") ?? ""; // 頁名精確比對：不可 trim（"10F機房 "尾空白是實際頁名）
     const target = resolveTarget(tab);
 
+    if(action==='position-input-status'){
+      if(tab!=='座位圖')throw new HttpError('分頁不符。',400,'BAD_REQUEST');
+      const id=String(url.searchParams.get('eventId')||'');if(!/^[a-f0-9-]{36}$/i.test(id))throw new HttpError('鍵不符。',400,'BAD_REQUEST');
+      const rows=(await sheetsRead(token,target.spreadsheetId,tab)).rows,found=rows.filter(r=>r[0]===id&&['input-start','input-item','input-close','input-cancel'].includes(String(r[1])));
+      if(found.length>1)throw new HttpError('鍵重複，未變更。',409,'INPUT_DUPLICATE_ID');
+      const state=reduceInputs(rows),cancel=state.cancelled.get(id);return await reply({ok:true,found:found.length===1,row:found[0]||null,accepted:state.accepted.has(id),cancelled:!!cancel,cancelRow:cancel?.row||null},200,origin);
+    }
+    if(action==='observation-status'&&url.searchParams.get('inputEpoch')){
+      if(tab!=='現場觀察')throw new HttpError('分頁不符。',400,'BAD_REQUEST');
+      const id=String(url.searchParams.get('observationId')||''),epoch=url.searchParams.get('inputEpoch');if(!/^[a-f0-9-]{36}$/i.test(id))throw new HttpError('鍵不符。',400,'BAD_REQUEST');
+      const rows=(await sheetsRead(token,target.spreadsheetId,'座位圖')).rows,found=rows.filter(r=>r[0]===id&&r[1]==='input-item');
+      if(found.length>1)throw new HttpError('鍵重複，未變更。',409,'INPUT_DUPLICATE_ID');
+      const accepted=reduceInputs(rows).accepted;const raw=(url.searchParams.get('scanRaw')||'').trim(),session=url.searchParams.get('sessionId');
+      const fallback=!found.length&&raw?rows.filter(r=>{if(r[1]!=='input-item'||!accepted.has(String(r[0])))return false;try{const d=JSON.parse(String(r[7]));return d.epoch===epoch&&d.sessionId===session&&d.label==='有QR'&&d.raw===raw}catch{return false}}):[];
+      if(fallback.length>1)throw new HttpError('本輪重複結果待核對。',409,'INPUT_DUPLICATE_KEY');
+      const original=found[0]||fallback[0],row=original&&accepted.has(String(original[0]))?inputObservationRow(original):null;
+      if(row&&row[15]!==epoch)throw new HttpError('原輪不符。',409,'INPUT_EPOCH_MISMATCH');
+      return await reply({ok:true,found:!!row,row,duplicate:!found.length&&!!row},200,origin);
+    }
     if(action==='observation-status'){
       if(tab!=='現場觀察')throw new HttpError('現場觀察分頁不符。',400,'BAD_REQUEST');
       const id=String(url.searchParams.get('observationId')||'');if(!/^[a-f0-9-]{36}$/i.test(id))throw new HttpError('觀察鍵不符。',400,'BAD_REQUEST');
@@ -269,7 +289,9 @@ Deno.serve(async (request) => {
       const found=rs[0]||duplicate[0];return await reply({ok:true,found:!!found,row:found||null,duplicate:!rs.length&&!!found},200,origin);
     }
     if (action === "read") {
-      return await reply({ ...(await sheetsRead(token, target.spreadsheetId, tab)), actor }, 200, origin);
+      const result=await sheetsRead(token,target.spreadsheetId,tab);
+      if(tab==='現場觀察'){const seats=await sheetsRead(token,target.spreadsheetId,'座位圖');result.rows=projectInputObservations(result.rows,seats.rows)}
+      return await reply({ ...result, actor }, 200, origin);
     }
     if(request.headers.get('x-zg-erp-protocol')!=='shared-round-v1')throw new HttpError('此頁版本不符，本次未保存；保留原草稿，查核舊結果後重開新版，不可自動重送。',409,'ERP_CLIENT_UPGRADE_REQUIRED');
     if(Deno.env.get('ZG_ERP_WRITES_PAUSED')==='true')throw new HttpError('保存暫停保護中，原草稿保留，請稍後查保存結果。',503,'ERP_WRITES_PAUSED');
@@ -295,7 +317,12 @@ Deno.serve(async (request) => {
       return {assets:assets.rows,sessions:sessions.rows,records:records.rows,seats:seats.rows,legacy:[]};
     }
 
-    if(action==='close-shared-session'){
+    async function inputContext(){const sessions=await sheetsRead(token,target.spreadsheetId,'盤點場次');const matches=sessions.rows.filter(r=>r[0]===payload.sessionId&&r[13]===SHARED_MARKER);if(matches.length!==1)throw new HttpError('請重新進入目前共用盤點，原輸入保留。',409,'JOIN_CURRENT_SHARED_ROUND');return {map:payload.seatTarget?.map,site:matches[0][1],zone:payload.zone,seat:payload.seatTarget?.seat};}
+    if(action==='position-input'){
+      inputRequest=true;
+      if(tab!=='座位圖'||String(payload.localAccount||'').toLowerCase()!==String(user.email||user.id).toLowerCase())throw new HttpError('位置重新輸入帳號不符。',409,'INPUT_ACCOUNT_MISMATCH');
+      keys=[...inputLockKeys(payload),roundKey(payload.sessionId)];
+    }else if(action==='close-shared-session'){
       if(tab!=='盤點場次'||payload.confirmed!==true||typeof payload.site!=='string')throw new HttpError('需確認結束共同盤點。',400,'SHARED_CLOSE_REQUIRED');
       keys=[sharedSiteKey(payload.site),roundKey(payload.sessionId)];
     }else if(action==='shared-session'){
@@ -306,13 +333,13 @@ Deno.serve(async (request) => {
       if(String(payload.localAccount||'').toLowerCase()!==String(user.email||user.id).toLowerCase())throw new HttpError('帳號與原觀察草稿不同，未寫入。',409,'OBSERVATION_ACCOUNT_MISMATCH');
       if(tab!=='現場觀察')throw new HttpError('現場觀察分頁不符。',400,'BAD_REQUEST');
       const id=String(payload.observationId||'');if(!/^[a-f0-9-]{36}$/i.test(id))throw new HttpError('觀察鍵不符。',400,'BAD_REQUEST');
-      keys=[...await observationLockKeys(payload),roundKey(payload.sessionId)];
+      keys=[...await observationLockKeys(payload),roundKey(payload.sessionId),...inputLockKeys(await inputContext())];
     }else if(action==='scan-intent'){
       if(tab!=='資產')throw new HttpError('Asset tab required.',400,'BAD_REQUEST');
       roundKey(payload.sessionId);
       const initialDb=await scanDatabase();try{sharedSessionRequired(initialDb.sessions,payload.sessionId)}catch{throw new HttpError('本輪已結束或不符，這筆未保存。原輸入保留，請重新進入共同盤點。',409,'JOIN_CURRENT_SHARED_ROUND')}
       const initial=scanPlan(initialDb,payload,user.id,new Date().toISOString());
-      keys=[roundKey(payload.sessionId),...logicalKeys('資產',initial.asset,initial.original||undefined),...logicalKeys('盤點紀錄',initial.record),...(initial.binding?logicalKeys('座位圖',initial.binding):[])];
+      keys=[...inputLockKeys(await inputContext()),roundKey(payload.sessionId),...logicalKeys('資產',initial.asset,initial.original||undefined),...logicalKeys('盤點紀錄',initial.record),...(initial.binding?logicalKeys('座位圖',initial.binding):[])];
     }else if(['reserve','renew','release','asset-edit','repair-stage'].includes(action)){
       if(tab!=="資產"||typeof payload.code!=='string'||!payload.code.trim())throw new HttpError("Asset identity required.",400,"BAD_REQUEST");
       const assets=await sheetsRead(token,target.spreadsheetId,tab),hits=assets.rows.filter(r=>r[0]===payload.code);
@@ -335,6 +362,7 @@ Deno.serve(async (request) => {
       for(const [i,g] of payload.groups.entries())for(const serial of g.serials||[])keys.push(...logicalKeys(tab,['明細',payload.id+'-'+i,'','','','','','','','','','pending',serial]));
       keys=[...new Set(keys)].sort();
     }else throw new HttpError("Unknown action.",400,"ACTION_UNKNOWN");
+    if(action==='seat-event'&&payload.row?.[1]==='check')keys.push(...inputLockKeys({map:payload.row[2],site:payload.row[3],zone:payload.row[4],seat:Number(payload.row[5])}));
     if(action==='seat-event'&&['map','area'].includes(payload.row?.[1])){const ar=await sheetsRead(token,target.spreadsheetId,'資產');for(const row of ar.rows)if(row[4]===payload.row[3]&&row[5]===payload.row[4])keys.push(...logicalKeys('資產',row));keys=[...new Set(keys)].sort();}
     const serviceKey=asText(Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'));
     if(!serviceKey)throw new HttpError("ERP control is not configured.",503,"CUSTODY_UNAVAILABLE");
@@ -356,7 +384,7 @@ Deno.serve(async (request) => {
       // Primary edit reservation must still be alive BEFORE acquiring added serial key.
       const primary=new RowCustody(admin,user.id,reservation,operation,logicalKeys('資產',[payload.code]));
       await primary.renew();await custody.reserve();
-    }else {try{await custody.reserve()}catch(error){observationReservationRejected=action==='field-observation'&&custodyErrorMapping(error instanceof Error?error.message:'').code==='RECORD_BUSY';throw error}}
+    }else {try{await custody.reserve()}catch(error){inputReservationRejected=action==='position-input'&&custodyErrorMapping(error instanceof Error?error.message:'').code==='RECORD_BUSY';observationReservationRejected=action==='field-observation'&&custodyErrorMapping(error instanceof Error?error.message:'').code==='RECORD_BUSY';throw error}}
     if(action==='reserve')return await reply({ok:true,expiresIn:300},200,origin);
     await custody.begin();beganWrite=true;
     if(action==='close-shared-session'){
@@ -377,6 +405,15 @@ Deno.serve(async (request) => {
       if(matches.length!==1||plan.row.some((v:unknown,i:number)=>String(v??'')!==String(matches[0][i]??'')))throw new HttpError('共用場次未能確認，請保留畫面查詢，不重建。',409,'SHARED_ROUND_UNVERIFIED');
       return await reply({ok:true,row:matches[0],joined:plan.join},200,origin);
     }
+    if(action==='position-input'){
+      const [seats,sessions]=await Promise.all(['座位圖','盤點場次'].map(t=>sheetsRead(token,target.spreadsheetId,t,true)));
+      if(seats.rows.length>=9999||sessions.rows.length>=9999||seats.header.join('|')!==['事件鍵','類型','圖版本','據點','區域','座位編號','資產編號','內容JSON','時間','經手人'].join('|')||sessions.header[13]!==SHARED_HEADER)throw new HttpError('位置重新輸入欄位未就緒。',503,'INPUT_SCHEMA');
+      let plan;try{plan=planInput({seats:seats.rows,sessions:sessions.rows,maps:seatMaps.reduce(seats.rows)},payload,actor,new Date().toISOString())}catch(e){const unsent=await custody.finishUnsent();if(unsent)beganWrite=false;throw new HttpError(String(e),409,'INPUT_CONFLICT',unsent?{inputWriteState:'not-started'}:{})}
+      if(!plan.replayed&&!plan.duplicate)await sheetsAppend(token,target.spreadsheetId,tab,plan.row,custody);
+      const after=(await sheetsRead(token,target.spreadsheetId,tab)).rows,hits=after.filter(r=>r[0]===plan.row[0]);
+      if(hits.length!==1||plan.row.some((v:unknown,i:number)=>String(v??'')!==String(hits[0][i]??''))||!reduceInputs(after).accepted.has(plan.row[0]))throw new HttpError('重新輸入保存結果待查，保留原鍵查詢，不重送。',409,'INPUT_UNVERIFIED');
+      return await reply({ok:true,row:hits[0],replayed:!!plan.replayed,historical:!!plan.historical,duplicate:!!plan.duplicate,cancelled:!!plan.cancelled,settled:!!plan.settled},200,origin);
+    }
     if(action==='field-observation'){
       const prechecks=await Promise.allSettled(['現場觀察','盤點場次','座位圖'].map(t=>sheetsRead(token,target.spreadsheetId,t,true)));
       const failures=prechecks.flatMap(result=>result.status==='rejected'?[result.reason]:[]);
@@ -388,6 +425,14 @@ Deno.serve(async (request) => {
       if(observations.rows.length>=9999||sessions.rows.length>=9999||seats.rows.length>=9999)throw new HttpError('觀察讀取範圍不足，未寫入。',409,'OBSERVATION_LIMIT');
       if(OBSERVATION_HEADER.some((h:string,i:number)=>observations.header[i]!==h))throw new HttpError('現場觀察欄位尚未就緒，未寫入。',503,'SCHEMA_NOT_READY');
       try{sharedSessionRequired(sessions.rows,payload.sessionId)}catch{throw new HttpError('請重新進入目前共用盤點，再掃描。原草稿保留。',409,'JOIN_CURRENT_SHARED_ROUND')}
+      if(payload.inputEpoch){
+        const session=sharedSessionRequired(sessions.rows,payload.sessionId),command={action:'item',eventId:payload.observationId,sessionId:payload.sessionId,map:payload.seatTarget?.map,seat:payload.seatTarget?.seat,site:session[1],zone:payload.zone,epoch:payload.inputEpoch,label:payload.labelStatus,raw:payload.scanRaw,serial:payload.serial||'',model:payload.model||'',note:payload.note||'',capturedAt:payload.capturedAt};
+        let inputPlan;try{inputPlan=planInput({sessions:sessions.rows,maps:seatMaps.reduce(seats.rows),seats:seats.rows},command,actor,new Date().toISOString())}catch(e){throw new HttpError(String(e),409,'INPUT_CONFLICT')}
+        if(!inputPlan.replayed&&!inputPlan.duplicate)await sheetsAppend(token,target.spreadsheetId,'座位圖',inputPlan.row,custody);
+        const after=(await sheetsRead(token,target.spreadsheetId,'座位圖')).rows,hits=after.filter(r=>r[0]===inputPlan.row[0]);if(hits.length!==1||inputPlan.row.some((v:unknown,i:number)=>String(v??'')!==String(hits[0][i]??''))||!reduceInputs(after).accepted.has(inputPlan.row[0]))throw new HttpError('新一輪保存結果待查，不重送。',409,'INPUT_UNVERIFIED');
+        return await reply({ok:true,row:inputObservationRow(hits[0]),duplicate:!!inputPlan.duplicate,replayed:!!inputPlan.replayed,historical:!!inputPlan.historical,warnings:[]},200,origin);
+      }
+      try{const session=sharedSessionRequired(sessions.rows,payload.sessionId);const c={map:payload.seatTarget?.map,site:session[1],zone:payload.zone,seat:payload.seatTarget?.seat};assertInputEpoch(seats.rows,c,'')}catch(e){throw new HttpError('此位置已重新輸入，舊頁面或舊草稿不能送入本次。請更新後重新掃描。',409,'INPUT_OLD_POSITION_ROUND')}
       let plan;try{plan=observationPlan({sessions:sessions.rows,maps:seatMaps.reduce(seats.rows),observations:observations.rows},payload,actor,new Date().toISOString())}catch(e){throw new HttpError(String(e instanceof Error?e.message:e),409,'OBSERVATION_INVALID')}
       if(plan.duplicate)return await reply({ok:true,row:plan.row,duplicate:true,warnings:[]},200,origin);
       if(plan.replayed)return await reply({ok:true,row:plan.row,replayed:true,warnings:plan.warnings},200,origin);
@@ -397,7 +442,7 @@ Deno.serve(async (request) => {
       return await reply({ok:true,row:saved[0],replayed:false,warnings:plan.warnings},200,origin);
     }
     if(action==='scan-intent'){
-      const db=await scanDatabase();try{sharedSessionRequired(db.sessions,payload.sessionId)}catch{throw new HttpError('本輪已結束或不符，這筆未保存。原輸入保留，請重新進入共同盤點。',409,'JOIN_CURRENT_SHARED_ROUND')}const plan=scanPlan(db,payload,user.id,new Date().toISOString());
+      const db=await scanDatabase();try{sharedSessionRequired(db.sessions,payload.sessionId)}catch{throw new HttpError('本輪已結束或不符，這筆未保存。原輸入保留，請重新進入共同盤點。',409,'JOIN_CURRENT_SHARED_ROUND')}try{const session=sharedSessionRequired(db.sessions,payload.sessionId);assertInputEpoch(db.seats,{map:payload.seatTarget?.map,site:session[1],zone:payload.zone,seat:payload.seatTarget?.seat},'')}catch{throw new HttpError('此位置已重新輸入，原輸入保留；此條碼路徑不能送入新一輪，請改用本輪QR或沒有QR登記。',409,'INPUT_OLD_POSITION_ROUND')}const plan=scanPlan(db,payload,user.id,new Date().toISOString());
       const freshKeys=[...logicalKeys('資產',plan.asset,plan.original||undefined),...logicalKeys('盤點紀錄',plan.record),...(plan.binding?logicalKeys('座位圖',plan.binding):[])];
       if(freshKeys.some(k=>!keys.includes(k)))throw new HttpError('設備資料已改變，未寫入，請重新核對。',409,'SCAN_CONFLICT');
       const metaRes=await fetch(`${GOOGLE_SHEETS_API}/${target.spreadsheetId}?fields=sheets(properties(sheetId,title))`,{headers:{authorization:`Bearer ${token}`},signal:AbortSignal.timeout(GOOGLE_REQUEST_TIMEOUT_MS)}),meta=await metaRes.json();if(!metaRes.ok)throw new HttpError('無法核對分頁，未寫入。',503,'SCAN_METADATA');
@@ -434,6 +479,7 @@ Deno.serve(async (request) => {
       if (!["part","map","area","occupant","binding","placement","check"].includes(row[1]) || !asText(row[0]) || !asText(row[2]) || !asText(row[3]) || !asText(row[4]) || String(row[7]).length>24000) throw new HttpError("Seat event invalid.",400,"BAD_REQUEST");
       let data;try{data=JSON.parse(row[7]);}catch{throw new HttpError("Seat payload invalid.",400,"BAD_REQUEST");}
       if(!data||typeof data!=="object"||Array.isArray(data))throw new HttpError("Seat payload must be an object.",400,"BAD_REQUEST");
+      if(row[1]==='check'){try{assertInputEpoch(schema.rows,{map:row[2],site:row[3],zone:row[4],seat:Number(row[5])},data.inputEpoch||'')}catch{throw new HttpError('此位置已重新輸入，舊輪不能標記本輪已核對。',409,'INPUT_OLD_POSITION_ROUND')}}
       const previous=schema.rows.find(r=>r[0]===row[0]);
       if(previous) {if(previous.slice(1,8).some((v,i)=>String(v)!==String(row[i+1])))throw new HttpError("Seat event conflicts.",409,"SEAT_CONFLICT");if(!canonicalSeatEvents(schema.rows).has(asText(row[0])))throw new HttpError("Concurrent seat event won; reload before retry.",409,"SEAT_CONFLICT");return await reply({ok:true,row:previous,actor},200,origin);}
       if (["occupant","binding","placement","check"].includes(row[1]) && (!Number.isInteger(Number(row[5])) || Number(row[5])<1 || Number(row[5])>500))throw new HttpError("Seat number invalid.",400,"BAD_REQUEST");
@@ -608,11 +654,12 @@ Deno.serve(async (request) => {
     const mapped = custodyErrorMapping(e instanceof Error ? e.message : '');
     const err = e instanceof HttpError ? e : new HttpError(mapped.message, mapped.status, mapped.code);
     // Only a failed reservation, or a precheck failure after proven zero dispatch and successful closure, is retryable.
+    let inputClosed=false;if(inputRequest&&custody&&beganWrite){try{inputClosed=await custody.finishUnsent();if(inputClosed)beganWrite=false}catch{}}
     let precheckClosed=false;
     if(observationRequest&&custody&&beganWrite&&['OBSERVATION_PRECHECK_UNAVAILABLE','OBSERVATION_PRECHECK_BLOCKED'].includes(err.code)){try{precheckClosed=await custody.finishUnsent();if(precheckClosed)beganWrite=false}catch{}}
     if(custody&&beganWrite){try{await custody.quarantine()}catch{}}
     const notStarted=precheckClosed||(observationReservationRejected&&!beganWrite&&err.code==='RECORD_BUSY');
-    return json({ error: { code: err.code, message: err.message, details: { ...err.details, ...(notStarted?{observationWriteState:'not-started'}:{}) } } }, err.status, origin);
+    return json({ error: { code: err.code, message: err.message, details: { ...err.details, ...(notStarted?{observationWriteState:'not-started'}:{}),...((inputClosed||inputReservationRejected)?{inputWriteState:'not-started'}:{}) } } }, err.status, origin);
   } finally {
     if(custody&&beganWrite){try{await custody.finish(retainKeys)}catch{ /* Durable WRITING remains quarantined; never guess unlock. */ }}
   }

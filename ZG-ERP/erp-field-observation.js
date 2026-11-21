@@ -17,7 +17,10 @@
                 u = [];
             }
         };
-        const b = () => r ? r.list(n(), "field-observation") : [];
+        function epochAt(target,zone){if(!target)return '';const states=t.ErpPositionInputCore?.reduceInputs(a.seatRows||[]).current,site=target.site||t.ErpSeatCore?.reduce(a.seatRows||[]).maps.find(m=>m.id===target.map&&m.zone===zone)?.site;return states?[...states.values()].find(v=>v.start[2]===target.map&&(!site||v.start[3]===site)&&v.start[4]===zone&&Number(v.start[5])===Number(target.seat))?.epoch||'':'';}
+        const allDrafts=()=>r?r.list(n(),"field-observation"):[];
+        const b = () => allDrafts().filter(entry=>{const v=entry.payload.values;return (v.inputEpoch||'')===epochAt(v.seatTarget,v.zone)});
+        const visibleRows=()=>u.filter(row=>(row[15]||'')===epochAt({map:row[4],seat:Number(row[5])},row[3]));
         const g = () => {
             if (!l || !r) return false;
             if (l.autoCapture === true) return true;
@@ -42,6 +45,7 @@
                 if (!t?.sessionId || !t.seatTarget) throw Error("請先開始場次並選座位。");
                 l = {
                     observationId: crypto.randomUUID(),
+                    inputEpoch:t.seatTarget.inputEpoch||"",
                     sessionId: t.sessionId,
                     zone: t.zone,
                     seatTarget: JSON.parse(JSON.stringify(t.seatTarget)),
@@ -112,7 +116,7 @@
             }
         }
         function y(t, e, a) {
-            if (!Array.isArray(t) || t.length < 15 || t[11] !== e.capturedAt || !Number.isFinite(Date.parse(t[12])) || !t[13] || t[14] !== "待核實" || t[0] !== e.observationId || t[1] !== e.sessionId || t[3] !== e.zone || t[4] !== e.seatTarget.map || Number(t[5]) !== e.seatTarget.seat || t[6] !== e.labelStatus || t[7] !== e.scanRaw || [ 8, 9, 10 ].some(a => String(t[a] ?? "") !== String(e[[ "serial", "model", "note" ][a - 8]] || "").trim())) throw Error("保存回讀內容與原觀察不同，保留原草稿。");
+            if ((t?.[15]||'')!==(e.inputEpoch||'') || !Array.isArray(t) || t.length < 15 || t[11] !== e.capturedAt || !Number.isFinite(Date.parse(t[12])) || !t[13] || t[14] !== "待核實" || t[0] !== e.observationId || t[1] !== e.sessionId || t[3] !== e.zone || t[4] !== e.seatTarget.map || Number(t[5]) !== e.seatTarget.seat || t[6] !== e.labelStatus || t[7] !== e.scanRaw || [ 8, 9, 10 ].some(a => String(t[a] ?? "") !== String(e[[ "serial", "model", "note" ][a - 8]] || "").trim())) throw Error("保存回讀內容與原觀察不同，保留原草稿。");
             r.discard(n(), "field-observation", e.observationId);
             u = u.filter(e => e[0] !== t[0]);
             u.unshift(t);
@@ -120,7 +124,7 @@
             d = "已保存原座位的現場觀察，待核實，不算舊帳已盤。" + (a?.length ? " " + a.join(" ") : "");
         }
         function acceptDuplicate(row, input) {
-            if (!Array.isArray(row) || row.length < 15 || !row[0] || row[1] !== input.sessionId || row[6] !== "有QR" || row[7] !== input.scanRaw || !Number.isFinite(Date.parse(row[12])) || !row[13] || row[14] !== "待核實") throw Error("重複觀察回讀不符，保留原草稿");
+            if ((row?.[15]||'')!==(input.inputEpoch||'') || !Array.isArray(row) || row.length < 15 || !row[0] || row[1] !== input.sessionId || row[6] !== "有QR" || row[7] !== input.scanRaw || !Number.isFinite(Date.parse(row[12])) || !row[13] || row[14] !== "待核實") throw Error("重複觀察回讀不符，保留原草稿");
             r.discard(n(), "field-observation", input.observationId);
             u = u.filter(x => x[0] !== row[0]);
             u.unshift(row);
@@ -138,7 +142,7 @@
             o();
             try {
                 const r = e.payload.values;
-                const o = a._url("observation-status", "現場觀察") + "&observationId=" + encodeURIComponent(t) + "&sessionId=" + encodeURIComponent(r.sessionId) + "&scanRaw=" + encodeURIComponent(r.labelStatus === "有QR" ? r.scanRaw : "");
+                const o = a._url("observation-status", "現場觀察") + "&observationId=" + encodeURIComponent(t) + "&inputEpoch="+encodeURIComponent(r.inputEpoch||'')+"&sessionId=" + encodeURIComponent(r.sessionId) + "&scanRaw=" + encodeURIComponent(r.labelStatus === "有QR" ? r.scanRaw : "");
                 const i = await a._fetchAuth(o, {
                     method: "GET",
                     headers: a._authHeaders()
@@ -260,7 +264,7 @@
                 if (n() !== t) return;
                 if (!Array.isArray(e.rows) || e.rows.some(t => !Array.isArray(t) || t.length < 15)) throw Error("現場觀察讀取內容不完整");
                 const s = new Map(e.rows.map(t => [ t[0], t ]));
-                for (const t of u) if (!s.has(t[0])) s.set(t[0], t);
+                for (const t of visibleRows()) if (!s.has(t[0])) s.set(t[0], t);
                 u = [ ...s.values() ];
                 R = t;
                 E = "";
@@ -272,7 +276,7 @@
             }
         }
         function A(t) {
-            return u.filter(e => e[1] === t?.sessionId && e[4] === t?.seatTarget?.map && Number(e[5]) === t?.seatTarget?.seat);
+            return visibleRows().filter(e => e[1] === t?.sessionId && e[4] === t?.seatTarget?.map && Number(e[5]) === t?.seatTarget?.seat);
         }
         function N(t = false) {
             p();
@@ -281,15 +285,15 @@
             try {
                 a = s();
             } catch {}
-            const r = t ? u.filter(t => t[1] === a?.sessionId) : A(a), n = b();
-            return '<section class="card"><b>' + (t ? "本次場次現場記錄 " : "原座位現場記錄 ") + r.length + '台</b><p class="small">掃碼先記在掃描當下的座位，舊帳核對留待後續。只有伺服器回讀一致才列為已保存。</p><button class="pill sm" data-observation-action="refresh"' + (T ? " disabled" : "") + ">" + (T ? "正在讀取" : "重新讀取現場記錄") + "</button>" + (E ? '<p class="warn">' + e(E) + "</p>" : "") + r.map(t => '<div class="small" style="overflow-wrap:anywhere">已保存 · ' + e(t[5]) + "號 · " + e(t[7] || "沒有QR") + " · " + e(t[14]) + "</div>").join("") + n.filter(t => t.payload.values.labelStatus === "有QR" && (t.payload.values.state !== "blocked"||t.payload.values.precheckUnsent!==true)).map(t => {
+            const r = t ? visibleRows().filter(t => t[1] === a?.sessionId) : A(a), n = b();
+            const archived=allDrafts().filter(entry=>!b().some(active=>active.entity===entry.entity));const archiveHtml=archived.length?'<details class="card"><summary>先前輪次本機保留 '+archived.length+' 筆（不計入本輪、不重送）</summary>'+archived.map(entry=>{const v=entry.payload.values;return '<p class="small">'+e(v.seatTarget?.seat)+'號 · '+e(v.scanRaw||'沒有QR')+' · '+e(v.state==='queued'||v.state==='draft'?'尚未送出，已留原稿':'保存結果待查，保留原鍵')+'</p>'}).join('')+'</details>':'';return archiveHtml+'<section class="card"><b>' + (t ? "本次場次現場記錄 " : "原座位現場記錄 ") + r.length + '台</b><p class="small">掃碼先記在掃描當下的座位，舊帳核對留待後續。只有伺服器回讀一致才列為已保存。</p><button class="pill sm" data-observation-action="refresh"' + (T ? " disabled" : "") + ">" + (T ? "正在讀取" : "重新讀取現場記錄") + "</button>" + (E ? '<p class="warn">' + e(E) + "</p>" : "") + r.map(t => '<div class="small" style="overflow-wrap:anywhere">已保存 · ' + e(t[5]) + "號 · " + e(t[7] || "沒有QR") + " · " + e(t[14]) + "</div>").join("") + n.filter(t => t.payload.values.labelStatus === "有QR" && (t.payload.values.state !== "blocked"||t.payload.values.precheckUnsent!==true)).map(t => {
                 const a = t.payload.values;
                 return '<p class="warn" style="overflow-wrap:anywhere">' + e(a.scanRaw) + " · 原座位 " + e(a.seatTarget?.seat) + "號 · " + e(a.state === "queued" ? "已留本機，等待自動保存；可繼續掃下一台" : a.state === "draft" ? "本機保留，尚未送出" : a.state === "sending" ? "正在保存，尚未確認" : a.state === "blocked" && a.precheckUnsent === true ? a.lastError : "保存結果待查，原觀察鍵保留，不重送") + (a.state === "queued" && a.lastError ? " · " + e(a.lastError) : "") + "</p>";
             }).join("") + "</section>";
         }
         function j(t) {
             p();
-            const a = u.filter(e => e[4] === t.map && Number(e[5]) === t.seat);
+            const a = visibleRows().filter(e => e[4] === t.map && Number(e[5]) === t.seat);
             return '<section class="card"><b>此位置已保存的現場觀察 ' + a.length + '筆</b><p class="small">與既有設備分開列出，待後續核實，不自動搬動既有設備。</p>' + a.map(t => '<div class="small" style="overflow-wrap:anywhere">' + e(t[7] || "沒有QR") + " · " + e(t[9] || "型號待核實") + " · " + e(t[14]) + "</div>").join("") + "</section>";
         }
         let queueTimer = null, queueRunning = false;
@@ -300,7 +304,7 @@
             queueTimer = setTimeout(() => { queueTimer = null; void drainQueue(); }, delay);
         }
         async function lookupCapture(value, who) {
-            const url = a._url("observation-status", "現場觀察") + "&observationId=" + encodeURIComponent(value.observationId) + "&sessionId=" + encodeURIComponent(value.sessionId) + "&scanRaw=" + encodeURIComponent(value.scanRaw);
+            const url = a._url("observation-status", "現場觀察") + "&observationId=" + encodeURIComponent(value.observationId) + "&inputEpoch="+encodeURIComponent(value.inputEpoch||'')+"&sessionId=" + encodeURIComponent(value.sessionId) + "&scanRaw=" + encodeURIComponent(value.scanRaw);
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(),15000);
             let response, body;
@@ -456,6 +460,7 @@
                 if (again || b().some(entry => entry.payload.values.autoCapture === true && ["queued","sending","uncertain"].includes(entry.payload.values.state))) scheduleQueue(1000);
             }
         }
+        function duplicateAt(raw,override){let ctx;try{ctx=s()}catch{}const sessionId=override?.sessionId||ctx?.sessionId,target=override?.seatTarget||ctx?.seatTarget,epoch=target?.inputEpoch||'';return b().some(({payload:{values:v}})=>v.sessionId===sessionId&&v.seatTarget?.map===target?.map&&v.seatTarget?.seat===target?.seat&&(v.inputEpoch||'')===epoch&&v.labelStatus==='有QR'&&v.scanRaw===raw)||visibleRows().some(row=>row[1]===sessionId&&row[4]===target?.map&&Number(row[5])===target?.seat&&(row[15]||'')===epoch&&row[6]==='有QR'&&row[7]===raw);}
         function _(raw, override) {
             p();
             const ctx = s(), who = n();
@@ -463,8 +468,9 @@
             const target = override?.seatTarget || ctx.seatTarget;
             if (!sessionId || !target?.map || !Number.isInteger(target.seat)) throw Error("請先選擇原場次與已保存座位，沒有送出。");
             if (!who) throw Error("登入身份尚未確認，未送出。");
-            const value = {observationId:crypto.randomUUID(),sessionId,zone:override?.zone || ctx.zone,seatTarget:copy(target),labelStatus:"有QR",scanRaw:String(raw),serial:"",model:"",note:"",capturedAt:new Date().toISOString(),state:"queued",localAccount:who,autoCapture:true};
-            const prior = b().find(entry => {const v=entry.payload.values;return v.labelStatus === "有QR" && v.sessionId === sessionId && v.scanRaw === value.scanRaw;});
+            const saved=visibleRows().find(row=>row[1]===sessionId&&row[4]===target.map&&Number(row[5])===target.seat&&(row[15]||'')===(target.inputEpoch||'')&&row[6]==='有QR'&&row[7]===String(raw));if(saved){d='這台已掃過，不重複新增。保存狀態另外顯示。';o();return saved[0];}
+            const value = {observationId:crypto.randomUUID(),inputEpoch:target.inputEpoch||"",sessionId,zone:override?.zone || ctx.zone,seatTarget:copy(target),labelStatus:"有QR",scanRaw:String(raw),serial:"",model:"",note:"",capturedAt:new Date().toISOString(),state:"queued",localAccount:who,autoCapture:true};
+            const prior = b().find(entry => {const v=entry.payload.values;return v.labelStatus === "有QR" && (v.inputEpoch||'')===(value.inputEpoch||'') && v.seatTarget?.map===target.map && v.seatTarget?.seat===target.seat && v.sessionId === sessionId && v.scanRaw === value.scanRaw;});
             if (prior) {
                 d = "這筆原觀察已在本機保留，不重複新增；可以繼續掃其他設備。";
                 scheduleQueue(); o(); return prior.entity;
@@ -526,9 +532,11 @@
             E = "";
         }
         return {
+            positionReset:()=>{l=null;d="";},
             html: S,
             field: I,
             capture: _,
+            isDuplicate:duplicateAt,
             scanHtml: N,
             locationHtml: j,
             load: O,
