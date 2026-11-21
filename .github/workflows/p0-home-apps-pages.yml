@@ -110,6 +110,9 @@ jobs:
           node tests/zg-erp-ui-workflow-browser.cjs
           node tests/zg-erp-ui-module-journeys.cjs
           node tests/zg-erp-ui-scan-navigation.cjs
+          node --test tests/erp-reinput/reinput-core.test.mjs tests/erp-reinput/reinput-endpoint.test.cjs
+          node tests/erp-reinput/reinput-multitab.test.cjs
+          node tests/erp-reinput/reinput-browser.cjs
           node tests/zg-erp-inbound-browser.cjs
           node tests/zg-erp-editor-browser.cjs
           node tests/zg-erp-scanner-browser.cjs
@@ -124,6 +127,8 @@ jobs:
           CAMERA_HEIGHT=700 node tests/zg-erp-scanner-browser.cjs
           mkdir -p "$RUNNER_TEMP/erp-minified/ZG-ERP"
           cp ZG-ERP/*.js "$RUNNER_TEMP/erp-minified/ZG-ERP/"
+          mkdir -p "$RUNNER_TEMP/erp-minified/ZG-ERP/vendor"
+          cp ZG-ERP/vendor/jsQR.js "$RUNNER_TEMP/erp-minified/ZG-ERP/vendor/"
           node tools/build-erp-artifacts.cjs "$RUNNER_TEMP/erp-minified"
           ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-inbound-browser.cjs
           ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-editor-browser.cjs
@@ -137,6 +142,7 @@ jobs:
           CAMERA_WIDTH=390 CAMERA_HEIGHT=700 C2_REOPEN=1 ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-continuous-reopen.cjs
           ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-result-visibility.cjs
           CAMERA_HEIGHT=700 ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-scanner-browser.cjs
+          ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/erp-reinput/reinput-browser.cjs
           ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-ui-scan-navigation.cjs
           ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-ui-module-journeys.cjs
           node tests/zg-erp-artifact-runtime.cjs "$RUNNER_TEMP/erp-minified"
