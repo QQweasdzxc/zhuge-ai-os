@@ -76,9 +76,13 @@ function buildPagesSite(outputArg) {
     totalBytes += metadata.size;
   }
 
+  const erpManifest = JSON.parse(execFileSync(process.execPath, [path.join(__dirname, "build-erp-artifacts.cjs"), output], { cwd: ROOT, encoding: "utf8" }));
+  totalBytes += erpManifest.files.reduce((n, f) => n + f.outputBytes - f.sourceBytes, 0);
+  totalBytes += fs.statSync(path.join(output, "ZG-ERP/artifact-manifest.json")).size;
   const result = {
     source: "git-tracked",
-    includedFiles: selected.length,
+    erpMinifier: erpManifest.minifier + "@" + erpManifest.version,
+    includedFiles: selected.length + 1,
     excludedTrackedFiles: allTracked.length - selected.length,
     uncompressedBytes: totalBytes
   };

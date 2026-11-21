@@ -2,8 +2,8 @@
 (function (global) {
   const config = global.ZhugeFoundationConfig || {};
   config.version = Object.freeze({
-    version: "0.9.0-alpha.9.223",
-    build: "20261121-0414",
+    version: "0.9.0-alpha.9.227",
+    build: "20261121-0923",
     foundation: "1.0",
     module: "TRQN OS",
     moduleVersion: "0.9",
