@@ -106,6 +106,9 @@ jobs:
         env:
           CHROME_PATH: ${{ env.BROWSER_EXECUTABLE }}
         run: |
+          node --test tests/zg-erp-legacy-workflow.test.js
+          node tests/zg-erp-ui-workflow-browser.cjs
+          node tests/zg-erp-ui-scan-navigation.cjs
           node tests/zg-erp-inbound-browser.cjs
           node tests/zg-erp-editor-browser.cjs
           node tests/zg-erp-scanner-browser.cjs
@@ -133,6 +136,7 @@ jobs:
           CAMERA_WIDTH=390 CAMERA_HEIGHT=700 C2_REOPEN=1 ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-continuous-reopen.cjs
           ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-result-visibility.cjs
           CAMERA_HEIGHT=700 ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-scanner-browser.cjs
+          ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-ui-scan-navigation.cjs
           node tests/zg-erp-artifact-runtime.cjs "$RUNNER_TEMP/erp-minified"
       - name: Verify read-only daily source and private overview boundaries
         run: |
