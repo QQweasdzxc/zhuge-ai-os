@@ -170,6 +170,7 @@
                 const t = JSON.parse(JSON.stringify(e.payload.values));
                 if (t.autoCapture === true) {
                     if (i) i(copy(t));
+                    if(t.state==="blocked"){d=t.lastError;o();return}
                     l = null;
                     d = "這筆掃描已接回原場次與位置，由保存佇列接續；結果未知時只查不重送，可以繼續其他設備。";
                     scheduleQueue();
@@ -236,16 +237,16 @@
             l[t] = String(e);
             if (!g()) d = "本機草稿保留失敗，請勿離開頁面。";
         }
+        function pendingRow(entry){
+            const v=entry.payload.values,blocked=v.state==="blocked"&&v.precheckUnsent===true;
+            const label=v.state==="blocked"&&!blocked?"結果待查，勿重送":{queued:"已留本機，等待自動保存",draft:"未送出草稿",blocked:"確定未送出，需處理",sending:"送出中，待查",uncertain:"結果待查，勿重送"}[v.state]||"待查，勿重送";
+            return '<div class="small" style="margin:10px 0"><p style="margin:0 0 6px;overflow-wrap:anywhere">座位 '+e(v.seatTarget?.seat)+' · '+e(v.scanRaw||"沒有QR")+' · 場次 '+e(v.sessionId)+' · '+e(blocked?v.lastError||label:label)+'</p><div style="display:flex;flex-wrap:wrap;gap:6px">'+(!blocked?'<button class="pill sm" data-observation-action="status" data-observation-id="'+e(entry.entity)+'"'+(c?' disabled':'')+'>查保存結果</button>':'')+'<button class="pill sm" data-observation-action="resume" data-observation-id="'+e(entry.entity)+'"'+(c?' disabled':'')+'>開啟原草稿</button>'+(blocked&&v.precheckUnsent?'<button class="pill sm" data-observation-action="retry-precheck" data-observation-id="'+e(entry.entity)+'">修復讀取後接續這筆</button>':'')+(v.rejectedLegacy===true&&v.state==="draft"?'<button class="pill sm" data-observation-action="migrate" data-observation-id="'+e(entry.entity)+'">以原位置接到目前共同盤點（不送出）</button>':'')+'</div></div>';
+        }
         function S(t = false) {
             p();
             const a = b();
             if (t && !a.length) return "";
-            return '<section class="card field-observation">' + (t ? '<b>現場觀察草稿接續</b><p class="small">先開啟原草稿，接回原場次與座位；不自動送出。也可直接查保存結果。</p>' : '<button class="pill" data-observation-action="new"' + (c ? " disabled" : "") + '>沒有QR，記錄這台設備</button><p class="small">只記目前座位有一台設備，不用先配舊帳。每按一次新增代表另一台設備。</p>') + (d ? '<p class="warn" role="status">' + e(d) + "</p>" : "") + (l ? "<div><b>原座位 " + e(l.seatTarget.seat) + "號 · " + e(l.labelStatus) + (l.scanRaw ? " · " + e(l.scanRaw) : "") + '</b><p class="small">本筆位置固定，換座位不會移動這筆。序號、型號、備註都可留白。</p>' + [ "serial", "model", "note" ].map((t, a) => '<label class="lbl" style="display:block;margin:10px 0">' + [ "序號（選填）", "型號（選填）", "備註（選填）" ][a] + '<input class="inp" style="display:block;box-sizing:border-box;width:100%;margin-top:4px" data-observation-field="' + t + '" maxlength="' + (t === "note" ? 2e3 : 200) + '" value="' + e(l[t]) + '"' + (c || l.state === "uncertain" ? " disabled" : "") + "></label>").join("") + '<button class="pill em" data-observation-action="save"' + (c || l.state === "uncertain" ? " disabled" : "") + ">" + (c ? "正在保存" : "保存這台設備觀察") + "</button></div>" : "") + (a.length ? "<details open><summary>現場觀察待確認 " + a.length + "筆</summary>" + a.map(t => '<div class="small">座位 ' + e(t.payload.values.seatTarget?.seat) + " · " + e(t.payload.values.scanRaw || "沒有QR") + " · 場次 " + e(t.payload.values.sessionId) + " · " + e({
-                queued: "已留本機，等待自動保存",
-                draft: "未送出草稿",
-                sending: "送出中，待查",
-                uncertain: "結果待查"
-            }[t.payload.values.state] || "待查") + '<button class="pill sm" data-observation-action="status" data-observation-id="' + e(t.entity) + '"' + (c ? " disabled" : "") + '>查保存結果</button><button class="pill sm" data-observation-action="resume" data-observation-id="' + e(t.entity) + '"' + (c ? " disabled" : "") + ">開啟原草稿</button>" + (t.payload.values.rejectedLegacy === true && t.payload.values.state === "draft" ? '<button class="pill sm" data-observation-action="migrate" data-observation-id="' + e(t.entity) + '">以原位置接到目前共同盤點（不送出）</button>' : "") + "</div>").join("") + "</details>" : "") + (u.length ? '<p class="small">已核實讀回 ' + u.length + "筆現場觀察。</p>" : "") + "</section>";
+            return '<section class="card field-observation">' + (t ? '<b>現場觀察草稿接續</b><p class="small">先開啟原草稿，接回原場次與座位；不自動送出。也可直接查保存結果。</p>' : '<button class="pill" data-observation-action="new"' + (c ? " disabled" : "") + '>沒有QR，記錄這台設備</button><p class="small">只記目前座位有一台設備，不用先配舊帳。每按一次新增代表另一台設備。</p>') + (d && !a.some(entry=>entry.payload.values.state==="blocked"&&entry.payload.values.precheckUnsent===true&&entry.payload.values.lastError===d) ? '<p class="warn" role="status">' + e(d) + "</p>" : "") + (l ? "<div><b>原座位 " + e(l.seatTarget.seat) + "號 · " + e(l.labelStatus) + (l.scanRaw ? " · " + e(l.scanRaw) : "") + '</b><p class="small">本筆位置固定，換座位不會移動這筆。序號、型號、備註都可留白。</p>' + [ "serial", "model", "note" ].map((t, a) => '<label class="lbl" style="display:block;margin:10px 0">' + [ "序號（選填）", "型號（選填）", "備註（選填）" ][a] + '<input class="inp" style="display:block;box-sizing:border-box;width:100%;margin-top:4px" data-observation-field="' + t + '" maxlength="' + (t === "note" ? 2e3 : 200) + '" value="' + e(l[t]) + '"' + (c || l.state === "uncertain" ? " disabled" : "") + "></label>").join("") + '<button class="pill em" data-observation-action="save"' + (c || l.state === "uncertain" ? " disabled" : "") + ">" + (c ? "正在保存" : "保存這台設備觀察") + "</button></div>" : "") + (a.length ? "<details open><summary>現場觀察待確認 " + a.length + "筆</summary>" + a.map(pendingRow).join("") + "</details>" : "") + (u.length ? '<p class="small">已核實讀回 ' + u.length + "筆現場觀察。</p>" : "") + "</section>";
         }
         let T = false, E = "", R = "";
         async function O() {
@@ -275,15 +276,15 @@
         }
         function N(t = false) {
             p();
-            if (!queueRunning && queueTimer === null && b().some(entry => entry.payload.values.autoCapture === true && !entry.payload.values.rejectedLegacy)) scheduleQueue();
+            if (!queueRunning && queueTimer === null && b().some(entry => entry.payload.values.autoCapture === true && !entry.payload.values.rejectedLegacy && entry.payload.values.state !== "blocked")) scheduleQueue();
             let a;
             try {
                 a = s();
             } catch {}
             const r = t ? u.filter(t => t[1] === a?.sessionId) : A(a), n = b();
-            return '<section class="card"><b>' + (t ? "本次場次現場記錄 " : "原座位現場記錄 ") + r.length + '台</b><p class="small">掃碼先記在掃描當下的座位，舊帳核對留待後續。只有伺服器回讀一致才列為已保存。</p><button class="pill sm" data-observation-action="refresh"' + (T ? " disabled" : "") + ">" + (T ? "正在讀取" : "重新讀取現場記錄") + "</button>" + (E ? '<p class="warn">' + e(E) + "</p>" : "") + r.map(t => '<div class="small" style="overflow-wrap:anywhere">已保存 · ' + e(t[5]) + "號 · " + e(t[7] || "沒有QR") + " · " + e(t[14]) + "</div>").join("") + n.filter(t => t.payload.values.labelStatus === "有QR").map(t => {
+            return '<section class="card"><b>' + (t ? "本次場次現場記錄 " : "原座位現場記錄 ") + r.length + '台</b><p class="small">掃碼先記在掃描當下的座位，舊帳核對留待後續。只有伺服器回讀一致才列為已保存。</p><button class="pill sm" data-observation-action="refresh"' + (T ? " disabled" : "") + ">" + (T ? "正在讀取" : "重新讀取現場記錄") + "</button>" + (E ? '<p class="warn">' + e(E) + "</p>" : "") + r.map(t => '<div class="small" style="overflow-wrap:anywhere">已保存 · ' + e(t[5]) + "號 · " + e(t[7] || "沒有QR") + " · " + e(t[14]) + "</div>").join("") + n.filter(t => t.payload.values.labelStatus === "有QR" && (t.payload.values.state !== "blocked"||t.payload.values.precheckUnsent!==true)).map(t => {
                 const a = t.payload.values;
-                return '<p class="warn" style="overflow-wrap:anywhere">' + e(a.scanRaw) + " · 原座位 " + e(a.seatTarget?.seat) + "號 · " + e(a.state === "queued" ? "已留本機，等待自動保存；可繼續掃下一台" : a.state === "draft" ? "本機保留，尚未送出" : a.state === "sending" ? "正在保存，尚未確認" : "保存結果待查，原觀察鍵保留，不重送") + (a.state === "queued" && a.lastError ? " · " + e(a.lastError) : "") + "</p>";
+                return '<p class="warn" style="overflow-wrap:anywhere">' + e(a.scanRaw) + " · 原座位 " + e(a.seatTarget?.seat) + "號 · " + e(a.state === "queued" ? "已留本機，等待自動保存；可繼續掃下一台" : a.state === "draft" ? "本機保留，尚未送出" : a.state === "sending" ? "正在保存，尚未確認" : a.state === "blocked" && a.precheckUnsent === true ? a.lastError : "保存結果待查，原觀察鍵保留，不重送") + (a.state === "queued" && a.lastError ? " · " + e(a.lastError) : "") + "</p>";
             }).join("") + "</section>";
         }
         function j(t) {
@@ -393,6 +394,7 @@
                         if (!latest || latest.state !== "queued" || latest.localAccount !== who) continue;
                         if (ctx.sessionUnsynced?.() || current.sessionUnsynced?.()) { again = true; continue; }
                         value.state = "sending";
+                        delete value.precheckUnsent;
                         if (!persistCapture(who,value)) { d = "本機無法保留，沒有送出；可繼續其他筆。"; continue; }
                         o();
                         const controller = new AbortController();
@@ -408,14 +410,28 @@
                             if (body.duplicate) acceptDuplicate(body.row,value); else y(body.row,value,body.warnings);
                             continue;
                         }
-                        if (response.status === 409 && body.error?.code === "RECORD_BUSY" && body.error?.details?.observationWriteState === "not-started") {
+                        if (((response.status === 409 && body.error?.code === "RECORD_BUSY") || (response.status === 503 && body.error?.code === "OBSERVATION_PRECHECK_UNAVAILABLE")) && body.error?.details?.observationWriteState === "not-started") {
+                            const precheck = body.error.code === "OBSERVATION_PRECHECK_UNAVAILABLE";
+                            if(precheck && (value.precheckAttempts = (value.precheckAttempts || 0) + 1) >= 5){
+                                value.state="blocked";value.precheckUnsent=true;
+                                value.lastError="保存前讀取連續失敗5次，確定未送出；原鍵與位置保留，暫停自動重試。";
+                                persistCapture(who,value);d=value.lastError;continue;
+                            }
                             value.state = "queued";
                             value.queueAttempts = Math.min((value.queueAttempts || 0) + 1, 6);
-                            value.nextAttemptAt = Date.now() + Math.min(30000,1000 * 2 ** (value.queueAttempts - 1));
-                            value.lastError = "本輪保存受前筆佔用影響，可能仍有前筆待查；這筆已留本機但尚未保存，不用重掃，也不要清除或重送。";
+                            value.nextAttemptAt = Date.now() + (precheck?[5000,15000,30000,60000][value.precheckAttempts-1]:Math.min(30000,1000 * 2 ** (value.queueAttempts - 1)));
+                            value.lastError = body.error.code === "OBSERVATION_PRECHECK_UNAVAILABLE" ? "保存前讀取暫時失敗，這筆確定未送出；原觀察與座位保留，稍後自動接續，不用重掃。" : "本輪保存受前筆佔用影響，可能仍有前筆待查；這筆已留本機但尚未保存，不用重掃，也不要清除或重送。";
                             d = value.lastError;
                             persistCapture(who,value);
                             again = true;
+                            continue;
+                        }
+                        if (response.status === 503 && body.error?.code === "OBSERVATION_PRECHECK_BLOCKED" && body.error?.details?.observationWriteState === "not-started") {
+                            value.state = "blocked";
+                            value.precheckUnsent = true;
+                            value.lastError = "確定未送出，請先修復讀取條件；原鍵與位置保留，不自動重試。";
+                            persistCapture(who,value);
+                            d = value.lastError;
                             continue;
                         }
                         if (response.status === 409 && body.error?.code === "JOIN_CURRENT_SHARED_ROUND") {
@@ -459,6 +475,33 @@
             o();
             return value.observationId;
         }
+        const repairInFlight=new Set();
+        async function retryPrecheck(id){
+            const key=n()+":"+id;
+            if(repairInFlight.has(key))return;
+            if(typeof t.navigator?.locks?.request!=="function"){d="此瀏覽器不支援安全接續。原稿未送，請更新目前瀏覽器後在同一裝置重開原頁，勿換瀏覽器、清資料或另建一筆。";o();return}
+            repairInFlight.add(key);
+            try{await t.navigator.locks.request("erp-field-repair:"+key,{mode:"exclusive",ifAvailable:true},async lock=>{if(lock)await retryPrecheckOwned(id);else{d="另一分頁正在接續，請回該頁查看；本頁未重送。";o()}})}finally{repairInFlight.delete(key)}
+        }
+        async function retryPrecheckOwned(id) {
+            p();const who=n(),value=b().find(entry=>entry.entity===id)?.payload.values;
+            if(!value||value.state!=="blocked"||value.precheckUnsent!==true||value.localAccount!==who)return;
+            const matches=()=>{let current;try{current=s()}catch{}return n()===who&&current?.sessionId===value.sessionId&&current.zone===value.zone&&current.seatTarget?.map===value.seatTarget.map&&current.seatTarget?.seat===value.seatTarget.seat};
+            try{
+                if(!matches())throw Error("原帳號、場次或位置未接回，沒有送出。");
+                if((value.precheckResumeAfter||0)>Date.now())throw Error("接續查核請間隔30秒，沒有送出。");
+                value.precheckResumeAfter=Date.now()+30000;
+                if(!persistCapture(who,value))throw Error("無法保留接續時間，沒有送出。");
+                const [sessions,seats]=await Promise.all([a._readFull("盤點場次"),a._readFull("座位圖")]);
+                const active=sessions.rows.filter(row=>row[0]===value.sessionId&&row[10]==="進行中"&&row[13]==="erp-shared-round-v1");
+                const maps=t.ErpSeatCore.reduce(seats.rows).maps;
+                if(active.length!==1||!maps.some(map=>map.id===value.seatTarget.map&&map.site===active[0][1]&&map.zone===value.zone&&map.seats.some(seat=>seat.number===value.seatTarget.seat)))throw Error("原場次已結束或原座位無法核實，沒有送出。");
+                const latest=b().find(entry=>entry.entity===id)?.payload.values;
+                if(!matches()||latest?.state!=="blocked"||latest.precheckUnsent!==true)return;
+                value.state="queued";value.nextAttemptAt=0;value.precheckAttempts=0;
+                if(persistCapture(who,value)){scheduleQueue();o()}
+            }catch(error){if(n()===who){d=error.message+" 原鍵與草稿保留。";o()}}
+        }
         const observationHeader = [ "觀察鍵", "場次鍵", "據點", "區域", "圖版本", "座位編號", "標籤狀態", "掃碼原文", "設備序號", "型號", "備註", "掃描時間", "保存時間", "經手人", "核對狀態" ];
         async function stageObservations() {
             p();
@@ -490,12 +533,13 @@
             locationHtml: j,
             load: O,
             hasPending: () => c || b().length > 0,
-            recent: () => {p();let t;try{t=s()}catch{}return [...A(t).map(r=>({raw:r[7]||'沒有QR',at:r[11],state:'已讀回保存'})),...b().flatMap(({payload:{values:v}})=>v.sessionId===t?.sessionId&&v.seatTarget?.map===t?.seatTarget?.map&&v.seatTarget?.seat===t?.seatTarget?.seat?[{raw:v.scanRaw||'沒有QR',at:v.capturedAt,state:{queued:'本機等待保存',sending:'保存中',uncertain:'結果待查，勿重送',draft:'未送出'}[v.state]||'待查'}]:[])].sort((a,b)=>String(b.at).localeCompare(String(a.at)))[0]},
-            progress: () => {p();let t;try{t=s()}catch{}return "本位已讀回 " + A(t).length + "台 · 本機待確認 " + b().length + "筆（非整場結清）"},
+            needsReadback: () => c || b().some(({payload:{values:v}})=>!["draft","queued"].includes(v.state)&&!(v.state==="blocked"&&v.precheckUnsent===true)),
+            recent: () => {p();let t;try{t=s()}catch{}return [...A(t).map(r=>({raw:r[7]||'沒有QR',at:r[11],state:'已讀回保存'})),...b().flatMap(({payload:{values:v}})=>v.sessionId===t?.sessionId&&v.seatTarget?.map===t?.seatTarget?.map&&v.seatTarget?.seat===t?.seatTarget?.seat?[{raw:v.scanRaw||'沒有QR',at:v.capturedAt,state:v.state==='blocked'&&v.precheckUnsent!==true?'結果待查，勿重送':{queued:'本機等待保存',sending:'保存中',uncertain:'結果待查，勿重送',draft:'未送出',blocked:'確定未送出，需修復讀取'}[v.state]||'待查'}]:[])].sort((a,b)=>String(b.at).localeCompare(String(a.at)))[0]},
+            progress: () => {p();let t;try{t=s()}catch{}const values=b().map(entry=>entry.payload.values),blocked=values.filter(v=>v.state==="blocked"&&v.precheckUnsent===true).length,queued=values.filter(v=>v.state==="queued"||v.state==="draft").length,unknown=values.length-blocked-queued;return "本位已讀回 " + A(t).length + "台 · 本機待確認 " + values.length + "筆（非整場結清）"+(values.length?"；確定未送需處理 "+blocked+"筆、未送等待保存 "+queued+"筆、送出／待查 "+unknown+"筆":"")},
             stageObservations: stageObservations,
             canCommitObservations: canCommitObservations,
             commitObservations: commitObservations,
-            action: (t, e) => t === "refresh" ? O() : t === "new" ? m() : t === "save" ? h() : t === "status" ? w(e) : t === "resume" ? v(e) : t === "migrate" ? migrateRejected(e) : null
+            action: (t, e) => t === "refresh" ? O() : t === "new" ? m() : t === "save" ? h() : t === "status" ? w(e) : t === "resume" ? v(e) : t === "migrate" ? migrateRejected(e) : t === "retry-precheck" ? retryPrecheck(e) : null
         };
     }
     t.ErpFieldObservation = Object.freeze({

@@ -1,0 +1,6 @@
+const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs');
+const code=fs.readFileSync(__dirname+'/../ZG-ERP/erp-app.js','utf8'),start=code.indexOf('((observations?.needsReadback?.()'),end=code.indexOf("?' · 保存中／待查，勿重送':''",start);a.ok(start>=0&&end>start);const expression=code.slice(start+1,end),run=new Function('observations','S','heldReloaded','return '+expression);
+const base={scanBusy:false,scanQueue:[],scanHeld:{}};
+test('new presentation consumer uses needsReadback without changing the protected hasPending contract',()=>{a.equal(!!run({needsReadback:()=>false,hasPending:()=>true},base,()=>[]),false);a.equal(!!run({needsReadback:()=>true,hasPending:()=>true},base,()=>[]),true)});
+test('mixed old/new API remains conservative when needsReadback or both methods are missing',()=>{a.equal(!!run({hasPending:()=>true},base,()=>[]),true);a.equal(!!run({},base,()=>[]),true);a.equal(!!run(undefined,base,()=>[]),true)});
+test('legacy in-flight or unresolved scan custody retains the no-resend summary',()=>{a.equal(!!run({needsReadback:()=>false},{...base,scanBusy:true},()=>[]),true);a.equal(!!run({needsReadback:()=>false},{...base,scanHeld:{old:{}}},()=>[]),true);a.equal(!!run({needsReadback:()=>false},base,()=>[{}]),true)});

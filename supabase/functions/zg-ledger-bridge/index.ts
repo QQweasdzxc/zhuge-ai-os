@@ -145,11 +145,12 @@ function resolveTarget(tab: string): { spreadsheetId: string; readonly: boolean 
   throw new HttpError("Unknown tab.", 400, "TAB_UNKNOWN");
 }
 
-async function sheetsRead(token: string, spreadsheetId: string, tab: string):Promise<{header:unknown[];rows:unknown[][];layout?:{offset:number;seat:string}}> {
+async function sheetsRead(token: string, spreadsheetId: string, tab: string, precheck=false):Promise<{header:unknown[];rows:unknown[][];layout?:{offset:number;seat:string}}> {
   const url = `${GOOGLE_SHEETS_API}/${spreadsheetId}/values/${encodeURIComponent(tab)}!A1:${tab==='資產'?'AA':'Z'}10000?valueRenderOption=UNFORMATTED_VALUE`;
   const res = await fetch(url, { headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(GOOGLE_REQUEST_TIMEOUT_MS) });
+  if(precheck&&!res.ok)throw new HttpError("Sheet read failed.",502,"SHEET_READ_FAILED",{upstreamStatus:res.status});
   const body = await res.json();
-  if (!res.ok) throw new HttpError("Sheet read failed.", 502, "SHEET_READ_FAILED");
+  if(!res.ok)throw new HttpError("Sheet read failed.",502,"SHEET_READ_FAILED");
   const values = (body.values || []) as unknown[][];
   if(tab==='資產'){let layout;try{layout=detectLayout(values[0]||[])}catch{throw new HttpError('資產欄位配置不符，未寫入。',503,'ASSET_LAYOUT_UNKNOWN')}const logical=logicalRows(values,layout);return {header:logical[0]||[],rows:logical.slice(1),layout};}
   return { header: values[0] || [], rows: values.slice(1) };
@@ -233,7 +234,7 @@ async function syncSeatDisplay(token:string, spreadsheetId:string, keys:string[]
 Deno.serve(async (request) => {
   let origin = "";
   let custody:RowCustody|undefined;
-  let beganWrite=false;let observationReservationRejected=false;let retainKeys:string[]=[];
+  let beganWrite=false;let observationRequest=false;let observationReservationRejected=false;let retainKeys:string[]=[];
   let projectionContext:{token:string;spreadsheetId:string;keys:string[]}|undefined;
   const reply=async(body:unknown,status:number,o:string)=>{if(status===200&&beganWrite&&custody&&projectionContext)await syncSeatDisplay(projectionContext.token,projectionContext.spreadsheetId,projectionContext.keys,custody);if(status===200&&beganWrite&&custody&&projectionContext&&Deno.env.get('ZG_ERP_PRIVATE_UPDATES_ENABLED')==='true')await notifyVerifiedSave(asText(Deno.env.get('SUPABASE_URL')),asText(Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')));return json(body,status,o);};
   try {
@@ -301,6 +302,7 @@ Deno.serve(async (request) => {
       if(tab!=='盤點場次'||typeof payload.site!=='string'||!payload.site.trim())throw new HttpError('請選據點。',400,'SHARED_SITE_INVALID');
       keys=[sharedSiteKey(payload.site)];
     }else if(action==='field-observation'){
+      observationRequest=true;
       if(String(payload.localAccount||'').toLowerCase()!==String(user.email||user.id).toLowerCase())throw new HttpError('帳號與原觀察草稿不同，未寫入。',409,'OBSERVATION_ACCOUNT_MISMATCH');
       if(tab!=='現場觀察')throw new HttpError('現場觀察分頁不符。',400,'BAD_REQUEST');
       const id=String(payload.observationId||'');if(!/^[a-f0-9-]{36}$/i.test(id))throw new HttpError('觀察鍵不符。',400,'BAD_REQUEST');
@@ -376,7 +378,13 @@ Deno.serve(async (request) => {
       return await reply({ok:true,row:matches[0],joined:plan.join},200,origin);
     }
     if(action==='field-observation'){
-      const [observations,sessions,seats]=await Promise.all(['現場觀察','盤點場次','座位圖'].map(t=>sheetsRead(token,target.spreadsheetId,t)));
+      const prechecks=await Promise.allSettled(['現場觀察','盤點場次','座位圖'].map(t=>sheetsRead(token,target.spreadsheetId,t,true)));
+      const failures=prechecks.flatMap(result=>result.status==='rejected'?[result.reason]:[]);
+      if(failures.length){
+        const temporary=failures.every(error=>error instanceof HttpError&&error.code==='SHEET_READ_FAILED'&&[408,429,500,502,503,504].includes(Number(error.details.upstreamStatus))||error instanceof DOMException&&error.name==='TimeoutError');
+        throw new HttpError(temporary?'保存前讀取暫時失敗，這筆尚未送出。':'保存前讀取無法完成，這筆尚未送出；請先修復讀取條件。',503,temporary?'OBSERVATION_PRECHECK_UNAVAILABLE':'OBSERVATION_PRECHECK_BLOCKED');
+      }
+      const [observations,sessions,seats]=prechecks.map(result=>result.status==='fulfilled'?result.value:{header:[],rows:[]});
       if(observations.rows.length>=9999||sessions.rows.length>=9999||seats.rows.length>=9999)throw new HttpError('觀察讀取範圍不足，未寫入。',409,'OBSERVATION_LIMIT');
       if(OBSERVATION_HEADER.some((h:string,i:number)=>observations.header[i]!==h))throw new HttpError('現場觀察欄位尚未就緒，未寫入。',503,'SCHEMA_NOT_READY');
       try{sharedSessionRequired(sessions.rows,payload.sessionId)}catch{throw new HttpError('請重新進入目前共用盤點，再掃描。原草稿保留。',409,'JOIN_CURRENT_SHARED_ROUND')}
@@ -597,11 +605,13 @@ Deno.serve(async (request) => {
     }
     throw new HttpError("Unknown action.", 400, "ACTION_UNKNOWN");
   } catch (e) {
-    if(custody&&beganWrite){try{await custody.quarantine()}catch{}}
     const mapped = custodyErrorMapping(e instanceof Error ? e.message : '');
     const err = e instanceof HttpError ? e : new HttpError(mapped.message, mapped.status, mapped.code);
-    // Only a failed atomic reservation with no begin/write can certify an unsent observation.
-    const notStarted=observationReservationRejected&&!beganWrite&&err.code==='RECORD_BUSY';
+    // Only a failed reservation, or a precheck failure after proven zero dispatch and successful closure, is retryable.
+    let precheckClosed=false;
+    if(observationRequest&&custody&&beganWrite&&['OBSERVATION_PRECHECK_UNAVAILABLE','OBSERVATION_PRECHECK_BLOCKED'].includes(err.code)){try{precheckClosed=await custody.finishUnsent();if(precheckClosed)beganWrite=false}catch{}}
+    if(custody&&beganWrite){try{await custody.quarantine()}catch{}}
+    const notStarted=precheckClosed||(observationReservationRejected&&!beganWrite&&err.code==='RECORD_BUSY');
     return json({ error: { code: err.code, message: err.message, details: { ...err.details, ...(notStarted?{observationWriteState:'not-started'}:{}) } } }, err.status, origin);
   } finally {
     if(custody&&beganWrite){try{await custody.finish(retainKeys)}catch{ /* Durable WRITING remains quarantined; never guess unlock. */ }}

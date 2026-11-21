@@ -30,6 +30,7 @@ function isInRoot(candidate) {
 }
 
 function isPublishedPath(relative) {
+  if (relative === "ZG-ERP/README.md") return false;
   if (ROOT_FILES.has(relative)) return true;
   const top = relative.split("/")[0];
   if (!ROUTE_ROOTS.has(top)) return false;
