@@ -108,6 +108,7 @@ jobs:
         run: |
           node --test tests/zg-erp-legacy-workflow.test.js
           node tests/zg-erp-ui-workflow-browser.cjs
+          node tests/zg-erp-ui-module-journeys.cjs
           node tests/zg-erp-ui-scan-navigation.cjs
           node tests/zg-erp-inbound-browser.cjs
           node tests/zg-erp-editor-browser.cjs
@@ -137,6 +138,7 @@ jobs:
           ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-result-visibility.cjs
           CAMERA_HEIGHT=700 ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-scanner-browser.cjs
           ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-ui-scan-navigation.cjs
+          ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-ui-module-journeys.cjs
           node tests/zg-erp-artifact-runtime.cjs "$RUNNER_TEMP/erp-minified"
       - name: Verify read-only daily source and private overview boundaries
         run: |
