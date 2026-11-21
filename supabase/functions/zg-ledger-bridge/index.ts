@@ -317,7 +317,7 @@ Deno.serve(async (request) => {
       return {assets:assets.rows,sessions:sessions.rows,records:records.rows,seats:seats.rows,legacy:[]};
     }
 
-    async function inputContext(){const sessions=await sheetsRead(token,target.spreadsheetId,'盤點場次');const session=sharedSessionRequired(sessions.rows,payload.sessionId);return {map:payload.seatTarget?.map,site:session[1],zone:payload.zone,seat:payload.seatTarget?.seat};}
+    async function inputContext(){const sessions=await sheetsRead(token,target.spreadsheetId,'盤點場次');const matches=sessions.rows.filter(r=>r[0]===payload.sessionId&&r[13]===SHARED_MARKER);if(matches.length!==1)throw new HttpError('請重新進入目前共用盤點，原輸入保留。',409,'JOIN_CURRENT_SHARED_ROUND');return {map:payload.seatTarget?.map,site:matches[0][1],zone:payload.zone,seat:payload.seatTarget?.seat};}
     if(action==='position-input'){
       inputRequest=true;
       if(tab!=='座位圖'||String(payload.localAccount||'').toLowerCase()!==String(user.email||user.id).toLowerCase())throw new HttpError('位置重新輸入帳號不符。',409,'INPUT_ACCOUNT_MISMATCH');
@@ -676,4 +676,4 @@ function json(body: unknown, status: number, origin: string) {
   return new Response(JSON.stringify(body), {
     status, headers: { "content-type": "application/json", ...corsHeaders(origin) }
   });
-        }
+}
