@@ -169,8 +169,10 @@
             try {
                 const t = JSON.parse(JSON.stringify(e.payload.values));
                 if (t.autoCapture === true) {
+                    if (i) i(copy(t));
                     l = null;
-                    d = "這筆掃描已留原位置，由保存佇列接續；結果未知時只查不重送，可以繼續其他設備。";
+                    d = "這筆掃描已接回原場次與位置，由保存佇列接續；結果未知時只查不重送，可以繼續其他設備。";
+                    scheduleQueue();
                     o();
                     return;
                 }
