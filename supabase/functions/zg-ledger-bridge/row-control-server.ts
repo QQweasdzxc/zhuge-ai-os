@@ -3,6 +3,7 @@
  */
 export class RowCustody {
  private client:any;
+ private attemptMayHaveStarted=false;
  readonly actor:string;
  readonly reservation:string;
  readonly operation:string;
@@ -16,9 +17,10 @@ export class RowCustody {
  async renew(){await this.rpc('erp_renew',{p_keys:this.keys,p_owner:this.actor,p_token:this.reservation})}
  async release(){await this.rpc('erp_release',{p_keys:this.keys,p_owner:this.actor,p_token:this.reservation})}
  async begin(){await this.rpc('erp_begin_write',{p_keys:this.keys,p_owner:this.actor,p_token:this.reservation,p_operation:this.operation})}
- async beforeSend(){const id=crypto.randomUUID();await this.rpc('erp_attempt_begin',{p_operation:this.operation,p_attempt:id});return id}
+ async beforeSend(){this.attemptMayHaveStarted=true;const id=crypto.randomUUID();await this.rpc('erp_attempt_begin',{p_operation:this.operation,p_attempt:id});return id}
  async uncertain(id:string){await this.rpc('erp_attempt_result',{p_operation:this.operation,p_attempt:id,p_status:null})}
  async completed(id:string,status:number){await this.rpc('erp_attempt_result',{p_operation:this.operation,p_attempt:id,p_status:status})}
+ async finishUnsent(){if(this.attemptMayHaveStarted)return false;await this.finish();return true}
  async quarantine(){await this.rpc('erp_quarantine',{p_operation:this.operation})}
  async finish(retainKeys:string[]=[]){await this.rpc('erp_finish_write',{p_operation:this.operation,p_retain_keys:retainKeys})}
 }
