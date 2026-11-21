@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - erp-scanner-capture-reviewed-20261121
       - erp-sharedround-controlled-20261121
       - review/p0-home-apps-pages-20261015
       - review/pixel-office-homepage-20261018
