@@ -329,6 +329,7 @@
                 const restored = s();
                 if (n() !== who || restored?.sessionId !== pending[0].sessionId || restored.zone !== pending[0].zone || restored.seatTarget?.map !== pending[0].seatTarget.map || restored.seatTarget?.seat !== pending[0].seatTarget.seat) throw Error("原場次或位置無法一致核對");
                 d = "已自動接回原場次與位置，未送出筆接續保存，結果未知筆只查不重送；可繼續其他設備。";
+                o();
                 return true;
             } catch (error) { d = "無法自動接續：" + error.message + " 原觀察保留，沒有重送。"; return false; }
         }
@@ -375,6 +376,7 @@
                         if (n() === who) {
                             value.nextAttemptAt = Date.now() + 30000;
                             persistCapture(who,value);
+                            o();
                             again = true;
                         }
                         continue;
@@ -488,6 +490,8 @@
             locationHtml: j,
             load: O,
             hasPending: () => c || b().length > 0,
+            recent: () => {p();let t;try{t=s()}catch{}return [...A(t).map(r=>({raw:r[7]||'沒有QR',at:r[11],state:'已讀回保存'})),...b().flatMap(({payload:{values:v}})=>v.sessionId===t?.sessionId&&v.seatTarget?.map===t?.seatTarget?.map&&v.seatTarget?.seat===t?.seatTarget?.seat?[{raw:v.scanRaw||'沒有QR',at:v.capturedAt,state:{queued:'本機等待保存',sending:'保存中',uncertain:'結果待查，勿重送',draft:'未送出'}[v.state]||'待查'}]:[])].sort((a,b)=>String(b.at).localeCompare(String(a.at)))[0]},
+            progress: () => {p();let t;try{t=s()}catch{}return "本位已讀回 " + A(t).length + "台 · 本機待確認 " + b().length + "筆（非整場結清）"},
             stageObservations: stageObservations,
             canCommitObservations: canCommitObservations,
             commitObservations: commitObservations,
