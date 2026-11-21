@@ -111,6 +111,9 @@ jobs:
           node tests/zg-erp-scanner-browser.cjs
           node tests/zg-erp-singlemap-navigation.cjs
           node tests/zg-erp-reload-browser.cjs
+          node --test tests/zg-erp-readonly-recovery.test.cjs
+          node tests/zg-erp-dashboard-entry.cjs
+          node tests/zg-erp-manual-recovery-browser.cjs
           CAMERA_HEIGHT=700 node tests/zg-erp-scanner-browser.cjs
           mkdir -p "$RUNNER_TEMP/erp-minified/ZG-ERP"
           cp ZG-ERP/*.js "$RUNNER_TEMP/erp-minified/ZG-ERP/"
@@ -120,6 +123,9 @@ jobs:
           ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-scanner-browser.cjs
           ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-singlemap-navigation.cjs
           ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-reload-browser.cjs
+          MODULE_PATH="$RUNNER_TEMP/erp-minified/ZG-ERP/erp-field-observation.js" node --test tests/zg-erp-readonly-recovery.test.cjs
+          ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-dashboard-entry.cjs
+          ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-manual-recovery-browser.cjs
           CAMERA_HEIGHT=700 ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-scanner-browser.cjs
           node tests/zg-erp-artifact-runtime.cjs "$RUNNER_TEMP/erp-minified"
       - name: Verify read-only daily source and private overview boundaries

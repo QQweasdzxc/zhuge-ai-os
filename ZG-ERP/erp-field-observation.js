@@ -132,7 +132,7 @@
             p();
             if (c) return;
             const e = b().find(e => e.entity === t);
-            if (!e) return;
+            if (!e || e.payload.values.autoCapture && e.payload.values.localAccount !== n()) return;
             const s = n();
             c = true;
             o();
