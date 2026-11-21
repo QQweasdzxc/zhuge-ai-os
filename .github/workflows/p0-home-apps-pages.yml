@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - erp-scanner-capture-reviewed-20261121
       - erp-sharedround-controlled-20261121
       - review/p0-home-apps-pages-20261015
       - review/pixel-office-homepage-20261018
@@ -93,7 +94,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
       - name: Install pinned browser-test dependencies
         run: npm ci --ignore-scripts
@@ -107,11 +108,19 @@ jobs:
         run: |
           node tests/zg-erp-inbound-browser.cjs
           node tests/zg-erp-editor-browser.cjs
+          node tests/zg-erp-scanner-browser.cjs
+          node tests/zg-erp-singlemap-navigation.cjs
+          node tests/zg-erp-reload-browser.cjs
+          CAMERA_HEIGHT=700 node tests/zg-erp-scanner-browser.cjs
           mkdir -p "$RUNNER_TEMP/erp-minified/ZG-ERP"
-          cp ZG-ERP/erp-app.js ZG-ERP/erp-sheets-adapter.js "$RUNNER_TEMP/erp-minified/ZG-ERP/"
+          cp ZG-ERP/*.js "$RUNNER_TEMP/erp-minified/ZG-ERP/"
           node tools/build-erp-artifacts.cjs "$RUNNER_TEMP/erp-minified"
           ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-inbound-browser.cjs
           ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-editor-browser.cjs
+          ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-scanner-browser.cjs
+          ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-singlemap-navigation.cjs
+          ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-reload-browser.cjs
+          CAMERA_HEIGHT=700 ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-scanner-browser.cjs
           node tests/zg-erp-artifact-runtime.cjs "$RUNNER_TEMP/erp-minified"
       - name: Verify read-only daily source and private overview boundaries
         run: |
