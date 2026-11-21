@@ -106,6 +106,7 @@ jobs:
         env:
           CHROME_PATH: ${{ env.BROWSER_EXECUTABLE }}
         run: |
+          node --test tests/zg-erp-legacy-workflow.test.js
           node tests/zg-erp-ui-workflow-browser.cjs
           node tests/zg-erp-ui-scan-navigation.cjs
           node tests/zg-erp-inbound-browser.cjs
