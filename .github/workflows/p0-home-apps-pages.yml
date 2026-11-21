@@ -44,7 +44,7 @@ jobs:
           node-version: 24
       - name: Verify protocol, static staging, round rejection and real bundled client lifecycle
         run: |
-          node --test tests/erp-cutover/*.test.cjs tests/zg-erp-inbound-account.test.cjs tests/zg-erp-inbound-result-check.test.cjs tests/zg-erp-inbound-custody.test.cjs tests/zg-erp-inbound-bridge-format.test.cjs
+          node --test tests/erp-cutover/*.test.cjs tests/zg-erp-inbound-account.test.cjs tests/zg-erp-inbound-result-check.test.cjs tests/zg-erp-inbound-custody.test.cjs tests/zg-erp-inbound-bridge-format.test.cjs tests/zg-erp-inbound-preflight.test.cjs tests/zg-erp-inbound-limits.test.cjs
           node tests/zg-erp-intake.cjs
 
   backend-image:
