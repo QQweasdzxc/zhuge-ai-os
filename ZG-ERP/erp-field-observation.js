@@ -315,10 +315,28 @@
             }
             return false;
         }
+        function restoreAutomaticContext(who) {
+            let current;
+            try { current = s(); } catch {}
+            if (current?.sessionId) return true;
+            const pending = b().map(entry => entry.payload.values).filter(value => value.autoCapture === true && ["queued","sending","uncertain"].includes(value.state) && !value.rejectedLegacy);
+            if (!pending.length) return true;
+            if (pending.some(value => value.localAccount !== who)) { d = "原觀察帳號不符，已保留原內容，沒有自動送出或切換位置。"; return false; }
+            const contexts = new Set(pending.map(value => JSON.stringify([value.sessionId,value.zone,value.seatTarget?.map,value.seatTarget?.seat])));
+            if (contexts.size !== 1 || typeof i !== "function") { d = "原觀察有多個場次或位置，無法唯一確認自動接續；原內容保留，不重掃、不清除、不盲目重送。"; return false; }
+            try {
+                i(copy(pending[0]));
+                const restored = s();
+                if (n() !== who || restored?.sessionId !== pending[0].sessionId || restored.zone !== pending[0].zone || restored.seatTarget?.map !== pending[0].seatTarget.map || restored.seatTarget?.seat !== pending[0].seatTarget.seat) throw Error("原場次或位置無法一致核對");
+                d = "已自動接回原場次與位置，未送出筆接續保存，結果未知筆只查不重送；可繼續其他設備。";
+                return true;
+            } catch (error) { d = "無法自動接續：" + error.message + " 原觀察保留，沒有重送。"; return false; }
+        }
         async function drainQueue() {
             if (queueRunning) return;
             const who = n();
             if (!who) return;
+            if (!restoreAutomaticContext(who)) { o(); return; }
             if (typeof t.navigator?.locks?.request !== "function") {
                 d = "這個瀏覽器無法安全協調保存，掃描已留本機但沒有送出；仍可繼續記錄。";
                 o();
@@ -346,7 +364,7 @@
                     if (value.localAccount !== who || value.rejectedLegacy || value.state === "blocked") continue;
                     let ctx;
                     try { ctx = s(); } catch {}
-                    if (!ctx?.sessionId || ctx.sessionId !== value.sessionId) { again = true; continue; }
+                    if (!ctx?.sessionId || ctx.sessionId !== value.sessionId) { d = "目前場次與原觀察不同，沒有切換或跨場次送出；原內容保留，結果未知筆不重送。"; again = true; continue; }
                     if ((value.nextAttemptAt || 0) > Date.now()) { again = true; continue; }
                     // A reload of a POST in flight is unknown, never a fresh send.
                     if (value.state === "sending" || value.state === "uncertain") {
