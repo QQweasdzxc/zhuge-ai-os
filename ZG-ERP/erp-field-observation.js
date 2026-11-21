@@ -281,7 +281,7 @@
             const r = t ? u.filter(t => t[1] === a?.sessionId) : A(a), n = b();
             return '<section class="card"><b>' + (t ? "本次場次現場記錄 " : "原座位現場記錄 ") + r.length + '台</b><p class="small">掃碼先記在掃描當下的座位，舊帳核對留待後續。只有伺服器回讀一致才列為已保存。</p><button class="pill sm" data-observation-action="refresh"' + (T ? " disabled" : "") + ">" + (T ? "正在讀取" : "重新讀取現場記錄") + "</button>" + (E ? '<p class="warn">' + e(E) + "</p>" : "") + r.map(t => '<div class="small" style="overflow-wrap:anywhere">已保存 · ' + e(t[5]) + "號 · " + e(t[7] || "沒有QR") + " · " + e(t[14]) + "</div>").join("") + n.filter(t => t.payload.values.labelStatus === "有QR").map(t => {
                 const a = t.payload.values;
-                return '<p class="warn" style="overflow-wrap:anywhere">' + e(a.scanRaw) + " · 原座位 " + e(a.seatTarget?.seat) + "號 · " + e(a.state === "queued" ? "已留本機，等待自動保存；可繼續掃下一台" : a.state === "draft" ? "本機保留，尚未送出" : a.state === "sending" ? "正在保存，尚未確認" : "保存結果待查，原觀察鍵保留，不重送") + "</p>";
+                return '<p class="warn" style="overflow-wrap:anywhere">' + e(a.scanRaw) + " · 原座位 " + e(a.seatTarget?.seat) + "號 · " + e(a.state === "queued" ? "已留本機，等待自動保存；可繼續掃下一台" : a.state === "draft" ? "本機保留，尚未送出" : a.state === "sending" ? "正在保存，尚未確認" : "保存結果待查，原觀察鍵保留，不重送") + (a.state === "queued" && a.lastError ? " · " + e(a.lastError) : "") + "</p>";
             }).join("") + "</section>";
         }
         function j(t) {
@@ -390,7 +390,8 @@
                             value.state = "queued";
                             value.queueAttempts = Math.min((value.queueAttempts || 0) + 1, 6);
                             value.nextAttemptAt = Date.now() + Math.min(30000,1000 * 2 ** (value.queueAttempts - 1));
-                            value.lastError = "另一筆保存中，這筆已留本機，稍後自動接續";
+                            value.lastError = "本輪保存受前筆佔用影響，可能仍有前筆待查；這筆已留本機但尚未保存，不用重掃，也不要清除或重送。";
+                            d = value.lastError;
                             persistCapture(who,value);
                             again = true;
                             continue;
