@@ -223,8 +223,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const source = fs.readFileSync(require('node:path').join(__dirname, '../ZG-ERP/erp-app.js'), 'utf8');
-function pager() {
-  const ctx = { S: {}, esc: (v) => String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;') };
+function pager(width=1440) {
+  const ctx = {window:{innerWidth:width}, S: {}, esc: (v) => String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;') };
   vm.createContext(ctx);
   vm.runInContext(source.slice(source.indexOf('  const LEGACY_PAGE = 100;'), source.indexOf('  function legacyLine(')) + '\nthis.page = capList;', ctx);
   return ctx;
@@ -268,3 +268,5 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 test('ERP loaded runtime build matches its published version file',()=>{const root=path.resolve(__dirname,'..','ZG-ERP');const app=fs.readFileSync(path.join(root,'erp-app.js'),'utf8');const version=JSON.parse(fs.readFileSync(path.join(root,'version.json'),'utf8'));const match=app.match(/const LOADED_BUILD\s*=\s*\{\s*id:\s*"([^"]+)"\s*\}/);assert.ok(match,'loaded runtime build literal exists');assert.equal(match[1],version.build);});
 
 }
+
+{const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');test('phone 20-row paging retains complete 5400 rows and final range',()=>{const source=fs.readFileSync(path.join(__dirname,'../ZG-ERP/erp-app.js'),'utf8');const ctx={window:{innerWidth:390},S:{},esc:String};vm.createContext(ctx);vm.runInContext(source.slice(source.indexOf('  const LEGACY_PAGE = 100;'),source.indexOf('  function noteStatusLine'))+';this.page=capList;',ctx);const list=Array.from({length:5400},(_,i)=>i),seen=new Set();let html;for(let page=0;page<270;page++){ctx.S.legPages={p:page};html=ctx.page('p',list,x=>{seen.add(x);return '<row>'+x+'</row>'});assert.equal((html.match(/<row>/g)||[]).length,20);}assert.equal(seen.size,5400);assert.match(html,/5381–5400 筆/);});}
