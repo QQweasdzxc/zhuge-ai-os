@@ -43,6 +43,8 @@
             try {
                 const t = s();
                 if (!t?.sessionId || !t.seatTarget) throw Error("請先開始場次並選座位。");
+                if(t.seatTarget.inventoryClosed)throw Error("此座位已定案，請先明確開新一輪，沒有送出。");
+                if(t.seatTarget.inventoryRequired)throw Error("請先開始此座位盤點或接續既有未定案紀錄。");
                 l = {
                     observationId: crypto.randomUUID(),
                     inputEpoch:t.seatTarget.inputEpoch||"",
@@ -124,7 +126,7 @@
             d = "已保存原座位的現場觀察，待核實，不算舊帳已盤。" + (a?.length ? " " + a.join(" ") : "");
         }
         function acceptDuplicate(row, input) {
-            if ((row?.[15]||'')!==(input.inputEpoch||'') || !Array.isArray(row) || row.length < 15 || !row[0] || row[1] !== input.sessionId || row[6] !== "有QR" || row[7] !== input.scanRaw || !Number.isFinite(Date.parse(row[12])) || !row[13] || row[14] !== "待核實") throw Error("重複觀察回讀不符，保留原草稿");
+            if ((row?.[15]||'')!==(input.inputEpoch||'') || !Array.isArray(row) || row.length < 15 || !row[0] || (row[1] !== input.sessionId && !(input.inputEpoch&&a.seatRows?.some(r=>r[0]===input.inputEpoch&&r[1]==='inventory-open'))) || row[6] !== "有QR" || row[7] !== input.scanRaw || !Number.isFinite(Date.parse(row[12])) || !row[13] || row[14] !== "待核實") throw Error("重複觀察回讀不符，保留原草稿");
             r.discard(n(), "field-observation", input.observationId);
             u = u.filter(x => x[0] !== row[0]);
             u.unshift(row);
@@ -235,6 +237,22 @@
                 o();
             }
         }
+        function canContinueDraft(v){let ctx;try{ctx=s()}catch{}return !!(v.inputEpoch&&ctx?.seatTarget?.inputEpoch===v.inputEpoch&&ctx.sessionId&&ctx.sessionId!==v.sessionId&&ctx.zone===v.zone&&ctx.seatTarget.map===v.seatTarget?.map&&ctx.seatTarget.seat===v.seatTarget?.seat&&(["queued","draft"].includes(v.state)||v.state==="blocked"&&v.precheckUnsent===true));}
+        async function continueDraft(id){
+            p();if(c)return;const old=b().find(x=>x.entity===id)?.payload.values;if(!old||!canContinueDraft(old))return;
+            c=true;const who=n();o();try{
+                const sessions=await a._readFull("盤點場次"),before=s(),original=sessions.rows.filter(x=>x[0]===old.sessionId),active=sessions.rows.filter(x=>x[0]===before.sessionId);
+                if(original.length!==1||original[0][10]!=="已結束"||active.length!==1||active[0][10]!=="進行中"||active[0][13]!=="erp-shared-round-v1"||original[0][1]!==active[0][1])throw Error("原共同盤點尚未確認結束，原草稿保留，不跨輪送出。");
+                const response=await a._fetchAuth(a._url("observation-status","現場觀察")+"&observationId="+encodeURIComponent(id)+"&inputEpoch="+encodeURIComponent(old.inputEpoch)+"&sessionId="+encodeURIComponent(old.sessionId),{method:"GET",headers:a._authHeaders()}),body=await response.json();
+                if(n()!==who||!canContinueDraft(old)||s().sessionId!==before.sessionId)throw Error("帳號或位置已切換，保留原稿。");
+                if(!response.ok||body.ok!==true||body.found!==false)throw Error("原觀察可能已保存，請先查保存結果，未接續草稿。");
+                const latest=b().find(x=>x.entity===id)?.payload.values;
+                if(!latest||JSON.stringify(latest)!==JSON.stringify(old))throw Error("原草稿已在其他頁面變更，保留最新內容，不覆寫。");
+                const next={...copy(old),originalSessionId:old.originalSessionId||old.sessionId,sessionId:before.sessionId,state:"draft",autoCapture:false,rejectedLegacy:false};
+                if(!r.put(who,"field-observation",id,{values:next,base:{}}).saved)throw Error("本機保存失敗，原稿保留。");
+                l=next;d="已將確定未送出的原稿接到目前共同盤點，原位置與觀察鍵不變；尚未送出，請核對後保存。";
+            }catch(error){if(n()===who)d=error.message}finally{c=false;o()}
+        }
         function I(t, e) {
             p();
             if (!l || c || l.autoCapture === true || l.state === "uncertain" || ![ "serial", "model", "note" ].includes(t)) return;
@@ -244,7 +262,7 @@
         function pendingRow(entry){
             const v=entry.payload.values,blocked=v.state==="blocked"&&v.precheckUnsent===true;
             const label=v.state==="blocked"&&!blocked?"結果待查，勿重送":{queued:"已留本機，等待自動保存",draft:"未送出草稿",blocked:"確定未送出，需處理",sending:"送出中，待查",uncertain:"結果待查，勿重送"}[v.state]||"待查，勿重送";
-            return '<div class="small" style="margin:10px 0"><p style="margin:0 0 6px;overflow-wrap:anywhere">座位 '+e(v.seatTarget?.seat)+' · '+e(v.scanRaw||"沒有QR")+' · 場次 '+e(v.sessionId)+' · '+e(blocked?v.lastError||label:label)+'</p><div style="display:flex;flex-wrap:wrap;gap:6px">'+(!blocked?'<button class="pill sm" data-observation-action="status" data-observation-id="'+e(entry.entity)+'"'+(c?' disabled':'')+'>查保存結果</button>':'')+'<button class="pill sm" data-observation-action="resume" data-observation-id="'+e(entry.entity)+'"'+(c?' disabled':'')+'>開啟原草稿</button>'+(blocked&&v.precheckUnsent?'<button class="pill sm" data-observation-action="retry-precheck" data-observation-id="'+e(entry.entity)+'">修復讀取後接續這筆</button>':'')+(v.rejectedLegacy===true&&v.state==="draft"?'<button class="pill sm" data-observation-action="migrate" data-observation-id="'+e(entry.entity)+'">以原位置接到目前共同盤點（不送出）</button>':'')+'</div></div>';
+            return '<div class="small" style="margin:10px 0"><p style="margin:0 0 6px;overflow-wrap:anywhere">座位 '+e(v.seatTarget?.seat)+' · '+e(v.scanRaw||"沒有QR")+' · 場次 '+e(v.sessionId)+' · '+e(blocked?v.lastError||label:label)+'</p><div style="display:flex;flex-wrap:wrap;gap:6px">'+(!blocked?'<button class="pill sm" data-observation-action="status" data-observation-id="'+e(entry.entity)+'"'+(c?' disabled':'')+'>查保存結果</button>':'')+'<button class="pill sm" data-observation-action="resume" data-observation-id="'+e(entry.entity)+'"'+(c?' disabled':'')+'>開啟原草稿</button>'+(blocked&&v.precheckUnsent?'<button class="pill sm" data-observation-action="retry-precheck" data-observation-id="'+e(entry.entity)+'">修復讀取後接續這筆</button>':'')+(canContinueDraft(v)?'<button class="pill sm" data-observation-action="continue-round" data-observation-id="'+e(entry.entity)+'">接續原未送草稿到目前共同盤點（不送出）</button>':'')+(v.rejectedLegacy===true&&v.state==="draft"?'<button class="pill sm" data-observation-action="migrate" data-observation-id="'+e(entry.entity)+'">以原位置接到目前共同盤點（不送出）</button>':'')+'</div></div>';
         }
         function S(t = false) {
             p();
@@ -276,7 +294,7 @@
             }
         }
         function A(t) {
-            return visibleRows().filter(e => e[1] === t?.sessionId && e[4] === t?.seatTarget?.map && Number(e[5]) === t?.seatTarget?.seat);
+            return visibleRows().filter(e => (t?.seatTarget?.inputEpoch ? e[15] === t.seatTarget.inputEpoch : e[1] === t?.sessionId) && e[4] === t?.seatTarget?.map && Number(e[5]) === t?.seatTarget?.seat);
         }
         function N(t = false) {
             p();
@@ -460,15 +478,17 @@
                 if (again || b().some(entry => entry.payload.values.autoCapture === true && ["queued","sending","uncertain"].includes(entry.payload.values.state))) scheduleQueue(1000);
             }
         }
-        function duplicateAt(raw,override){let ctx;try{ctx=s()}catch{}const sessionId=override?.sessionId||ctx?.sessionId,target=override?.seatTarget||ctx?.seatTarget,epoch=target?.inputEpoch||'';return b().some(({payload:{values:v}})=>v.sessionId===sessionId&&v.seatTarget?.map===target?.map&&v.seatTarget?.seat===target?.seat&&(v.inputEpoch||'')===epoch&&v.labelStatus==='有QR'&&v.scanRaw===raw)||visibleRows().some(row=>row[1]===sessionId&&row[4]===target?.map&&Number(row[5])===target?.seat&&(row[15]||'')===epoch&&row[6]==='有QR'&&row[7]===raw);}
+        function duplicateAt(raw,override){let ctx;try{ctx=s()}catch{}const sessionId=override?.sessionId||ctx?.sessionId,target=override?.seatTarget||ctx?.seatTarget,epoch=target?.inputEpoch||'';return b().some(({payload:{values:v}})=>v.sessionId===sessionId&&v.seatTarget?.map===target?.map&&v.seatTarget?.seat===target?.seat&&(v.inputEpoch||'')===epoch&&v.labelStatus==='有QR'&&v.scanRaw===raw)||visibleRows().some(row=>(epoch?row[15]===epoch:row[1]===sessionId)&&row[4]===target?.map&&Number(row[5])===target?.seat&&(row[15]||'')===epoch&&row[6]==='有QR'&&row[7]===raw);}
         function _(raw, override) {
             p();
             const ctx = s(), who = n();
             const sessionId = override?.sessionId || ctx.sessionId;
             const target = override?.seatTarget || ctx.seatTarget;
             if (!sessionId || !target?.map || !Number.isInteger(target.seat)) throw Error("請先選擇原場次與已保存座位，沒有送出。");
+            if(ctx.seatTarget?.inventoryClosed||target.inventoryClosed)throw Error("此座位已定案，請先明確開新一輪，沒有送出。");
+            if(ctx.seatTarget?.inventoryRequired||target.inventoryRequired)throw Error("請先開始此座位盤點或接續既有未定案紀錄，沒有送出。");
             if (!who) throw Error("登入身份尚未確認，未送出。");
-            const saved=visibleRows().find(row=>row[1]===sessionId&&row[4]===target.map&&Number(row[5])===target.seat&&(row[15]||'')===(target.inputEpoch||'')&&row[6]==='有QR'&&row[7]===String(raw));if(saved){d='這台已掃過，不重複新增。保存狀態另外顯示。';o();return saved[0];}
+            const saved=visibleRows().find(row=>(target.inputEpoch?row[15]===target.inputEpoch:row[1]===sessionId)&&row[4]===target.map&&Number(row[5])===target.seat&&(row[15]||'')===(target.inputEpoch||'')&&row[6]==='有QR'&&row[7]===String(raw));if(saved){d='這台已掃過，不重複新增。保存狀態另外顯示。';o();return saved[0];}
             const value = {observationId:crypto.randomUUID(),inputEpoch:target.inputEpoch||"",sessionId,zone:override?.zone || ctx.zone,seatTarget:copy(target),labelStatus:"有QR",scanRaw:String(raw),serial:"",model:"",note:"",capturedAt:new Date().toISOString(),state:"queued",localAccount:who,autoCapture:true};
             const prior = b().find(entry => {const v=entry.payload.values;return v.labelStatus === "有QR" && (v.inputEpoch||'')===(value.inputEpoch||'') && v.seatTarget?.map===target.map && v.seatTarget?.seat===target.seat && v.sessionId === sessionId && v.scanRaw === value.scanRaw;});
             if (prior) {
@@ -532,6 +552,7 @@
             E = "";
         }
         return {
+            savedStamp:target=>visibleRows().filter(r=>r[4]===target.map&&Number(r[5])===Number(target.seat)).map(r=>r[0]).sort().join('|'),
             positionReset:()=>{l=null;d="";},
             html: S,
             field: I,
@@ -547,7 +568,7 @@
             stageObservations: stageObservations,
             canCommitObservations: canCommitObservations,
             commitObservations: commitObservations,
-            action: (t, e) => t === "refresh" ? O() : t === "new" ? m() : t === "save" ? h() : t === "status" ? w(e) : t === "resume" ? v(e) : t === "migrate" ? migrateRejected(e) : t === "retry-precheck" ? retryPrecheck(e) : null
+            action: (t, e) => t === "refresh" ? O() : t === "new" ? m() : t === "save" ? h() : t === "status" ? w(e) : t === "resume" ? v(e) : t === "continue-round" ? continueDraft(e) : t === "migrate" ? migrateRejected(e) : t === "retry-precheck" ? retryPrecheck(e) : null
         };
     }
     t.ErpFieldObservation = Object.freeze({
