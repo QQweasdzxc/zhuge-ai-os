@@ -111,9 +111,11 @@ jobs:
           node tests/zg-erp-ui-workflow-browser.cjs
           node tests/zg-erp-ui-module-journeys.cjs
           node tests/zg-erp-ui-scan-navigation.cjs
-          node --test tests/erp-reinput/reinput-core.test.mjs tests/erp-reinput/reinput-endpoint.test.cjs
+          node --test tests/erp-reinput/reinput-core.test.mjs tests/erp-reinput/reinput-endpoint.test.cjs tests/erp-inventory/core.test.mjs tests/erp-inventory/endpoint.test.cjs tests/erp-inventory/continuation.test.cjs
           node tests/erp-reinput/reinput-multitab.test.cjs
           node tests/erp-reinput/reinput-browser.cjs
+          node tests/erp-inventory/multitab.cjs
+          node tests/erp-inventory/browser.cjs
           node tests/zg-erp-inbound-browser.cjs
           node tests/zg-erp-editor-browser.cjs
           node tests/zg-erp-scanner-browser.cjs
@@ -136,14 +138,14 @@ jobs:
           ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-scanner-browser.cjs
           ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-singlemap-navigation.cjs
           ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-reload-browser.cjs
-          MODULE_PATH="$RUNNER_TEMP/erp-minified/ZG-ERP/erp-field-observation.js" node --test tests/zg-erp-readonly-recovery.test.cjs
+          MODULE_PATH="$RUNNER_TEMP/erp-minified/ZG-ERP/erp-field-observation.js" node --test tests/zg-erp-readonly-recovery.test.cjs tests/erp-inventory/continuation.test.cjs
           ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-dashboard-entry.cjs
           ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-manual-recovery-browser.cjs
           ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-camera-journey.cjs
           CAMERA_WIDTH=390 CAMERA_HEIGHT=700 C2_REOPEN=1 ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-continuous-reopen.cjs
           ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-result-visibility.cjs
           CAMERA_HEIGHT=700 ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-scanner-browser.cjs
-          ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/erp-reinput/reinput-browser.cjs
+          ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/erp-inventory/browser.cjs
           ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-ui-scan-navigation.cjs
           ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-ui-status-navigation.cjs
           ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-ui-module-journeys.cjs
