@@ -366,6 +366,10 @@ jobs:
         run: |
           python3 tools/build-investment-island-entry.py "$RUNNER_TEMP/pages-site/learning"
           node --test tests/investment/island-entry.test.cjs
+      - name: Apply bounded Map and cross-word mobile presentation delta
+        run: |
+          python3 tests/learning-map-mobile-flow.test.py
+          python3 tools/apply-learning-map-mobile-flow.py "$RUNNER_TEMP/pages-site/learning"
       - name: Validate P0 routes and excluded source payload
         run: node tests/pages-publish-artifact.test.js "$RUNNER_TEMP/pages-site"
       - name: Upload candidate artifact without deploying
