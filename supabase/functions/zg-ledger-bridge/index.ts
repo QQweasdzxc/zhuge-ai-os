@@ -239,7 +239,17 @@ Deno.serve(async (request) => {
   let custody:RowCustody|undefined;
   let beganWrite=false;let inputRequest=false;let inputReservationRejected=false;let observationRequest=false;let observationReservationRejected=false;let retainKeys:string[]=[];
   let projectionContext:{token:string;spreadsheetId:string;keys:string[]}|undefined;
-  const reply=async(body:unknown,status:number,o:string)=>{if(status===200&&beganWrite&&custody&&projectionContext)await syncSeatDisplay(projectionContext.token,projectionContext.spreadsheetId,projectionContext.keys,custody);if(status===200&&beganWrite&&custody&&projectionContext&&Deno.env.get('ZG_ERP_PRIVATE_UPDATES_ENABLED')==='true')await notifyVerifiedSave(asText(Deno.env.get('SUPABASE_URL')),asText(Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')));return json(body,status,o);};
+  const reply=async(body:unknown,status:number,o:string)=>{
+    if(status===200&&beganWrite&&custody&&projectionContext)await syncSeatDisplay(projectionContext.token,projectionContext.spreadsheetId,projectionContext.keys,custody);
+    if(status===200&&beganWrite&&custody&&projectionContext&&Deno.env.get('ZG_ERP_PRIVATE_UPDATES_ENABLED')==='true'){
+      const notified=await notifyVerifiedSave(asText(Deno.env.get('SUPABASE_URL')),asText(Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')),fetch,observationRequest?body:undefined);
+      if(!notified&&observationRequest&&body&&typeof body==='object'){
+        const result=body as {ok?:unknown;warnings?:unknown};
+        if(result.ok===true)body={...result,warnings:[...(Array.isArray(result.warnings)?result.warnings:[]),'已保存，但即時通知尚未確認；請核對桌機接收狀態。']};
+      }
+    }
+    return json(body,status,o);
+  };
   try {
     origin = allowedOrigin(request);
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(origin) });
@@ -735,4 +745,4 @@ function json(body: unknown, status: number, origin: string) {
   return new Response(JSON.stringify(body), {
     status, headers: { "content-type": "application/json", ...corsHeaders(origin) }
   });
-}
+                                   }
