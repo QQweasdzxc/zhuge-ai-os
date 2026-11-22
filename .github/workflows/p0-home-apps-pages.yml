@@ -145,6 +145,7 @@ jobs:
           CAMERA_WIDTH=390 CAMERA_HEIGHT=700 C2_REOPEN=1 ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-continuous-reopen.cjs
           ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-result-visibility.cjs
           CAMERA_HEIGHT=700 ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-scanner-browser.cjs
+          ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/erp-inventory/multitab.cjs
           ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/erp-inventory/browser.cjs
           ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-ui-scan-navigation.cjs
           ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-ui-status-navigation.cjs
