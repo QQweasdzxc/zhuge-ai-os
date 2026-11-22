@@ -1,4 +1,6 @@
-import { planInput, assertInputEpoch, inputLockKeys, reduceInputs, inputObservationRow, projectInputObservations } from './reinput-core.mjs';
+import { planInput, assertInputEpoch as assertLegacyInputEpoch, inputLockKeys, reduceInputs, inputObservationRow, projectInputObservations } from './reinput-core.mjs';
+import {planInventory,inventoryView,reduceInventory,inventoryManaged,inventoryLocks,inventoryObservationRows,projectInventoryObservations} from './inventory-core.mjs';
+function assertInputEpoch(rows:any[],c:any,epoch:any){if(inventoryManaged(rows,c))throw Error('INVENTORY_MANAGED_POSITION');return assertLegacyInputEpoch(rows,c,epoch)}
 import { notifyVerifiedSave } from './server-notification.ts';
 import {sharedRoundPlan,sharedSiteKey,SHARED_HEADER,SHARED_MARKER,sharedSessionRequired,roundKey,closeRoundPlan} from './shared-round.mjs';
 import { observationPlan, observationLockKeys, OBSERVATION_HEADER } from './observation-core.mjs';
@@ -260,6 +262,40 @@ Deno.serve(async (request) => {
     const tab = url.searchParams.get("tab") ?? ""; // 頁名精確比對：不可 trim（"10F機房 "尾空白是實際頁名）
     const target = resolveTarget(tab);
 
+    async function inventoryDatabase(){
+      const [seats,sessions,observations]=await Promise.all(['座位圖','盤點場次','現場觀察'].map(t=>sheetsRead(token,target.spreadsheetId,t,true)));
+      if([seats,sessions,observations].some(r=>r.rows.length>=9999)||seats.header.join('|')!==['事件鍵','類型','圖版本','據點','區域','座位編號','資產編號','內容JSON','時間','經手人'].join('|')||sessions.header[13]!==SHARED_HEADER||OBSERVATION_HEADER.some((h:string,i:number)=>observations.header[i]!==h))throw new HttpError('座位盤點完整讀取未就緒，未變更。',503,'INVENTORY_SCHEMA');
+      return {seats:seats.rows,sessions:sessions.rows,observations:observations.rows,maps:seatMaps.reduce(seats.rows)};
+    }
+    function inventoryContext(params:any){return {map:String(params.map||''),site:String(params.site||''),zone:String(params.zone||''),seat:Number(params.seat)}}
+    if(action==='inventory-asset'){
+      if(tab!=='座位圖')throw new HttpError('分頁不符。',400,'BAD_REQUEST');
+      const code=String(url.searchParams.get('code')||'').trim();if(!code||code.length>200)throw new HttpError('完整設備編號不符。',400,'BAD_REQUEST');
+      const db=await inventoryDatabase(),places=new Map();for(const row of db.seats)if(row[1]==='inventory-open'){const c={map:row[2],site:row[3],zone:row[4],seat:Number(row[5])};places.set(JSON.stringify(c),c)}
+      const history:any[]=[],issues:any[]=[];
+      for(const c of places.values()){const view=inventoryView(db,c);for(const round of view.rounds)for(const item of round.items)if(item.label==='有QR'&&item.raw===code)history.push({place:c,roundId:round.id,sealed:round.sealed,sealedAt:round.sealedAt,sealedBy:round.sealedBy,item});issues.push(...view.issues.filter(i=>i.item.label==='有QR'&&i.item.raw===code))}
+      history.sort((a,b)=>String(b.item.capturedAt).localeCompare(String(a.item.capturedAt)));
+      return await reply({ok:true,code,history,issues},200,origin);
+    }
+    if(action==='inventory-read'||action==='inventory-status'){
+      if(tab!=='座位圖')throw new HttpError('分頁不符。',400,'BAD_REQUEST');
+      const db=await inventoryDatabase(),c=inventoryContext(Object.fromEntries(url.searchParams));
+      if(!db.maps.some(m=>m.id===c.map&&m.site===c.site&&m.zone===c.zone&&m.seats.some(s=>s.number===c.seat)))throw new HttpError('位置未核實。',409,'INVENTORY_LOCATION');
+      const view=inventoryView(db,c,url.searchParams.get('sessionId')||'');
+      if(action==='inventory-read')return await reply({ok:true,view},200,origin);
+      const id=url.searchParams.get('eventId')||'';if(!/^[a-f0-9-]{36}$/i.test(id))throw new HttpError('操作鍵不符。',400,'BAD_REQUEST');
+      const state=reduceInventory(db,c),event=state.events.get(id),cancel=state.cancelled.get(id);return await reply({ok:true,found:!!event,row:event?.row||null,cancelled:!!cancel,cancelRow:cancel?.row||null,view},200,origin);
+    }
+    if(action==='observation-status'&&url.searchParams.get('inputEpoch')){
+      const epoch=url.searchParams.get('inputEpoch'),seats=(await sheetsRead(token,target.spreadsheetId,'座位圖')).rows,start=seats.find(r=>r[0]===epoch&&r[1]==='inventory-open');
+      if(start){
+        if(tab!=='現場觀察')throw new HttpError('分頁不符。',400,'BAD_REQUEST');
+        const observations=(await sheetsRead(token,target.spreadsheetId,'現場觀察')).rows,c={map:start[2],site:start[3],zone:start[4],seat:Number(start[5])},state=reduceInventory({seats,observations},c),round=state.rounds.find(r=>r.id===epoch),id=url.searchParams.get('observationId')||'',raw=(url.searchParams.get('scanRaw')||'').trim();
+        const original=round?.items.find(x=>x.id===id),duplicate=!original&&raw?round?.items.find(x=>x.label==='有QR'&&x.raw===raw):null,found=original||duplicate;
+        const row=found?[found.id,found.sessionId,c.site,c.zone,c.map,c.seat,found.label,found.raw,found.serial,found.model,found.note,found.capturedAt,found.at,found.actor,'待核實',round!.id]:null;
+        return await reply({ok:true,found:!!row,row,duplicate:!!duplicate,historical:state.current?.id!==epoch},200,origin);
+      }
+    }
     if(action==='position-input-status'){
       if(tab!=='座位圖')throw new HttpError('分頁不符。',400,'BAD_REQUEST');
       const id=String(url.searchParams.get('eventId')||'');if(!/^[a-f0-9-]{36}$/i.test(id))throw new HttpError('鍵不符。',400,'BAD_REQUEST');
@@ -290,7 +326,7 @@ Deno.serve(async (request) => {
     }
     if (action === "read") {
       const result=await sheetsRead(token,target.spreadsheetId,tab);
-      if(tab==='現場觀察'){const seats=await sheetsRead(token,target.spreadsheetId,'座位圖');result.rows=projectInputObservations(result.rows,seats.rows)}
+      if(tab==='現場觀察'){const seats=await sheetsRead(token,target.spreadsheetId,'座位圖');const legacy=seats.rows.filter(r=>!inventoryManaged(seats.rows,{map:r[2],site:r[3],zone:r[4],seat:Number(r[5])}));result.rows=projectInputObservations(projectInventoryObservations(result.rows,seats.rows),legacy)}
       return await reply({ ...result, actor }, 200, origin);
     }
     if(request.headers.get('x-zg-erp-protocol')!=='shared-round-v1')throw new HttpError('此頁版本不符，本次未保存；保留原草稿，查核舊結果後重開新版，不可自動重送。',409,'ERP_CLIENT_UPGRADE_REQUIRED');
@@ -318,7 +354,11 @@ Deno.serve(async (request) => {
     }
 
     async function inputContext(){const sessions=await sheetsRead(token,target.spreadsheetId,'盤點場次');const matches=sessions.rows.filter(r=>r[0]===payload.sessionId&&r[13]===SHARED_MARKER);if(matches.length!==1)throw new HttpError('請重新進入目前共用盤點，原輸入保留。',409,'JOIN_CURRENT_SHARED_ROUND');return {map:payload.seatTarget?.map,site:matches[0][1],zone:payload.zone,seat:payload.seatTarget?.seat};}
-    if(action==='position-input'){
+    if(action==='position-inventory'){
+      inputRequest=true;
+      if(tab!=='座位圖'||!['open','seal','note','cancel'].includes(payload.action)||String(payload.localAccount||'').toLowerCase()!==String(user.email||user.id).toLowerCase())throw new HttpError('座位盤點動作或帳號不符。',409,'INVENTORY_ACCOUNT_OR_ACTION');
+      keys=[...inventoryLocks(payload),...(['note','cancel'].includes(payload.action)?[]:[roundKey(payload.sessionId)])];
+    }else if(action==='position-input'){
       inputRequest=true;
       if(tab!=='座位圖'||String(payload.localAccount||'').toLowerCase()!==String(user.email||user.id).toLowerCase())throw new HttpError('位置重新輸入帳號不符。',409,'INPUT_ACCOUNT_MISMATCH');
       keys=[...inputLockKeys(payload),roundKey(payload.sessionId)];
@@ -384,7 +424,7 @@ Deno.serve(async (request) => {
       // Primary edit reservation must still be alive BEFORE acquiring added serial key.
       const primary=new RowCustody(admin,user.id,reservation,operation,logicalKeys('資產',[payload.code]));
       await primary.renew();await custody.reserve();
-    }else {try{await custody.reserve()}catch(error){inputReservationRejected=action==='position-input'&&custodyErrorMapping(error instanceof Error?error.message:'').code==='RECORD_BUSY';observationReservationRejected=action==='field-observation'&&custodyErrorMapping(error instanceof Error?error.message:'').code==='RECORD_BUSY';throw error}}
+    }else {try{await custody.reserve()}catch(error){inputReservationRejected=['position-input','position-inventory'].includes(action)&&custodyErrorMapping(error instanceof Error?error.message:'').code==='RECORD_BUSY';observationReservationRejected=action==='field-observation'&&custodyErrorMapping(error instanceof Error?error.message:'').code==='RECORD_BUSY';throw error}}
     if(action==='reserve')return await reply({ok:true,expiresIn:300},200,origin);
     await custody.begin();beganWrite=true;
     if(action==='close-shared-session'){
@@ -405,10 +445,18 @@ Deno.serve(async (request) => {
       if(matches.length!==1||plan.row.some((v:unknown,i:number)=>String(v??'')!==String(matches[0][i]??'')))throw new HttpError('共用場次未能確認，請保留畫面查詢，不重建。',409,'SHARED_ROUND_UNVERIFIED');
       return await reply({ok:true,row:matches[0],joined:plan.join},200,origin);
     }
+    if(action==='position-inventory'){
+      const db=await inventoryDatabase(),c=inventoryContext(payload);let plan;
+      try{plan=planInventory(db,payload,actor,new Date().toISOString())}catch(e){const unsent=await custody.finishUnsent();if(unsent)beganWrite=false;throw new HttpError(String(e),409,'INVENTORY_CONFLICT',unsent?{inputWriteState:'not-started'}:{})}
+      if(!plan.replayed&&!plan.unchanged)await sheetsAppend(token,target.spreadsheetId,'座位圖',plan.row,custody);
+      const after=await inventoryDatabase(),state=reduceInventory(after,c);
+      if(plan.row){const match=state.events.get(plan.row[0]);if(!match||plan.row.some((v:any,i:number)=>String(v??'')!==String(match.row[i]??'')))throw new HttpError('盤點操作保存結果待查，保留原鍵查詢，不重送。',409,'INVENTORY_UNVERIFIED')}
+      return await reply({ok:true,row:plan.row||null,joined:!!plan.joined,replayed:!!plan.replayed,cancelled:!!plan.cancelled,settled:!!plan.settled,view:inventoryView(after,c,payload.sessionId||'')},200,origin);
+    }
     if(action==='position-input'){
       const [seats,sessions]=await Promise.all(['座位圖','盤點場次'].map(t=>sheetsRead(token,target.spreadsheetId,t,true)));
       if(seats.rows.length>=9999||sessions.rows.length>=9999||seats.header.join('|')!==['事件鍵','類型','圖版本','據點','區域','座位編號','資產編號','內容JSON','時間','經手人'].join('|')||sessions.header[13]!==SHARED_HEADER)throw new HttpError('位置重新輸入欄位未就緒。',503,'INPUT_SCHEMA');
-      let plan;try{plan=planInput({seats:seats.rows,sessions:sessions.rows,maps:seatMaps.reduce(seats.rows)},payload,actor,new Date().toISOString())}catch(e){const unsent=await custody.finishUnsent();if(unsent)beganWrite=false;throw new HttpError(String(e),409,'INPUT_CONFLICT',unsent?{inputWriteState:'not-started'}:{})}
+      let plan;try{if(inventoryManaged(seats.rows,payload))throw Error('INVENTORY_USE_CONTINUE_OR_NEXT_ROUND');plan=planInput({seats:seats.rows,sessions:sessions.rows,maps:seatMaps.reduce(seats.rows)},payload,actor,new Date().toISOString())}catch(e){const unsent=await custody.finishUnsent();if(unsent)beganWrite=false;throw new HttpError(String(e),409,'INPUT_CONFLICT',unsent?{inputWriteState:'not-started'}:{})}
       if(!plan.replayed&&!plan.duplicate)await sheetsAppend(token,target.spreadsheetId,tab,plan.row,custody);
       const after=(await sheetsRead(token,target.spreadsheetId,tab)).rows,hits=after.filter(r=>r[0]===plan.row[0]);
       if(hits.length!==1||plan.row.some((v:unknown,i:number)=>String(v??'')!==String(hits[0][i]??''))||!reduceInputs(after).accepted.has(plan.row[0]))throw new HttpError('重新輸入保存結果待查，保留原鍵查詢，不重送。',409,'INPUT_UNVERIFIED');
@@ -425,6 +473,17 @@ Deno.serve(async (request) => {
       if(observations.rows.length>=9999||sessions.rows.length>=9999||seats.rows.length>=9999)throw new HttpError('觀察讀取範圍不足，未寫入。',409,'OBSERVATION_LIMIT');
       if(OBSERVATION_HEADER.some((h:string,i:number)=>observations.header[i]!==h))throw new HttpError('現場觀察欄位尚未就緒，未寫入。',503,'SCHEMA_NOT_READY');
       try{sharedSessionRequired(sessions.rows,payload.sessionId)}catch{throw new HttpError('請重新進入目前共用盤點，再掃描。原草稿保留。',409,'JOIN_CURRENT_SHARED_ROUND')}
+      const inventorySession=sharedSessionRequired(sessions.rows,payload.sessionId),inventoryC={map:payload.seatTarget?.map,site:inventorySession[1],zone:payload.zone,seat:Number(payload.seatTarget?.seat)};
+      if(inventoryManaged(seats.rows,inventoryC)){
+        const db={seats:seats.rows,sessions:sessions.rows,observations:observations.rows,maps:seatMaps.reduce(seats.rows)},command={...inventoryC,action:'capture',eventId:payload.observationId,sessionId:payload.sessionId,roundId:payload.inputEpoch||'',label:payload.labelStatus,raw:payload.scanRaw,serial:payload.serial||'',model:payload.model||'',note:payload.note||'',capturedAt:payload.capturedAt};
+        let plan;try{plan=planInventory(db,command,actor,new Date().toISOString())}catch(e){throw new HttpError(String(e),409,'INVENTORY_CAPTURE_CONFLICT')}
+        if(!plan.replayed&&!plan.unchanged)await sheetsAppend(token,target.spreadsheetId,'座位圖',plan.row,custody);
+        const after={...db,seats:(await sheetsRead(token,target.spreadsheetId,'座位圖')).rows},state=reduceInventory(after,inventoryC),round=state.rounds.find(r=>r.id===command.roundId),hit=round?.items.find(x=>x.id===(plan.item?.id||plan.row?.[0]));
+        if(!hit)throw new HttpError('現場紀錄保存結果待查，不重送。',409,'INVENTORY_CAPTURE_UNVERIFIED');
+        if(plan.row&&plan.row.some((v:any,i:number)=>String(v??'')!==String(state.events.get(plan.row[0])?.row[i]??'')))throw new HttpError('現場紀錄回讀不符，不重送。',409,'INVENTORY_CAPTURE_UNVERIFIED');
+        const row=[hit.id,hit.sessionId,inventoryC.site,inventoryC.zone,inventoryC.map,inventoryC.seat,hit.label,hit.raw,hit.serial,hit.model,hit.note,hit.capturedAt,hit.at,hit.actor,'待核實',round!.id];
+        return await reply({ok:true,row,duplicate:!!plan.duplicate,replayed:!!plan.replayed,historical:state.current?.id!==command.roundId,warnings:[]},200,origin);
+      }
       if(payload.inputEpoch){
         const session=sharedSessionRequired(sessions.rows,payload.sessionId),command={action:'item',eventId:payload.observationId,sessionId:payload.sessionId,map:payload.seatTarget?.map,seat:payload.seatTarget?.seat,site:session[1],zone:payload.zone,epoch:payload.inputEpoch,label:payload.labelStatus,raw:payload.scanRaw,serial:payload.serial||'',model:payload.model||'',note:payload.note||'',capturedAt:payload.capturedAt};
         let inputPlan;try{inputPlan=planInput({sessions:sessions.rows,maps:seatMaps.reduce(seats.rows),seats:seats.rows},command,actor,new Date().toISOString())}catch(e){throw new HttpError(String(e),409,'INPUT_CONFLICT')}
@@ -676,4 +735,4 @@ function json(body: unknown, status: number, origin: string) {
   return new Response(JSON.stringify(body), {
     status, headers: { "content-type": "application/json", ...corsHeaders(origin) }
   });
-}
+                     }
