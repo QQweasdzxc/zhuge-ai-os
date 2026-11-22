@@ -1,0 +1,13 @@
+{
+  "name": "zg-erp-private-updates-build",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "esbuild": "0.25.12",
+    "@supabase/realtime-js": "2.15.1"
+  }
+}
