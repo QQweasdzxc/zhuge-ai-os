@@ -72,13 +72,18 @@ export function reduceInventory(db,c){
  }
  return state;
 }
+export function inventoryComparison(state,round=state.current){
+ if(!round)return null;
+ const previous=round.baselineId?state.rounds.find(r=>r.sealed&&r.sealId===round.baselineId):null,currentQR=round.items.filter(x=>x.label==='有QR'),previousQR=(previous?.items||[]).filter(x=>x.label==='有QR'),oldKeys=new Set(previousQR.map(identity)),newKeys=new Set(currentQR.map(identity));
+ return {roundId:round.id,revision:round.revision,baselineId:round.baselineId,hasBaseline:!!previous,baselineSealedAt:previous?.sealedAt||'',currentCount:round.items.length,previousCount:previous?.items.length??null,matched:previous?clone(currentQR.filter(x=>oldKeys.has(identity(x)))):[],added:previous?clone(currentQR.filter(x=>!oldKeys.has(identity(x)))):[],notSeen:previous?clone(previousQR.filter(x=>!newKeys.has(identity(x)))):[],firstRoundItems:previous?[]:clone(currentQR),unidentified:{current:clone(round.items.filter(x=>x.label==='沒有QR')),previous:clone((previous?.items||[]).filter(x=>x.label==='沒有QR'))}};
+}
 export function inventoryView(db,c,sessionId=''){
  const state=reduceInventory(db,c),issues=new Map();
  for(const round of state.rounds)for(const x of differences(state,round))issues.set(x.id,x);
  for(const [id,n]of state.notes)if(!issues.has(id))issues.set(id,{...clone(n.basis),provisional:false,noLongerMissing:true});
  const allIssues=[...issues.values()].map(x=>{const n=state.notes.get(x.id),latest=n?.entries.at(-1);return {...x,status:latest?.status||'待查',entries:clone(n?.entries||[]),currentFound:!!state.current?.items.some(i=>identity(i)===identity(x.item))}});
  const current=state.current&&clone(state.current),latest=state.rounds.filter(r=>r.sealed).at(-1),source=state.current?null:legacySources(db,c,sessionId);
- return {place:clone(c),head:state.head,current,latestFinalized:latest?clone(latest):null,rounds:clone(state.rounds),issues:allIssues,legacySource:source&&{type:source.type,epoch:source.epoch,revision:source.revision,count:source.items.length},assetsUntouched:true};
+ return {place:clone(c),head:state.head,current,latestFinalized:latest?clone(latest):null,rounds:clone(state.rounds),issues:allIssues,comparison:inventoryComparison(state),legacySource:source&&{type:source.type,epoch:source.epoch,revision:source.revision,count:source.items.length},assetsUntouched:true};
 }
 export function inventoryManaged(seats,c){return seats.some(r=>r[1]==='inventory-open'&&rowPlace(r)===placeKey(c))}
 export function inventoryLocks(c){return ['position-input:'+placeKey(c)]}
@@ -124,7 +129,7 @@ export function planInventory(db,input,actor,at){
   return pack('item',{roundId:round.id,sessionId,label,raw,serial,model,note,capturedAt});
  }
  if(input.action==='seal'){
-  if(input.confirmed!==true||input.revision!==round.revision||!Array.isArray(input.itemIds)||stable(input.itemIds)!==stable(round.items.map(x=>x.id).sort())||!round.items.length&&input.confirmedEmpty!==true)fail('INVENTORY_SEAL_CONFIRM_OR_CHANGED');
+  if(input.baselineId!==undefined&&input.baselineId!==round.baselineId||input.confirmed!==true||input.revision!==round.revision||!Array.isArray(input.itemIds)||stable(input.itemIds)!==stable(round.items.map(x=>x.id).sort())||!round.items.length&&input.confirmedEmpty!==true)fail('INVENTORY_SEAL_CONFIRM_OR_CHANGED');
   return pack('seal',{roundId:round.id,revision:round.revision,itemIds:input.itemIds,confirmed:true,confirmedEmpty:!round.items.length});
  }
  fail('INVENTORY_ACTION');
