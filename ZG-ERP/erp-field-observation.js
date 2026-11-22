@@ -43,6 +43,7 @@
             try {
                 const t = s();
                 if (!t?.sessionId || !t.seatTarget) throw Error("請先開始場次並選座位。");
+                if(t.seatTarget.inventoryReview)throw Error("正在核對差異，請先返回繼續掃描，沒有送出。");
                 if(t.seatTarget.inventoryClosed)throw Error("此座位已定案，請先明確開新一輪，沒有送出。");
                 if(t.seatTarget.inventoryRequired)throw Error("請先開始此座位盤點或接續既有未定案紀錄。");
                 l = {
@@ -485,6 +486,7 @@
             const sessionId = override?.sessionId || ctx.sessionId;
             const target = override?.seatTarget || ctx.seatTarget;
             if (!sessionId || !target?.map || !Number.isInteger(target.seat)) throw Error("請先選擇原場次與已保存座位，沒有送出。");
+            if(ctx.seatTarget?.inventoryReview||target.inventoryReview)throw Error("正在核對差異，請先返回繼續掃描，沒有送出。");
             if(ctx.seatTarget?.inventoryClosed||target.inventoryClosed)throw Error("此座位已定案，請先明確開新一輪，沒有送出。");
             if(ctx.seatTarget?.inventoryRequired||target.inventoryRequired)throw Error("請先開始此座位盤點或接續既有未定案紀錄，沒有送出。");
             if (!who) throw Error("登入身份尚未確認，未送出。");
