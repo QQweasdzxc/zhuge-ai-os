@@ -327,6 +327,334 @@ Deno.serve(async (request) => {
     }
     if(action==='observation-status'){
       if(tab!=='現場觀察')throw new HttpError('現場觀察分頁不符。',400,'BAD_REQUEST');
+import {planInventory,inventoryView,reduceInventory,inventoryManaged,inventoryLocks,inventoryObservationRows,projectInventoryObservations} from './inventory-core.mjs';
+function assertInputEpoch(rows:any[],c:any,epoch:any){if(inventoryManaged(rows,c))throw Error('INVENTORY_MANAGED_POSITION');return assertLegacyInputEpoch(rows,c,epoch)}
+import { notifyVerifiedSave } from './server-notification.ts';
+import {sharedRoundPlan,sharedSiteKey,SHARED_HEADER,SHARED_MARKER,sharedSessionRequired,roundKey,closeRoundPlan} from './shared-round.mjs';
+import { observationPlan, observationLockKeys, OBSERVATION_HEADER } from './observation-core.mjs';
+import { detectLayout, logicalRows, shiftRange, mapBatch } from './asset-layout-core.mjs';
+// zg-ledger-bridge - deployed source custody recovered 2026-11-04; structured scan department + authenticated actor.
+// ZG-ERP「現存資料庫」專用橋接：前台 → 本函式（Google 服務帳號）→ Google Sheets。
+// 架構定案：新帳（LEDGER_SPREADSHEET_ID）是唯一讀寫目標；舊帳 59 工作簿唯讀比對。
+// 與 gas-vendor-bridge 的差異（必要政策，不照抄既有缺口）：
+//   requireUser 之後、任何表格讀寫之前，以呼叫者 JWT 呼叫 is_app_access_approved()
+//   —— false / null / 錯誤 / 逾時一律 fail closed（403），任何路徑不得因錯誤處理放行。
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
+
+import "./seat-map-core.js";
+import {scanPlan,scanBatch} from "./scan-core.mjs";
+import {projectSeats} from "./seat-projection-core.mjs";
+import {repairPlan,repairBatch} from "./repair-core.mjs";
+import { RowCustody } from "./row-control-server.ts";
+import { logicalKeys, trackedAttempt,validOperationId, custodyErrorMapping } from "./row-control-core.mjs";
+
+
+type CanonicalMap={id:string;site:string;zone:string;seats:{number:number}[]};
+const seatMaps=(globalThis as typeof globalThis & {ErpSeatMapCore:{reduce(rows:unknown[][]):CanonicalMap[];snapshot(rows:unknown[][]):{maps:CanonicalMap[];accepted:Set<string>}}}).ErpSeatMapCore;
+
+type JsonObject = Record<string, unknown>;
+
+const LEGACY_SPREADSHEET_ID = "1-NPASgtZTcvf_JvmPfjfNU6I7yxD7JPveKGzZrKH6BI"; // 舊帳（唯讀比對）
+const LEDGER_SPREADSHEET_ID_SECRET = "ZG_LEDGER_SPREADSHEET_ID"; // 新帳 ID 由 secret 提供（建表後設定）
+const SERVICE_ACCOUNT_EMAIL_SECRET = "GOOGLE_SERVICE_ACCOUNT_EMAIL";
+const SERVICE_ACCOUNT_PRIVATE_KEY_SECRET = "GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY";
+const GOOGLE_SHEETS_API = "https://sheets.googleapis.com/v4/spreadsheets";
+const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
+const GOOGLE_SCOPE = "https://www.googleapis.com/auth/spreadsheets";
+const GOOGLE_REQUEST_TIMEOUT_MS = 20000;
+const APPROVAL_CHECK_TIMEOUT_MS = 10000;
+const DEFAULT_ORIGIN = "https://qqweasdzxc.github.io";
+
+// 新帳分頁（唯寫目標；釐清標示記錄每筆舊帳的核對進度與人工結論，不改寫舊帳原文）；舊帳僅整合-主檔/待確認/整合-流轉對應可比對讀取
+const LEDGER_TABS = ["資產", "盤點場次", "盤點紀錄", "流轉紀錄", "進貨批次", "位置表", "釐清標示", "座位圖", "現場觀察"] as const;
+const LEGACY_READABLE_TABS = ["整合-主檔", "整合-待確認", "整合-流轉對應"] as const;
+/* 33 個已納整併的出處分頁：唯讀補存原始列（整筆來源完整性）。明列、不擴其他頁；總表_0331 依 11/4 決定維持排除。
+ * 注意「10F機房 」頁名尾端有空白，與 Sheets 實際頁名精確一致。 */
+const LEGACY_SOURCE_TABS = ["4F", "4F (115.下)", "4F機房", "4F其他資產", "8F", "8F走道", "8F機房", "8F其他資產", "9F", "9F其他資產", "10F", "10F機房 ", "10F其他資產", "內湖倉庫", "永春辦公室", "聯醫", "北9", "桃9", "勞保局", "住都中心", "機場(桃)", "航空城堡", "台北、新北、桃園1966", "郵局", "台水", "台中", "台中(客服)", "北台電", "中台電", "中油", "台南", "重北A(南港)", "高雄"] as const;
+const LEGACY_NOTE_TAB = "現場註記"; // 舊帳專用 append-only 註記分頁：僅 legacy-note 動作可寫，讀取不限
+
+class HttpError extends Error {
+  status: number; code: string; details: JsonObject;
+  constructor(message: string, status: number, code: string, details: JsonObject = {}) {
+    super(message); this.status = status; this.code = code; this.details = details;
+  }
+}
+const asText = (value: unknown, fallback = "") => {
+  const text = value == null ? fallback : String(value);
+  return text.trim();
+};
+
+function allowedOrigin(request: Request) {
+  const origin = asText(request.headers.get("origin"));
+  if (origin && origin !== DEFAULT_ORIGIN) {
+    throw new HttpError("Origin is not allowed.", 403, "ORIGIN_NOT_ALLOWED");
+  }
+  return origin;
+}
+
+async function callerClient(request: Request, supabaseUrl: string, anonKey: string) {
+  const authorization = asText(request.headers.get("authorization"));
+  if (!/^Bearer\s+\S+$/i.test(authorization)) {
+    throw new HttpError("Authenticated Tron OS session is required.", 401, "AUTH_REQUIRED");
+  }
+  return createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: authorization } },
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+}
+
+async function requireUser(caller: Awaited<ReturnType<typeof callerClient>>) {
+  const { data: { user }, error } = await caller.auth.getUser();
+  if (error || !user) throw new HttpError("Authenticated Tron OS session is required.", 401, "AUTH_REQUIRED");
+  return user;
+}
+
+// 必要政策：伺服器端確認「已放行」。false/null/錯誤/逾時一律拒絕（fail closed）。
+async function requireApproved(caller: Awaited<ReturnType<typeof callerClient>>) {
+  let result: { data: unknown; error: unknown };
+  try {
+    const pending = caller.rpc("is_app_access_approved");
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("approval check timeout")), APPROVAL_CHECK_TIMEOUT_MS));
+    result = await Promise.race([pending, timeout]) as typeof result;
+  } catch (e) {
+    throw new HttpError("Access approval check failed.", 403, "ACCESS_CHECK_FAILED",
+      { reason: asText((e as Error)?.message).slice(0, 200) });
+  }
+  if (result.error) {
+    throw new HttpError("Access approval check failed.", 403, "ACCESS_CHECK_FAILED",
+      { reason: asText((result.error as { message?: string })?.message).slice(0, 200) });
+  }
+  if (result.data !== true) { // false 與 null（無申請紀錄）都不得放行
+    throw new HttpError("Access is not approved for this account.", 403, "ACCESS_NOT_APPROVED");
+  }
+}
+
+/* --- Google 服務帳號（比照 gas-vendor-bridge：SA 於 Deno secrets，簽 JWT 換 access token） --- */
+function pemToArrayBuffer(pem: string): ArrayBuffer { /* 同 gas-vendor-bridge */
+  const b64 = pem.replace(/-----[^-]+-----/g, "").replace(/\s+/g, "");
+  const bin = atob(b64); const buf = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+  return buf.buffer;
+}
+async function googleAccessToken(email: string, privateKey: string): Promise<string> {
+  const key = await crypto.subtle.importKey("pkcs8", pemToArrayBuffer(privateKey),
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]);
+  const now = Math.floor(Date.now() / 1000);
+  const header = btoa(JSON.stringify({ alg: "RS256", typ: "JWT" }));
+  const claim = btoa(JSON.stringify({
+    iss: email, scope: GOOGLE_SCOPE, aud: GOOGLE_TOKEN_URL, iat: now, exp: now + 3600
+  }));
+  const unsigned = `${header}.${claim}`;
+  const sig = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(unsigned));
+  const jwt = `${unsigned}.${btoa(String.fromCharCode(...new Uint8Array(sig)))}`;
+  const res = await fetch(GOOGLE_TOKEN_URL, {
+    method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${encodeURIComponent(jwt)}`,
+    signal: AbortSignal.timeout(GOOGLE_REQUEST_TIMEOUT_MS)
+  });
+  const body = await res.json();
+  if (!res.ok || !body.access_token) {
+    throw new HttpError("Google token exchange failed.", 502, "GOOGLE_TOKEN_FAILED");
+  }
+  return body.access_token as string;
+}
+
+/* --- Sheets 讀寫（寫入後讀回驗證） --- */
+function resolveTarget(tab: string): { spreadsheetId: string; readonly: boolean } {
+  if (tab === LEGACY_NOTE_TAB) {
+    return { spreadsheetId: LEGACY_SPREADSHEET_ID, readonly: false };
+  }
+  if ((LEGACY_READABLE_TABS as readonly string[]).includes(tab) || (LEGACY_SOURCE_TABS as readonly string[]).includes(tab)) {
+    return { spreadsheetId: LEGACY_SPREADSHEET_ID, readonly: true };
+  }
+  if ((LEDGER_TABS as readonly string[]).includes(tab)) {
+    const id = asText(Deno.env.get(LEDGER_SPREADSHEET_ID_SECRET));
+    if (!id) throw new HttpError("Ledger spreadsheet is not configured.", 503, "LEDGER_CONFIG_MISSING");
+    return { spreadsheetId: id, readonly: false };
+  }
+  throw new HttpError("Unknown tab.", 400, "TAB_UNKNOWN");
+}
+
+async function sheetsRead(token: string, spreadsheetId: string, tab: string, precheck=false):Promise<{header:unknown[];rows:unknown[][];layout?:{offset:number;seat:string}}> {
+  const url = `${GOOGLE_SHEETS_API}/${spreadsheetId}/values/${encodeURIComponent(tab)}!A1:${tab==='資產'?'AA':'Z'}10000?valueRenderOption=UNFORMATTED_VALUE`;
+  const res = await fetch(url, { headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(GOOGLE_REQUEST_TIMEOUT_MS) });
+  if(precheck&&!res.ok)throw new HttpError("Sheet read failed.",502,"SHEET_READ_FAILED",{upstreamStatus:res.status});
+  const body = await res.json();
+  if(!res.ok)throw new HttpError("Sheet read failed.",502,"SHEET_READ_FAILED");
+  const values = (body.values || []) as unknown[][];
+  if(tab==='資產'){let layout;try{layout=detectLayout(values[0]||[])}catch{throw new HttpError('資產欄位配置不符，未寫入。',503,'ASSET_LAYOUT_UNKNOWN')}const logical=logicalRows(values,layout);return {header:logical[0]||[],rows:logical.slice(1),layout};}
+  return { header: values[0] || [], rows: values.slice(1) };
+}
+
+async function assetLayout(token:string,spreadsheetId:string){
+ const r=await fetch(`${GOOGLE_SHEETS_API}/${spreadsheetId}/values/${encodeURIComponent('資產!A1:AA1')}?valueRenderOption=UNFORMATTED_VALUE`,{headers:{authorization:`Bearer ${token}`},signal:AbortSignal.timeout(GOOGLE_REQUEST_TIMEOUT_MS)});const b=await r.json();
+ if(!r.ok)throw new HttpError('資產欄位配置未能核實，未寫入。',503,'ASSET_LAYOUT_UNVERIFIED');
+ try{return detectLayout(b.values?.[0]||[])}catch{throw new HttpError('資產欄位配置不符，未寫入。',503,'ASSET_LAYOUT_UNKNOWN')}
+}
+
+async function sheetsUpdate(token: string, spreadsheetId: string, range: string, row: unknown[], custody: RowCustody) {
+  const layout=range.startsWith('資產!')?await assetLayout(token,spreadsheetId):undefined;
+  const physical=layout?shiftRange(range,layout.offset):range;
+  const url = `${GOOGLE_SHEETS_API}/${spreadsheetId}/values/${encodeURIComponent(physical)}?valueInputOption=RAW`;
+  const res = await trackedAttempt(custody,()=>fetch(url, {
+    method: "PUT", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+    body: JSON.stringify({ values: [row] }), signal: AbortSignal.timeout(GOOGLE_REQUEST_TIMEOUT_MS)
+  }));
+  const body = await res.json();
+  if (!res.ok) throw new HttpError("Sheet update failed.", 502, "SHEET_UPDATE_FAILED");
+  if(layout&&body.updatedRange)body.updatedRange=shiftRange(body.updatedRange,-layout.offset);
+  return body;
+}
+
+async function sheetsAppend(token: string, spreadsheetId: string, tab: string, row: unknown[], custody: RowCustody) {
+  const layout=tab==='資產'?await assetLayout(token,spreadsheetId):undefined;
+  const start=layout?.offset?'B':'A';
+  const url = `${GOOGLE_SHEETS_API}/${spreadsheetId}/values/${encodeURIComponent(tab)}!${start}1:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
+  const res = await trackedAttempt(custody,()=>fetch(url, {
+    method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+    body: JSON.stringify({ values: [row] }), signal: AbortSignal.timeout(GOOGLE_REQUEST_TIMEOUT_MS)
+  }));
+  const body = await res.json();
+  if (!res.ok) throw new HttpError("Sheet append failed.", 502, "SHEET_APPEND_FAILED");
+  if(layout&&body.updates?.updatedRange)body.updates.updatedRange=shiftRange(body.updates.updatedRange,-layout.offset);
+  return body; // 讀回驗證由呼叫端以 updatedRange 再 read 確認
+}
+
+// Update changed cells only. Sheets has no atomic compare-and-set across simultaneous writers.
+async function sheetsPatchCells(token:string, spreadsheetId:string, tab:string, rowNum:number, changes:Record<string,unknown>,custody:RowCustody) {
+  const letters=(n:number):string=>n?letters(Math.floor((n-1)/26))+String.fromCharCode(65+(n-1)%26):"";
+  const offset=tab==='資產'?(await assetLayout(token,spreadsheetId)).offset:0;
+  const data=Object.entries(changes).map(([col,v])=>({range:tab+"!"+letters(Number(col)+1+offset)+rowNum,values:[[v]]}));
+  const res=await trackedAttempt(custody,()=>fetch(`${GOOGLE_SHEETS_API}/${spreadsheetId}/values:batchUpdate`,{method:"POST",headers:{authorization:`Bearer ${token}`,"content-type":"application/json"},body:JSON.stringify({valueInputOption:"RAW",data}),signal:AbortSignal.timeout(GOOGLE_REQUEST_TIMEOUT_MS)}));
+  const b=await res.json();if(!res.ok||b.totalUpdatedCells!==data.length)throw new HttpError("儲存未確認，請保留輸入後重試。",502,"WRITE_VERIFY_FAILED");
+}
+
+// Sheets append assigns a single row order. Reconcile after append so racing writes cannot silently supersede a winner.
+function canonicalSeatEvents(rows: unknown[][]) {
+  const prefix:unknown[][]=[];const occupants=new Map<string,string>(),bindings=new Map<string,{version:string;seat:string}>(),maps=new Map<string,string>(),accepted=new Set<string>();
+  for(const r of rows){prefix.push(r);try{const id=asText(r[0]),kind=r[1],version=asText(r[2]),place=JSON.stringify([r[3],r[4]]),seat=String(r[5]),data=JSON.parse(String(r[7]));if(accepted.has(id))continue;
+    if(kind==='map'||kind==='area'){const state=seatMaps.snapshot(prefix),current=state.maps.find(m=>m.site===r[3]&&m.zone===r[4]);if(!state.accepted.has(id)||!current||current.id!==version)continue;maps.set(place,current.id);if(kind==='area')occupants.set(version+':'+seat,id);}
+    if(['occupant','binding','placement','check'].includes(String(kind))&&maps.get(place)!==version)continue;
+    if(kind==='occupant'){const key=version+':'+seat;if((data.previous||'')!==(occupants.get(key)||''))continue;occupants.set(key,id);}
+    if(kind==='binding'||kind==='placement'){const key=asText(r[6]),prior=bindings.get(key);if(prior&&(prior.version!==version||prior.seat!==seat))continue;bindings.set(key,{version,seat});}
+    accepted.add(id);
+  }catch{}}
+  return accepted;
+}
+
+// Read/write only AA. A:Z and the event history are never rewritten by this projection.
+async function syncSeatDisplay(token:string, spreadsheetId:string, keys:string[], custody:RowCustody) {
+ const codes=new Set(keys.filter(k=>k.startsWith('asset:')).map(k=>JSON.parse(k.slice(6))[0]));
+ if(!codes.size)return;
+ const [assets,seats]=await Promise.all(['資產','座位圖'].map(t=>sheetsRead(token,spreadsheetId,t)));
+ const displayColumn=assets.layout!.seat;
+ const range='資產!'+displayColumn+'1:'+displayColumn+'10000';
+ const read=async()=>{const r=await fetch(`${GOOGLE_SHEETS_API}/${spreadsheetId}/values/${encodeURIComponent(range)}?valueRenderOption=UNFORMATTED_VALUE`,{headers:{authorization:`Bearer ${token}`},signal:AbortSignal.timeout(GOOGLE_REQUEST_TIMEOUT_MS)});const b=await r.json();if(!r.ok)throw new HttpError('座位顯示讀取失敗，結果待查。',502,'SEAT_DISPLAY_UNVERIFIED');return b.values||[];};
+ const before=await read();
+ if(before[0]?.[0]!=='對應座位編號')throw new HttpError('座位顯示欄位尚未就緒，未完成保存核對。',503,'SEAT_DISPLAY_SCHEMA');
+ const expected=(projectSeats(assets.rows,seats.rows,canonicalSeatEvents(seats.rows),seatMaps.snapshot(seats.rows).maps) as Array<{code:string;row:number;value:string|number}>).filter(x=>codes.has(x.code));
+ const changed=expected.filter(x=>String(before[x.row-1]?.[0]??'')!==String(x.value));
+ if(changed.length){const data=changed.map(x=>({range:'資產!'+displayColumn+x.row,values:[[x.value]]}));const r=await trackedAttempt(custody,()=>fetch(`${GOOGLE_SHEETS_API}/${spreadsheetId}/values:batchUpdate`,{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'application/json'},body:JSON.stringify({valueInputOption:'RAW',data}),signal:AbortSignal.timeout(GOOGLE_REQUEST_TIMEOUT_MS)}));const b=await r.json();if(!r.ok||b.totalUpdatedCells!==data.length)throw new HttpError('座位顯示尚未核實，保留輸入。',502,'SEAT_DISPLAY_UNVERIFIED');}
+ const after=changed.length?await read():before;
+ if(expected.some(x=>String(after[x.row-1]?.[0]??'')!==String(x.value)))throw new HttpError('座位顯示讀回不符，結果待查。',409,'SEAT_DISPLAY_UNVERIFIED');
+ return expected;
+}
+
+/* --- 動作路由 --- */
+Deno.serve(async (request) => {
+  let origin = "";
+  let custody:RowCustody|undefined;
+  let beganWrite=false;let inputRequest=false;let inputReservationRejected=false;let observationRequest=false;let observationReservationRejected=false;let retainKeys:string[]=[];
+  let projectionContext:{token:string;spreadsheetId:string;keys:string[]}|undefined;
+  const reply=async(body:unknown,status:number,o:string)=>{
+    if(status===200&&beganWrite&&custody&&projectionContext)await syncSeatDisplay(projectionContext.token,projectionContext.spreadsheetId,projectionContext.keys,custody);
+    if(status===200&&beganWrite&&custody&&projectionContext&&Deno.env.get('ZG_ERP_PRIVATE_UPDATES_ENABLED')==='true'){
+      const notified=await notifyVerifiedSave(asText(Deno.env.get('SUPABASE_URL')),asText(Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')),fetch,observationRequest?body:undefined);
+      if(!notified&&observationRequest&&body&&typeof body==='object'){
+        const result=body as {ok?:unknown;warnings?:unknown};
+        if(result.ok===true)body={...result,warnings:[...(Array.isArray(result.warnings)?result.warnings:[]),'已保存，但即時通知尚未確認；請核對桌機接收狀態。']};
+      }
+    }
+    return json(body,status,o);
+  };
+  try {
+    origin = allowedOrigin(request);
+    if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(origin) });
+    const supabaseUrl = asText(Deno.env.get("SUPABASE_URL"));
+    const anonKey = asText(Deno.env.get("SUPABASE_ANON_KEY"));
+    const caller = await callerClient(request, supabaseUrl, anonKey);
+    const user = await requireUser(caller);
+    const actor = user.id;
+    await requireApproved(caller); // 必要政策：任何表格讀寫之前
+
+    const email = asText(Deno.env.get(SERVICE_ACCOUNT_EMAIL_SECRET));
+    const privateKey = asText(Deno.env.get(SERVICE_ACCOUNT_PRIVATE_KEY_SECRET));
+    if (!email || !privateKey) {
+      throw new HttpError("Google service account credential is not configured.", 503, "GOOGLE_SERVICE_ACCOUNT_CONFIG_MISSING");
+    }
+    const token = await googleAccessToken(email, privateKey);
+
+    const url = new URL(request.url);
+    const action = asText(url.searchParams.get("action") || "read");
+    const tab = url.searchParams.get("tab") ?? ""; // 頁名精確比對：不可 trim（"10F機房 "尾空白是實際頁名）
+    const target = resolveTarget(tab);
+
+    async function inventoryDatabase(){
+      const [seats,sessions,observations]=await Promise.all(['座位圖','盤點場次','現場觀察'].map(t=>sheetsRead(token,target.spreadsheetId,t,true)));
+      if([seats,sessions,observations].some(r=>r.rows.length>=9999)||seats.header.join('|')!==['事件鍵','類型','圖版本','據點','區域','座位編號','資產編號','內容JSON','時間','經手人'].join('|')||sessions.header[13]!==SHARED_HEADER||OBSERVATION_HEADER.some((h:string,i:number)=>observations.header[i]!==h))throw new HttpError('座位盤點完整讀取未就緒，未變更。',503,'INVENTORY_SCHEMA');
+      return {seats:seats.rows,sessions:sessions.rows,observations:observations.rows,maps:seatMaps.reduce(seats.rows)};
+    }
+    function inventoryContext(params:any){return {map:String(params.map||''),site:String(params.site||''),zone:String(params.zone||''),seat:Number(params.seat)}}
+    if(action==='inventory-asset'){
+      if(tab!=='座位圖')throw new HttpError('分頁不符。',400,'BAD_REQUEST');
+      const code=String(url.searchParams.get('code')||'').trim();if(!code||code.length>200)throw new HttpError('完整設備編號不符。',400,'BAD_REQUEST');
+      const db=await inventoryDatabase(),places=new Map();for(const row of db.seats)if(row[1]==='inventory-open'){const c={map:row[2],site:row[3],zone:row[4],seat:Number(row[5])};places.set(JSON.stringify(c),c)}
+      const history:any[]=[],issues:any[]=[];
+      for(const c of places.values()){const view=inventoryView(db,c);for(const round of view.rounds)for(const item of round.items)if(item.label==='有QR'&&item.raw===code)history.push({place:c,roundId:round.id,sealed:round.sealed,sealedAt:round.sealedAt,sealedBy:round.sealedBy,item});issues.push(...view.issues.filter(i=>i.item.label==='有QR'&&i.item.raw===code))}
+      history.sort((a,b)=>String(b.item.capturedAt).localeCompare(String(a.item.capturedAt)));
+      return await reply({ok:true,code,history,issues},200,origin);
+    }
+    if(action==='inventory-read'||action==='inventory-status'){
+      if(tab!=='座位圖')throw new HttpError('分頁不符。',400,'BAD_REQUEST');
+      const db=await inventoryDatabase(),c=inventoryContext(Object.fromEntries(url.searchParams));
+      if(!db.maps.some(m=>m.id===c.map&&m.site===c.site&&m.zone===c.zone&&m.seats.some(s=>s.number===c.seat)))throw new HttpError('位置未核實。',409,'INVENTORY_LOCATION');
+      const view=inventoryView(db,c,url.searchParams.get('sessionId')||'');
+      if(action==='inventory-read')return await reply({ok:true,view},200,origin);
+      const id=url.searchParams.get('eventId')||'';if(!/^[a-f0-9-]{36}$/i.test(id))throw new HttpError('操作鍵不符。',400,'BAD_REQUEST');
+      const state=reduceInventory(db,c),event=state.events.get(id),cancel=state.cancelled.get(id);return await reply({ok:true,found:!!event,row:event?.row||null,cancelled:!!cancel,cancelRow:cancel?.row||null,view},200,origin);
+    }
+    if(action==='observation-status'&&url.searchParams.get('inputEpoch')){
+      const epoch=url.searchParams.get('inputEpoch'),seats=(await sheetsRead(token,target.spreadsheetId,'座位圖')).rows,start=seats.find(r=>r[0]===epoch&&r[1]==='inventory-open');
+      if(start){
+        if(tab!=='現場觀察')throw new HttpError('分頁不符。',400,'BAD_REQUEST');
+        const observations=(await sheetsRead(token,target.spreadsheetId,'現場觀察')).rows,c={map:start[2],site:start[3],zone:start[4],seat:Number(start[5])},state=reduceInventory({seats,observations},c),round=state.rounds.find(r=>r.id===epoch),id=url.searchParams.get('observationId')||'',raw=(url.searchParams.get('scanRaw')||'').trim();
+        const original=round?.items.find(x=>x.id===id),duplicate=!original&&raw?round?.items.find(x=>x.label==='有QR'&&x.raw===raw):null,found=original||duplicate;
+        const row=found?[found.id,found.sessionId,c.site,c.zone,c.map,c.seat,found.label,found.raw,found.serial,found.model,found.note,found.capturedAt,found.at,found.actor,'待核實',round!.id]:null;
+        return await reply({ok:true,found:!!row,row,duplicate:!!duplicate,historical:state.current?.id!==epoch},200,origin);
+      }
+    }
+    if(action==='position-input-status'){
+      if(tab!=='座位圖')throw new HttpError('分頁不符。',400,'BAD_REQUEST');
+      const id=String(url.searchParams.get('eventId')||'');if(!/^[a-f0-9-]{36}$/i.test(id))throw new HttpError('鍵不符。',400,'BAD_REQUEST');
+      const rows=(await sheetsRead(token,target.spreadsheetId,tab)).rows,found=rows.filter(r=>r[0]===id&&['input-start','input-item','input-close','input-cancel'].includes(String(r[1])));
+      if(found.length>1)throw new HttpError('鍵重複，未變更。',409,'INPUT_DUPLICATE_ID');
+      const state=reduceInputs(rows),cancel=state.cancelled.get(id);return await reply({ok:true,found:found.length===1,row:found[0]||null,accepted:state.accepted.has(id),cancelled:!!cancel,cancelRow:cancel?.row||null},200,origin);
+    }
+    if(action==='observation-status'&&url.searchParams.get('inputEpoch')){
+      if(tab!=='現場觀察')throw new HttpError('分頁不符。',400,'BAD_REQUEST');
+      const id=String(url.searchParams.get('observationId')||''),epoch=url.searchParams.get('inputEpoch');if(!/^[a-f0-9-]{36}$/i.test(id))throw new HttpError('鍵不符。',400,'BAD_REQUEST');
+      const rows=(await sheetsRead(token,target.spreadsheetId,'座位圖')).rows,found=rows.filter(r=>r[0]===id&&r[1]==='input-item');
+      if(found.length>1)throw new HttpError('鍵重複，未變更。',409,'INPUT_DUPLICATE_ID');
+      const accepted=reduceInputs(rows).accepted;const raw=(url.searchParams.get('scanRaw')||'').trim(),session=url.searchParams.get('sessionId');
+      const fallback=!found.length&&raw?rows.filter(r=>{if(r[1]!=='input-item'||!accepted.has(String(r[0])))return false;try{const d=JSON.parse(String(r[7]));return d.epoch===epoch&&d.sessionId===session&&d.label==='有QR'&&d.raw===raw}catch{return false}}):[];
+      if(fallback.length>1)throw new HttpError('本輪重複結果待核對。',409,'INPUT_DUPLICATE_KEY');
+      const original=found[0]||fallback[0],row=original&&accepted.has(String(original[0]))?inputObservationRow(original):null;
+      if(row&&row[15]!==epoch)throw new HttpError('原輪不符。',409,'INPUT_EPOCH_MISMATCH');
+      return await reply({ok:true,found:!!row,row,duplicate:!found.length&&!!row},200,origin);
+    }
+    if(action==='observation-status'){
+      if(tab!=='現場觀察')throw new HttpError('現場觀察分頁不符。',400,'BAD_REQUEST');
       const id=String(url.searchParams.get('observationId')||'');if(!/^[a-f0-9-]{36}$/i.test(id))throw new HttpError('觀察鍵不符。',400,'BAD_REQUEST');
       const all=(await sheetsRead(token,target.spreadsheetId,tab)).rows,rs=all.filter(r=>r[0]===id);if(rs.length>1)throw new HttpError('觀察鍵有重複，請保留原紀錄。',409,'OBSERVATION_DUPLICATE_ID');
       const session=url.searchParams.get('sessionId')||'',raw=(url.searchParams.get('scanRaw')||'').trim();
@@ -745,4 +1073,4 @@ function json(body: unknown, status: number, origin: string) {
   return new Response(JSON.stringify(body), {
     status, headers: { "content-type": "application/json", ...corsHeaders(origin) }
   });
-                                   }
+}
