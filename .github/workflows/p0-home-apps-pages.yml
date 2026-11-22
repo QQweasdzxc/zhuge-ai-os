@@ -47,6 +47,7 @@ jobs:
         run: |
           node --test tests/erp-cutover/*.test.cjs tests/zg-erp-inbound-account.test.cjs tests/zg-erp-inbound-result-check.test.cjs tests/zg-erp-inbound-custody.test.cjs tests/zg-erp-inbound-bridge-format.test.cjs tests/zg-erp-inbound-preflight.test.cjs tests/zg-erp-inbound-limits.test.cjs
           node tests/zg-erp-intake.cjs
+          node --test tests/erp-crossflow/*.test.mjs
 
   backend-image:
     name: TaskFlow backend build parity
@@ -116,6 +117,7 @@ jobs:
           node tests/erp-reinput/reinput-browser.cjs
           node tests/erp-inventory/multitab.cjs
           node tests/erp-inventory/browser.cjs
+          node tests/erp-crossflow/browser.cjs
           node tests/zg-erp-inbound-browser.cjs
           node tests/zg-erp-editor-browser.cjs
           node tests/zg-erp-scanner-browser.cjs
@@ -147,6 +149,7 @@ jobs:
           CAMERA_HEIGHT=700 ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-scanner-browser.cjs
           ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/erp-inventory/multitab.cjs
           ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/erp-inventory/browser.cjs
+          ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/erp-crossflow/browser.cjs
           ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-ui-scan-navigation.cjs
           ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-ui-status-navigation.cjs
           ERP_MINIFIED_DIR="$RUNNER_TEMP/erp-minified" node tests/zg-erp-ui-module-journeys.cjs
