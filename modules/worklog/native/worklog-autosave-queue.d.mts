@@ -1,0 +1,2 @@
+export type AutosaveState={status:'invalid'|'pending'|'saving'|'saved'|'failed';revision:number;savedRevision:number;error?:string};
+export class WorklogAutosaveQueue<T>{constructor(options:{save:(value:T,meta:{revision:number})=>Promise<void>;validate:(value:T)=>string;onState?:(state:AutosaveState)=>void;delay?:number});value:T|null;revision:number;savedRevision:number;running:boolean;update(value:T):void;setComposing(value:boolean):void;flush():Promise<void>;retry():Promise<void>;dispose():void;}
