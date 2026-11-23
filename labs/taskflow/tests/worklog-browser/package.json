@@ -16,7 +16,9 @@
     "test:ecp-inline": "node ecp-inline.cjs",
     "test:task-markers": "node task-markers.cjs",
     "test:export-parity": "node export-parity.cjs",
-    "test:learning-parity": "node learning-parity.cjs"
+    "test:learning-parity": "node learning-parity.cjs",
+    "test:ux-flow": "node ux-flow.cjs",
+    "test:ux-sync-status": "node ux-sync-status.cjs"
   },
   "devDependencies": {
     "@types/react": "19.2.14",
