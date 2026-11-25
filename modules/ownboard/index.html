@@ -1,4 +1,4 @@
-<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-fg0UZvH6m5n03NsufXfmiLmx1NkkSmdMADqhX6Bqzw8='; style-src 'sha256-zol9AMgnjvHKqBnS2XwmNT8XrBGdVCCNHEp+6JFkCcI='; connect-src https://lenpbbhwxyyfwgvjcozf.supabase.co; img-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'"><title>任務 · TF 介面候選</title><style>
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-lN7+a+CGK7xqajHIBPLwj93XcoloZz1SiMz7pUfAxLc='; style-src 'sha256-zol9AMgnjvHKqBnS2XwmNT8XrBGdVCCNHEp+6JFkCcI='; connect-src https://lenpbbhwxyyfwgvjcozf.supabase.co; img-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'"><title>任務 · TF 介面候選</title><style>
 :root{
 /* 深色主題：色值取樣自本人提供之原 TF 實際截圖（2026-11-25,工時月報屏） */
 --canvas:#0c1d26;--surface:#102630;--hover:#163b49;--selected:#122733;
@@ -255,7 +255,7 @@ const CAT_ORDER={unstarted:0,started:1,done:2,closed:3};
 const CUSTOM_KEYS=['p28mg00rg359vcpn4e25sr8okeb_tb1s','p6dc8109ttp9fap1ia2j4ctrv6v_mrdt','p6dc8109ttp9fap1ia2j4ctrv6v_6fjc','p28mg00rg359vcpn4e25sr8okeb_ah5s','p2ep6pbl4ec9nk95nigms1guif0_sm3b','p6dc8109ttp9fap1ia2j4ctrv6v_m9lm'];
 function statusMeta(key,project=selectedProject){const resolved=resolveStatuses(displayConfig,project).find(x=>x.key===key);if(resolved){let realLabel=resolved.label;if(!project&&!resolved.is_system){const labels=[...new Set((displayConfig?.preferences||[]).map(p=>p.status_labels?.[key]).filter(x=>typeof x==="string"))];if(labels.length===1)realLabel=labels[0]}return {name:resolved.is_system?(STATUS_META[key]?.name||resolved.label):realLabel,cat:resolved.category,col:/^#[0-9a-f]{6}$/i.test(resolved.color)?resolved.color:"var(--c-custom)",custom:!resolved.is_system};}
  if(!displayConfig)return {name:key,cat:'unknown',col:'var(--faint)',unknown:true};
- 
+
  return {name:key,cat:'started',col:'var(--c-custom)',custom:true,unknown:true};
 }
 const PRIO_NAME={urgent:'緊急',high:'高',medium:'中',low:'低',none:'無優先順序'};
