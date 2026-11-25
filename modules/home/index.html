@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TRQN 首頁</title>
+<style>
+:root{
+/* 深色主題：色值取樣自本人提供之原 TF 實際截圖（2026-11-25,工時月報屏），與 TRQN 任務候選一致 */
+--canvas:#0c1d26;--surface:#102630;--hover:#163b49;--selected:#122733;
+--border:#163b49;--border-soft:#122733;
+--text:#e3eff7;--muted-text:#96aeba;--faint:#69949e;
+--sidebar:#060b13;
+--accent:#45c6d6;--warning:#e5b567;--success:#4ade80;
+--radius:8px;
+}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;color:var(--text);background:var(--canvas);-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:40px 20px 56px}
+header{display:flex;align-items:center;gap:14px;margin-bottom:8px}
+.seal{width:46px;height:46px;flex:none}
+h1{font-size:26px;margin:0;letter-spacing:.5px}
+.sub{color:var(--muted-text);margin:2px 0 34px;font-size:14px}
+h2{font-size:13px;color:var(--faint);font-weight:600;letter-spacing:2px;margin:30px 0 12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.card{display:flex;gap:14px;align-items:flex-start;background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius);padding:18px 16px;transition:border-color .15s,background .15s}
+.card:hover{background:var(--hover);border-color:var(--accent)}
+.card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.ic{width:40px;height:40px;flex:none;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--selected);border:1px solid var(--border)}
+.ic svg{width:22px;height:22px}
+.name{font-weight:650;font-size:16px;margin-bottom:3px}
+.desc{color:var(--muted-text);font-size:13px}
+.go{margin-left:auto;flex:none;color:var(--faint);font-size:18px;line-height:40px}
+.card:hover .go{color:var(--accent)}
+.tag{display:inline-block;font-size:11px;color:var(--warning);border:1px solid var(--warning);border-radius:99px;padding:0 8px;margin-left:6px;vertical-align:2px}
+.note{color:var(--faint);font-size:12.5px;margin-top:34px;border-top:1px solid var(--border-soft);padding-top:16px}
+@media (max-width:520px){
+ .wrap{padding:26px 14px 44px}
+ .grid{grid-template-columns:1fr}
+ h1{font-size:22px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+ <svg class="seal" viewBox="0 0 46 46" aria-hidden="true"><rect x="2" y="2" width="42" height="42" rx="9" fill="#060b13" stroke="#45c6d6" stroke-width="2"/><path d="M13 16h20M23 16v15" stroke="#45c6d6" stroke-width="3.4" stroke-linecap="round"/><path d="M14 31h9" stroke="#45c6d6" stroke-width="3.4" stroke-linecap="round"/></svg>
+ <div>
+  <h1>TRQN</h1>
+ </div>
+</header>
+<p class="sub">一個首頁，直達每個工作空間。不必等 3D 載入，打開就能進。</p>
+
+<h2>工作</h2>
+<div class="grid">
+ <a class="card" href="https://qqweasdzxc.github.io/zhuge-ai-os/modules/ownboard/">
+  <span class="ic"><svg viewBox="0 0 22 22" fill="none" stroke="#45c6d6" stroke-width="1.8" stroke-linecap="round"><rect x="2.5" y="3" width="4.6" height="12" rx="1.2"/><rect x="8.7" y="3" width="4.6" height="16" rx="1.2"/><rect x="14.9" y="3" width="4.6" height="8" rx="1.2"/></svg></span>
+  <span><span class="name">工作台・任務</span><br><span class="desc">目前可讀取任務、檢視與編輯描述；整合版驗證中，新增、拖曳等操作陸續接通。</span></span>
+  <span class="go">›</span>
+ </a>
+ <a class="card" href="https://qqweasdzxc.github.io/zhuge-ai-os/modules/worklog/">
+  <span class="ic"><svg viewBox="0 0 22 22" fill="none" stroke="#e5b567" stroke-width="1.8" stroke-linecap="round"><rect x="2.8" y="4" width="16.4" height="15" rx="2"/><path d="M2.8 8.6h16.4M7.2 2.6v3M14.8 2.6v3"/><path d="M7 12.2l2.2 2.2 4-4.2" stroke="#4ade80"/></svg></span>
+  <span><span class="name">行事曆・工時</span><br><span class="desc">WorkLog 工時與月報，Google 登入後使用；行事曆承接整合中。</span></span>
+  <span class="go">›</span>
+ </a>
+ <a class="card" href="https://qqweasdzxc.github.io/zhuge-ai-os/modules/investment/">
+  <span class="ic"><svg viewBox="0 0 22 22" fill="none" stroke="#4ade80" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17.5l4.6-5 3.4 2.8 5-6.6"/><path d="M16 8.7h3.4v3.4"/><path d="M3 20h16"/></svg></span>
+  <span><span class="name">金銀島・財務</span><br><span class="desc">投資軍帳的財務總覽。</span></span>
+  <span class="go">›</span>
+ </a>
+ <a class="card" href="https://qqweasdzxc.github.io/zhuge-ai-os/learning/">
+  <span class="ic"><svg viewBox="0 0 22 22" fill="none" stroke="#c084fc" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.2l5.4-2.4v14.6L4 19.8z"/><path d="M18 5.2l-5.4-2.4v14.6l5.4 2.4z"/></svg></span>
+  <span><span class="name">學習群島</span><span class="tag">首訪轉址修復中</span><br><span class="desc">勇者總部與各知識島嶼。</span></span>
+  <span class="go">›</span>
+ </a>
+</div>
+
+<h2>體驗（3D，可選）</h2>
+<div class="grid">
+ <a class="card" href="https://qqweasdzxc.github.io/zhuge-ai-os/">
+  <span class="ic"><svg viewBox="0 0 22 22" fill="none" stroke="#96aeba" stroke-width="1.8" stroke-linejoin="round"><path d="M11 2.6l8 4.4v8l-8 4.4-8-4.4V7z"/><path d="M11 2.6v8.8M3 7l8 4.4 8-4.4"/></svg></span>
+  <span><span class="name">像素辦公室</span><span class="tag">場景可開・任務資料暫無法取得</span><br><span class="desc">3D 辦公室場景可正常開啟；任務資料暫時無法取得，頁面會明確提示，不會假報 0 任務。</span></span>
+  <span class="go">›</span>
+ </a>
+ <a class="card" href="https://qqweasdzxc.github.io/trqn-island/">
+  <span class="ic"><svg viewBox="0 0 22 22" fill="none" stroke="#96aeba" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 19V9"/><path d="M11 9C11 5 8 3 4.5 3c.6 3.8 3 6 6.5 6z"/><path d="M11 9c0-4 3-6 6.5-6-.6 3.8-3 6-6.5 6z"/><path d="M6.5 19h9"/></svg></span>
+  <span><span class="name">TRQN 美島</span><span class="tag">載入需時</span><br><span class="desc">3D 試玩島。</span></span>
+  <span class="go">›</span>
+ </a>
+</div>
+
+<p class="note">TRQN 首頁候選（v1, 2026-11-25）：純連結、不載入 3D、不含任何個人資料或個人連結。各站日後在頁首加「回首頁」即可互相串連。</p>
+</div>
+</body>
+</html>
