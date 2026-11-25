@@ -1,18 +1,324 @@
-<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-uxfgL4kfqj4XrV2LSddjgf9bA+9Z/V014J79Asv+a3s='; style-src 'sha256-eWM2q5uOLcKwFF3tmwtrgsiRqDx2nKkqM2rYSiHfVYk='; connect-src https://lenpbbhwxyyfwgvjcozf.supabase.co; img-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'"><title>原工作台 · 唯讀體驗</title><style>:root{font-family:system-ui,-apple-system,"Noto Sans TC",sans-serif;color:#14233a;background:#f4f6fa;font-size:15px}*{box-sizing:border-box}body{margin:0}header{background:#142d44;color:white;padding:32px max(24px,calc((100vw - 1260px)/2));display:flex;justify-content:space-between;gap:20px;align-items:center}h1{font-size:30px;margin:8px 0 10px}header p{color:#d5e2ed;margin:0;line-height:1.7}.eyebrow{font-size:12px;letter-spacing:2px;color:#8fe1cf}.badge{color:#95e7d4;border:1px solid #51847f;border-radius:30px;padding:7px 16px;white-space:nowrap}main{max-width:1308px;margin:24px auto;padding:0 24px}.panel{padding:24px;background:#fff;border:1px solid #dce3ed;border-radius:14px;min-width:0}h2{font-size:19px;margin:0 0 14px}p{line-height:1.75}.muted{font-size:13px;color:#69788b}button{font:inherit;border:1px solid #bdcbd9;border-radius:8px;background:#fff;color:#142d44;padding:10px 16px;cursor:pointer}button:hover{background:#eaf5f1}button:focus-visible,input:focus-visible{outline:3px solid #30a488;outline-offset:2px}button:disabled{opacity:.45;cursor:default}#login{background:#176e60;color:#fff;border-color:#176e60}#auth{margin-bottom:20px}.toolbar{display:flex;align-items:end;gap:12px}.toolbar label{font-size:12px;color:#607187;flex:1}.toolbar input{display:block;width:100%;padding:11px 13px;margin-top:6px;border:1px solid #bdcbd9;border-radius:8px;font:inherit;background:white}#status{font-size:13px;color:#52677c;min-height:25px}.layout{display:grid;grid-template-columns:minmax(280px,.8fr) minmax(0,1.35fr);gap:20px;align-items:start}.sectiontitle{display:flex;justify-content:space-between;gap:15px;color:#63748a;font-size:12px}.sectiontitle h2{color:#14233a}.task{width:100%;text-align:left;display:block;border:0;border-top:1px solid #e5eaf1;border-radius:0;padding:14px 0;background:white}.task[aria-current=true]{background:#eef8f4;padding-left:10px;border-left:3px solid #16806b}.code{font-size:12px;color:#47766b;font-weight:650;display:block;margin-bottom:5px}.tasktitle{line-height:1.6;overflow-wrap:anywhere}.meta{font-size:12px;color:#6f7d91}.empty{color:#7b8796;padding:30px 0}.content{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.8}.record{border-top:1px solid #e6ebf1;padding:14px 0}.record time{font-size:12px;color:#718096}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.6 system-ui}.foot{margin:20px 0 35px}#detail h2{font-size:23px;line-height:1.5;overflow-wrap:anywhere}.detailsmeta{display:flex;flex-wrap:wrap;gap:12px;color:#64748b;font-size:13px}details{margin-top:20px}summary{cursor:pointer;font-weight:600}#list{max-height:65vh;overflow:auto}#detail h3{font-size:15px;margin-top:26px}@media(max-width:720px){header{padding:24px}h1{font-size:25px}.layout{grid-template-columns:1fr}.panel{padding:20px}.toolbar{flex-wrap:wrap}.toolbar label{flex-basis:100%}main{padding:0 16px}#list{max-height:45vh}.badge{align-self:flex-start}}</style><script type="module">const config={"url": "https://lenpbbhwxyyfwgvjcozf.supabase.co", "anonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxlbnBiYmh3eHl5Zndndmpjb3pmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyOTM1ODksImV4cCI6MjA5NTg2OTU4OX0.TAFfLoMC8Tqr4r7nlAtsOke3YcjBIBmr5fN1a6iwSFQ", "callback": "https://qqweasdzxc.github.io/zhuge-ai-os/modules/ownboard/callback.html"};
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-IxoUAudkYNO8AwLK0/KGo4GUKfpDHBAbLO2a4Y8rPzw='; style-src 'sha256-uobrLVb1jYaxEVlFyQqAfwprvMBR3OgS90MiZcEXi3A='; connect-src https://lenpbbhwxyyfwgvjcozf.supabase.co; img-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'"><title>原工作台 · 內容保存候選</title><style>:root{font-family:system-ui,-apple-system,"Noto Sans TC",sans-serif;color:#14233a;background:#f4f6fa;font-size:15px}*{box-sizing:border-box}body{margin:0}header{background:#142d44;color:white;padding:32px max(24px,calc((100vw - 1260px)/2));display:flex;justify-content:space-between;gap:20px;align-items:center}h1{font-size:30px;margin:8px 0 10px}header p{color:#d5e2ed;margin:0;line-height:1.7}.eyebrow{font-size:12px;letter-spacing:2px;color:#8fe1cf}.badge{color:#95e7d4;border:1px solid #51847f;border-radius:30px;padding:7px 16px;white-space:nowrap}main{max-width:1308px;margin:24px auto;padding:0 24px}.panel{padding:24px;background:#fff;border:1px solid #dce3ed;border-radius:14px;min-width:0}h2{font-size:19px;margin:0 0 14px}p{line-height:1.75}.muted{font-size:13px;color:#69788b}button{font:inherit;border:1px solid #bdcbd9;border-radius:8px;background:#fff;color:#142d44;padding:10px 16px;cursor:pointer}button:hover{background:#eaf5f1}button:focus-visible,input:focus-visible{outline:3px solid #30a488;outline-offset:2px}button:disabled{opacity:.45;cursor:default}#login{background:#176e60;color:#fff;border-color:#176e60}#auth{margin-bottom:20px}.toolbar{display:flex;align-items:end;gap:12px}.toolbar label{font-size:12px;color:#607187;flex:1}.toolbar input{display:block;width:100%;padding:11px 13px;margin-top:6px;border:1px solid #bdcbd9;border-radius:8px;font:inherit;background:white}#status{font-size:13px;color:#52677c;min-height:25px}.layout{display:grid;grid-template-columns:minmax(280px,.8fr) minmax(0,1.35fr);gap:20px;align-items:start}.sectiontitle{display:flex;justify-content:space-between;gap:15px;color:#63748a;font-size:12px}.sectiontitle h2{color:#14233a}.task{width:100%;text-align:left;display:block;border:0;border-top:1px solid #e5eaf1;border-radius:0;padding:14px 0;background:white}.task[aria-current=true]{background:#eef8f4;padding-left:10px;border-left:3px solid #16806b}.code{font-size:12px;color:#47766b;font-weight:650;display:block;margin-bottom:5px}.tasktitle{line-height:1.6;overflow-wrap:anywhere}.meta{font-size:12px;color:#6f7d91}.empty{color:#7b8796;padding:30px 0}.content{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.8}.record{border-top:1px solid #e6ebf1;padding:14px 0}.record time{font-size:12px;color:#718096}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.6 system-ui}.foot{margin:20px 0 35px}#detail h2{font-size:23px;line-height:1.5;overflow-wrap:anywhere}.detailsmeta{display:flex;flex-wrap:wrap;gap:12px;color:#64748b;font-size:13px}details{margin-top:20px}summary{cursor:pointer;font-weight:600}#list{max-height:65vh;overflow:auto}#detail h3{font-size:15px;margin-top:26px}@media(max-width:720px){header{padding:24px}h1{font-size:25px}.layout{grid-template-columns:1fr}.panel{padding:20px}.toolbar{flex-wrap:wrap}.toolbar label{flex-basis:100%}main{padding:0 16px}#list{max-height:45vh}.badge{align-self:flex-start}}
+.chip{display:inline-flex;align-items:center;gap:7px;border:1px solid #d4dde7;border-radius:999px;padding:4px 11px;font-size:12px;background:#f7fafc;max-width:100%}
+.chip .dot{width:8px;height:8px;border-radius:50%;background:#9aa9bb;flex:none}
+.chip span:last-child{overflow-wrap:anywhere}
+.cat-unstarted .dot{background:#64748b}.cat-started .dot{background:#d97706}.cat-done .dot{background:#15803d}.cat-closed .dot{background:#475569}
+.chip.unknown{border-style:dashed;background:#fdf6ec;color:#8a4b08}
+.priority.p-urgent{background:#fdecec;border-color:#f0b4b4;color:#8f1d1d}
+.priority.p-high{background:#fdf3e7;border-color:#f0cf9f;color:#8a4b08}
+.priority.p-medium{background:#eef4fd;border-color:#c2d6f0;color:#1d4e8f}
+.priority.p-low{background:#f2f7f2;border-color:#c6dcc6;color:#2f6b2f}
+.priority.p-none{background:#f4f6f8;color:#66748a}
+.task .meta{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap}
+.detailsmeta{align-items:center;gap:10px 14px}
+.metaitem{display:inline-flex;align-items:center;gap:7px}
+.metalabel{color:#8494a7;font-size:12px}
+.activityline{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:baseline;margin-top:5px;line-height:1.7}
+.actionlabel{font-weight:650;color:#142d44}
+.actionkey{font-size:11px;color:#8494a7}
+.change{overflow-wrap:anywhere}
+.kvs{display:inline-flex;flex-wrap:wrap;gap:6px}
+.kv{display:inline-flex;gap:5px;font-size:12px;background:#f2f6fa;border-radius:6px;padding:3px 8px;overflow-wrap:anywhere}
+.kv b{color:#47617c;font-weight:600}.kv b,.kv span{overflow-wrap:anywhere;min-width:0}
+details.raw{margin-top:6px}
+details.raw summary{font-weight:400;font-size:12px;color:#69788b}
+.back{display:none;margin-bottom:14px}
+@media(max-width:720px){.back{display:inline-block}#detail.open{position:fixed;inset:0;z-index:30;overflow:auto;border-radius:0;padding-bottom:60px}}
+
+.badges{display:flex;gap:10px;flex-wrap:wrap}
+
+.deschead{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:26px}
+.deschead h3{margin:0}
+.editbtn{white-space:nowrap;padding:8px 14px}
+textarea{display:block;width:100%;margin-top:10px;padding:12px 13px;border:1px solid #bdcbd9;border-radius:8px;font:inherit;line-height:1.8;background:#fff;resize:vertical;min-height:140px}
+textarea:disabled{background:#f2f5f8;color:#5c6b7d}
+.editbar{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+button.primary{background:#176e60;color:#fff;border-color:#176e60}
+.savestatus{font-size:13px;color:#52677c;margin:12px 0 0;line-height:1.7;overflow-wrap:anywhere}
+.savestatus.warn{color:#8a4b08;background:#fdf6ec;border:1px solid #f0cf9f;border-radius:8px;padding:10px 12px}
+.savestatus.err{color:#8f1d1d;background:#fdecec;border:1px solid #f0b4b4;border-radius:8px;padding:10px 12px}
+.prevgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:10px}
+.prevgrid section{border:1px solid #dce3ed;border-radius:10px;padding:14px;min-width:0}
+.prevgrid h4{margin:0 0 8px;font-size:13px;color:#47617c}
+.emptydesc{color:#7b8796}
+@media(max-width:720px){.prevgrid{grid-template-columns:1fr}.editbar button{flex:1;min-width:120px}}
+</style><script type="module">const config={"url": "https://lenpbbhwxyyfwgvjcozf.supabase.co", "anonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxlbnBiYmh3eHl5Zndndmpjb3pmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyOTM1ODksImV4cCI6MjA5NTg2OTU4OX0.TAFfLoMC8Tqr4r7nlAtsOke3YcjBIBmr5fN1a6iwSFQ", "callback": "https://qqweasdzxc.github.io/zhuge-ai-os/modules/ownboard/callback.html"};
 
 const $=id=>document.getElementById(id);let token=null,refresh=null,pending=null,rows=[],prefix='',generation=0;
 const say=text=>$('status').textContent=text;
-const node=(tag,text,cls)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e};
-function clear(){generation++;token=refresh=null;rows=[];prefix='';$('list').replaceChildren(node('p','登入後顯示原工作，不建立另一套編號。','empty'));$('detail').replaceChildren(node('p','選擇一筆工作查看內容。','empty'));$('count').textContent='尚未載入';$('auth').hidden=false;$('logout').hidden=true;$('reload').disabled=true;$('search').disabled=true;}
+const node=(tag,text,cls)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e}
+// 顯示層中繼資料：狀態目錄為 2026-11-25 由正式資料庫核實的 13 狀態（key/name/category/position 照原樣）。
+// 僅用於顯示，不改寫任何回傳資料；目錄之外的狀態鍵以原始鍵顯示並標示未識別，不猜測名稱。
+const STATUS_CATALOG=[{key:'backlog',name:'Backlog',category:'unstarted'},{key:'blocked',name:'Blocked',category:'started'},{key:'cancelled',name:'Cancelled',category:'closed'},{key:'done',name:'Done',category:'done'},{key:'in_progress',name:'In Progress',category:'started'},{key:'in_review',name:'In Review',category:'started'},{key:'todo',name:'Todo',category:'unstarted'},{key:'p28mg00rg359vcpn4e25sr8okeb_tb1s',name:'TF:p28mg00rg359vcpn4e25sr8okeb_tb1s',category:'started'},{key:'p6dc8109ttp9fap1ia2j4ctrv6v_mrdt',name:'TF:p6dc8109ttp9fap1ia2j4ctrv6v_mrdt',category:'started'},{key:'p6dc8109ttp9fap1ia2j4ctrv6v_6fjc',name:'TF:p6dc8109ttp9fap1ia2j4ctrv6v_6fjc',category:'started'},{key:'p28mg00rg359vcpn4e25sr8okeb_ah5s',name:'TF:p28mg00rg359vcpn4e25sr8okeb_ah5s',category:'started'},{key:'p2ep6pbl4ec9nk95nigms1guif0_sm3b',name:'TF:p2ep6pbl4ec9nk95nigms1guif0_sm3b',category:'started'},{key:'p6dc8109ttp9fap1ia2j4ctrv6v_m9lm',name:'TF:p6dc8109ttp9fap1ia2j4ctrv6v_m9lm',category:'started'}];
+const PRIORITY_LABELS={urgent:'緊急',high:'高',medium:'中',low:'低',none:'未設定'};
+const CATEGORY_LABELS={unstarted:'未開始',started:'已開始',done:'完成',closed:'關閉'};
+const ACTION_LABELS={status_changed:'狀態變更'};
+function statusInfo(key){const s=STATUS_CATALOG.find(x=>x.key===key);return s?{...s,known:true}:{key,name:'未識別狀態',category:null,known:false}}
+function statusName(key){if(typeof key!=='string')return JSON.stringify(key);const s=STATUS_CATALOG.find(x=>x.key===key);return s?s.name:key}
+function statusChip(key){const s=statusInfo(key);const c=node('span',undefined,'chip status '+(s.known?'cat-'+s.category:'unknown'));c.append(node('span',undefined,'dot'),node('span',s.name));c.title='狀態鍵 '+key+(s.known&&s.category?' · '+(CATEGORY_LABELS[s.category]||s.category):'');return c}
+function priorityChip(key){const known=Object.prototype.hasOwnProperty.call(PRIORITY_LABELS,key);const label=known?PRIORITY_LABELS[key]:undefined;const c=node('span',undefined,'chip priority '+(known?'p-'+key:'unknown'));c.append(node('span',known?label:'未識別優先度 ('+String(key)+')'));c.title='優先度鍵 '+key;return c}
+function metaItem(label,value){const s=node('span',undefined,'metaitem');s.append(node('span',label,'metalabel'),value);return s}
+// 日期是純日曆日（YYYY-MM-DD），不經 Date 轉換時區；非法日期照實標示待核對。
+function isCalendarDate(v){if(typeof v!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(v))return false;const[y,m,d]=v.split('-').map(Number);if(y<1||m<1||m>12||d<1)return false;const leap=y%4===0&&(y%100!==0||y%400===0);return d<=[31,leap?29:28,31,30,31,30,31,31,30,31,30,31][m-1]}
+function dateLabel(v){if(v===null||v===undefined||v==='')return '未設定';if(!isCalendarDate(v))return '來源日期待核對 ('+String(v)+')';const[y,m,d]=v.split('-');return y+'/'+Number(m)+'/'+Number(d)}
+function timeLabel(v){if(typeof v!=='string'||!v)return '未記錄時間';const t=new Date(v);if(!Number.isFinite(t.getTime()))return v;return t.toLocaleString('zh-TW',{hour12:false,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}
+function timeNode(v){const t=node('time',timeLabel(v));if(typeof v==='string'&&v)t.title=v;return t}
+function activityDescription(key,details){if(!details||typeof details!=='object'||Array.isArray(details))return null;if(key==='status_changed'&&('from' in details||'to' in details)){const s=node('span',undefined,'change');s.append(node('span',statusName(details.from)),document.createTextNode(' → '),node('span',statusName(details.to)));return s}const pairs=Object.entries(details);if(!pairs.length)return null;const wrap=node('span',undefined,'kvs');for(const[k,v]of pairs){const kv=node('span',undefined,'kv');kv.append(node('b',k),node('span',typeof v==='string'||typeof v==='number'||typeof v==='boolean'?String(v):JSON.stringify(v)));wrap.append(kv)}return wrap}
+function activityRecord(r){const e=node('section',undefined,'record');e.append(timeNode(r.created_at));const line=node('div',undefined,'activityline');const key=typeof r.action==='string'?r.action:'';const label=Object.prototype.hasOwnProperty.call(ACTION_LABELS,key)?ACTION_LABELS[key]:null;line.append(node('span',label||key||'未記錄動作','actionlabel'));if(label)line.append(node('span',key,'actionkey'));const desc=activityDescription(key,r.details);if(desc)line.append(desc);e.append(line);const raw=node('details',undefined,'raw');raw.append(node('summary','原始活動內容'),node('pre',JSON.stringify({action:r.action,details:r.details},null,2)));e.append(raw);return e}
+;
+function clear(){generation++;drafts.clear();receipts.clear();attempts.clear();receiptPending=null;currentDetail=null;detailSeq++;saveBusy=false;token=refresh=null;rows=[];prefix='';$('list').replaceChildren(node('p','登入後顯示原工作，不建立另一套編號。','empty'));$('detail').replaceChildren(node('p','選擇一筆工作查看內容。','empty'));$('detail').classList.remove('open');$('count').textContent='尚未載入';$('auth').hidden=false;$('logout').hidden=true;$('reload').disabled=true;$('search').disabled=true;}
 async function authCall(path,body){const r=await fetch(config.url+path,{method:'POST',headers:{apikey:config.anonKey,'Content-Type':'application/json'},body:JSON.stringify(body),cache:'no-store',credentials:'omit',referrerPolicy:'no-referrer'});const d=await r.json();if(!r.ok)throw Error('登入未完成，請重新登入。');return d}
-async function rpc(id=null){const g=generation;const r=await fetch(config.url+'/rest/v1/rpc/ownboard_owner_read_v1',{method:'POST',headers:{apikey:config.anonKey,Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({p_issue_id:id}),cache:'no-store',credentials:'omit',referrerPolicy:'no-referrer'});if(g!==generation)throw Error('登入狀態已改變。');if(!r.ok){if([401,403].includes(r.status)){clear();throw Error('目前無法通過權限驗證，請重新登入。')}throw Error('暫時無法讀取原工作，沒有更動任何資料。')}return r.json()}
-function render(){const q=$('search').value.toLocaleLowerCase();const visible=rows.filter(r=>(prefix+'-'+r.number+' '+r.title).toLocaleLowerCase().includes(q));$('count').textContent=visible.length+' / '+rows.length+' 筆';$('list').replaceChildren();for(const r of visible){const b=node('button',undefined,'task');b.append(node('span',prefix+'-'+r.number,'code'),node('span',r.title,'tasktitle'),node('div',r.status+' · '+r.priority,'meta'));b.onclick=()=>loadDetail(r.id,b);$('list').append(b)}if(!visible.length)$('list').append(node('p','沒有符合的原工作。','empty'))}
+async function rpc(id=null){const g=generation;const r=await fetch(config.url+'/rest/v1/rpc/ownboard_owner_read_v1',{method:'POST',headers:{apikey:config.anonKey,Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({p_issue_id:id}),cache:'no-store',credentials:'omit',referrerPolicy:'no-referrer'});if(g!==generation)throw Error('登入狀態已改變。');if(!r.ok){if([401,403].includes(r.status)){if(attempts.size){token=refresh=null;$('auth').hidden=false;for(const a of attempts.values()){if(a.status!=='failed')a.status='unknown';a.needsAuth=true}throw Error('登入已到期。請勿重整或關閉此頁，重新登入後以原請求取回結果。')}clear();throw Error('目前無法通過權限驗證，請重新登入。')}throw Error('暫時無法讀取原工作，請稍後重新讀取。')}return r.json()}
+function render(){const q=$('search').value.toLocaleLowerCase();const visible=rows.filter(r=>(prefix+'-'+r.number+' '+r.title).toLocaleLowerCase().includes(q));$('count').textContent=visible.length+' / '+rows.length+' 筆';$('list').replaceChildren();for(const r of visible){const b=node('button',undefined,'task');const meta=node('div',undefined,'meta');meta.append(statusChip(r.status),priorityChip(r.priority));b.append(node('span',prefix+'-'+r.number,'code'),node('span',r.title,'tasktitle'),meta);b.onclick=()=>{if(saveBusy){say('保存進行中，完成後再切換工作。');return}loadDetail(r.id,b)};$('list').append(b)}if(!visible.length)$('list').append(node('p','沒有符合的原工作。','empty'))}
 function textValue(v){return typeof v==='string'?v:JSON.stringify(v,null,2)}
-async function loadDetail(id,button){const g=generation;say('正在讀取原內容…');try{const d=await rpc(id);if(g!==generation)return;const i=d.issue,host=$('detail');host.replaceChildren(node('span',prefix+'-'+i.number,'code'),node('h2',i.title));const meta=node('div',undefined,'detailsmeta');for(const text of ['狀態 '+i.status,'優先度 '+i.priority,'版本 '+i.revision,'開始 '+(i.start_date||'未設定'),'到期 '+(i.due_date||'未設定')])meta.append(node('span',text));host.append(meta,node('h3','工作內容'),node('div',i.description||'原工作未填內容。','content'));for(const [label,key] of [['留言','comments'],['活動歷史','activity']]){const details=node('details');details.append(node('summary',label+' ('+d[key].length+')'));for(const r of d[key]){const e=node('section',undefined,'record');e.append(node('time',r.created_at||''),node('div',textValue(r.content??{action:r.action,details:r.details}),'content'));details.append(e)}host.append(details)}const raw=node('details');raw.append(node('summary','其他原始工作欄位'),node('pre',JSON.stringify(i,null,2)));host.append(raw);document.querySelectorAll('.task[aria-current]').forEach(e=>e.removeAttribute('aria-current'));button?.setAttribute('aria-current','true');say('已讀取原內容。唯讀，不會儲存修改。')}catch(e){say(e.message)}}
-async function load(){if(!token)return;say('正在核對權限並讀取原工作…');const g=generation;try{const d=await rpc();if(g!==generation)return;rows=d.issues;prefix=d.prefix;$('auth').hidden=true;$('logout').hidden=false;$('reload').disabled=false;$('search').disabled=false;render();say('已讀取 '+rows.length+' 筆原工作。可搜尋及開啟內容，修改尚未開放。')}catch(e){say(e.message)}}
+async function loadDetail(id,button){const g=generation;const seq=++detailSeq;lastDetailError=null;say('正在讀取原內容…');try{const d=await rpc(id);if(g!==generation||seq!==detailSeq)return;const i=d.issue,host=$('detail');host.replaceChildren();const back=node('button','‹ 返回原工作列表','back');back.type='button';back.onclick=()=>host.classList.remove('open');host.append(back,node('span',prefix+'-'+i.number,'code'),node('h2',i.title));const meta=node('div',undefined,'detailsmeta');meta.append(metaItem('狀態',statusChip(i.status)),metaItem('優先度',priorityChip(i.priority)),metaItem('版本',node('span',String(i.revision))),metaItem('開始',node('span',dateLabel(i.start_date))),metaItem('到期',node('span',dateLabel(i.due_date))));currentDetail=i;const descHead=node('div',undefined,'deschead');descHead.append(node('h3','工作內容'));const editBtn=node('button','編輯內容','editbtn');editBtn.type='button';editBtn.onclick=()=>startEdit(i);descHead.append(editBtn);const descArea=node('div',undefined,'descarea');host.append(meta,descHead,descArea);renderDescription(descArea,i);const cd=node('details');cd.append(node('summary','留言 ('+d.comments.length+')'));for(const r of d.comments){const e=node('section',undefined,'record');e.append(timeNode(r.created_at),node('div',textValue(r.content),'content'));cd.append(e)}host.append(cd);const ad=node('details');ad.append(node('summary','活動歷史 ('+d.activity.length+')'));for(const r of d.activity)ad.append(activityRecord(r));host.append(ad);const raw=node('details');raw.append(node('summary','其他原始工作欄位'),node('pre',JSON.stringify(i,null,2)));host.append(raw);document.querySelectorAll('.task[aria-current]').forEach(e=>e.removeAttribute('aria-current'));button?.setAttribute('aria-current','true');host.classList.add('open');say('已讀取原內容。')}catch(e){lastDetailError=e;say(e.message)}}
+async function load(){if(!token)return;say('正在核對權限並讀取原工作…');const g=generation;try{const d=await rpc();if(g!==generation)return;rows=d.issues;prefix=d.prefix;$('auth').hidden=true;$('logout').hidden=false;$('reload').disabled=false;$('search').disabled=false;render();say('已讀取 '+rows.length+' 筆原工作。可搜尋及開啟內容，只開放工作內容保存，其他欄位唯讀。');return true}catch(e){say(e.message);return false}}
 const b64=bytes=>btoa(String.fromCharCode(...new Uint8Array(bytes))).replaceAll('+','-').replaceAll('/','_').replaceAll('=','');
+
+// ===== Existing-issue description save =====
+// This candidate uses the real owner-only RPC adapter, not a demo backend.
+// Not deployed. Drafts stay in memory; only opaque request identity survives reload.
+const drafts=new Map(),receipts=new Map(),attempts=new Map();
+let saveBusy=false,lastDetailError=null,receiptPending=null,currentDetail=null,detailSeq=0;
+const SAVE_ERR={busy:'系統忙碌，此次未保存。可用相同內容重試。',denied:'目前無法保存（權限或監看限制）。不會自動重試；若重新登入後仍相同，代表此切片暫不可用。',unknown:'保存結果未確認：伺服器可能已保存，也可能未保存。請以相同內容重試取回結果（同一請求不會重複生效）。取回結果前請勿重整或關閉此頁；離開不會撤銷已送出的保存。',validation:'輸入未通過驗證，未保存。',validationChanged:'同一保存請求不可更改內容重送；草稿已保留，請作為新請求送出。',attemptLocked:'前次保存請求結果尚未確認，不能以不同內容另送新請求。請以相同內容重試取回結果。結果未確認時不能放棄；已明確未保存的忙碌請求才可放棄後另改。',otherPending:'另一工作的保存請求結果尚未確認，暫時不能送出新請求。請先回到該工作處理（結果未確認時只能以相同內容重試）。',receiptPendingEdit:'保存回條待讀：請先重新讀取成功，再編輯內容。'};
+const MARKER_KEY='ownboard.pending.v1.ac5afcc7-f045-41a9-8827-eaf085a04c0d';
+const OWNER_ID='ac5afcc7-f045-41a9-8827-eaf085a04c0d';
+let marker=null,markerInvalid=false;
+const uuidValue=v=>typeof v==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+function readMarker(){try{const raw=localStorage.getItem(MARKER_KEY);if(!raw)return;if(raw.length>512)throw Error();const m=JSON.parse(raw);if(Object.keys(m).sort().join(',')!=='created_at,issue_id,owner_id,request_id,version'||m.version!==1||m.owner_id!==OWNER_ID||!uuidValue(m.issue_id)||!uuidValue(m.request_id)||!Number.isSafeInteger(m.created_at)||m.created_at<1)throw Error();marker=m}catch{markerInvalid=true}}
+function persistMarker(a){const m={version:1,owner_id:OWNER_ID,issue_id:a.issueId,request_id:a.requestId,created_at:Date.now()};localStorage.setItem(MARKER_KEY,JSON.stringify(m));const check=localStorage.getItem(MARKER_KEY);if(check!==JSON.stringify(m))throw Error('storage-unavailable');marker=m}
+function resolveMarker(id){if(marker?.request_id!==id)return;try{localStorage.removeItem(MARKER_KEY);marker=null}catch{markerInvalid=true}}
+function tokenOwner(){try{return JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).sub===OWNER_ID}catch{return false}}
+async function recoverMarker(){
+ if(!marker||markerInvalid||!token||saveBusy)return;
+ if(!tokenOwner()){say('目前登入的帳號無法查回此保存。請登出後使用原帳號登入。');return}
+ const m={...marker},g=generation;saveBusy=true;say('正在查回前次保存；尚未完成的請求將安全終止，不重送內容。');
+ try{const r=await fetch(config.url+'/rest/v1/rpc/ownboard_owner_request_recover_v1',{method:'POST',headers:{apikey:config.anonKey,Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({p_issue_id:m.issue_id,p_request_id:m.request_id}),cache:'no-store',credentials:'omit',referrerPolicy:'no-referrer'});if(g!==generation)return;const d=await r.json();if(!r.ok)throw Object.assign(Error('recover-failed'),{code:r.status===401?'AUTH_REQUIRED':d?.code});if(d.issue_id!==m.issue_id||d.request_id!==m.request_id||!['committed','finalized_absent'].includes(d.state))throw Error('invalid-recovery');if(d.state==='committed'&&(!d.receipt||d.receipt.request_id!==m.request_id||d.receipt.issue_id!==m.issue_id||!Number.isSafeInteger(d.receipt.saved_revision)))throw Error('invalid-recovery');
+ resolveMarker(m.request_id);attempts.delete(m.issue_id);drafts.delete(m.issue_id);saveBusy=false;await loadDetail(m.issue_id,document.querySelector('.task[aria-current]'));if(g!==generation)return;if(lastDetailError){receiptPending=m.issue_id;editEntry(false);const host=$('detail');host.replaceChildren(node('h2',d.state==='committed'?'前次保存已確認完成':'前次保存已安全終止'),node('p','最新內容暫時無法讀取，重新讀取成功後才能編輯。','savestatus warn'));const b=node('button','重新讀取最新內容');b.onclick=()=>loadDetail(m.issue_id,document.querySelector('.task[aria-current]'));host.append(b);say(d.state==='committed'?'前次保存已確認完成，但最新內容暫時無法讀取。請重新讀取後再編輯。':'前次保存已安全終止，但最新內容暫時無法讀取。請重新讀取後再編輯。');return}say(d.state==='committed'?'前次保存已確認完成，已重新讀取內容。':'前次未完成的保存已安全終止，不會在稍後生效。已重新讀取內容。');
+ }catch(e){if(g!==generation)return;saveBusy=false;if(e.code==='AUTH_REQUIRED'){token=refresh=null;$('auth').hidden=false;say('登入已到期，請重新登入原帳號後查回前次保存。恢復紀錄仍保留。');showRecovery();return}say(e.code==='55P03'?'前次保存仍處理中，請稍後再查回。':'暫時無法查回前次保存，請求身分仍保留；請使用原帳號登入後重試。');showRecovery()}
+}
+function showRecovery(){if(!marker&&!markerInvalid)return;const host=$('detail');host.classList.add('open');host.replaceChildren(node('h2','前次保存待確認'),node('p',markerInvalid?'保存恢復紀錄無法驗證。為避免重複保存，暫不開放新保存；請保留此頁並聯絡協助。':'此頁只保留前次請求編號，不含工作內容。登入原帳號後可查回結果；若請求尚未完成，會安全終止它，避免稍後又生效。','savestatus warn'));if(marker&&!markerInvalid){const b=node('button','查回前次保存結果');b.onclick=recoverMarker;host.append(b)}}
+readMarker();
+window.addEventListener('DOMContentLoaded',()=>{if(marker||markerInvalid)showRecovery()});
+async function saveCall(req){
+ const g=generation;
+ const r=await fetch(config.url+'/rest/v1/rpc/ownboard_owner_description_save_v1',{method:'POST',headers:{apikey:config.anonKey,Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(req),cache:'no-store',credentials:'omit',referrerPolicy:'no-referrer'});
+ if(g!==generation)throw new Error('stale-session');
+ let d;try{d=await r.json()}catch{throw new Error('unconfirmed-response')}
+ if(!r.ok){const code=r.status===401?'AUTH_REQUIRED':(typeof d?.code==='string'?d.code:'');throw Object.assign(new Error('save-unavailable'),{code})}
+ if(!d||d.request_id!==req.p_request_id||d.issue_id!==req.p_issue_id||typeof d.changed!=='boolean'||typeof d.replayed!=='boolean'||!Number.isSafeInteger(d.saved_revision)||d.saved_revision<1)throw new Error('unconfirmed-response');
+ return d;
+}
+function descText(v){return v===null||v===undefined?node('div','原工作未填內容。','content emptydesc'):v===''?node('div','（內容為空字串）','content emptydesc'):node('div',v,'content')}
+function editEntry(allowed){const b=document.querySelector('#detail .editbtn');if(b)b.disabled=!allowed}
+function renderDescription(area,i){
+ receiptPending=null;editEntry(true);
+ area.replaceChildren();
+ const a=attempts.get(i.id);
+ if(a){if(a.status==='unknown'){renderUnresolved(area,i);return}renderEditor(area,i,a.description,true);return}
+ const d=drafts.get(i.id);
+ if(d){if(d.baseRevision!==i.revision){renderStaleDraft(area,i,d);return}renderEditor(area,i,d.text,true);return}
+ area.append(descText(i.description));
+ const r=receipts.get(i.id);
+ if(r)area.append(node('p','上次保存回條仍保留於此頁記憶體（版本 '+r.saved_revision+'）。','savestatus'));
+}
+function startEdit(i){
+ if(receiptPending===i.id){say(SAVE_ERR.receiptPendingEdit);return}
+ const area=$('detail').querySelector('.descarea');if(!area)return;
+ const a=attempts.get(i.id);
+ if(a){renderEditor(area,i,a.description,true);return}
+ const d=drafts.get(i.id);
+ if(d){if(d.baseRevision!==i.revision){renderStaleDraft(area,i,d);return}renderEditor(area,i,d.text,true);return}
+ renderEditor(area,i,i.description??'',false);
+}
+function renderEditor(area,i,text,restored){
+ area.replaceChildren();
+ const a=attempts.get(i.id);
+ const locked=!!(a&&(a.status==='unknown'||a.needsAuth));
+ const meta=node('p','編輯 '+prefix+'-'+i.number+'（UUID '+i.id+'，基準版本 '+i.revision+'）。'+(restored?' 已還原未保存草稿（僅此頁記憶體）。':''),'savestatus');
+ const ta=node('textarea');ta.value=text;ta.rows=8;ta.setAttribute('aria-label','編輯工作內容');
+ let dirty=false;
+ ta.addEventListener('input',()=>{dirty=true;drafts.set(i.id,{text:ta.value,baseRevision:i.revision})});
+ if(restored)dirty=true;
+ if(locked)ta.disabled=true;
+ const status=node('p',undefined,'savestatus');status.setAttribute('role','status');
+ const bar=node('div',undefined,'editbar');
+ const saveB=node('button','儲存','primary'),prevB=node('button','預覽'),cancelB=node('button','取消');
+ saveB.type=prevB.type=cancelB.type='button';
+ bar.append(saveB,prevB,cancelB);
+ area.append(meta,ta,bar,status);
+ if(a){
+  status.textContent=a.needsAuth?'登入已到期，請重新登入。'+(a.status==='failed'?'前次保存已因忙碌回滾，尚未保存。':SAVE_ERR.unknown):(a.status==='unknown'?SAVE_ERR.unknown:SAVE_ERR.busy);
+  status.classList.add('warn');
+  appendRetry(area,i,a.description,status,locked);
+  appendDiscard(area,i,status,a.status==='unknown');
+ }
+ ta.focus();
+ saveB.onclick=()=>{if(saveBusy)return;if(!a&&!dirty&&ta.value===(i.description??'')){status.textContent='內容未修改。';return}submitSave(area,i,ta.value,status)};
+ prevB.onclick=()=>{if(saveBusy)return;renderPreview(area,i,ta.value,dirty)};
+ cancelB.onclick=()=>{if(saveBusy)return;cancelEdit(area,i)};
+}
+function renderPreview(area,i,proposed,dirty){
+ area.replaceChildren();
+ const a=attempts.get(i.id);
+ const grid=node('div',undefined,'prevgrid');
+ const x=node('section');x.append(node('h4','原始內容（版本 '+i.revision+'）'),descText(i.description));
+ const b=node('section');b.append(node('h4','將送出的內容'),descText(proposed));
+ grid.append(x,b);
+ const status=node('p','尚未送出；確認無誤再按儲存。','savestatus');status.setAttribute('role','status');
+ const bar=node('div',undefined,'editbar');
+ const back=node('button','返回編輯'),saveB=node('button','儲存','primary'),cancelB=node('button','取消');
+ back.type=saveB.type=cancelB.type='button';
+ bar.append(back,saveB,cancelB);
+ area.append(grid,bar,status);
+ back.onclick=()=>{if(saveBusy)return;renderEditor(area,i,proposed,true)};
+ saveB.onclick=()=>{if(saveBusy)return;if(!a&&!dirty&&proposed===(i.description??'')){status.textContent='內容未修改。';return}submitSave(area,i,proposed,status)};
+ cancelB.onclick=()=>{if(saveBusy)return;cancelEdit(area,i)};
+}
+function cancelEdit(area,i){
+ const a=attempts.get(i.id);
+ if(a&&a.status==='unknown'){renderUnresolved(area,i);return}
+ drafts.delete(i.id);
+ if(a)attempts.delete(i.id);
+ renderDescription(area,i);
+}
+function renderUnresolved(area,i){
+ area.replaceChildren();
+ const a=attempts.get(i.id);
+ if(!a){renderDescription(area,i);return}
+ area.append(node('p','已取消編輯。前次保存結果未確認：伺服器可能已保存，也可能未保存（同一請求不會重複生效）。結果未確認的請求不能放棄；請以相同內容重試取回結果，此請求處理完前不會送出新請求。','savestatus warn'));
+ area.append(node('h4','目前最新內容（唯讀，不代表你的請求已生效）'),descText(i.description));
+ const status=node('p',undefined,'savestatus');status.setAttribute('role','status');
+ const bar=node('div',undefined,'editbar');
+ const retry=node('button','以相同內容重試','retrybtn'),read=node('button','重新讀取最新'),view=node('button','查看此次送出內容'),drop=node('button','放棄此請求','discardbtn');
+ retry.type=read.type=view.type=drop.type='button';
+ drop.disabled=true;drop.title='結果未確認的請求不能放棄；請以相同內容重試取回結果。';
+ bar.append(retry,read,view,drop);
+ area.append(bar,status);
+ retry.onclick=()=>{if(saveBusy)return;submitSave(area,i,a.description,status)};
+ read.onclick=()=>{if(saveBusy)return;loadDetail(i.id,document.querySelector('.task[aria-current]'))};
+ view.onclick=()=>{if(saveBusy)return;renderEditor(area,i,a.description,true)};
+}
+function renderStaleDraft(area,i,d){
+ area.replaceChildren();
+ area.append(node('p','草稿的基準版本（版本 '+d.baseRevision+'）已過期：此工作目前為版本 '+i.revision+'，內容可能已在別處更新。不會以舊基準靜默送出。','savestatus warn'));
+ const grid=node('div',undefined,'prevgrid');
+ const x=node('section');x.append(node('h4','目前最新內容（版本 '+i.revision+'）'),descText(i.description));
+ const b=node('section');b.append(node('h4','你的草稿（基準版本 '+d.baseRevision+'）'),descText(d.text));
+ grid.append(x,b);
+ const status=node('p','請核對後決定；覆蓋送出會成為新的保存請求。','savestatus');status.setAttribute('role','status');
+ const bar=node('div',undefined,'editbar');
+ const editNew=node('button','以最新內容繼續編輯','primary'),resend=node('button','以草稿覆蓋送出（新請求）'),drop=node('button','放棄草稿');
+ editNew.type=resend.type=drop.type='button';
+ bar.append(editNew,resend,drop);
+ area.append(grid,bar,status);
+ editNew.onclick=()=>{if(saveBusy)return;drafts.delete(i.id);renderEditor(area,i,i.description??'',false)};
+ resend.onclick=()=>{if(saveBusy)return;drafts.delete(i.id);submitSave(area,i,d.text,status)};
+ drop.onclick=()=>{if(saveBusy)return;drafts.delete(i.id);renderDescription(area,i)};
+}
+async function submitSave(area,i,description,status){
+ if(saveBusy)return;
+ if(markerInvalid){showRecovery();return}
+ if(marker&&!attempts.size){showRecovery();return}
+ const g=generation;
+ let a=attempts.get(i.id);
+ if(a){
+  if(a.description!==description){status.textContent=a.status==='failed'?'前次請求已因忙碌而回滾；若要更改內容，請先放棄該請求，再建立新請求。':SAVE_ERR.attemptLocked;status.classList.add('warn');return}
+ }else{
+  if(attempts.size){status.textContent=SAVE_ERR.otherPending;status.classList.add('warn');return}
+  a={issueId:i.id,requestId:crypto.randomUUID(),description,expectedRevision:i.revision,status:'pending'};
+  try{persistMarker(a)}catch{status.textContent='無法建立安全恢復紀錄，本次尚未送出。請勿繼續保存。';return}
+  attempts.set(i.id,a);
+ }
+ saveBusy=true;
+ if(a.needsAuth&&!token){saveBusy=false;$('auth').hidden=false;status.textContent='請先重新登入，再以相同內容重試取回原請求結果。請勿重整或關閉此頁。';return}
+ a.needsAuth=false;
+ status.textContent='正在保存…';
+ try{
+  const r=await saveCall({p_issue_id:i.id,p_expected_revision:a.expectedRevision,p_description:a.description,p_request_id:a.requestId});
+  if(g!==generation)return;
+  resolveMarker(a.requestId);attempts.delete(i.id);drafts.delete(i.id);receipts.set(i.id,r);saveBusy=false;
+  if(!r.changed)say('保存請求完成：伺服器讀取點內容相同，未執行更新；最新內容以重新讀取為準。');
+  else if(r.replayed)say('此保存先前已成功，本次為同一請求的回條（版本 '+r.saved_revision+'）；正在重新讀取最新內容。');
+  else say('已保存（回條版本 '+r.saved_revision+'）；正在重新讀取最新內容。');
+  await loadDetail(i.id,document.querySelector('.task[aria-current]'));
+  if(g!==generation)return;
+  if(lastDetailError){say('保存已獲回條（版本 '+r.saved_revision+(r.replayed?'，重播回條':'')+'），但最新內容暫時無法讀取。');renderReceiptPending(area,i,r)}
+ }catch(err){
+  if(g!==generation)return;
+  saveBusy=false;
+  handleSaveError(err,area,i,description,status);
+ }
+}
+function renderReceiptPending(area,i,r){
+ receiptPending=i.id;editEntry(false);
+ area.replaceChildren();
+ area.append(node('p','保存已獲回條（版本 '+r.saved_revision+(r.replayed?'，重播回條':'')+'），但最新內容暫時無法讀取。回條僅保留於此頁記憶體，不會以回條聲稱最新內容。','savestatus warn'));
+ const b=node('button','重新讀取');b.type='button';
+ b.onclick=()=>loadDetail(i.id,document.querySelector('.task[aria-current]'));
+ area.append(b);
+}
+function appendRetry(area,i,description,status,lock){
+ const bar=area.querySelector('.editbar');if(!bar||bar.querySelector('.retrybtn'))return;
+ if(lock){const ta=area.querySelector('textarea');if(ta)ta.disabled=true}
+ const b=node('button','以相同內容重試','retrybtn');b.type='button';
+ b.onclick=()=>{if(saveBusy)return;submitSave(area,i,description,status)};
+ bar.append(b);
+}
+function appendDiscard(area,i,status,disabled){
+ const bar=area.querySelector('.editbar');if(!bar||bar.querySelector('.discardbtn'))return;
+ const b=node('button','放棄此請求','discardbtn');b.type='button';
+ if(disabled){b.disabled=true;b.title='結果未確認的請求不能放棄；請以相同內容重試取回結果。'}
+ b.onclick=()=>{if(saveBusy)return;discardAttempt(area,i,status)};
+ bar.append(b);
+}
+function discardAttempt(area,i,status){
+ const a=attempts.get(i.id);if(!a||saveBusy)return;
+ if(a.status==='unknown')return; // 結果未確認的請求無安全放棄語義：只能同 request 重試定案
+ resolveMarker(a.requestId);attempts.delete(i.id); // 55P03 已確定回滾，可安全放棄
+ say('已放棄未生效的保存請求（系統忙碌未受理）；草稿保留，可修改後作為新請求送出。');
+ renderEditor(area,i,a.description,true);
+}
+function handleSaveError(err,area,i,description,status){
+ const a=attempts.get(i.id);if(!a)return;
+ const code=err&&err.code;
+ if(code==='AUTH_REQUIRED'){a.status='unknown';a.needsAuth=true;token=refresh=null;$('auth').hidden=false;status.textContent=SAVE_ERR.unknown+' 登入已到期，請重新登入後以原請求取回結果。';appendRetry(area,i,a.description,status,true);appendDiscard(area,i,status,true);return}
+ if(code==='55P03'){const unresolved=a.status==='unknown';a.status=unresolved?'unknown':'failed';status.textContent=unresolved?SAVE_ERR.unknown:SAVE_ERR.busy;status.classList.add('warn');appendRetry(area,i,a.description,status,unresolved);appendDiscard(area,i,status,unresolved);return}
+ if(code==='40001'){resolveMarker(a.requestId);attempts.delete(i.id);enterConflict(area,i,a.description);return}
+ if(code==='42501'){if(a.status==='unknown'){status.textContent='前次保存尚未確認，請以原帳號登入後查回結果。';return}resolveMarker(a.requestId);attempts.delete(i.id);status.textContent=SAVE_ERR.denied;status.classList.add('err');rpc(i.id).catch(()=>{});return}
+ if(code==='PZ001'){resolveMarker(a.requestId);attempts.delete(i.id);drafts.delete(i.id);loadDetail(i.id);say('此請求已安全終止，沒有保存。');return}
+ if(code==='22023'){if(a.status==='unknown'){status.textContent='前次保存尚未確認，請查回結果，不建立新請求。';return}resolveMarker(a.requestId);const changed=a.description!==description;attempts.delete(i.id);status.textContent=changed?SAVE_ERR.validationChanged:SAVE_ERR.validation;status.classList.add('err');return}
+ a.status='unknown';status.textContent=SAVE_ERR.unknown;status.classList.add('warn');appendRetry(area,i,a.description,status,true);appendDiscard(area,i,status,true);
+}
+async function enterConflict(area,i,draftText){
+ const g=generation;
+ let fresh;
+ try{fresh=await rpc(i.id)}catch(e){if(g!==generation)return;area.append(node('p','版本衝突，且重新讀取最新內容失敗；草稿保留於此頁記憶體，請稍後重新讀取。','savestatus err'));return}
+ if(g!==generation)return;
+ const fi=fresh.issue;
+ 
+ drafts.set(i.id,{text:draftText,baseRevision:fi.revision});
+ area.replaceChildren();
+ area.append(node('p','版本衝突：此工作已有更新的內容（目前版本 '+fi.revision+'）。你的草稿未覆蓋它，請核對後決定。','savestatus warn'));
+ const grid=node('div',undefined,'prevgrid');
+ const x=node('section');x.append(node('h4','目前最新內容（版本 '+fi.revision+'）'),descText(fi.description));
+ const b=node('section');b.append(node('h4','你的草稿'),descText(draftText));
+ grid.append(x,b);
+ const status=node('p','不會自動以新版本重送。','savestatus');status.setAttribute('role','status');
+ const bar=node('div',undefined,'editbar');
+ const resend=node('button','以草稿作為新請求重送','primary'),editNew=node('button','以最新內容重新編輯'),drop=node('button','放棄草稿');
+ resend.type=editNew.type=drop.type='button';
+ bar.append(resend,editNew,drop);
+ area.append(grid,bar,status);
+ resend.onclick=()=>{if(saveBusy)return;drafts.delete(i.id);submitSave(area,fi,draftText,status)};
+ editNew.onclick=()=>{if(saveBusy)return;drafts.delete(i.id);renderEditor(area,fi,fi.description??'',false)};
+ drop.onclick=()=>{if(saveBusy)return;drafts.delete(i.id);renderDescription(area,fi)};
+}
+window.addEventListener('pagehide',()=>{clear();pending=null});
+window.addEventListener('beforeunload',event=>{if(attempts.size||marker){event.preventDefault();event.returnValue=''}});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&token&&!saveBusy){if((marker||markerInvalid)&&!attempts.size){showRecovery();return}if(currentDetail)loadDetail(currentDetail.id,document.querySelector('.task[aria-current]'));else load()}});
 $('login').onclick=async()=>{if(pending){say('請完成已開啟的登入視窗，或關閉後重試。');if(!pending.popup.closed)return;pending=null}const popup=window.open('about:blank','ownboard-auth-'+crypto.randomUUID(),'popup,width=520,height=720');if(!popup){say('登入視窗被瀏覽器擋住，請允許彈出視窗後重試。');return}try{const verifier=b64(crypto.getRandomValues(new Uint8Array(48)));const challenge=b64(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(verifier)));pending={popup,verifier,started:Date.now()};const u=new URL(config.url+'/auth/v1/authorize');u.search=new URLSearchParams({provider:'google',redirect_to:config.callback,code_challenge:challenge,code_challenge_method:'s256',prompt:'select_account'});popup.location.replace(u);say('請在新視窗完成 Google 登入。')}catch{popup.close();pending=null;say('無法開始登入，請重試。')}};
-window.addEventListener('message',async event=>{if(!pending||event.origin!==location.origin||event.source!==pending.popup||event.data?.type!=='ownboard-pkce-code')return;const flow=pending;pending=null;if(Date.now()-flow.started>300000||typeof event.data.code!=='string'||event.data.code.length>4096){say('登入已過期，請重新登入。');return}say('正在驗證登入…');try{const d=await authCall('/auth/v1/token?grant_type=pkce',{auth_code:event.data.code,code_verifier:flow.verifier});token=d.access_token;refresh=d.refresh_token;await load()}catch(e){clear();say(e.message)}});
-$('search').oninput=render;$('reload').onclick=load;$('logout').onclick=async()=>{const old=token;clear();try{const r=await fetch(config.url+'/auth/v1/logout?scope=local',{method:'POST',headers:{apikey:config.anonKey,Authorization:'Bearer '+old},credentials:'omit',cache:'no-store'});say(r.ok?'已登出，此頁已清除資料。':'此頁已清除資料，但伺服器登出未確認，請重新登入後再登出。')}catch{say('此頁已清除資料，但伺服器登出未確認。')}};
-window.addEventListener('pagehide',()=>{token=refresh=null;pending=null});if(location.hash||new URLSearchParams(location.search).has('code')){history.replaceState(null,'',location.pathname);say('此頁不接收URL憑證，請按登入重試。')}
-</script></head><body><header><div><span class="eyebrow">原創工作台</span><h1>從原工作接著看</h1><p>唯讀體驗，原編號、內容、留言與歷史。這一版不會改動工作。</p></div><span class="badge">唯讀</span></header><main><section id="auth" class="panel"><h2>登入你的工作空間</h2><p>僅限本人。工作資料不放在網頁程式碼裡，登入後仍由資料服務驗證權限。</p><button id="login">使用 Google 登入</button><p class="muted">登入會開啟新視窗。重新整理後需重新登入，不留存登入憑證。</p></section><div class="toolbar"><label>搜尋原編號或名稱<input id="search" type="search" placeholder="登入後搜尋" disabled></label><button id="reload" disabled>重新讀取</button><button id="logout" hidden>登出</button></div><p id="status" role="status">尚未登入。此頁不包含任何預載工作或示範資料。</p><div class="layout"><section class="panel"><div class="sectiontitle"><h2>原工作</h2><span id="count">尚未載入</span></div><div id="list"><p class="empty">登入後顯示原工作，不建立另一套編號。</p></div></section><article class="panel" id="detail"><p class="empty">選擇一筆工作查看內容。</p></article></div><p class="muted foot">尚未提供新增、編輯、工時寫入或附件開啟。附件仍保留原紀錄，不將未驗證的檔案當作已接好。</p></main></body></html>
+window.addEventListener('message',async event=>{if(!pending||event.origin!==location.origin||event.source!==pending.popup||event.data?.type!=='ownboard-pkce-code')return;const flow=pending;pending=null;if(Date.now()-flow.started>300000||typeof event.data.code!=='string'||event.data.code.length>4096){say('登入已過期，請重新登入。');return}say('正在驗證登入…');try{const d=await authCall('/auth/v1/token?grant_type=pkce',{auth_code:event.data.code,code_verifier:flow.verifier});token=d.access_token;refresh=d.refresh_token;const loaded=await load();if(!loaded){if(marker||markerInvalid)showRecovery();say(token?'登入已完成，但暫時無法讀取工作。保存恢復身分仍保留，請重新讀取。':'登入未完成權限驗證，請使用原帳號重新登入。');return}if((marker||markerInvalid)&&!attempts.size){showRecovery();return}if(attempts.size){const id=attempts.keys().next().value;await loadDetail(id,document.querySelector('.task[aria-current]'));say('已重新登入，原保存請求仍未確認。請以相同內容重試取回結果，不會自動重送。')}}catch(e){if(!attempts.size)clear();say('登入未完成。原保存請求仍保留，請重試登入，勿重整或關閉此頁。')}});
+$('search').oninput=render;$('reload').onclick=load;$('logout').onclick=async()=>{const old=token;clear();try{const r=await fetch(config.url+'/auth/v1/logout?scope=local',{method:'POST',headers:{apikey:config.anonKey,Authorization:'Bearer '+old},credentials:'omit',cache:'no-store'});if(marker||markerInvalid){showRecovery();say(r.ok?'已登出，私密內容已清除。仍有前次保存待查回，請使用原帳號登入；登出不會撤銷已送出的保存。':'私密內容已清除，伺服器登出未確認。前次保存恢復紀錄仍保留。')}else say(r.ok?'已登出，此頁已清除資料。':'此頁已清除資料，但伺服器登出未確認，請重新登入後再登出。')}catch{if(marker||markerInvalid){showRecovery();say('私密內容已清除，登出未確認；前次保存仍待原帳號登入查回。')}else say('此頁已清除資料，但伺服器登出未確認。')}};
+if(location.hash||new URLSearchParams(location.search).has('code')){history.replaceState(null,'',location.pathname);say('此頁不接收URL憑證，請按登入重試。')}
+</script></head><body><header><div><span class="eyebrow">原創工作台</span><h1>從原工作接著看</h1><p>沿用原編號、內容、留言與歷史。可修改工作內容，其他欄位維持唯讀。</p></div><div class="badges"><span class="badge">內容保存</span></div></header><main><section id="auth" class="panel"><h2>登入你的工作空間</h2><p>僅限本人。工作資料不放在網頁程式碼裡，登入後仍由資料服務驗證權限。</p><button id="login">使用 Google 登入</button><p class="muted">登入會開啟新視窗。重新整理後需重新登入，不留存登入憑證。</p></section><div class="toolbar"><label>搜尋原編號或名稱<input id="search" type="search" placeholder="登入後搜尋" disabled></label><button id="reload" disabled>重新讀取</button><button id="logout" hidden>登出</button></div><p id="status" role="status">尚未登入。此頁不包含任何預載工作或示範資料。</p><div class="layout"><section class="panel"><div class="sectiontitle"><h2>原工作</h2><span id="count">尚未載入</span></div><div id="list"><p class="empty">登入後顯示原工作，不建立另一套編號。</p></div></section><article class="panel" id="detail"><p class="empty">選擇一筆工作查看內容。</p></article></div><p class="muted foot">此版只開放工作內容保存，尚未提供新增、其他欄位修改、工時寫入或附件開啟。附件仍保留原紀錄，不將未驗證的檔案當作已接好。</p><p class="muted">內容保存後會記錄活動，但不保留修改前的內容全文；有事件監看的工作暫不開放保存。</p></main></body></html>
