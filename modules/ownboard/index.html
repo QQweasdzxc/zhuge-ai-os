@@ -1,32 +1,148 @@
-<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-ttri1nfcP3bwJtPGpdX+KrFFEl0m37nMCS4WTLN0Sb4='; style-src 'sha256-uobrLVb1jYaxEVlFyQqAfwprvMBR3OgS90MiZcEXi3A='; connect-src https://lenpbbhwxyyfwgvjcozf.supabase.co; img-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'"><title>原工作台 · 內容保存候選</title><style>:root{font-family:system-ui,-apple-system,"Noto Sans TC",sans-serif;color:#14233a;background:#f4f6fa;font-size:15px}*{box-sizing:border-box}body{margin:0}header{background:#142d44;color:white;padding:32px max(24px,calc((100vw - 1260px)/2));display:flex;justify-content:space-between;gap:20px;align-items:center}h1{font-size:30px;margin:8px 0 10px}header p{color:#d5e2ed;margin:0;line-height:1.7}.eyebrow{font-size:12px;letter-spacing:2px;color:#8fe1cf}.badge{color:#95e7d4;border:1px solid #51847f;border-radius:30px;padding:7px 16px;white-space:nowrap}main{max-width:1308px;margin:24px auto;padding:0 24px}.panel{padding:24px;background:#fff;border:1px solid #dce3ed;border-radius:14px;min-width:0}h2{font-size:19px;margin:0 0 14px}p{line-height:1.75}.muted{font-size:13px;color:#69788b}button{font:inherit;border:1px solid #bdcbd9;border-radius:8px;background:#fff;color:#142d44;padding:10px 16px;cursor:pointer}button:hover{background:#eaf5f1}button:focus-visible,input:focus-visible{outline:3px solid #30a488;outline-offset:2px}button:disabled{opacity:.45;cursor:default}#login{background:#176e60;color:#fff;border-color:#176e60}#auth{margin-bottom:20px}.toolbar{display:flex;align-items:end;gap:12px}.toolbar label{font-size:12px;color:#607187;flex:1}.toolbar input{display:block;width:100%;padding:11px 13px;margin-top:6px;border:1px solid #bdcbd9;border-radius:8px;font:inherit;background:white}#status{font-size:13px;color:#52677c;min-height:25px}.layout{display:grid;grid-template-columns:minmax(280px,.8fr) minmax(0,1.35fr);gap:20px;align-items:start}.sectiontitle{display:flex;justify-content:space-between;gap:15px;color:#63748a;font-size:12px}.sectiontitle h2{color:#14233a}.task{width:100%;text-align:left;display:block;border:0;border-top:1px solid #e5eaf1;border-radius:0;padding:14px 0;background:white}.task[aria-current=true]{background:#eef8f4;padding-left:10px;border-left:3px solid #16806b}.code{font-size:12px;color:#47766b;font-weight:650;display:block;margin-bottom:5px}.tasktitle{line-height:1.6;overflow-wrap:anywhere}.meta{font-size:12px;color:#6f7d91}.empty{color:#7b8796;padding:30px 0}.content{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.8}.record{border-top:1px solid #e6ebf1;padding:14px 0}.record time{font-size:12px;color:#718096}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.6 system-ui}.foot{margin:20px 0 35px}#detail h2{font-size:23px;line-height:1.5;overflow-wrap:anywhere}.detailsmeta{display:flex;flex-wrap:wrap;gap:12px;color:#64748b;font-size:13px}details{margin-top:20px}summary{cursor:pointer;font-weight:600}#list{max-height:65vh;overflow:auto}#detail h3{font-size:15px;margin-top:26px}@media(max-width:720px){header{padding:24px}h1{font-size:25px}.layout{grid-template-columns:1fr}.panel{padding:20px}.toolbar{flex-wrap:wrap}.toolbar label{flex-basis:100%}main{padding:0 16px}#list{max-height:45vh}.badge{align-self:flex-start}}
-.chip{display:inline-flex;align-items:center;gap:7px;border:1px solid #d4dde7;border-radius:999px;padding:4px 11px;font-size:12px;background:#f7fafc;max-width:100%}
-.chip .dot{width:8px;height:8px;border-radius:50%;background:#9aa9bb;flex:none}
-.chip span:last-child{overflow-wrap:anywhere}
-.cat-unstarted .dot{background:#64748b}.cat-started .dot{background:#d97706}.cat-done .dot{background:#15803d}.cat-closed .dot{background:#475569}
-.chip.unknown{border-style:dashed;background:#fdf6ec;color:#8a4b08}
-.priority.p-urgent{background:#fdecec;border-color:#f0b4b4;color:#8f1d1d}
-.priority.p-high{background:#fdf3e7;border-color:#f0cf9f;color:#8a4b08}
-.priority.p-medium{background:#eef4fd;border-color:#c2d6f0;color:#1d4e8f}
-.priority.p-low{background:#f2f7f2;border-color:#c6dcc6;color:#2f6b2f}
-.priority.p-none{background:#f4f6f8;color:#66748a}
-.task .meta{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap}
-.detailsmeta{align-items:center;gap:10px 14px}
-.metaitem{display:inline-flex;align-items:center;gap:7px}
-.metalabel{color:#8494a7;font-size:12px}
-.activityline{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:baseline;margin-top:5px;line-height:1.7}
-.actionlabel{font-weight:650;color:#142d44}
-.actionkey{font-size:11px;color:#8494a7}
-.change{overflow-wrap:anywhere}
-.kvs{display:inline-flex;flex-wrap:wrap;gap:6px}
-.kv{display:inline-flex;gap:5px;font-size:12px;background:#f2f6fa;border-radius:6px;padding:3px 8px;overflow-wrap:anywhere}
-.kv b{color:#47617c;font-weight:600}.kv b,.kv span{overflow-wrap:anywhere;min-width:0}
-details.raw{margin-top:6px}
-details.raw summary{font-weight:400;font-size:12px;color:#69788b}
-.back{display:none;margin-bottom:14px}
-@media(max-width:720px){.back{display:inline-block}#detail.open{position:fixed;inset:0;z-index:30;overflow:auto;border-radius:0;padding-bottom:60px}}
-
-.badges{display:flex;gap:10px;flex-wrap:wrap}
-
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-fg0UZvH6m5n03NsufXfmiLmx1NkkSmdMADqhX6Bqzw8='; style-src 'sha256-zol9AMgnjvHKqBnS2XwmNT8XrBGdVCCNHEp+6JFkCcI='; connect-src https://lenpbbhwxyyfwgvjcozf.supabase.co; img-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'"><title>任務 · TF 介面候選</title><style>
+:root{
+/* 深色主題：色值取樣自本人提供之原 TF 實際截圖（2026-11-25,工時月報屏） */
+--canvas:#0c1d26;--surface:#102630;--hover:#163b49;--selected:#122733;
+--border:#163b49;--border-soft:#122733;
+--text:#e3eff7;--muted-text:#96aeba;--faint:#69949e;
+--sidebar:#060b13;--sidebar-accent:#122733;
+--accent:#45c6d6;
+--warning:#e5b567;--success:#4ade80;--info:#45c6d6;--destructive:#fb3838;
+--prio-high:#fb923c;
+--c-backlog:#96aeba;--c-todo:#96aeba;--c-inprogress:#e5b567;--c-inreview:#4ade80;--c-done:#45c6d6;--c-blocked:#fb3838;--c-cancelled:#96aeba;--c-custom:#c084fc;
+--shadow:0 1px 2px rgb(0 0 0/.30);
+--radius:8px;
+}
+*{box-sizing:border-box}html,body{height:100%}
+body{margin:0;font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;color:var(--text);background:var(--canvas);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+svg{display:block}
+#app{display:flex;height:100vh;overflow:hidden}
+/* ===== sidebar ===== */
+#sidebar{width:248px;flex:none;background:var(--sidebar);border-right:1px solid var(--border-soft);display:flex;flex-direction:column;overflow:hidden}
+#sidebar .shead{padding:10px 14px 6px;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:space-between}
+#sidebar .scroll{overflow-y:auto;padding:0 8px 16px}
+.sec{margin-top:14px}
+.sechead{display:flex;align-items:center;justify-content:space-between;padding:2px 8px;font-size:11px;color:var(--muted-text);font-weight:500}
+.sechead .plus{opacity:0;width:18px;height:18px;border-radius:5px;color:var(--muted-text)}
+.sec:hover .sechead .plus{opacity:1}
+.sechead .plus:hover{background:var(--sidebar-accent)}
+.navitem{display:flex;align-items:center;gap:8px;width:100%;padding:4px 8px;border-radius:7px;font-size:13px;color:var(--text);text-align:left}
+.navitem:hover{background:var(--sidebar-accent)}
+.navitem.active{background:var(--sidebar-accent);font-weight:550}
+.navitem svg{color:var(--muted-text);flex:none}
+.navitem .cnt{margin-left:auto;font-size:11px;color:var(--muted-text)}
+.navsub{display:block;width:100%;text-align:left;padding:3px 8px 3px 28px;font-size:12px;color:var(--muted-text);border-radius:7px;cursor:pointer}
+.navsub:hover{background:var(--sidebar-accent);color:var(--text)}
+.dim{font-size:12px;color:var(--faint);padding:4px 8px;line-height:1.5}
+/* ===== main ===== */
+#main{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--canvas)}
+#topbar{height:44px;flex:none;display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid var(--border-soft)}
+#topbar .viewtitle{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;padding:4px 8px;border-radius:7px}
+#topbar .viewtitle:hover{background:var(--hover)}
+#topbar .iconbtn{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;color:var(--muted-text)}
+#topbar .iconbtn:hover{background:var(--hover);color:var(--text)}
+#topbar .right{margin-left:auto;display:flex;align-items:center;gap:6px}
+#search{width:180px;border:1px solid var(--border);border-radius:7px;background:var(--surface);padding:4px 9px;font-size:12px;color:var(--text);outline:none}
+#search:focus{border-color:var(--faint)}
+.layoutseg{display:flex;border:1px solid var(--border);border-radius:7px;overflow:hidden}
+.layoutseg button{padding:4px 10px;font-size:12px;color:var(--muted-text);display:flex;align-items:center;gap:5px}
+.layoutseg button.on{background:var(--selected);color:var(--text);font-weight:550}
+/* ===== board ===== */
+#boardwrap{flex:1;overflow-x:auto;overflow-y:hidden}
+#board{display:flex;gap:8px;padding:8px 12px 16px;height:100%;min-width:min-content}
+.col{width:304px;flex:none;display:flex;flex-direction:column;background:rgb(255 255 255/.03);border-radius:12px;max-height:100%}
+.colhead{display:flex;align-items:center;gap:6px;padding:8px 8px 6px 10px}
+.colhead .name{font-size:13px;font-weight:550;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.colhead .cnt{font-size:11px;color:var(--muted-text);background:var(--canvas);border-radius:99px;padding:1px 7px;font-weight:500}
+.colhead .acts{margin-left:auto;display:flex;gap:2px;opacity:0}
+.col:hover .colhead .acts{opacity:1}
+.colhead .acts button{width:22px;height:22px;border-radius:6px;color:var(--muted-text);display:flex;align-items:center;justify-content:center}
+.colhead .acts button:hover{background:var(--hover);color:var(--text)}
+.colbody{flex:1;overflow-y:auto;padding:2px 8px 10px;display:flex;flex-direction:column;gap:8px}
+.card{background:var(--surface);border:0.5px solid var(--border);border-radius:8px;box-shadow:var(--shadow);padding:10px 10px 10px;text-align:left;width:100%;cursor:pointer;transition:background .12s}
+.card:hover{background:var(--hover)}
+.card .row1{display:flex;align-items:center;gap:6px}
+.card .ident{font-size:12px;color:var(--muted-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .title{margin-top:4px;font-size:14px;font-weight:500;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.card .chips{margin-top:6px;display:flex;gap:6px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:4px;border-radius:99px;background:color-mix(in oklab,var(--hover) 60%,transparent);padding:2px 8px;font-size:11px;color:var(--muted-text);max-width:170px}
+.chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card .foot{margin-top:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;color:var(--muted-text)}
+.colfoot{padding:4px 8px 8px}
+.colfoot button{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted-text);padding:4px 6px;border-radius:7px;width:100%}
+.colfoot button:hover{background:var(--hover)}
+/* ===== list view ===== */
+#listwrap{flex:1;overflow:auto;display:none}
+#listwrap.on{display:block}
+.lgroup{position:sticky;top:0;background:var(--canvas);z-index:5;display:flex;align-items:center;gap:7px;padding:10px 20px 6px;font-size:13px;font-weight:600;border-bottom:1px solid var(--border-soft)}
+.lgroup .cnt{font-size:11px;color:var(--muted-text);font-weight:500}
+.lrow{display:flex;align-items:center;gap:10px;width:100%;padding:7px 20px;border-bottom:1px solid var(--border-soft);text-align:left;font-size:13px}
+.lrow:hover{background:var(--hover)}
+.lrow .ident{width:64px;flex:none;font-size:12px;color:var(--muted-text)}
+.lrow .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lrow .pr{margin-left:auto;display:flex;align-items:center;gap:8px;color:var(--muted-text);font-size:12px}
+/* ===== detail ===== */
+#detail{position:fixed;inset:0;z-index:60;background:var(--canvas);display:none;flex-direction:column}
+#detail.open{display:flex}
+.dhead{flex:none;display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border-soft);font-size:13px;min-width:0}
+.dhead .ident{color:var(--muted-text);flex:none}
+.dhead .ttl{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.dhead .iconbtn{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;color:var(--muted-text);flex:none}
+.dhead .iconbtn:hover{background:var(--hover);color:var(--text)}
+.dbody{flex:1;display:flex;min-height:0}
+.dmain{flex:1;min-width:0;overflow-y:auto;padding:20px 28px 80px}
+.dmain h1{font-size:18px;line-height:1.5;margin:0 0 14px;overflow-wrap:anywhere}
+.dsec{font-size:13px;font-weight:600;margin:26px 0 10px;color:var(--text)}
+.desc{font-size:14px;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--text)}
+.empty-note{color:var(--faint);font-size:13px}
+.comment{border:1px solid var(--border-soft);border-radius:10px;background:var(--surface);padding:12px 14px;margin-bottom:10px}
+.comment .chead{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted-text);margin-bottom:6px}
+.avatar{width:20px;height:20px;border-radius:50%;background:#5b6b7a;color:#fff;font-size:10px;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.comment .cbody{font-size:13.5px;line-height:1.75;white-space:pre-wrap;overflow-wrap:anywhere}
+.actline{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12.5px;color:var(--muted-text)}
+.actline .t{margin-left:auto;font-size:11px;color:var(--faint);flex:none}
+.composer{margin-top:14px;border:1px solid var(--border);border-radius:10px;background:var(--surface);padding:10px 14px;color:var(--faint);font-size:13px}
+.dside{width:300px;flex:none;border-left:1px solid var(--border-soft);overflow-y:auto;padding:14px 16px;background:var(--canvas)}
+.dside h3{font-size:12px;color:var(--muted-text);margin:0 0 8px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.prop{display:flex;align-items:center;gap:10px;padding:5px 0;font-size:13px}
+.prop .k{width:76px;flex:none;color:var(--muted-text);font-size:12.5px}
+.prop .v{display:flex;align-items:center;gap:6px;min-width:0;overflow-wrap:anywhere}
+.pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border-soft);border-radius:7px;background:var(--surface);padding:2px 9px;font-size:12.5px}
+.addprop{color:var(--faint);font-size:12.5px;padding:5px 0;display:flex;gap:6px;align-items:center;width:100%;text-align:left}
+.addprop:hover{color:var(--muted-text)}
+/* ===== auth / status / toast ===== */
+#authwrap{position:fixed;inset:0;z-index:80;background:var(--canvas);display:flex;align-items:center;justify-content:center}
+#authwrap.off{display:none}
+.authcard{width:340px;border:1px solid var(--border);border-radius:14px;background:var(--surface);padding:28px;box-shadow:var(--shadow)}
+.authcard h1{font-size:17px;margin:0 0 6px}
+.authcard p{font-size:13px;color:var(--muted-text);line-height:1.7;margin:0 0 18px}
+#login{width:100%;background:var(--accent);color:#060b13;border-radius:8px;padding:9px 0;font-size:13.5px;font-weight:550}
+#login:hover{filter:brightness(1.12)}
+#statusbar{position:fixed;left:16px;bottom:10px;z-index:70;font-size:11.5px;color:var(--faint);max-width:60vw}
+#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#e3eff7;color:#060b13;font-size:12.5px;border-radius:9px;padding:8px 16px;z-index:90;display:none;box-shadow:0 4px 16px rgb(0 0 0/.18)}
+#logout{font-size:12px;color:var(--muted-text);border:1px solid var(--border);border-radius:7px;padding:3px 10px}
+#logout:hover{background:var(--hover)}
+#reload{font-size:12px;color:var(--muted-text);border:1px solid var(--border);border-radius:7px;padding:3px 10px}
+#reload:hover{background:var(--hover)}
+#detail.open ~ #statusbar{display:none}
+/* mobile */
+#menuBtn{display:none}
+@media(max-width:860px){
+ #sidebar{position:fixed;left:0;top:0;bottom:0;z-index:50;transform:translateX(-110%);transition:transform .18s;box-shadow:0 0 24px rgb(0 0 0/.12)}
+ #sidebar.open{transform:none;box-shadow:0 0 24px rgb(0 0 0/.5)}
+ #menuBtn{display:flex}
+ #topbar{flex-wrap:wrap;height:auto;min-height:44px;padding:4px 10px;row-gap:4px}
+ #topbar button{white-space:nowrap;flex:none}
+ #topbar .viewtitle span{white-space:nowrap}
+ #topbar .right{flex-wrap:wrap;justify-content:flex-end;row-gap:4px}
+ #search{width:100%;min-width:0;flex:1 1 100%;order:10}
+ .layoutseg button{padding:4px 7px}
+ .layoutseg button span{display:none}
+ #reload{padding:3px 8px}
+ .col{width:85vw}
+ .dside{display:none}
+ #statusbar{left:8px}
+}
 .deschead{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:26px}
 .deschead h3{margin:0}
 .editbtn{white-space:nowrap;padding:8px 14px}
@@ -42,39 +158,342 @@ button.primary{background:#176e60;color:#fff;border-color:#176e60}
 .prevgrid h4{margin:0 0 8px;font-size:13px;color:#47617c}
 .emptydesc{color:#7b8796}
 @media(max-width:720px){.prevgrid{grid-template-columns:1fr}.editbar button{flex:1;min-width:120px}}
-</style><script type="module">const config={"url": "https://lenpbbhwxyyfwgvjcozf.supabase.co", "anonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxlbnBiYmh3eHl5Zndndmpjb3pmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyOTM1ODksImV4cCI6MjA5NTg2OTU4OX0.TAFfLoMC8Tqr4r7nlAtsOke3YcjBIBmr5fN1a6iwSFQ", "callback": "https://qqweasdzxc.github.io/zhuge-ai-os/modules/ownboard/callback.html"};
 
-const $=id=>document.getElementById(id);let token=null,refresh=null,pending=null,rows=[],prefix='',generation=0;
-const say=text=>$('status').textContent=text;
-const node=(tag,text,cls)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e}
-// 顯示層中繼資料：狀態目錄為 2026-11-25 由正式資料庫核實的 13 狀態（key/name/category/position 照原樣）。
-// 僅用於顯示，不改寫任何回傳資料；目錄之外的狀態鍵以原始鍵顯示並標示未識別，不猜測名稱。
-const STATUS_CATALOG=[{key:'backlog',name:'Backlog',category:'unstarted'},{key:'blocked',name:'Blocked',category:'started'},{key:'cancelled',name:'Cancelled',category:'closed'},{key:'done',name:'Done',category:'done'},{key:'in_progress',name:'In Progress',category:'started'},{key:'in_review',name:'In Review',category:'started'},{key:'todo',name:'Todo',category:'unstarted'},{key:'p28mg00rg359vcpn4e25sr8okeb_tb1s',name:'TF:p28mg00rg359vcpn4e25sr8okeb_tb1s',category:'started'},{key:'p6dc8109ttp9fap1ia2j4ctrv6v_mrdt',name:'TF:p6dc8109ttp9fap1ia2j4ctrv6v_mrdt',category:'started'},{key:'p6dc8109ttp9fap1ia2j4ctrv6v_6fjc',name:'TF:p6dc8109ttp9fap1ia2j4ctrv6v_6fjc',category:'started'},{key:'p28mg00rg359vcpn4e25sr8okeb_ah5s',name:'TF:p28mg00rg359vcpn4e25sr8okeb_ah5s',category:'started'},{key:'p2ep6pbl4ec9nk95nigms1guif0_sm3b',name:'TF:p2ep6pbl4ec9nk95nigms1guif0_sm3b',category:'started'},{key:'p6dc8109ttp9fap1ia2j4ctrv6v_m9lm',name:'TF:p6dc8109ttp9fap1ia2j4ctrv6v_m9lm',category:'started'}];
-const PRIORITY_LABELS={urgent:'緊急',high:'高',medium:'中',low:'低',none:'未設定'};
-const CATEGORY_LABELS={unstarted:'未開始',started:'已開始',done:'完成',closed:'關閉'};
-const ACTION_LABELS={status_changed:'狀態變更'};
-function statusInfo(key){const s=STATUS_CATALOG.find(x=>x.key===key);return s?{...s,known:true}:{key,name:'未識別狀態',category:null,known:false}}
-function statusName(key){if(typeof key!=='string')return JSON.stringify(key);const s=STATUS_CATALOG.find(x=>x.key===key);return s?s.name:key}
-function statusChip(key){const s=statusInfo(key);const c=node('span',undefined,'chip status '+(s.known?'cat-'+s.category:'unknown'));c.append(node('span',undefined,'dot'),node('span',s.name));c.title='狀態鍵 '+key+(s.known&&s.category?' · '+(CATEGORY_LABELS[s.category]||s.category):'');return c}
-function priorityChip(key){const known=Object.prototype.hasOwnProperty.call(PRIORITY_LABELS,key);const label=known?PRIORITY_LABELS[key]:undefined;const c=node('span',undefined,'chip priority '+(known?'p-'+key:'unknown'));c.append(node('span',known?label:'未識別優先度 ('+String(key)+')'));c.title='優先度鍵 '+key;return c}
-function metaItem(label,value){const s=node('span',undefined,'metaitem');s.append(node('span',label,'metalabel'),value);return s}
-// 日期是純日曆日（YYYY-MM-DD），不經 Date 轉換時區；非法日期照實標示待核對。
-function isCalendarDate(v){if(typeof v!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(v))return false;const[y,m,d]=v.split('-').map(Number);if(y<1||m<1||m>12||d<1)return false;const leap=y%4===0&&(y%100!==0||y%400===0);return d<=[31,leap?29:28,31,30,31,30,31,31,30,31,30,31][m-1]}
-function dateLabel(v){if(v===null||v===undefined||v==='')return '未設定';if(!isCalendarDate(v))return '來源日期待核對 ('+String(v)+')';const[y,m,d]=v.split('-');return y+'/'+Number(m)+'/'+Number(d)}
-function timeLabel(v){if(typeof v!=='string'||!v)return '未記錄時間';const t=new Date(v);if(!Number.isFinite(t.getTime()))return v;return t.toLocaleString('zh-TW',{hour12:false,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}
-function timeNode(v){const t=node('time',timeLabel(v));if(typeof v==='string'&&v)t.title=v;return t}
-function activityDescription(key,details){if(!details||typeof details!=='object'||Array.isArray(details))return null;if(key==='status_changed'&&('from' in details||'to' in details)){const s=node('span',undefined,'change');s.append(node('span',statusName(details.from)),document.createTextNode(' → '),node('span',statusName(details.to)));return s}const pairs=Object.entries(details);if(!pairs.length)return null;const wrap=node('span',undefined,'kvs');for(const[k,v]of pairs){const kv=node('span',undefined,'kv');kv.append(node('b',k),node('span',typeof v==='string'||typeof v==='number'||typeof v==='boolean'?String(v):JSON.stringify(v)));wrap.append(kv)}return wrap}
-function activityRecord(r){const e=node('section',undefined,'record');e.append(timeNode(r.created_at));const line=node('div',undefined,'activityline');const key=typeof r.action==='string'?r.action:'';const label=Object.prototype.hasOwnProperty.call(ACTION_LABELS,key)?ACTION_LABELS[key]:null;line.append(node('span',label||key||'未記錄動作','actionlabel'));if(label)line.append(node('span',key,'actionkey'));const desc=activityDescription(key,r.details);if(desc)line.append(desc);e.append(line);const raw=node('details',undefined,'raw');raw.append(node('summary','原始活動內容'),node('pre',JSON.stringify({action:r.action,details:r.details},null,2)));e.append(raw);return e}
-;
-function clear(){generation++;drafts.clear();receipts.clear();attempts.clear();receiptPending=null;currentDetail=null;detailSeq++;saveBusy=false;token=refresh=null;rows=[];prefix='';$('list').replaceChildren(node('p','登入後顯示原工作，不建立另一套編號。','empty'));$('detail').replaceChildren(node('p','選擇一筆工作查看內容。','empty'));$('detail').classList.remove('open');$('count').textContent='尚未載入';$('auth').hidden=false;$('logout').hidden=true;$('reload').disabled=true;$('search').disabled=true;}
+#detail.open:not(:has(.dhead)){top:44px} [hidden]{display:none!important}.navsub{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#calendarpanel,#prefpanel{padding:24px;overflow:auto;height:calc(100vh - 90px);color:var(--text)}#calendarpanel p,#prefpanel p{color:var(--muted-text);line-height:1.7}.monthbar{display:flex;gap:8px;flex-wrap:wrap}.monthbar input,select,textarea{font:inherit;background:var(--card);color:var(--text);border:1px solid var(--border);padding:9px;border-radius:6px}.monthgrid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin:20px 0;max-width:720px}.weekday{text-align:center;color:var(--muted-text)}.daycell{display:flex;flex-direction:column;gap:6px;min-height:48px;padding:7px}.daycell small{color:var(--accent)}.workrecord{border-top:1px solid var(--border);padding:16px 0}.workrecord h4{margin:8px 0}.detailsmeta{display:flex;gap:14px;flex-wrap:wrap;color:var(--muted-text)}#calendarhost>.card{max-width:720px;margin:10px 0}.savestatus,.deschead,.prevgrid{color:var(--text)}textarea,textarea:disabled{background:#102731;color:#d8e5eb}.prevgrid section{border-color:#244652}#catalognotice{position:absolute;bottom:22px;left:250px;color:#eab66c;font-size:12px}button.editbtn{margin:10px 0;background:#123c46;border:1px solid #236475;border-radius:6px;padding:8px 14px;color:#d8e5eb}.content{white-space:pre-wrap;line-height:1.7;overflow-wrap:anywhere}.editbar button{background:#123c46;border:1px solid #236475;border-radius:6px;padding:8px 12px;color:#d8e5eb}@media(max-width:860px){.navsub{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#calendarpanel,#prefpanel{padding:16px}#catalognotice{left:16px}}
+</style></head><body>
+<div id="app">
+ <aside id="sidebar"><div class="shead"><span>TRQN OS</span></div><div class="scroll" id="sideScroll"></div></aside>
+ <main id="main">
+  <div id="topbar">
+   <button class="iconbtn" id="menuBtn" title="選單"></button>
+   <button class="viewtitle" id="viewTitle"></button>
+   <button class="iconbtn" id="filterBtn" title="篩選"></button>
+   <div class="right">
+    <input id="search" type="search" placeholder="搜尋編號或標題" disabled>
+    <div class="layoutseg" id="layoutSeg"></div>
+    <button id="reload" disabled>重新整理</button>
+    <button id="logout" hidden>登出</button>
+   </div>
+  </div>
+  <section id="calendarpanel" hidden><h2>行事曆 / Worklog</h2><p>既有任務日期與工時紀錄唯讀。新增、編輯、刪除、月報下載與 Google 同步尚未接通。</p><div class="monthbar"><button id="prevmonth">‹</button><input id="month" type="month" aria-label="選擇月份"><button id="nextmonth">›</button><button id="readmonth">讀取此月</button></div><div id="calendarhost"><p>尚未讀取，請先登入。</p></div></section><section id="prefpanel" hidden><h2>既有狀態偏好</h2><div id="prefcontent"></div></section><p id="catalognotice" role="status"></p><div id="boardwrap"><div id="board"></div></div>
+  <div id="listwrap"></div>
+ </main>
+</div>
+<section id="detail" aria-label="任務詳情"></section>
+<div id="authwrap"><div class="authcard" id="auth">
+ <h1>登入你的工作空間</h1>
+ <p>僅限本人。工作資料不放在網頁程式碼裡，登入後由資料服務驗證權限，僅工作內容可保存，行事曆與 Worklog 先接唯讀。</p>
+ <button id="login">使用 Google 登入</button>
+ <p>登入會開啟新視窗。重新整理後需重新登入，不留存登入憑證。</p>
+</div></div>
+<div id="statusbar" role="status"></div>
+<div id="toast" role="status"></div>
+<script type="module">
+const config={"url":"https://lenpbbhwxyyfwgvjcozf.supabase.co","anonKey":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxlbnBiYmh3eHl5Zndndmpjb3pmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyOTM1ODksImV4cCI6MjA5NTg2OTU4OX0.TAFfLoMC8Tqr4r7nlAtsOke3YcjBIBmr5fN1a6iwSFQ","callback":"https://qqweasdzxc.github.io/zhuge-ai-os/modules/ownboard/callback.html"};
+const $=id=>document.getElementById(id);
+const node=(t,x,c)=>{const e=document.createElement(t);if(x!==undefined)e.textContent=x;if(c)e.className=c;return e};
+const tidy=s=>typeof s==='string'?s.replace(/\n{3,}/g,'\n\n'):s;
+const svg=(inner,vb=14)=>{const s=document.createElementNS('http://www.w3.org/2000/svg','svg');s.setAttribute('viewBox','0 0 '+vb+' '+vb);s.setAttribute('width','14');s.setAttribute('height','14');s.innerHTML=inner;return s};
+const strokeIcon=(paths,size=20)=>{const s=document.createElementNS('http://www.w3.org/2000/svg','svg');s.setAttribute('viewBox','0 0 24 24');s.setAttribute('width',String(size));s.setAttribute('height',String(size));s.setAttribute('fill','none');s.setAttribute('stroke','currentColor');s.setAttribute('stroke-width','2');s.setAttribute('stroke-linecap','round');s.setAttribute('stroke-linejoin','round');s.innerHTML=paths;return s};
+const I={
+ inbox:'<path d="M3.5 13.5h4.6l1.7 2.6h4.4l1.7-2.6h4.6"/><path d="M5.9 5.5 3.5 13.5V18a1.6 1.6 0 0 0 1.6 1.6h13.8a1.6 1.6 0 0 0 1.6-1.6v-4.5L18.1 5.5a1.6 1.6 0 0 0-1.5-1.1H7.4a1.6 1.6 0 0 0-1.5 1.1z"/>',
+ search:'<circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.2 15.2 5.3 5.3"/>',
+ issues:'<rect x="4" y="4" width="16" height="16" rx="4.5"/><path d="m8.6 12.4 2.4 2.4 4.4-4.8"/>',
+ team:'<path d="M17.5 20v-1.6a4.4 4.4 0 0 0-4.4-4.4h-2.2a4.4 4.4 0 0 0-4.4 4.4V20"/><circle cx="12" cy="8.1" r="3.4"/>',
+ chat:'<path d="M4 6.8A2.3 2.3 0 0 1 6.3 4.5h11.4A2.3 2.3 0 0 1 20 6.8v7.4a2.3 2.3 0 0 1-2.3 2.3h-7.9l-4.2 3.2v-3.2h-.2A2.3 2.3 0 0 1 4 14.2z"/>',
+ auto:'<path d="M12.8 3 5.8 13.2h5l-.9 7.8 7.3-10.8h-5.2z"/>',
+ help:'<circle cx="12" cy="12" r="8.2"/><path d="M9.8 9.4a2.3 2.3 0 1 1 3.4 2c-.8.5-1.2 1-1.2 1.9"/><path d="M12 16.8h.01"/>',
+ gear:'<path d="M4.5 7.5h15M4.5 12h15M4.5 16.5h15"/><circle cx="9" cy="7.5" r="1.9" fill="var(--canvas)"/><circle cx="14.5" cy="12" r="1.9" fill="var(--canvas)"/><circle cx="7.5" cy="16.5" r="1.9" fill="var(--canvas)"/>',
+ plus:'<path d="M12 6v12M6 12h12"/>',
+ more:'<rect x="4.3" y="10.8" width="2.4" height="2.4" rx="0.7" fill="currentColor" stroke="none"/><rect x="10.8" y="10.8" width="2.4" height="2.4" rx="0.7" fill="currentColor" stroke="none"/><rect x="17.3" y="10.8" width="2.4" height="2.4" rx="0.7" fill="currentColor" stroke="none"/>',
+ filter:'<path d="M4 5.5h16l-6.2 7.4v5.1l-3.6-1.8v-3.3z"/>',
+ list:'<path d="M9.4 6.5h10.6M9.4 12h10.6M9.4 17.5h10.6"/><rect x="3.8" y="5.4" width="2.2" height="2.2" rx="0.6" fill="currentColor" stroke="none"/><rect x="3.8" y="10.9" width="2.2" height="2.2" rx="0.6" fill="currentColor" stroke="none"/><rect x="3.8" y="16.4" width="2.2" height="2.2" rx="0.6" fill="currentColor" stroke="none"/>',
+ board:'<rect x="3.4" y="4" width="4.6" height="16" rx="1.6"/><rect x="9.9" y="4" width="4.6" height="10.5" rx="1.6"/><rect x="16.4" y="4" width="4.6" height="6.5" rx="1.6"/>',
+ close:'<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
+ chevD:'<path d="m7 10 5 5 5-5"/>',
+ back:'<path d="M19.5 12H6.5M11.5 17l-5-5 5-5"/>',
+ panel:'<rect x="4" y="4" width="16" height="16" rx="4.5"/><path d="M14.5 4v16"/>',
+ cal:'<rect x="4" y="5.5" width="16" height="14.5" rx="3"/><path d="M8.5 3.5v4M15.5 3.5v4M4 10.5h16"/>',
+ user:'<path d="M18 20v-1.4a4.6 4.6 0 0 0-4.6-4.6h-2.8A4.6 4.6 0 0 0 6 18.6V20"/><circle cx="12" cy="8" r="3.5"/>',
+ folder:'<path d="M3.5 18.5V6.2A1.7 1.7 0 0 1 5.2 4.5h4l2 2.3h7.3a1.7 1.7 0 0 1 1.7 1.7v10a1.7 1.7 0 0 1-1.7 1.7H5.2a1.7 1.7 0 0 1-1.7-1.7z"/>',
+ menu:'<path d="M4.5 7h15M4.5 12h15M4.5 17h15"/>',
+ pencil:'<path d="M16.8 4.2a2.4 2.4 0 0 1 3.4 3.4L8.6 19.2l-4.9 1.4 1.4-4.9z"/>'
+};
+function statusSVG(key,color){
+ // TRQN 原創「方章」族：圓角方框為基底，不沿用上游圓環/扇形/點陣幾何
+ const box='<rect x="2.6" y="2.6" width="8.8" height="8.8" rx="2.9" fill="none" stroke="'+color+'" stroke-width="1.6"/>';
+ const fillbox='<rect x="2.6" y="2.6" width="8.8" height="8.8" rx="2.9" fill="'+color+'"/>';
+ const check=(c,w)=>'<path d="M4.6 7.5 6.3 9.4 9.6 4.8" fill="none" stroke="'+c+'" stroke-width="'+w+'" stroke-linecap="round" stroke-linejoin="round"/>';
+ switch(key){
+  case 'backlog':return svg(box+'<path d="M5 5.6h4M5 7.6h4M5 9.6h2.6" stroke="'+color+'" stroke-width="1.3" stroke-linecap="round"/>');
+  case 'todo':return svg(box);
+  case 'in_progress':return svg(box+'<path d="M5.5 2.6h1.5v8.8H5.5a2.9 2.9 0 0 1-2.9-2.9V5.5a2.9 2.9 0 0 1 2.9-2.9z" fill="'+color+'"/>');
+  case 'in_review':return svg(box+check(color,1.5));
+  case 'done':return svg(fillbox+check('#0c1d26',1.7));
+  case 'blocked':return svg(fillbox+'<path d="M4.8 7h4.4" stroke="#0c1d26" stroke-width="1.7" stroke-linecap="round"/>');
+  case 'cancelled':return svg(box+'<path d="M5 5l4 4M9 5L5 9" stroke="'+color+'" stroke-width="1.5" stroke-linecap="round"/>');
+  default:return svg(box+'<circle cx="7" cy="7" r="1.7" fill="'+color+'"/>');
+ }
+}
+function prioSVG(p){
+ const color={urgent:'var(--destructive)',high:'var(--prio-high)',medium:'var(--warning)',low:'var(--info)',none:'var(--faint)'}[p]||'var(--faint)';
+ if(p==='none')return svg('<rect x="2.7" y="2.7" width="8.6" height="8.6" rx="1.2" fill="none" stroke="'+color+'" stroke-width="1.4" stroke-dasharray="3 2"/>');
+ const n={urgent:4,high:3,medium:2,low:1}[p]||0;let d='';
+ for(let i=0;i<4;i++){const h=3+i*2.6,x=1.2+i*3.2;d+='<rect x="'+x+'" y="'+(12.5-h)+'" width="2.2" height="'+h+'" rx="0.8" fill="'+(i<n?color:'#163b49')+'"/>'}
+ return svg(d);
+}
+const STATUS_META={
+ backlog:{name:'待規劃',cat:'unstarted',col:'var(--c-backlog)'},
+ todo:{name:'待辦',cat:'unstarted',col:'var(--c-todo)'},
+ in_progress:{name:'進行中',cat:'started',col:'var(--c-inprogress)'},
+ in_review:{name:'稽核中',cat:'started',col:'var(--c-inreview)'},
+ blocked:{name:'已阻塞',cat:'started',col:'var(--c-blocked)'},
+ done:{name:'已完成',cat:'done',col:'var(--c-done)'},
+ cancelled:{name:'已取消',cat:'closed',col:'var(--c-cancelled)'}};
+const BUILTIN_ORDER=['backlog','todo','in_progress','in_review','blocked','done','cancelled'];
+const CAT_ORDER={unstarted:0,started:1,done:2,closed:3};
+const CUSTOM_KEYS=['p28mg00rg359vcpn4e25sr8okeb_tb1s','p6dc8109ttp9fap1ia2j4ctrv6v_mrdt','p6dc8109ttp9fap1ia2j4ctrv6v_6fjc','p28mg00rg359vcpn4e25sr8okeb_ah5s','p2ep6pbl4ec9nk95nigms1guif0_sm3b','p6dc8109ttp9fap1ia2j4ctrv6v_m9lm'];
+function statusMeta(key,project=selectedProject){const resolved=resolveStatuses(displayConfig,project).find(x=>x.key===key);if(resolved){let realLabel=resolved.label;if(!project&&!resolved.is_system){const labels=[...new Set((displayConfig?.preferences||[]).map(p=>p.status_labels?.[key]).filter(x=>typeof x==="string"))];if(labels.length===1)realLabel=labels[0]}return {name:resolved.is_system?(STATUS_META[key]?.name||resolved.label):realLabel,cat:resolved.category,col:/^#[0-9a-f]{6}$/i.test(resolved.color)?resolved.color:"var(--c-custom)",custom:!resolved.is_system};}
+ if(!displayConfig)return {name:key,cat:'unknown',col:'var(--faint)',unknown:true};
+ 
+ return {name:key,cat:'started',col:'var(--c-custom)',custom:true,unknown:true};
+}
+const PRIO_NAME={urgent:'緊急',high:'高',medium:'中',low:'低',none:'無優先順序'};
+function relTime(v){const t=new Date(v);if(!Number.isFinite(t.getTime()))return'';
+ const s=(Date.now()-t.getTime())/1000;if(s<60)return'剛剛';if(s<3600)return Math.floor(s/60)+' 分鐘前';if(s<86400)return Math.floor(s/3600)+' 小時前';if(s<86400*30)return Math.floor(s/86400)+' 天前';
+ return t.toLocaleDateString('zh-TW',{year:'numeric',month:'2-digit',day:'2-digit'})}
+function toast(msg){const t=$('toast');t.textContent=msg;t.style.display='block';clearTimeout(t.__h);t.__h=setTimeout(()=>t.style.display='none',3200)}
+const say=m=>{$('statusbar').textContent=m};
+let token=null,refresh=null,pending=null,rows=[],prefix='',generation=0,layout='board',currentView='all';
+const isFixture=false;
 async function authCall(path,body){const r=await fetch(config.url+path,{method:'POST',headers:{apikey:config.anonKey,'Content-Type':'application/json'},body:JSON.stringify(body),cache:'no-store',credentials:'omit',referrerPolicy:'no-referrer'});const d=await r.json();if(!r.ok)throw Error('登入未完成，請重新登入。');return d}
-async function rpc(id=null){const g=generation;const r=await fetch(config.url+'/rest/v1/rpc/ownboard_owner_read_v1',{method:'POST',headers:{apikey:config.anonKey,Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({p_issue_id:id}),cache:'no-store',credentials:'omit',referrerPolicy:'no-referrer'});if(g!==generation)throw Error('登入狀態已改變。');if(!r.ok){if([401,403].includes(r.status)){if(attempts.size){token=refresh=null;$('auth').hidden=false;for(const a of attempts.values()){if(a.status!=='failed')a.status='unknown';a.needsAuth=true}throw Error('登入已到期。請勿重整或關閉此頁，重新登入後以原請求取回結果。')}clear();throw Error('目前無法通過權限驗證，請重新登入。')}throw Error('暫時無法讀取原工作，請稍後重新讀取。')}return r.json()}
-function render(){const q=$('search').value.toLocaleLowerCase();const visible=rows.filter(r=>(prefix+'-'+r.number+' '+r.title).toLocaleLowerCase().includes(q));$('count').textContent=visible.length+' / '+rows.length+' 筆';$('list').replaceChildren();for(const r of visible){const b=node('button',undefined,'task');const meta=node('div',undefined,'meta');meta.append(statusChip(r.status),priorityChip(r.priority));b.append(node('span',prefix+'-'+r.number,'code'),node('span',r.title,'tasktitle'),meta);b.onclick=()=>{if(saveBusy){say('保存進行中，完成後再切換工作。');return}loadDetail(r.id,b)};$('list').append(b)}if(!visible.length)$('list').append(node('p','沒有符合的原工作。','empty'))}
-function textValue(v){return typeof v==='string'?v:JSON.stringify(v,null,2)}
-async function loadDetail(id,button){const g=generation;const seq=++detailSeq;lastDetailError=null;say('正在讀取原內容…');try{const d=await rpc(id);if(g!==generation||seq!==detailSeq)return;const i=d.issue,host=$('detail');host.replaceChildren();const back=node('button','‹ 返回原工作列表','back');back.type='button';back.onclick=()=>host.classList.remove('open');host.append(back,node('span',prefix+'-'+i.number,'code'),node('h2',i.title));const meta=node('div',undefined,'detailsmeta');meta.append(metaItem('狀態',statusChip(i.status)),metaItem('優先度',priorityChip(i.priority)),metaItem('版本',node('span',String(i.revision))),metaItem('開始',node('span',dateLabel(i.start_date))),metaItem('到期',node('span',dateLabel(i.due_date))));currentDetail=i;const descHead=node('div',undefined,'deschead');descHead.append(node('h3','工作內容'));const editBtn=node('button','編輯內容','editbtn');editBtn.type='button';editBtn.onclick=()=>startEdit(i);descHead.append(editBtn);const descArea=node('div',undefined,'descarea');host.append(meta,descHead,descArea);renderDescription(descArea,i);const cd=node('details');cd.append(node('summary','留言 ('+d.comments.length+')'));for(const r of d.comments){const e=node('section',undefined,'record');e.append(timeNode(r.created_at),node('div',textValue(r.content),'content'));cd.append(e)}host.append(cd);const ad=node('details');ad.append(node('summary','活動歷史 ('+d.activity.length+')'));for(const r of d.activity)ad.append(activityRecord(r));host.append(ad);const raw=node('details');raw.append(node('summary','其他原始工作欄位'),node('pre',JSON.stringify(i,null,2)));host.append(raw);document.querySelectorAll('.task[aria-current]').forEach(e=>e.removeAttribute('aria-current'));button?.setAttribute('aria-current','true');host.classList.add('open');say('已讀取原內容。')}catch(e){lastDetailError=e;say(e.message)}}
-async function load(){if(!token)return;say('正在核對權限並讀取原工作…');const g=generation;try{const d=await rpc();if(g!==generation)return;rows=d.issues;prefix=d.prefix;$('auth').hidden=true;$('logout').hidden=false;$('reload').disabled=false;$('search').disabled=false;render();say('已讀取 '+rows.length+' 筆原工作。可搜尋及開啟內容，只開放工作內容保存，其他欄位唯讀。');return true}catch(e){say(e.message);return false}}
-const b64=bytes=>btoa(String.fromCharCode(...new Uint8Array(bytes))).replaceAll('+','-').replaceAll('/','_').replaceAll('=','');
+async function rpc(id=null){const g=generation;const r=await fetch(config.url+'/rest/v1/rpc/ownboard_owner_read_v1',{method:'POST',headers:{apikey:config.anonKey,Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({p_issue_id:id}),cache:'no-store',credentials:'omit',referrerPolicy:'no-referrer'});if(g!==generation)throw Error('登入狀態已改變。');if(!r.ok){if([401,403].includes(r.status)){if(attempts.size){token=refresh=null;$('auth').hidden=false;$('authwrap').classList.remove('off');for(const a of attempts.values()){if(a.status!=='failed')a.status='unknown';a.needsAuth=true}throw Error('登入已到期。請勿重整或關閉此頁，重新登入後以原請求取回結果。')}clear();throw Error('目前無法通過權限驗證，請重新登入。')}throw Error('暫時無法讀取原工作，請稍後重新讀取。')}return r.json()}
 
+$('login').onclick=async()=>{if(pending){say('請完成已開啟的登入視窗，或關閉後重試。');if(!pending.popup.closed)return;pending=null}const popup=window.open('about:blank','ownboard-auth-'+crypto.randomUUID(),'popup,width=520,height=720');if(!popup){say('登入視窗被瀏覽器擋住，請允許彈出視窗後重試。');return}try{const verifier=b64(crypto.getRandomValues(new Uint8Array(48)));const challenge=b64(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(verifier)));pending={popup,verifier,started:Date.now()};const u=new URL(config.url+'/auth/v1/authorize');u.search=new URLSearchParams({provider:'google',redirect_to:config.callback,code_challenge:challenge,code_challenge_method:'s256',prompt:'select_account'});popup.location.replace(u);say('請在新視窗完成 Google 登入。')}catch{popup.close();pending=null;say('無法開始登入，請重試。')}};
+window.addEventListener('message',async event=>{if(!pending||event.origin!==location.origin||event.source!==pending.popup||event.data?.type!=='ownboard-pkce-code')return;const flow=pending;pending=null;if(Date.now()-flow.started>300000||typeof event.data.code!=='string'||event.data.code.length>4096){say('登入已過期，請重新登入。');return}say('正在驗證登入…');try{const d=await authCall('/auth/v1/token?grant_type=pkce',{auth_code:event.data.code,code_verifier:flow.verifier});token=d.access_token;refresh=d.refresh_token;const loaded=await load();if(!loaded){if(marker||markerInvalid)showRecovery();say(token?'登入已完成，但暫時無法讀取工作。保存恢復身分仍保留，請重新讀取。':'登入未完成權限驗證，請使用原帳號重新登入。');return}if((marker||markerInvalid)&&!attempts.size){showRecovery();return}if(attempts.size){const id=attempts.keys().next().value;await loadDetail(id,document.querySelector('.task[aria-current]'));say('已重新登入，原保存請求仍未確認。請以相同內容重試取回結果，不會自動重送。')}}catch(e){if(!attempts.size)clear();say('登入未完成。原保存請求仍保留，請重試登入，勿重整或關閉此頁。')}});
+$('search').oninput=render;$('reload').onclick=load;$('logout').onclick=async()=>{const old=token;clear();try{const r=await fetch(config.url+'/auth/v1/logout?scope=local',{method:'POST',headers:{apikey:config.anonKey,Authorization:'Bearer '+old},credentials:'omit',cache:'no-store'});if(marker||markerInvalid){showRecovery();say(r.ok?'已登出，私密內容已清除。仍有前次保存待查回，請使用原帳號登入；登出不會撤銷已送出的保存。':'私密內容已清除，伺服器登出未確認。前次保存恢復紀錄仍保留。')}else say(r.ok?'已登出，此頁已清除資料。':'此頁已清除資料，但伺服器登出未確認，請重新登入後再登出。')}catch{if(marker||markerInvalid){showRecovery();say('私密內容已清除，登出未確認；前次保存仍待原帳號登入查回。')}else say('此頁已清除資料，但伺服器登出未確認。')}};
+if(location.hash||new URLSearchParams(location.search).has('code')){history.replaceState(null,'',location.pathname);say('此頁不接收URL憑證，請按登入重試。')}
+
+function navItem(icon,label,count,active,fn){const b=node('button',undefined,'navitem'+(active?' active':''));b.append(strokeIcon(I[icon],15),node('span',label));if(count!==undefined)b.append(node('span',String(count),'cnt'));b.onclick=fn;return b}
+function buildSidebar(){const s=$('sideScroll');s.replaceChildren();
+ const top=node('div',undefined,'sec');
+ top.append(navItem('search','搜尋',undefined,false,()=>{$('search').focus()}));
+ top.append(navItem('plus','新增任務',undefined,false,()=>toast('新增任務需寫入批准，尚未開放。')));
+ top.append(navItem('inbox','收件箱',undefined,false,()=>toast('收件箱需訂閱資料擴讀，尚未接通。')));
+ top.append(navItem('chat','聊天',undefined,false,()=>toast('聊天功能未接通（無 agent 環境）。')));
+ top.append(navItem('issues','辦公室',undefined,false,()=>toast('辦公室為另一模組，本次未接通。')));
+ top.append(navItem('cal','工時與月報',undefined,false,()=>{currentView='calendar';renderAll();if(!monthData)openMonth()}));
+ s.append(top);
+ const ws=node('div',undefined,'sec');const wh=node('div',undefined,'sechead');wh.append(node('span','工作'));ws.append(wh);
+ const ph=node('div',undefined,'sechead');ph.append(node('span','專案'));const pp=node('button','+','plus');pp.title='新建專案';pp.onclick=()=>toast('新建專案需寫入批准，尚未開放。');ph.append(pp);ws.append(ph);
+ const fp=displayConfig?[...new Set([...(displayConfig.projects||[]).map(p=>p.id),...Object.values(displayConfig.issue_projects||{}).filter(Boolean),...displayConfig.preferences.filter(x=>x.scope_type==='project').map(x=>x.scope_id)])]:null;
+ if(fp){for(const pn of fp){const sub=node('button',projectTitle(pn),'navsub');sub.title=projectTitle(pn);sub.onclick=()=>{selectedProject=pn;currentView='all';renderAll()};ws.append(sub)}}
+ else ws.append(node('div','專案清單需擴讀批准（R8），接通後在此顯示。','dim'));
+ ws.append(navItem('issues','任務',rows.length,true,()=>{selectedProject=null;currentView='all';renderAll()}));
+ ws.append(navItem('auto','自動化',undefined,false,()=>toast('自動化未接通（無 agent 環境）。')));
+ s.append(ws);
+ const as=node('div',undefined,'sec');const ah=node('div',undefined,'sechead');ah.append(node('span','AI 智能工作'));as.append(ah);
+ const ai=node('button','AI 派工中心','navsub');ai.style.paddingLeft='8px';ai.onclick=()=>toast('AI 派工中心為另一模組，本次未接通。');as.append(ai);
+ const fa=null;
+ if(fa){for(const pn of fa){const sub=node('button',pn,'navsub');sub.style.paddingLeft='28px';sub.onclick=()=>toast('AI 派工中心為另一模組，本次未接通。');as.append(sub)}}
+ s.append(as);
+ const bt=node('div',undefined,'sec');
+ bt.append(navItem('list','統計',undefined,false,()=>toast('統計為另一模組，本次未接通。')));
+ bt.append(navItem('gear','設定',undefined,false,()=>{currentView='preferences';renderAll()}));
+ s.append(bt)}
+function filteredRows(){if(!loaded)return [];const q=$('search').value.trim().toLocaleLowerCase();return rows.filter(r=>(!selectedProject||displayConfig?.issue_projects?.[r.id]===selectedProject)&&(!q||(prefix+'-'+r.number+' '+r.title).toLocaleLowerCase().includes(q)))}
+function cardEl(r){const c=node('button',undefined,'card');c.type='button';
+ const row1=node('div',undefined,'row1');row1.append(prioSVG(r.priority),node('span',prefix+'-'+r.number,'ident'));
+ c.append(row1,node('p',r.title,'title'));
+ c.onclick=()=>openDetail(r.id);
+ return c}
+function renderBoard(){const b=$('board');b.replaceChildren();
+ const data=filteredRows();
+ if(!loaded){b.append(node('p','尚未讀取，請先登入。','empty-note'));return}if(!displayConfig){b.append(node('p','狀態目錄尚未接通，請重新讀取或切至列表查看原始狀態鍵。','empty-note'));return}const effective=resolveStatuses(displayConfig,selectedProject);const keys=effective.filter(x=>!selectedProject||!x.hidden).map(x=>x.key);
+ const byStatus={};for(const k of keys)byStatus[k]=[];
+ for(const r of data){const k=r.status in byStatus?r.status:(byStatus[r.status]=[],r.status);(byStatus[k]||(byStatus[k]=[])).push(r)}
+ const order=[...keys,...Object.keys(byStatus).filter(k=>!keys.includes(k)&&!effective.some(x=>x.key===k&&x.hidden&&selectedProject))];
+ for(const k of order){const list=byStatus[k];const m=statusMeta(k);
+  const col=node('section',undefined,'col');
+  const h=node('div',undefined,'colhead');
+  const iconWrap=node('span');iconWrap.style.color=m.col;iconWrap.style.display='flex';iconWrap.append(statusSVG(k,'currentColor'));
+  h.append(iconWrap);
+  h.append(node('span',m.name,'name'),node('span',String(list.length),'cnt'));
+  const acts=node('div',undefined,'acts');
+  const mb=node('button');mb.append(strokeIcon(I.more,14));mb.title='更多操作';mb.onclick=()=>toast('欄位操作需寫入批准，尚未開放。');
+  const pb=node('button');pb.append(strokeIcon(I.plus,14));pb.title='新建任務';pb.onclick=()=>toast('新建任務需寫入批准，尚未開放。');
+  acts.append(mb,pb);h.append(acts);col.append(h);
+  const body=node('div',undefined,'colbody');
+  for(const r of list)body.append(cardEl(r));
+  col.append(body);
+  const cf=node('div',undefined,'colfoot');const nb=node('button');nb.append(strokeIcon(I.plus,13),node('span','新建任務'));nb.onclick=()=>toast('新建任務需寫入批准，尚未開放。');cf.append(nb);col.append(cf);
+  b.append(col)}
+ say('已讀取 '+rows.length+' 筆原工作。僅開放工作內容保存，其餘唯讀。'+( $('search').value? ' 篩選後 '+data.length+' 筆。':''))}
+function renderList(){const w=$('listwrap');w.replaceChildren();
+ const data=filteredRows();if(!loaded){w.append(node('p','尚未讀取，請先登入。','empty-note'));return}if(!data.length){w.append(node('p','沒有符合的原工作。','empty-note'));return}
+ const groups={};for(const r of data)(groups[r.status]||(groups[r.status]=[])).push(r);
+ const order=Object.keys(groups).sort((a,b)=>CAT_ORDER[statusMeta(a).cat]-CAT_ORDER[statusMeta(b).cat]);
+ for(const k of order){const m=statusMeta(k);
+  const g=node('div',undefined,'lgroup');const iw=node('span');iw.style.color=m.col;iw.style.display='flex';iw.append(statusSVG(k,'currentColor'));
+  g.append(iw,node('span',m.name),node('span',String(groups[k].length),'cnt'));w.append(g);
+  for(const r of groups[k]){const row=node('button',undefined,'lrow');row.type='button';
+   row.append(node('span',prefix+'-'+r.number,'ident'),node('span',r.title,'t'));
+   const pr=node('span',undefined,'pr');pr.append(prioSVG(r.priority));if(r.priority!=='none')pr.append(node('span',PRIO_NAME[r.priority]||r.priority));
+   row.append(pr);row.onclick=()=>openDetail(r.id);w.append(row)}}
+ }
+function renderAll(){buildSidebar();$('calendarpanel').hidden=currentView!=='calendar';$('prefpanel').hidden=currentView!=='preferences';if(currentView==='calendar'||currentView==='preferences'){$('boardwrap').style.display='none';$('listwrap').classList.remove('on');if(currentView==='calendar')renderCalendar();else renderPreferences();return}
+ if(layout==='board'){$('boardwrap').style.display='block';$('listwrap').classList.remove('on');renderBoard()}else{$('boardwrap').style.display='none';$('listwrap').classList.add('on');renderList()}
+ document.querySelectorAll('#layoutSeg button').forEach(x=>x.classList.toggle('on',x.dataset.l===layout))}
+async function load(){if(!token)return false;const g=generation;say('正在核對權限並讀取原工作…');try{const d=await rpc();if(g!==generation)return false;rows=d.issues;prefix=d.prefix;loaded=true;await loadDisplayConfig();if(g!==generation)return false;$('auth').hidden=true;$('authwrap').classList.add('off');$('logout').hidden=false;$('reload').disabled=false;$('search').disabled=false;renderAll();return true}catch(e){say(e.message);return false}}
+function propRow(k,vnode){const r=node('div',undefined,'prop');r.append(node('span',k,'k'));const v=node('span',undefined,'v');v.append(vnode);r.append(v);return r}
+function pill(icon,colorKey,label){const p=node('span',undefined,'pill');if(icon){const iw=node('span');iw.style.display='flex';if(colorKey)iw.style.color=colorKey;iw.append(icon);p.append(iw)}p.append(node('span',label));return p}
+function activityLine(a){const e=node('div',undefined,'actline');
+ const key=typeof a.action==='string'?a.action:'';
+ let icon=strokeIcon(I.pencil,13),text=key||'未記錄動作';
+ if(key==='created'){icon=strokeIcon(I.plus,13);text='建立了任務'}
+ else if(key==='status_changed'){const f=a.details?.from,t=a.details?.to;icon=statusSVG(t,'currentColor');text='狀態：'+(statusMeta(f).name)+' → '+(statusMeta(t).name)}
+ else if(key==='title_changed'){text='重新命名標題'}
+ else if(key==='description_updated'){text='更新了工作內容'}
+ else if(key==='priority_changed'){text='變更優先順序：'+(PRIO_NAME[a.details?.from]||a.details?.from||'—')+' → '+(PRIO_NAME[a.details?.to]||a.details?.to||'—')}
+ const iw=node('span');iw.style.display='flex';iw.style.color='var(--muted-text)';iw.append(icon);
+ e.append(iw,node('span',text));e.append(node('span',relTime(a.created_at),'t'));return e}
+async function openDetail(id,internal=false){if(saveBusy&&!internal){say('保存進行中，完成後再切換工作。');return}const g=generation,seq=++detailSeq;lastDetailError=null;
+ const d=$('detail');const previous=Array.from(d.childNodes);d.replaceChildren();d.classList.add('open');
+ const head=node('div',undefined,'dhead');
+ d.append(head);say('正在讀取原內容…');
+ try{
+  let det;
+  if(isFixture){det=window.__TF_FIXTURE.details?.[id]||null;if(!det){const r=rows.find(x=>x.id===id);det={issue:r,comments:[],activity:[],partial:true}}}
+  else det=await rpc(id);
+  if(g!==generation||seq!==detailSeq)return;const i=det.issue;currentDetail=i;
+  head.append((()=>{const b=node('button',undefined,'iconbtn');b.append(strokeIcon(I.back,16));b.title='返回';b.onclick=()=>d.classList.remove('open');return b})());
+  head.append(node('span',prefix+'-'+i.number,'ident'),node('span',i.title||'','ttl'));
+  const more=node('button',undefined,'iconbtn');more.append(strokeIcon(I.more,16));more.title='更多操作';more.onclick=()=>toast('更多操作需寫入批准，尚未開放。');
+  head.append(more);
+  const body=node('div',undefined,'dbody');const mainc=node('div',undefined,'dmain');const side=node('aside',undefined,'dside');
+  mainc.append(node('h1',i.title||''));
+  if(det.partial)mainc.append(node('p','此預覽僅含列表欄位；內容、留言與活動需登入正式讀取。','empty-note'));
+  mainc.append(node('div','工作內容','dsec'));
+  // INTEGRATION-MOUNT: 詳情「工作內容」區下方的整合掛載點。
+  // 保存線鎖版模組由其持有人經 main 協調後接入；未經本人批准不得改動其寫入邏輯。
+  const area=node('div',undefined,'descarea');const edit=node('button','編輯內容','editbtn');edit.type='button';edit.onclick=()=>startEdit(i);mainc.append(edit,area);renderDescription(area,i);
+  const comments=det.comments||[];
+  mainc.append(node('div','留言 ('+comments.length+')','dsec'));
+  if(!comments.length)mainc.append(node('p','尚無留言。','empty-note'));
+  for(const c of comments){const card=node('div',undefined,'comment');
+   const ch=node('div',undefined,'chead');ch.append(node('span','·','avatar'),node('span',relTime(c.created_at)));
+   card.append(ch,node('div',typeof c.content==='string'?tidy(c.content):JSON.stringify(c.content,null,2),'cbody'));mainc.append(card)}
+  const composer=node('div','留言需寫入批准，尚未開放。','composer');mainc.append(composer);
+  const acts=det.activity||[];
+  mainc.append(node('div','活動 ('+acts.length+')','dsec'));
+  if(!acts.length)mainc.append(node('p','尚無活動記錄。','empty-note'));
+  for(const a of acts)mainc.append(activityLine(a));
+  const sm=statusMeta(i.status,i.project_id);
+  side.append((()=>{const h=node('h3');h.append(node('span','屬性'));return h})());
+  side.append(propRow('狀態',pill(statusSVG(i.status,'currentColor'),sm.col,sm.name)));
+  side.append(propRow('優先順序',pill(prioSVG(i.priority),null,PRIO_NAME[i.priority]||i.priority)));
+  side.append(propRow('負責人',pill(strokeIcon(I.user,13),null,i.assignee_id?'已指派（名稱待擴讀）':'未指派')));
+  side.append(propRow('專案',pill(strokeIcon(I.folder,13),null,i.project_id?'已連結專案（名稱待擴讀）':'無專案')));
+  const dLabel=v=>{if(!v)return '未設定';return String(v)};
+  side.append(propRow('開始日期',pill(strokeIcon(I.cal,13),null,dLabel(i.start_date))));
+  side.append(propRow('截止日期',pill(strokeIcon(I.cal,13),null,dLabel(i.due_date))));
+  if(i.revision!==undefined)side.append(propRow('版本',node('span',String(i.revision))));
+  if(i.created_at)side.append(propRow('建立',node('span',relTime(i.created_at))));
+  if(i.updated_at)side.append(propRow('更新',node('span',relTime(i.updated_at))));
+  const ap=node('button','＋ 新增屬性','addprop');ap.onclick=()=>toast('自訂屬性需寫入與擴讀批准，尚未開放。');side.append(ap);
+  body.append(mainc,side);d.append(body);
+  say('已讀取原內容。可保存工作內容，其餘唯讀。');
+ }catch(e){lastDetailError=e;say(e.message);if(internal&&previous.length){d.replaceChildren(...previous);d.classList.add('open')}else d.classList.remove('open')}}
+function buildTopbar(){$('menuBtn').append(strokeIcon(I.menu,18));$('menuBtn').onclick=()=>$('sidebar').classList.toggle('open');
+ const vt=$('viewTitle');vt.append(strokeIcon(I.issues,15),node('span','全部任務'),strokeIcon(I.chevD,13));vt.onclick=()=>toast('檢視切換需擴讀批准，目前為「全部任務」。');
+ $('filterBtn').append(strokeIcon(I.filter,16));$('filterBtn').onclick=()=>{$('search').focus()};
+ const seg=$('layoutSeg');
+ for(const [key,label,icon] of [['board','看板','board'],['list','列表','list']]){const b=node('button');b.dataset.l=key;b.append(strokeIcon(I[icon],13),node('span',label));if(key===layout)b.classList.add('on');b.onclick=()=>{layout=key;renderAll()};seg.append(b)}}
+$('search').oninput=()=>renderAll();
+$('reload').onclick=()=>{if(isFixture){renderAll();say('預覽資料（本機快照）。')}else load()};
+document.addEventListener('click',e=>{if(innerWidth<=860&&!$('sidebar').contains(e.target)&&!$('menuBtn').contains(e.target))$('sidebar').classList.remove('open')});
+
+let displayConfig=null,selectedProject=null,loaded=false,monthData=null,monthSeq=0;
+function projectTitle(id){const value=displayConfig?.projects?.find(p=>p.id===id)?.title;return typeof value==='string'&&value.trim()?value:'專案 '+id}const dateLabel=v=>v||'未設定';const timeLabel=v=>v?new Date(v).toLocaleString('zh-TW',{timeZone:'Asia/Taipei',hour12:false}):'未記錄時間';
+function clear(){generation++;drafts.clear();receipts.clear();attempts.clear();receiptPending=null;currentDetail=null;detailSeq++;saveBusy=false;token=refresh=null;rows=[];prefix='';displayConfig=null;selectedProject=null;loaded=false;monthData=null;monthSeq++;$('board').replaceChildren();$('listwrap').replaceChildren();$('calendarhost').replaceChildren();$('prefcontent').replaceChildren();$('detail').replaceChildren();$('detail').classList.remove('open');$('auth').hidden=false;$('authwrap').classList.remove('off');$('logout').hidden=true;$('reload').disabled=true;$('search').disabled=true;buildSidebar()}
+async function loadDetail(id,button){return openDetail(id,true)}
+function nodeStatus(text){say(text)}
+new MutationObserver(()=>{if(!$('auth').hidden&&$('detail').textContent.includes('前次保存')){let note=$('recoveryauthnote');if(!note){note=node('p','前次保存待確認，仍有前次保存待查回。請使用原帳號登入，不會自動重送。');note.id='recoveryauthnote';$('auth').append(note)}}}).observe($('detail'),{childList:true,subtree:true});new MutationObserver(()=>{$('authwrap').classList.toggle('off',$('auth').hidden);if(!$('auth').hidden&&($('detail').textContent.includes('前次保存')||$('detail').textContent.includes('登入已到期'))){$('detail').classList.remove('open');let note=$('recoveryauthnote');if(!note){note=node('p',undefined);note.id='recoveryauthnote';$('auth').append(note)}note.textContent='前次保存待確認，仍有前次保存待查回。登入原帳號後查回，不會自動重送。'}}).observe($('auth'),{attributes:true,attributeFilter:['hidden']});const b64=bytes=>btoa(String.fromCharCode(...new Uint8Array(bytes))).replaceAll('+','-').replaceAll('/','_').replaceAll('=','');function render(){renderAll()}
+// Independent read-only projection. No TF implementation imports, persistence or mutations.
+const list = value => Array.isArray(value) ? value : [];
+const object = value => value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+function calendarDate(value) {
+ if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+ const [y,m,d]=value.split('-').map(Number);
+ const leap=y%4===0&&(y%100!==0||y%400===0);
+ return y>=1900&&y<=2200&&m>=1&&m<=12&&d>=1&&d<=[31,leap?29:28,31,30,31,30,31,31,30,31,30,31][m-1];
+}
+function monthKey(date=new Date()) {
+ const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit'}).formatToParts(date);
+ return parts.find(x=>x.type==='year').value+'-'+parts.find(x=>x.type==='month').value;
+}
+function shiftMonth(month,delta) {
+ if(!/^\d{4}-\d{2}$/.test(month)||!calendarDate(month+'-01')||!Number.isSafeInteger(delta))throw Error('invalid month');
+ const [y,m]=month.split('-').map(Number);const n=y*12+m-1+delta;
+ const out=String(Math.floor(n/12)).padStart(4,'0')+'-'+String((n%12+12)%12+1).padStart(2,'0');
+ if(!calendarDate(out+'-01'))throw Error('month outside supported range');return out;
+}
+function resolveStatuses(config,projectId=null) {
+ const all=list(config?.statuses);const prefs=list(config?.preferences);
+ const workspace=prefs.find(x=>x.scope_type==='workspace')||{};
+ const project=prefs.find(x=>x.scope_type==='project'&&x.scope_id===projectId)||{};
+ // Missing differs from an explicitly empty array. Navigation order is never consulted.
+ const order=Array.isArray(project.status_order)?project.status_order:list(workspace.status_order);
+ const hidden=new Set(Array.isArray(project.hidden_statuses)?project.hidden_statuses:list(workspace.hidden_statuses));
+ const labels={...object(workspace.status_labels),...object(project.status_labels)};
+ const index=new Map(order.map((key,i)=>[key,i]));
+ return all.map((s,i)=>({...s,label:typeof labels[s.key]==='string'?labels[s.key]:s.name,
+  hidden:hidden.has(s.key),complete:s.category==='done',closed:s.category==='closed',_i:i}))
+  .sort((a,b)=>(index.get(a.key)??Number.MAX_SAFE_INTEGER)-(index.get(b.key)??Number.MAX_SAFE_INTEGER)||a._i-b._i)
+  .map(({_i,...s})=>s);
+}
+function projectMonth(payload,month) {
+ if(!calendarDate(month+'-01')||payload?.month!==month+'-01'||payload?.mode!=='read-only')throw Error('invalid calendar response');
+ const items=[];const undated=[];
+ const endMonth=shiftMonth(month,1)+'-01';
+ const [year,monthNumber]=month.split('-').map(Number);const lastDay=new Date(Date.UTC(year,monthNumber,0)).getUTCDate();const lastDate=month+'-'+String(lastDay).padStart(2,'0');
+ for(const task of list(payload.task_dates)) {
+  const start=task.start_date,end=task.due_date;
+  if((start!==null&&start!==undefined&&!calendarDate(start))||(end!==null&&end!==undefined&&!calendarDate(end))){undated.push({type:'task',task,reason:'invalid date'});continue;}
+  if(start&&end&&start>end){undated.push({type:'task',task,reason:'reversed date range'});continue;}
+  if(start&&end&&start<endMonth&&end>=month+'-01') {
+   items.push({type:'task',kind:'range',date:start<month+'-01'?month+'-01':start,through:end>=endMonth?lastDate:end,continuesBefore:start<month+'-01',continuesAfter:end>=endMonth,task});
+  } else for(const [kind,date] of [['start',start],['due',end]])if(date&&date.startsWith(month+'-'))items.push({type:'task',kind,date,task});
+ }
+ for(const entry of list(payload.work_entries)) {
+  // Do not round stored hours, infer a task id from legacy URLs or alter title length.
+  if(!calendarDate(entry.work_date)||!entry.work_date.startsWith(month+'-')){undated.push(entry);continue;}
+  items.push({type:'worklog',date:entry.work_date,entry});
+ }
+ return {items:items.sort((a,b)=>a.date.localeCompare(b.date)),unplaced:undated};
+}
+function createReadClient({url,anonKey,getToken,getGeneration,fetchImpl=fetch}) {
+ async function call(name,body) {
+  const token=getToken(),generation=getGeneration();if(!token)throw Error('authentication required');
+  const response=await fetchImpl(url+'/rest/v1/rpc/'+name,{method:'POST',headers:{apikey:anonKey,Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(body),cache:'no-store',credentials:'omit',referrerPolicy:'no-referrer'});
+  if(generation!==getGeneration())throw Error('stale session');
+  if(!response.ok)throw Error([401,403].includes(response.status)?'access denied':'read failed');
+  const data=await response.json();if(generation!==getGeneration())throw Error('stale session');return data;
+ }
+ return Object.freeze({
+  displayConfig:()=>call('ownboard_owner_display_config_v1',{}),
+  calendar:month=>{if(!calendarDate(month+'-01'))throw Error('invalid month');return call('ownboard_owner_calendar_read_v1',{p_month:month+'-01'});}
+ });
+}
+const readClient=createReadClient({url:config.url,anonKey:config.anonKey,getToken:()=>token,getGeneration:()=>generation});
+async function loadDisplayConfig(){displayConfig=null;try{const d=await readClient.displayConfig();if(d?.version!==1||!Array.isArray(d.statuses)||!Array.isArray(d.preferences))throw Error();displayConfig=d;$('catalognotice').textContent=''}catch{$('catalognotice').textContent='狀態目錄尚未接通，目前顯示原始狀態鍵，不會以固定欄位取代。'}}
+function taskButton(r){return cardEl(r)}
+async function openMonth(){if(!token)return;const seq=++monthSeq,g=generation;monthData=null;$('calendarhost').replaceChildren(node('p','正在讀取既有紀錄…','empty'));try{const d=await readClient.calendar($('month').value);if(g!==generation||seq!==monthSeq)return;monthData=d;renderCalendar()}catch{if(g!==generation||seq!==monthSeq)return;$('calendarhost').replaceChildren(node('p','此月尚未接通或暫時無法讀取。沒有建立新紀錄。','empty'))}}
+function renderCalendar(){const host=$('calendarhost');host.replaceChildren();if(!token){host.append(node('p','登入後讀取本人既有紀錄。','empty'));return}if(!monthData){host.append(node('p','尚未載入此月紀錄。','empty'));return}let projected;try{projected=projectMonth(monthData,$('month').value)}catch{host.append(node('p','回傳月份不符，請重新讀取。','empty'));return}const q=$('search').value.toLocaleLowerCase();const items=projected.items.filter(x=>(x.type==='task'?prefix+'-'+x.task.number+' '+x.task.title:x.entry.title||'').toLocaleLowerCase().includes(q));renderMonthGrid(host,$('month').value,items);if(!items.length&&!projected.unplaced.length){host.append(node('p','此月沒有符合的既有紀錄。','empty'));return}let date='';for(const x of items){if(x.date!==date){date=x.date;host.append(node('h3',dateLabel(date)))}if(x.type==='task'){const r=x.task;const b=taskButton(r);b.prepend(node('span',x.kind==='range'?'任務期間 '+dateLabel(r.start_date)+' 至 '+dateLabel(r.due_date):x.kind==='start'?'任務開始':'任務到期','eventkind'));host.append(b)}else{const e=x.entry,el=node('article',undefined,'record workrecord');el.append(node('span','Worklog · '+(e.event_type||'未分類'),'code'),node('h4',e.title||'（未填名稱）'));const meta=node('div',undefined,'detailsmeta');meta.append(node('span',e.hours===null?'未填時數':String(e.hours)+' 小時'),node('span',e.date_only?'整日日期紀錄':timeLabel(e.started_at)),node('span','狀態：'+String(e.status||'未記錄')),node('span','來源：'+String(e.source||'未記錄')));el.append(meta);if(e.note)el.append(node('p',e.note,'content'));const ref=e.taskflow_issue_ref;if(ref?.id){const r=rows.find(r=>r.id===ref.id);if(r){const b=node('button','開啟關聯 '+prefix+'-'+r.number);b.onclick=()=>openDetail(r.id);el.append(b)}else el.append(node('p','原任務關聯尚無法在本入口解析，保留來源關聯。','muted'))}host.append(el)}}if(projected.unplaced.length){host.append(node('h3','日期待核對'));for(const issue of projected.unplaced){const task=issue.task,entry=issue.entry||issue;host.append(node('p',(task?prefix+'-'+task.number+' '+task.title:entry.title||'未填名稱')+' · '+(issue.reason||'日期無法辨識')+' · '+JSON.stringify(task?{start_date:task.start_date,due_date:task.due_date}:entry.work_date),'muted'))}}}
+function renderMonthGrid(host,month,items){const grid=node('div',undefined,'monthgrid');const [y,m]=month.split('-').map(Number);const first=new Date(Date.UTC(y,m-1,1)).getUTCDay();const days=new Date(Date.UTC(y,m,0)).getUTCDate();for(const label of ['日','一','二','三','四','五','六'])grid.append(node('span',label,'weekday'));for(let i=0;i<first;i++)grid.append(node('span','', 'dayblank'));for(let day=1;day<=days;day++){const date=month+'-'+String(day).padStart(2,'0');const count=items.filter(x=>x.date===date||(x.type==='task'&&x.kind==='range'&&x.task.start_date<=date&&x.task.due_date>=date)).length;const cell=node('button',undefined,'daycell');cell.type='button';cell.setAttribute('aria-label',date+' '+count+'筆紀錄');cell.append(node('b',String(day)));if(count)cell.append(node('small',count+'筆'));cell.onclick=()=>{const target=Array.from(host.querySelectorAll('h3')).find(h=>h.textContent===dateLabel(date));if(target)target.scrollIntoView({behavior:'smooth',block:'start'});else say(dateLabel(date)+(count?' 有跨期任務，詳見期間紀錄。':' 沒有既有紀錄。'))};grid.append(cell)}host.append(grid)}
+function renderPreferences(){const host=$('prefcontent');host.replaceChildren();if(!displayConfig){host.append(node('p','登入並接通狀態目錄後顯示。','muted'));return}const select=node('select');select.setAttribute('aria-label','狀態偏好範圍');const root=node('option','全工作空間');root.value='';select.append(root);for(const pref of displayConfig.preferences.filter(p=>p.scope_type==='project')){const option=node('option',projectTitle(pref.scope_id));option.value=pref.scope_id;select.append(option)}const listHost=node('div');const show=()=>{listHost.replaceChildren();for(const st of resolveStatuses(displayConfig,select.value||null)){const r=node('p',statusMeta(st.key,select.value||null).name+' · '+(st.hidden?'隱藏欄位':'顯示欄位')+' · '+(({unstarted:'未開始',started:'進行中',done:'完成',closed:'關閉'}[st.category]||st.category)));listHost.append(r)}};select.onchange=show;host.append(select,listHost,node('p','此處唯讀承接既有偏好。調整、儲存為預設、新增或封存狀態尚未接通，不會假裝已儲存。','muted'));show()}
+
+$('month').value=monthKey();$('month').onchange=openMonth;$('prevmonth').onclick=()=>{$('month').value=shiftMonth($('month').value,-1);openMonth()};$('nextmonth').onclick=()=>{$('month').value=shiftMonth($('month').value,1);openMonth()};$('readmonth').onclick=openMonth;
 // ===== Existing-issue description save =====
 // This candidate uses the real owner-only RPC adapter, not a demo backend.
 // Not deployed. Drafts stay in memory; only opaque request identity survives reload.
@@ -317,8 +736,9 @@ async function enterConflict(area,i,draftText){
 window.addEventListener('pagehide',()=>{clear();pending=null});
 window.addEventListener('beforeunload',event=>{if(attempts.size||marker){event.preventDefault();event.returnValue=''}});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&token&&!saveBusy){if((marker||markerInvalid)&&!attempts.size){showRecovery();return}if(currentDetail)loadDetail(currentDetail.id,document.querySelector('.task[aria-current]'));else load()}});
-$('login').onclick=async()=>{if(pending){say('請完成已開啟的登入視窗，或關閉後重試。');if(!pending.popup.closed)return;pending=null}const popup=window.open('about:blank','ownboard-auth-'+crypto.randomUUID(),'popup,width=520,height=720');if(!popup){say('登入視窗被瀏覽器擋住，請允許彈出視窗後重試。');return}try{const verifier=b64(crypto.getRandomValues(new Uint8Array(48)));const challenge=b64(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(verifier)));pending={popup,verifier,started:Date.now()};const u=new URL(config.url+'/auth/v1/authorize');u.search=new URLSearchParams({provider:'google',redirect_to:config.callback,code_challenge:challenge,code_challenge_method:'s256',prompt:'select_account'});popup.location.replace(u);say('請在新視窗完成 Google 登入。')}catch{popup.close();pending=null;say('無法開始登入，請重試。')}};
-window.addEventListener('message',async event=>{if(!pending||event.origin!==location.origin||event.source!==pending.popup||event.data?.type!=='ownboard-pkce-code')return;const flow=pending;pending=null;if(Date.now()-flow.started>300000||typeof event.data.code!=='string'||event.data.code.length>4096){say('登入已過期，請重新登入。');return}say('正在驗證登入…');try{const d=await authCall('/auth/v1/token?grant_type=pkce',{auth_code:event.data.code,code_verifier:flow.verifier});token=d.access_token;refresh=d.refresh_token;const loaded=await load();if(!loaded){if(marker||markerInvalid)showRecovery();say(token?'登入已完成，但暫時無法讀取工作。保存恢復身分仍保留，請重新讀取。':'登入未完成權限驗證，請使用原帳號重新登入。');return}if((marker||markerInvalid)&&!attempts.size){showRecovery();return}if(attempts.size){const id=attempts.keys().next().value;await loadDetail(id,document.querySelector('.task[aria-current]'));say('已重新登入，原保存請求仍未確認。請以相同內容重試取回結果，不會自動重送。')}}catch(e){if(!attempts.size)clear();say('登入未完成。原保存請求仍保留，請重試登入，勿重整或關閉此頁。')}});
-$('search').oninput=render;$('reload').onclick=load;$('logout').onclick=async()=>{const old=token;clear();try{const r=await fetch(config.url+'/auth/v1/logout?scope=local',{method:'POST',headers:{apikey:config.anonKey,Authorization:'Bearer '+old},credentials:'omit',cache:'no-store'});if(marker||markerInvalid){showRecovery();say(r.ok?'已登出，私密內容已清除。仍有前次保存待查回，請使用原帳號登入；登出不會撤銷已送出的保存。':'私密內容已清除，伺服器登出未確認。前次保存恢復紀錄仍保留。')}else say(r.ok?'已登出，此頁已清除資料。':'此頁已清除資料，但伺服器登出未確認，請重新登入後再登出。')}catch{if(marker||markerInvalid){showRecovery();say('私密內容已清除，登出未確認；前次保存仍待原帳號登入查回。')}else say('此頁已清除資料，但伺服器登出未確認。')}};
-if(location.hash||new URLSearchParams(location.search).has('code')){history.replaceState(null,'',location.pathname);say('此頁不接收URL憑證，請按登入重試。')}
-</script></head><body><header><div><span class="eyebrow">原創工作台</span><h1>從原工作接著看</h1><p>沿用原編號、內容、留言與歷史。可修改工作內容，其他欄位維持唯讀。</p></div><div class="badges"><span class="badge">內容保存</span></div></header><main><section id="auth" class="panel"><h2>登入你的工作空間</h2><p>僅限本人。工作資料不放在網頁程式碼裡，登入後仍由資料服務驗證權限。</p><button id="login">使用 Google 登入</button><p class="muted">登入會開啟新視窗。重新整理後需重新登入，不留存登入憑證。</p></section><div class="toolbar"><label>搜尋原編號或名稱<input id="search" type="search" placeholder="登入後搜尋" disabled></label><button id="reload" disabled>重新讀取</button><button id="logout" hidden>登出</button></div><p id="status" role="status">尚未登入。此頁不包含任何預載工作或示範資料。</p><div class="layout"><section class="panel"><div class="sectiontitle"><h2>原工作</h2><span id="count">尚未載入</span></div><div id="list"><p class="empty">登入後顯示原工作，不建立另一套編號。</p></div></section><article class="panel" id="detail"><p class="empty">選擇一筆工作查看內容。</p></article></div><p class="muted foot">此版只開放工作內容保存，尚未提供新增、其他欄位修改、工時寫入或附件開啟。附件仍保留原紀錄，不將未驗證的檔案當作已接好。</p><p class="muted">內容保存後會記錄活動，但不保留修改前的內容全文；有事件監看的工作暫不開放保存。</p></main></body></html>
+
+buildTopbar();buildSidebar();
+if(!isFixture)say('尚未登入。此頁不包含任何預載工作或示範資料。');
+else load();
+if(!isFixture){/* 登入後由 message 事件觸發 load() */}
+</script></body></html>
