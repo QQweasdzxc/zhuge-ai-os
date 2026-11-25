@@ -554,6 +554,7 @@ function startTfSource(opts) {
         if (readGen) readGen.done();
       }
     };
+    let deliveredOnce = false;
     async function tick() {
       const ctl = opts.authCtl || null;
       const readGen = ctl ? ctl.begin() : null;
@@ -585,7 +586,12 @@ function startTfSource(opts) {
         opts.onData({ now: Date.now(), sessions: [], source: 'live-tf', sourceNote: r.note });
       } else {
         opts.onState && opts.onState({ auth: null, error: r.note });
+        // First read failed (e.g. TaskFlow API unreachable): still start the
+        // scene with an empty snapshot so the office is not stuck on the
+        // loader. Never overwrites a snapshot already delivered.
+        if (!(typeof opts.hasSnapshot === 'function' ? opts.hasSnapshot() : deliveredOnce)) opts.onData({ now: Date.now(), sessions: [], source: 'live-tf', sourceNote: `任務資料暫時取不到，這不代表沒有任務。${r.note || ''}`, tasksUnavailable: true });
       }
+      deliveredOnce = true;
     }
     tick();
     const timer = setInterval(tick, intervalMs);

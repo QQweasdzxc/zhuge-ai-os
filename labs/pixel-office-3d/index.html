@@ -936,6 +936,8 @@ function visible() {
     (state.showIdle || s.status !== 'idle' || s.member || !!s.tf));
 }
 
+const tasksNA = () => !!(TF_MODE && state.data && state.data.tasksUnavailable);
+const TASKS_NA_TEXT = '任務資料暫時取不到，這不代表沒有任務。';
 function render() {
   const now = Date.now() - state.skew;
   const list = visible();
@@ -954,7 +956,7 @@ function render() {
     const n = count(g.match);
     const color = k === 'needsYou' || k === 'needsReview' ? 'var(--waiting)' : k === 'blocked' ? 'var(--error)' : k === 'working' ? 'var(--tool)' : 'var(--done)';
     const label = TF_MODE && k === 'finished' ? (L.tfFinishedAll || L.finished) : (TF_MODE ? groupLabel(k) : L[k]);
-    return `<button type="button" class="chip chip-s${state.sideFilter === k ? ' on' : ''}" data-group="${k}"><span class="dot" style="color:${color}"></span>${esc(label)} <b>${n}</b></button>`;
+    return `<button type="button" class="chip chip-s${state.sideFilter === k ? ' on' : ''}" data-group="${k}"><span class="dot" style="color:${color}"></span>${esc(label)} <b>${tasksNA() ? '—' : n}</b></button>`;
   }).join('');
   // Keep stable buttons across unrelated redraws, including pointer down/up.
   if (summaryEl.dataset.html !== summaryHtml) { summaryEl.innerHTML = summaryHtml; summaryEl.dataset.html = summaryHtml; }
@@ -1336,6 +1338,7 @@ function connect() {
       workspace: PAGE_QUERY.get('tfWorkspace') || 'zhuge-lab-ac5afcc7',
       getEmbeddedJwt: () => embeddedAuthCtl.getToken(),
       authCtl: embeddedAuthCtl,
+      hasSnapshot: () => !!state.loaded,
       onData,
       onState: ({ auth, error }) => {
         const bar = document.getElementById('tfAuth');
@@ -1866,10 +1869,10 @@ function renderSide() {
   // TF mode: split the count so 45 tasks + 3 members is not read as 48 people.
   const tfTasks = list.filter((s) => !s.member).length;
   const tfMembers = list.length - tfTasks;
-  document.getElementById('sideCount').textContent = TF_MODE
+  document.getElementById('sideCount').textContent = tasksNA() ? `${L.tfTask || '任務'} — · ${L.member || '成員'} ${list.length}` : TF_MODE
     ? `${L.tfTask || '任務'} ${tfTasks} · ${L.member || '成員'} ${tfMembers}`
     : String(list.length);
-  document.getElementById('sideTabCount').textContent = TF_MODE
+  document.getElementById('sideTabCount').textContent = tasksNA() ? `${L.tfTask || '任務'} —` : TF_MODE
     ? `${L.tfTask || '任務'} ${tfTasks}${tfMembers ? ` · ${L.member || '成員'} ${tfMembers}` : ''}`
     : `${L.agentsTitle} · ${list.length}`;
   const rowHtml = (s, i, g) => {
@@ -1888,7 +1891,7 @@ function renderSide() {
   if (filterG) {
     const items = list.filter((s) => filterG.match(s));
     rows = `<div class="side-filter"><span>${esc(flabel)} · ${items.length}</span><button type="button" class="side-filter-back" id="sideFilterBack">${esc(L.back)}</button></div>`
-      + (items.map((s, i) => rowHtml(s, i, filterG)).join('') || `<div class="msgs-note">${esc(TF_MODE ? (L.emptyTf || L.empty) : L.empty)}</div>`);
+      + (items.map((s, i) => rowHtml(s, i, filterG)).join('') || `<div class="msgs-note">${esc(tasksNA() ? TASKS_NA_TEXT : TF_MODE ? (L.emptyTf || L.empty) : L.empty)}</div>`);
   } else {
     // Clearly labeled recent-activity strip. It is NOT 今日完成: TF has no
     // status-transition history yet, so nothing here claims daily completion.
@@ -1904,7 +1907,7 @@ function renderSide() {
     }).join('');
   }
   const box = document.getElementById('sideRows');
-  const html = rows || `<div class="msgs-note">${esc(TF_MODE ? (L.emptyTf || L.empty) : L.empty)}</div>`;
+  const html = (tasksNA() ? `<div class="msgs-note"><b>${esc(TASKS_NA_TEXT)}</b></div>` : '') + (rows || `<div class="msgs-note">${esc(tasksNA() ? TASKS_NA_TEXT : TF_MODE ? (L.emptyTf || L.empty) : L.empty)}</div>`);
   // Rows re-sort as statuses change; hold them still while the pointer is on
   // the list so a click lands on the agent you aimed at, and catch up on leave.
   if (box.dataset.html !== html && box.matches(':hover') && box.dataset.html && !rowsNow) { box.dataset.stale = '1'; }
