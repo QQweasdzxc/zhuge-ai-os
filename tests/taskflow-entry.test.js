@@ -20,11 +20,11 @@ test("formal TaskFlow entry has a consistent new Product release identity", () =
   assert.match(entry, new RegExp(`cli-sso\\.js\\?v=${identity.build}`));
 });
 
-test("WORK navigation places TaskFlow before WorkLog on the canonical AIOS origin", () => {
+test("WORK navigation places HELM in the former TaskFlow slot before WorkLog", () => {
   const navigation = read("shared/components/zhuge-navigation.js");
   assert.match(navigation, /GENERAL_USER_VISIBLE_ITEMS = Object\.freeze\(\["taskflow", "worklog"/);
-  assert.match(navigation, /taskflow: \{ icon: "🧭", label: "TaskFlow", group: "camp"/);
-  assert.match(navigation, /taskflow: "labs\/taskflow\/",/);
+  assert.match(navigation, /taskflow: \{ icon: "🧭", label: "舵台 HELM", group: "camp"/);
+  assert.match(navigation, /if \(id === "taskflow"\) return "https:\/\/qqweasdzxc\.github\.io\/dashi-taskboard-demo\/sb\/"/);
   assert.match(navigation, /campIds = \["taskflow", "worklog"/);
 });
 
