@@ -24,7 +24,7 @@ test("WORK navigation places HELM in the former TaskFlow slot before WorkLog", (
   const navigation = read("shared/components/zhuge-navigation.js");
   assert.match(navigation, /GENERAL_USER_VISIBLE_ITEMS = Object\.freeze\(\["taskflow", "worklog"/);
   assert.match(navigation, /taskflow: \{ icon: "🧭", label: "舵台 HELM", group: "camp"/);
-  assert.match(navigation, /if \(id === "taskflow"\) return "https:\/\/qqweasdzxc\.github\.io\/dashi-taskboard-demo\/sb\/"/);
+  assert.match(navigation, /if \(id === "taskflow"\) return "https:\/\/qqweasdzxc\.github\.io\/HELM\/"/);
   assert.match(navigation, /campIds = \["taskflow", "worklog"/);
 });
 
