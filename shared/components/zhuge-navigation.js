@@ -13,7 +13,7 @@
   const GENERAL_USER_HIDDEN_ITEMS = Object.freeze(["procurement", "investment", "sync", "management", "labs"]);
   const DEFAULT_REGISTRY = Object.freeze({
     dashboard: { icon: "▽", label: "TRQN", group: "root", enabled: true, hidden: true, root: true },
-    taskflow: { icon: "🧭", label: "TaskFlow", group: "camp", enabled: true, visible: true },
+    taskflow: { icon: "🧭", label: "舵台 HELM", group: "camp", enabled: true, visible: true },
     worklog: { icon: "✏️", label: "WorkLog", group: "camp", enabled: true, visible: true },
     // The new WorkTodo consumer is the sole WorkTodo presentation entry.
     "tasks-new": { icon: "✅", label: "工作待辦", group: "camp-child", enabled: true, visible: true },
@@ -69,6 +69,7 @@
       management: "modules/worklog/?app=1&workspace=management",
       settings: "modules/worklog/?app=1&workspace=settings"
     };
+    if (id === "taskflow") return "https://qqweasdzxc.github.io/dashi-taskboard-demo/sb/";
     return paths[id] ? `${base}${paths[id]}` : "#";
   }
 
