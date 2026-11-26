@@ -36,6 +36,22 @@
         "ZHUGE_UUID_AUTHORITY",
         "NO_PRODUCTION_CREDENTIALS"
       ]
+    },
+    {
+      "id": "legacy-render-taskflow",
+      "name": "舊 TaskFlow（待刪除）",
+      "category": "Legacy",
+      "status": "待刪除",
+      "enabled": true,
+      "localEntry": "./taskflow/",
+      "source": "https://zhuge-taskflow-web.onrender.com",
+      "currentGate": "正式入口已由 TRQN HELM 舵台取代；保留相容入口，不再作主線。",
+      "licenseStatus": "原來源與授權保留",
+      "dataTruthLabels": [
+        "LEGACY",
+        "PENDING_REMOVAL",
+        "NOT_PRIMARY"
+      ]
     }
   ]
 }
