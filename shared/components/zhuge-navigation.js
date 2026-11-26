@@ -69,7 +69,7 @@
       management: "modules/worklog/?app=1&workspace=management",
       settings: "modules/worklog/?app=1&workspace=settings"
     };
-    if (id === "taskflow") return "https://qqweasdzxc.github.io/dashi-taskboard-demo/sb/";
+    if (id === "taskflow") return "https://qqweasdzxc.github.io/HELM/";
     return paths[id] ? `${base}${paths[id]}` : "#";
   }
 
