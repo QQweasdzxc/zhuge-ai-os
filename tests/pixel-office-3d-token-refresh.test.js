@@ -34,7 +34,7 @@ function makeWorld({ storedSession, refreshResponder }) {
     throw new Error("unexpected fetch: " + u);
   };
   const sandbox = {
-    console,
+    console, navigator:{locks:{request:async(_name,work)=>work()}},crypto:require("node:crypto").webcrypto,
     localStorage: {
       getItem: k => (store.has(k) ? store.get(k) : null),
       setItem: (k, v) => store.set(k, String(v)),

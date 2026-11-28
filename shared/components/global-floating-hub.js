@@ -41,6 +41,7 @@
     try {
       for (const key of ["zhuge_ai_os_google_auth_session_v1", "zhuge_ai_os_session_v1"]) {
         const row = JSON.parse(root.localStorage?.getItem(key) || "null");
+        if (row && (row._trqn_epoch ?? null) !== (root.localStorage?.getItem('trqn_helm_signed_out_v1') ?? null)) continue;
         if (row && (row.user_uuid || row.uuid)) return row;
       }
     } catch { /* optional browser storage */ }

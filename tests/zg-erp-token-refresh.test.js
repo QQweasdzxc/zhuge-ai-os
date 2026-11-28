@@ -25,6 +25,7 @@ function loadData(storeMock) {
     setItem: (k, v) => { storeMock[k] = String(v); },
     removeItem: (k) => { delete storeMock[k]; }
   };
+  Object.defineProperty(g.navigator,"locks",{value:{request:async(_name,work)=>work()},configurable:true});
   g.window = g;
   loadSheets();
   delete require.cache[require.resolve(path.join(ROOT, "ZG-ERP/erp-data.js"))];

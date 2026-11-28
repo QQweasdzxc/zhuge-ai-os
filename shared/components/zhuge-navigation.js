@@ -512,6 +512,7 @@
     for (const key of ["zhuge_ai_os_google_auth_session_v1", "zhuge_ai_os_session_v1"]) {
       try {
         const value = JSON.parse(global.localStorage?.getItem(key) || "null");
+        if (value && (value._trqn_epoch ?? null) !== (global.localStorage?.getItem('trqn_helm_signed_out_v1') ?? null)) continue;
         const userId = value?.user_uuid || value?.user?.id || value?.auth_user_id || "";
         if (userId) return String(userId).trim();
       } catch { /* session storage is optional */ }

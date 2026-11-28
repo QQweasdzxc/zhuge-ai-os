@@ -16,7 +16,7 @@ function contextWithSessions() {
   };
   const context = vm.createContext({
     console, Date, JSON, Number, String, Math, Promise, Error,
-    localStorage,
+    localStorage, navigator: {locks: {request: async (_name, work) => work()}}, crypto: require('node:crypto').webcrypto,
     AUTH_CONFIG: { supabaseAnonKey: "anon", supabaseUrl: "https://example.supabase.co" },
     AUTH_SESSION_KEY: "auth",
     AI_OS_SESSION_KEY: "ui",
@@ -47,7 +47,7 @@ function authContext({ stored, rootSession, fetchImpl }) {
   };
   const context = vm.createContext({
     Date, JSON, Number, String, Math, Promise, Error, URLSearchParams,
-    localStorage,
+    localStorage, navigator: {locks: {request: async (_name, work) => work()}}, crypto: require('node:crypto').webcrypto,
     location: { search: "", hash: "", href: "https://example.test/", origin: "https://example.test", pathname: "/" },
     history: { replaceState() {} },
     AUTH_CONFIG: { supabaseAnonKey: "anon", supabaseUrl: "https://example.supabase.co" },
@@ -452,7 +452,7 @@ test("worklog boot fail-closes on an unverified preserved session with a retry s
   assert.match(source, /function authVerificationScreen\(\)/);
   assert.match(source, /id="authVerifyRetryBtn"/);
   const snapshot = source.slice(source.indexOf("function saveLocalSnapshot()"), source.indexOf("function saveLocalSnapshot()") + 900);
-  assert.match(snapshot, /if \(session\) localStorage\.setItem\(AI_OS_SESSION_KEY/);
+  assert.match(snapshot, /if \(session && getStoredAuthSession\(\)\) persistAiOsSessionOnly\(\)/);
 });
 
 test("board hydration failure renders the retry surface when credentials survive", () => {

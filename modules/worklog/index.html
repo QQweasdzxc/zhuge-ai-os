@@ -224,7 +224,7 @@
         const params = new URLSearchParams(window.location.search);
         const hasOAuthCallback = params.has("code") || params.has("error") || window.location.hash.includes("access_token");
         const hasSession = (() => {
-          try { return Boolean(localStorage.getItem("zhuge_ai_os_google_auth_session_v1") || localStorage.getItem("zhuge_ai_os_session_v1")); }
+          try { return ['zhuge_ai_os_google_auth_session_v1','zhuge_ai_os_session_v1'].some(key=>{const value=JSON.parse(localStorage.getItem(key)||'null');return value&&(value._trqn_epoch??null)===(localStorage.getItem('trqn_helm_signed_out_v1')??null);}); }
           catch { return false; }
         })();
         const shouldOpenApp = params.get("app") === "1" || hasOAuthCallback || hasSession;

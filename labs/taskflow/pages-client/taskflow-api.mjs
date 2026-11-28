@@ -64,6 +64,7 @@ export function readZhugeAccessToken(store) {
   for (const key of [TOKEN_KEY, SECONDARY_KEY]) {
     try {
       const record = JSON.parse(store?.getItem(key) ?? "null");
+      if(record&&(record._trqn_epoch??null)!==(store?.getItem('trqn_helm_signed_out_v1')??null))continue;
       if (isUsableAccessToken(record?.access_token)) {
         return record.access_token;
       }

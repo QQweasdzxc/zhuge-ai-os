@@ -16,6 +16,7 @@ export function hasFreshZhugeSession(storage,now=Date.now()){
  for(const key of ["zhuge_ai_os_google_auth_session_v1","zhuge_ai_os_session_v1"]){
   try{
    const record=JSON.parse(storage?.getItem(key)||"null");
+      if(record&&(record._trqn_epoch??null)!==(storage?.getItem('trqn_helm_signed_out_v1')??null))continue;
    const token=record?.access_token;
    if(typeof token!=="string")continue;
    const payload=token.split(".")[1];

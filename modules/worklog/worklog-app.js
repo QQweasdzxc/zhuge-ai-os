@@ -371,7 +371,7 @@ function saveLocalSnapshot() {
   // Never overwrite a preserved session record with null: logout and
   // clearStoredAuthSession() remove the key explicitly, and readers treat a
   // missing key exactly like a stored null.
-  if (session) localStorage.setItem(AI_OS_SESSION_KEY, JSON.stringify(session));
+  if (session && getStoredAuthSession()) persistAiOsSessionOnly();
   localStorage.removeItem("wl_session");
   // P5: wl_library remains legacy backup only. Official Knowledge cache is user-scoped LocalCache.
   localStorage.setItem(ACTIVE_MODULE_KEY, activeModule);

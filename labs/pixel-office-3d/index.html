@@ -560,6 +560,7 @@
     for (const k of ['zhuge_ai_os_google_auth_session_v1', 'zhuge_ai_os_session_v1']) {
       try {
         const j = JSON.parse(localStorage.getItem(k) || 'null');
+        if(j && (j._trqn_epoch??null)!==localStorage.getItem('trqn_helm_signed_out_v1'))continue;
         if (!j || typeof j.access_token !== 'string' || !j.access_token) continue;
         const u = j.user || {}; const meta = u.user_metadata || {};
         return { name: String(j.name || meta.full_name || meta.name || '').trim(), email: String(j.email || u.email || '').trim() };
@@ -598,6 +599,8 @@
     if (typeof window.zhugeOpenTfBoard === 'function') { e.preventDefault(); window.zhugeOpenTfBoard(); }
   });
   $('accountLogout').addEventListener('click', () => {
+    localStorage.setItem('trqn_helm_signed_out_v1', crypto.randomUUID());
+    localStorage.removeItem('helm_verified_access_20261127_v1');
     for (const k of SESSION_KEYS.concat(VERIFIER_KEYS)) { try { localStorage.removeItem(k); } catch { /* best effort */ } }
     render();
     try { location.reload(); } catch { /* ignore */ }
@@ -1052,6 +1055,7 @@ function ownerName() {
   for (const k of ['zhuge_ai_os_google_auth_session_v1', 'zhuge_ai_os_session_v1']) {
     try {
       const j = JSON.parse(localStorage.getItem(k) || 'null');
+        if(j && (j._trqn_epoch??null)!==localStorage.getItem('trqn_helm_signed_out_v1'))continue;
       if (!j) continue;
       const u = j.user || {};
       const meta = u.user_metadata || {};

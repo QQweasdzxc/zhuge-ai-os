@@ -1,6 +1,6 @@
 // P5.2A-1 Foundation Split: shared utilities and low-level helpers.
 function readJson(key, fallback) {
-  try { return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback)); }
+  try { const value=JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback)); if (["zhuge_ai_os_google_auth_session_v1","zhuge_ai_os_session_v1"].includes(key) && value && (value._trqn_epoch??null)!==(localStorage.getItem('trqn_helm_signed_out_v1')??null)) return fallback; return value; }
   catch { return fallback; }
 }
 
@@ -20,7 +20,9 @@ function currentAccessToken() {
   // AUTH_SESSION_KEY is the canonical rotating-token store. The AI OS session
   // keeps identity/UI state and can briefly contain the previous JWT while a
   // refresh is completing, so never let it override the refreshed token.
-  return getStoredAuthSession()?.access_token || session?.access_token || "";
+  const stored=getStoredAuthSession();
+  if (!stored && localStorage.getItem("trqn_helm_signed_out_v1")) return "";
+  return stored?.access_token || session?.access_token || "";
 }
 
 function tokenExpiresAtMs(value) {
@@ -57,7 +59,8 @@ function accessTokenNeedsRefresh(skewMs = 120000) {
 }
 
 function persistAiOsSessionOnly() {
-  localStorage.setItem(AI_OS_SESSION_KEY, JSON.stringify(session));
+  const canonical=getStoredAuthSession();
+  if (canonical && session && sharedAuthSubject(canonical.access_token)===sharedAuthSubject(session.access_token)) localStorage.setItem(AI_OS_SESSION_KEY, JSON.stringify({...session,_trqn_epoch:canonical._trqn_epoch??null}));
 }
 
 function cloudHeaders(extra = {}) {

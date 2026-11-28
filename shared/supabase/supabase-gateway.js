@@ -13,6 +13,7 @@
   const SDK_URL = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.55.0/dist/umd/supabase.min.js";
   let sdkPromise = null;
   let authClient = null;
+  let authClientEpoch;
   let realtimeChannels = new Map();
   let sessionLifecycle = null;
 
@@ -63,7 +64,9 @@
   }
 
   async function initializeAuthClient() {
+    if (authClient && authClientEpoch !== localStorage.getItem('trqn_helm_signed_out_v1')) authClient=null;
     if (authClient) return authClient;
+    const initializeEpoch=localStorage.getItem('trqn_helm_signed_out_v1');
     const sdk = await loadSdk();
     const config = requireConfig();
     authClient = sdk.createClient(config.supabaseUrl, config.supabaseAnonKey, {
@@ -84,17 +87,22 @@
       refresh_token: authSession.refresh_token
     });
     if (error) throw error;
+    if (initializeEpoch !== localStorage.getItem('trqn_helm_signed_out_v1')) { authClient=null; throw Error('登入已改變'); }
+    authClientEpoch=initializeEpoch;
     return authClient;
   }
 
   async function syncCanonicalSession() {
+    const syncEpoch=localStorage.getItem('trqn_helm_signed_out_v1');
     const client = await initializeAuthClient();
     const { data, error } = await client.auth.getSession();
     if (error) throw error;
     const next = data?.session;
     if (!next?.access_token || !next?.refresh_token) throw new Error("AAL2 驗證後未取得有效 Session。" );
+    if (syncEpoch !== localStorage.getItem('trqn_helm_signed_out_v1') || !getStoredAuthSession()) throw Error('登入已改變');
     const previous = typeof getStoredAuthSession === "function" ? getStoredAuthSession() : null;
     const canonical = {
+      _trqn_epoch: syncEpoch,
       access_token: next.access_token,
       refresh_token: next.refresh_token,
       token_type: next.token_type || "bearer",
@@ -104,7 +112,7 @@
       provider_refresh_token: previous?.provider_refresh_token || (typeof session !== "undefined" ? session?.provider_refresh_token : "") || "",
       provider_expires_at: previous?.provider_expires_at || (typeof session !== "undefined" ? session?.provider_expires_at : null) || null
     };
-    if (typeof setStoredAuthSession === "function") setStoredAuthSession(canonical);
+    if (typeof setStoredAuthSession === "function" && !setStoredAuthSession(canonical, syncEpoch)) throw Error("登入已改變");
     if (typeof session !== "undefined" && session) {
       session = { ...session, ...canonical };
       if (typeof persistAiOsSessionOnly === "function") persistAiOsSessionOnly();

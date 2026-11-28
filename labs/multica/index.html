@@ -46,7 +46,7 @@
       const status = document.getElementById("status");
 
       function readJson(key) {
-        try { return JSON.parse(localStorage.getItem(key) || "null"); }
+        try { const value=JSON.parse(localStorage.getItem(key) || 'null'); return value && (value._trqn_epoch??null)===(localStorage.getItem('trqn_helm_signed_out_v1')??null) ? value : null; }
         catch { return null; }
       }
 

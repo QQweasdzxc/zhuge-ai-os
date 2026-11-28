@@ -1,11 +1,30 @@
 // P5.2A-1 Foundation Split: Google OAuth, PKCE, Supabase session, and JWT refresh.
+const SHARED_AUTH_OUT_KEY = 'trqn_helm_signed_out_v1';
+const SHARED_AUTH_LOCK = 'trqn-canonical-session-v1';
+function sharedAuthEpoch() { return localStorage.getItem(SHARED_AUTH_OUT_KEY); }
+function sharedAuthStamp() { return JSON.stringify([sharedAuthEpoch(), localStorage.getItem(AUTH_SESSION_KEY)]); }
+function sharedAuthUnchanged(stamp) { return stamp === sharedAuthStamp(); }
+function sharedAuthSubject(token) { const c=decodeJwtPayload(token || ''); return c?.sub && c?.session_id ? JSON.stringify([c.sub,c.session_id]) : null; }
+// Refresh and logout in other tabs must invalidate late authentication results.
+if (typeof addEventListener === 'function') addEventListener('storage', event => {
+  if (event.key !== SHARED_AUTH_OUT_KEY && event.key !== AUTH_SESSION_KEY) return;
+  let oldValue=null,newValue=null;
+  try { oldValue=JSON.parse(event.oldValue || 'null'); newValue=JSON.parse(event.newValue || 'null'); } catch {}
+  if (event.key === AUTH_SESSION_KEY && oldValue && newValue && sharedAuthSubject(oldValue.access_token) === sharedAuthSubject(newValue.access_token)) return;
+  if (typeof session !== 'undefined') session=null;
+  // Reload destroys in-memory private views; no stale snapshot is persisted.
+  if (typeof location.reload === 'function') location.reload();
+});
 function getStoredAuthSession() {
-  return readJson(AUTH_SESSION_KEY, null);
+  const value=readJson(AUTH_SESSION_KEY, null);
+  return value && (value._trqn_epoch ?? null) === sharedAuthEpoch() ? value : null;
 }
 
-function setStoredAuthSession(value) {
-  localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(value));
+function setStoredAuthSession(value, expectedEpoch=sharedAuthEpoch()) {
+  localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify({...value,_trqn_epoch:expectedEpoch}));
+  if (sharedAuthEpoch() !== expectedEpoch) return false;
   localStorage.removeItem("wl_google_auth_session_v1");
+  return true;
 }
 
 function setStoredAuthProvider(provider) {
@@ -20,7 +39,8 @@ let authSessionRefreshPromise = null;
 
 async function performAuthSessionRefresh() {
   const stored = getStoredAuthSession();
-  const refreshToken = stored?.refresh_token || session?.refresh_token || "";
+  const refreshToken = stored?.refresh_token || "";
+  const requestStamp = sharedAuthStamp();
   if (!refreshToken) {
     recordOAuthDebug("auth_session_refresh_missing_token", {});
     clearStoredAuthSession();
@@ -31,7 +51,8 @@ async function performAuthSessionRefresh() {
     res = await fetch(`${AUTH_CONFIG.supabaseUrl}/auth/v1/token?grant_type=refresh_token`, {
       method: "POST",
       headers: authHeaders(),
-      body: JSON.stringify({ refresh_token: refreshToken })
+      body: JSON.stringify({ refresh_token: refreshToken }),
+      signal: globalThis.AbortSignal?.timeout?.(15000)
     });
   } catch (error) {
     // Transient network failure. Keep the stored session so the next page
@@ -39,6 +60,7 @@ async function performAuthSessionRefresh() {
     recordOAuthDebug("auth_session_refresh_network_error", { message: String(error?.message || error).slice(0, 240) });
     return null;
   }
+  if (!sharedAuthUnchanged(requestStamp)) { recordOAuthDebug("auth_session_refresh_terminal_skipped_newer_session", {status:res.status}); return null; }
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     let parsedBody = null;
@@ -78,6 +100,7 @@ async function performAuthSessionRefresh() {
       has_refresh_token: !!refreshToken,
       terminal
     });
+    if (!sharedAuthUnchanged(requestStamp)) return null;
     if (terminal) {
       // Multi-tab: another tab may have completed a refresh (rotating to a
       // newer pair) while this request was in flight. Only clear when the
@@ -94,6 +117,7 @@ async function performAuthSessionRefresh() {
   }
   let data = null;
   try { data = await res.json(); } catch { data = null; }
+  if (!sharedAuthUnchanged(requestStamp)) return null;
   if (!data || typeof data.access_token !== "string" || !data.access_token.length
       || (data.refresh_token !== undefined && data.refresh_token !== null && typeof data.refresh_token !== "string")) {
     // A malformed "successful" response must not overwrite the stored
@@ -113,7 +137,8 @@ async function performAuthSessionRefresh() {
     expires_in: Number(data.expires_in || 3600),
     expires_at: Date.now() + Number(data.expires_in || 3600) * 1000
   };
-  setStoredAuthSession(sessionValue);
+  if (!sharedAuthUnchanged(requestStamp) || (sharedAuthSubject(stored?.access_token) && sharedAuthSubject(stored.access_token) !== sharedAuthSubject(sessionValue.access_token))) return null;
+  if (!setStoredAuthSession(sessionValue, JSON.parse(requestStamp)[0])) return null;
   // Keep the root identity snapshot synchronized too. Modules still receive
   // only the redacted Shared Session contract; no architecture boundary moves.
   if (session) {
@@ -131,13 +156,17 @@ async function performAuthSessionRefresh() {
 }
 
 async function refreshAuthSession(force = false) {
-  const stored = getStoredAuthSession();
-  if (!force && !accessTokenNeedsRefresh()) return stored || session;
-  // Supabase rotates refresh tokens. Collapse simultaneous REST/Realtime calls
-  // into one refresh so concurrent requests cannot consume the same token.
+  const rejected = getStoredAuthSession()?.access_token;
+  if (!force && !accessTokenNeedsRefresh()) return getStoredAuthSession();
   if (!authSessionRefreshPromise) {
-    authSessionRefreshPromise = performAuthSessionRefresh()
-      .finally(() => { authSessionRefreshPromise = null; });
+    // No unsafe fallback: browsers without Web Locks retain the stored pair.
+    if (!globalThis.navigator?.locks) return null;
+    authSessionRefreshPromise = navigator.locks.request(SHARED_AUTH_LOCK, async () => {
+      const latest=getStoredAuthSession();
+      if (!latest) return null;
+      if ((!force || latest.access_token !== rejected) && !accessTokenNeedsRefresh()) return latest;
+      return performAuthSessionRefresh();
+    }).finally(() => { authSessionRefreshPromise=null; });
   }
   return authSessionRefreshPromise;
 }
@@ -149,6 +178,10 @@ async function ensureFreshAuthSession(force = false) {
 }
 
 function clearStoredAuthSession() {
+  localStorage.setItem(SHARED_AUTH_OUT_KEY, crypto.randomUUID());
+  localStorage.removeItem("helm_verified_access_20261127_v1");
+  clearStoredCodeVerifier();
+  localStorage.removeItem(AUTH_LINK_PENDING_KEY);
   localStorage.removeItem(AUTH_SESSION_KEY);
   localStorage.removeItem("wl_google_auth_session_v1");
   localStorage.removeItem(AUTH_PROVIDER_KEY);
@@ -261,7 +294,7 @@ function captureHashAuthSession() {
     expires_in: Number(hash.get("expires_in") || 3600),
     expires_at: Date.now() + Number(hash.get("expires_in") || 3600) * 1000
   };
-  setStoredAuthSession(sessionValue);
+  if (!setStoredAuthSession(sessionValue)) return null;
   // A confirmation/recovery link uses the same Supabase hash contract as an
   // OAuth callback.  The provider marker lets boot restore the correct shared
   // identity without treating every password session as Google OAuth.
@@ -277,18 +310,21 @@ async function exchangeCodeForSession() {
   const codeVerifier = getStoredCodeVerifier();
   if (!codeVerifier) return null;
   authCallbackCaptured = true;
+  const loginEpoch = sharedAuthStamp();
   const res = await fetch(`${AUTH_CONFIG.supabaseUrl}/auth/v1/token?grant_type=pkce`, {
     method: "POST",
     headers: authHeaders(),
     body: JSON.stringify({ auth_code: code, code_verifier: codeVerifier })
   });
+  if (sharedAuthStamp() !== loginEpoch) return null;
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     recordOAuthDebug("pkce_token_exchange_failed", { status: res.status, body });
-    clearStoredAuthSession();
+    if (sharedAuthStamp() === loginEpoch) clearStoredAuthSession();
     return null;
   }
   const data = await res.json();
+  if (sharedAuthStamp() !== loginEpoch) return null;
   const sessionValue = {
     access_token: data.access_token,
     refresh_token: data.refresh_token,
@@ -299,7 +335,7 @@ async function exchangeCodeForSession() {
     expires_in: Number(data.expires_in || 3600),
     expires_at: Date.now() + Number(data.expires_in || 3600) * 1000
   };
-  setStoredAuthSession(sessionValue);
+  if (!setStoredAuthSession(sessionValue, JSON.parse(loginEpoch)[0])) return null;
   setStoredAuthProvider("google-oauth");
   clearStoredCodeVerifier();
   cleanAuthCallbackUrl();
@@ -320,7 +356,7 @@ async function getAuthSession() {
   return captureHashAuthSession() || await exchangeLinkedIdentityForSession() || await exchangeCodeForSession() || await refreshAuthSession(false);
 }
 
-function authSessionFromResponse(data, provider = "email-password") {
+function authSessionFromResponse(data, provider = "email-password", expectedEpoch=sharedAuthEpoch()) {
   if (!data?.access_token) return null;
   const sessionValue = {
     access_token: data.access_token,
@@ -332,7 +368,7 @@ function authSessionFromResponse(data, provider = "email-password") {
     expires_in: Number(data.expires_in || 3600),
     expires_at: Date.now() + Number(data.expires_in || 3600) * 1000
   };
-  setStoredAuthSession(sessionValue);
+  if (!setStoredAuthSession(sessionValue, expectedEpoch)) return null;
   setStoredAuthProvider(provider);
   return sessionValue;
 }
@@ -343,10 +379,11 @@ async function exchangeLinkedIdentityForSession() {
   const gateway = typeof ZhugeSupabaseGateway !== "undefined" ? ZhugeSupabaseGateway : null;
   if (!gateway?.getAuthClient) return null;
   try {
+    const loginEpoch=sharedAuthStamp();
     const client = await gateway.getAuthClient();
     const { data, error } = await client.auth.exchangeCodeForSession(code);
-    if (error || !data?.session?.access_token) return null;
-    const sessionValue = authSessionFromResponse(data.session, "google-oauth");
+    if (sharedAuthStamp() !== loginEpoch || error || !data?.session?.access_token) return null;
+    const sessionValue = authSessionFromResponse(data.session, "google-oauth", JSON.parse(loginEpoch)[0]);
     localStorage.removeItem(AUTH_LINK_PENDING_KEY);
     cleanAuthCallbackUrl();
     return sessionValue;
@@ -357,6 +394,7 @@ async function exchangeLinkedIdentityForSession() {
 }
 
 async function getSupabaseAuthUser() {
+  const userEpoch=sharedAuthEpoch();
   const authSession = await getAuthSession();
   if (!authSession?.access_token) return null;
   let activeAuthSession = authSession;
@@ -404,21 +442,25 @@ async function getSupabaseAuthUser() {
     return null;
   }
   const user = await res.json();
+  if (sharedAuthEpoch() !== userEpoch || getStoredAuthSession()?.access_token !== activeAuthSession.access_token) return null;
   return { user, authSession: activeAuthSession, provider: getStoredAuthProvider() };
 }
 
 async function signInWithEmailPassword(email, password) {
+  const loginEpoch=sharedAuthStamp();
   const normalizedEmail = String(email || "").trim().toLowerCase();
   if (!normalizedEmail || !password) throw new Error("請輸入 Email 與密碼。");
   const res = await fetch(`${AUTH_CONFIG.supabaseUrl}/auth/v1/token?grant_type=password`, {
     method: "POST", headers: authHeaders(), body: JSON.stringify({ email: normalizedEmail, password })
   });
   const data = await res.json().catch(() => ({}));
+  if (sharedAuthStamp() !== loginEpoch) throw Error('登入已取消');
   if (!res.ok) throw new Error(data.error_description || data.msg || data.message || "Email 登入失敗，請確認帳密或完成 Email 驗證。");
-  return authSessionFromResponse(data, "email-password");
+  return authSessionFromResponse(data, "email-password", JSON.parse(loginEpoch)[0]);
 }
 
 async function signUpWithEmailPassword(email, password) {
+  const loginEpoch=sharedAuthStamp();
   const normalizedEmail = String(email || "").trim().toLowerCase();
   if (!normalizedEmail || !password) throw new Error("請輸入 Email 與密碼。");
   if (String(password).length < 8) throw new Error("密碼至少需要 8 個字元。");
@@ -427,8 +469,9 @@ async function signUpWithEmailPassword(email, password) {
     method: "POST", headers: authHeaders(), body: JSON.stringify({ email: normalizedEmail, password })
   });
   const data = await res.json().catch(() => ({}));
+  if (sharedAuthStamp() !== loginEpoch) throw Error('登入已取消');
   if (!res.ok) throw new Error(data.msg || data.message || "建立帳號失敗，請稍後再試。");
-  if (data.access_token) authSessionFromResponse(data, "email-password");
+  if (data.access_token) authSessionFromResponse(data, "email-password", JSON.parse(loginEpoch)[0]);
   return data;
 }
 

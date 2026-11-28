@@ -100,6 +100,7 @@
     for (const key of ["zhuge_ai_os_google_auth_session_v1", "zhuge_ai_os_session_v1"]) {
       try {
         const session = JSON.parse(storage.getItem(key) || "null");
+        if (session && (session._trqn_epoch ?? null) !== (storage.getItem('trqn_helm_signed_out_v1') ?? null)) continue;
         const token = typeof session?.access_token === "string" ? session.access_token : "";
         const payload = token.split(".")[1];
         if (!payload) continue;

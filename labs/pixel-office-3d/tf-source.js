@@ -202,6 +202,7 @@ function readSupabaseToken(storageGet) {
   for (const k of TOKEN_KEYS) {
     try {
       const j = JSON.parse(storageGet(k) || 'null');
+        if (j && (j._trqn_epoch ?? null) !== (storageGet('trqn_helm_signed_out_v1') ?? null)) continue;
       if (j && typeof j.access_token === 'string' && j.access_token.length) return j.access_token;
     } catch { /* old/invalid session treated as absent */ }
   }
